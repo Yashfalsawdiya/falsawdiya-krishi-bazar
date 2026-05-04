@@ -1,0 +1,44 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AppProvider } from './context/AppContext';
+import Layout from './components/Layout';
+import Home from './pages/Home';
+import Products from './pages/Products';
+import MandiBhav from './pages/MandiBhav';
+import DiseaseDetection from './pages/DiseaseDetection';
+import Weather from './pages/Weather';
+import Schemes from './pages/Schemes';
+import AgriNews from './pages/AgriNews';
+import SoilTesting from './pages/SoilTesting';
+import Admin from './pages/Admin';
+import Profile from './pages/Profile';
+import AgriCalculator from './pages/AgriCalculator';
+import Helpline from './pages/Helpline';
+import CropCalendar from './pages/CropCalendar';
+import PWAUpdater from './components/PWAUpdater';
+
+export default function App() {
+  return (
+    <AppProvider>
+      <PWAUpdater />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="products" element={<Products />} />
+            <Route path="mandi" element={<MandiBhav />} />
+            <Route path="disease" element={<DiseaseDetection />} />
+            <Route path="weather" element={<Weather />} />
+            <Route path="schemes" element={<Schemes />} />
+            <Route path="news" element={<AgriNews />} />
+            <Route path="soil-testing" element={<SoilTesting />} />
+            <Route path="calculator" element={<AgriCalculator />} />
+            <Route path="helpline" element={<Helpline />} />
+            <Route path="calendar" element={<CropCalendar />} />
+            <Route path="admin" element={<Admin />} />
+            <Route path="profile" element={<Profile />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AppProvider>
+  );
+}

@@ -1,0 +1,131 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Agricultural inputs like seeds, fertilizers, etc.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "hindiName": { "type": "string" },
+        "category": { "type": "string", "enum": ["seeds", "fertilizers", "pesticides", "fungicides", "herbicides", "medicines", "implements"] },
+        "price": { "type": "number" },
+        "unit": { "type": "string" },
+        "image": { "type": "string" },
+        "description": { "type": "string" },
+        "crops": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["hindiName", "category", "price", "unit"]
+    },
+    "CropAdvice": {
+      "title": "CropAdvice",
+      "description": "Advice for specific crops at different stages.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "hindiName": { "type": "string" },
+        "image": { "type": "string" },
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "stage": { "type": "string" },
+              "hindiStage": { "type": "string" },
+              "advice": { "type": "string" },
+              "products": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "User": {
+      "title": "User",
+      "description": "Application users and their roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "geminiApiKey": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "AppContent": {
+      "title": "AppContent",
+      "description": "Global application content like banners and videos.",
+      "type": "object",
+      "properties": {
+        "banners": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "image": { "type": "string" },
+              "title": { "type": "string" },
+              "subtitle": { "type": "string" }
+            }
+          }
+        },
+        "videos": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "videoId": { "type": "string" },
+              "thumbnail": { "type": "string" }
+            }
+          }
+        },
+        "partners": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "logo": { "type": "string" }
+            }
+          }
+        },
+        "whatsappSection": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "description": { "type": "string" },
+            "mode": { "type": "string", "enum": ["direct", "group"] },
+            "groupLink": { "type": "string" }
+          }
+        },
+        "contactInfo": {
+          "type": "object",
+          "properties": {
+            "whatsapp": { "type": "string" },
+            "address": { "type": "string" }
+          }
+        },
+        "apiKeyGuideVideoUrl": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of agricultural products."
+    },
+    "/cropAdvice/{adviceId}": {
+      "schema": "CropAdvice",
+      "description": "Collection of crop-wise advice."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and permissions."
+    },
+    "/settings/content": {
+      "schema": "AppContent",
+      "description": "Global application content settings."
+    }
+  }
+}

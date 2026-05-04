@@ -1,0 +1,962 @@
+import React, { useState } from 'react';
+import { useAppContext } from '../context/AppContext';
+import { Category, Product } from '../types';
+import { CATEGORIES } from '../data/mockData';
+import { 
+  Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
+  ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
+  Youtube as YoutubeIcon, Layout, Phone, Key 
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { fileToBase64, cn, compressImage } from '../lib/utils';
+import { AppContent } from '../context/AppContext';
+
+const ImageUpload: React.FC<{ 
+  value: string; 
+  onChange: (base64: string) => void;
+  label: string;
+}> = ({ value, onChange, label }) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLoading(true);
+      try {
+        const base64 = await fileToBase64(file);
+        const compressed = await compressImage(base64);
+        onChange(compressed);
+      } catch (error) {
+        console.error("Error uploading image:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">{label}</label>
+      <div className="flex items-center gap-4">
+        <div className={cn(
+          "relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center transition-colors",
+          value ? "bg-white" : "bg-gray-100"
+        )}>
+          {value ? (
+            <img src={value} alt="Preview" className="w-full h-full object-contain p-1" />
+          ) : (
+            <ImageIcon className="w-6 h-6 text-gray-300" />
+          )}
+          {loading && (
+            <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+              <Loader2 className="w-5 h-5 text-white animate-spin" />
+            </div>
+          )}
+        </div>
+        <div className="flex-1">
+          <label className="inline-flex items-center px-4 py-2 bg-white border-2 border-[#2D5A27] text-[#2D5A27] rounded-xl text-xs font-bold cursor-pointer hover:bg-[#2D5A27] hover:text-white transition-all active:scale-95">
+            <ImageIcon className="w-4 h-4 mr-2" />
+            गैलरी से चुनें (Pick from Gallery)
+            <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+          </label>
+          <p className="text-[9px] text-gray-400 mt-1 ml-1">अधिकतम 1MB साइज की फोटो चुनें</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Admin: React.FC = () => {
+  const { 
+    products, addProduct, updateProduct, deleteProduct,
+    appContent, updateAppContent,
+    user, isAdmin, login, logout, loading 
+  } = useAppContext();
+  
+  const [activeTab, setActiveTab] = useState<'products' | 'content'>('products');
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [productForm, setProductForm] = useState<Partial<Product>>({
+    name: '',
+    hindiName: '',
+    category: 'seeds',
+    brand: '',
+    price: 0,
+    hidePrice: false,
+    unit: '',
+    description: '',
+    image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=400',
+    crops: []
+  });
+
+  const [contentForm, setContentForm] = useState<AppContent | null>(null);
+
+  React.useEffect(() => {
+    if (appContent) {
+      setContentForm(appContent);
+    } else {
+      setContentForm({
+        banners: [
+          { id: '1', image: 'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?auto=format&fit=crop&q=80&w=800', title: 'खाद और बीज पर भारी छूट!', subtitle: 'सीमित समय के लिए ऑफर' },
+          { id: '2', image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800', title: 'नई किस्म के सोयाबीन बीज', subtitle: 'अधिक पैदावार की गारंटी' },
+          { id: '3', image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=800', title: 'फसल सुरक्षा समाधान', subtitle: 'बेहतरीन कीटनाशक उपलब्ध' }
+        ],
+        videos: [
+          { id: 'v1', title: 'आधुनिक खेती की जानकारी', videoUrl: 'https://www.youtube.com/watch?v=9-3-P4mXG3A', thumbnail: 'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&q=80&w=800' },
+          { id: 'v2', title: 'मिट्टी परीक्षण कैसे करें', videoUrl: 'https://www.youtube.com/watch?v=6Z_L2v_p-m8', thumbnail: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800' },
+          { id: 'v3', title: 'जैविक खाद बनाने की विधि', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', thumbnail: 'https://images.unsplash.com/photo-1560493676-04071c5f467b?auto=format&fit=crop&q=80&w=800' }
+        ],
+        branding: {
+          name: 'फल्सावदिया कृषि बाज़ार',
+          tagline: 'किसान का भरोसा, हमारी पहचान',
+          logo: ''
+        },
+        loginText: 'ऐप की सुविधाओं का उपयोग करने के लिए कृपया अपनी Gmail ID से लॉगिन करें।',
+        adminEmails: [],
+        isAppActive: true,
+        youtubeChannel: {
+          url: 'https://youtube.com/@falsawdiya',
+          label: 'हमारा कृषि चैनल'
+        },
+        partners: [
+          { id: 'p1', name: 'Bayer', logo: 'https://picsum.photos/seed/Bayer/100/100' },
+          { id: 'p2', name: 'Syngenta', logo: 'https://picsum.photos/seed/Syngenta/100/100' },
+          { id: 'p3', name: 'UPL', logo: 'https://picsum.photos/seed/UPL/100/100' }
+        ],
+        whatsappSection: {
+          title: 'WhatsApp पर जुड़ें',
+          description: 'सीधे फोटो भेजें और घर बैठे सामान मंगाएं या दुकान पर आकर ले जाएं।',
+          mode: 'direct',
+          groupLink: ''
+        },
+        contactInfo: {
+          whatsapp: '918982338046',
+          address: 'डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश'
+        }
+      });
+    }
+  }, [appContent]);
+
+  const handleProductSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      if (editingProduct) {
+        await updateProduct({ ...editingProduct, ...productForm } as Product);
+        setEditingProduct(null);
+      } else {
+        await addProduct(productForm as Omit<Product, 'id'>);
+        setIsAdding(false);
+      }
+      setProductForm({ name: '', hindiName: '', category: 'seeds', brand: '', price: 0, unit: '', description: '', image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=400', crops: [] });
+    } catch (error) {
+      console.error("Error saving product:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleContentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contentForm) return;
+    setIsSaving(true);
+    try {
+      await updateAppContent(contentForm);
+      alert('कंटेंट सुरक्षित कर दिया गया है!');
+    } catch (error) {
+      console.error("Error saving content:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin" />
+        <p className="text-sm text-gray-500 font-bold">लोड हो रहा है...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-6 text-center">
+        <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 max-w-sm w-full">
+          <div className="w-16 h-16 bg-[#2D5A27]/10 rounded-2xl flex items-center justify-center mx-auto mb-4 overflow-hidden">
+            {appContent?.branding?.logo ? (
+              <img src={appContent.branding.logo} alt="Logo" className="w-full h-full object-contain p-1" />
+            ) : (
+              <LogIn className="w-8 h-8 text-[#2D5A27]" />
+            )}
+          </div>
+          <h2 className="text-xl font-bold text-[#4A3728] mb-2">एडमिन लॉगिन</h2>
+          <p className="text-sm text-gray-500 mb-8">डेटा बदलने के लिए कृपया लॉगिन करें</p>
+          <button 
+            onClick={login}
+            className="w-full bg-[#2D5A27] text-white py-4 px-6 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"
+          >
+            <LogIn className="w-5 h-5" /> Google से लॉगिन करें
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-6 text-center">
+        <div className="bg-orange-50 p-8 rounded-3xl border-2 border-orange-100 max-w-sm w-full shadow-lg">
+          <div className="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <X className="w-8 h-8 text-orange-600" />
+          </div>
+          <h2 className="text-xl font-bold text-orange-800 mb-2">पहुँच वर्जित (Access Denied)</h2>
+          <p className="text-sm text-orange-700 mb-8">आपके पास एडमिन अधिकार नहीं हैं। कृपया मुख्य एडमिन से संपर्क करें।</p>
+          <button 
+            onClick={logout}
+            className="w-full bg-white text-orange-800 border-2 border-orange-200 py-4 px-6 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-sm"
+          >
+            <LogOut className="w-5 h-5" /> लॉगआउट करें
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 pb-20">
+      <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-[#2D5A27] rounded-xl flex items-center justify-center text-white font-bold">A</div>
+          <div>
+            <h2 className="text-lg font-bold text-[#4A3728]">एडमिन पैनल</h2>
+            <p className="text-[10px] text-gray-400 font-medium">{user.email}</p>
+          </div>
+        </div>
+        <button 
+          onClick={logout}
+          className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+        >
+          <LogOut className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100">
+        <button 
+          onClick={() => setActiveTab('products')}
+          className={cn(
+            "flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'products' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <ShoppingBag className="w-4 h-4" /> उत्पाद (Products)
+        </button>
+        <button 
+          onClick={() => setActiveTab('content')}
+          className={cn(
+            "flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'content' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <Layout className="w-4 h-4" /> कंटेंट (Content)
+        </button>
+      </div>
+
+      {activeTab === 'products' ? (
+        <>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-gray-500 text-sm uppercase tracking-wider">
+              उत्पादों की सूची
+            </h3>
+            <button 
+              onClick={() => setIsAdding(true)}
+              className="bg-[#2D5A27] text-white py-2 px-4 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold active:scale-95 transition-transform"
+            >
+              <Plus className="w-4 h-4" /> नया जोड़ें
+            </button>
+          </div>
+
+          {/* List Content */}
+          <div className="space-y-3">
+            {products.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-100">
+                <p className="text-sm text-gray-400">कोई उत्पाद नहीं मिला।</p>
+              </div>
+            ) : (
+              products.map((product) => (
+                <motion.div 
+                  layout
+                  key={product.id} 
+                  className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <img src={product.image} alt="" className="w-14 h-14 rounded-xl object-cover shadow-sm" />
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#2D5A27] rounded-full border-2 border-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800">{product.hindiName}</h4>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
+                        {product.brand} • {product.hidePrice ? 'कीमत छुपी हुई' : `₹${product.price}/${product.unit}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        setEditingProduct(product);
+                        setProductForm(product);
+                      }}
+                      className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if(confirm('क्या आप इसे हटाना चाहते हैं?')) await deleteProduct(product.id);
+                      }}
+                      className="p-2.5 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </div>
+        </>
+      ) : (
+        <form onSubmit={handleContentSubmit} className="space-y-8">
+          {/* Branding Settings */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+              <Sprout className="w-5 h-5 text-[#2D5A27]" />
+              ऐप ब्रांडिंग (App Branding)
+            </h3>
+            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">ऐप का नाम (App Name)</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.branding?.name || ''}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), name: e.target.value}});
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">टैगलाइन (Tagline)</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.branding?.tagline || ''}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), tagline: e.target.value}});
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                />
+              </div>
+              <ImageUpload 
+                label="ऐप लोगो (App Logo)"
+                value={contentForm?.branding?.logo || ''}
+                onChange={base64 => {
+                  if (!contentForm) return;
+                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: '', pwaIcon: ''}), logo: base64}});
+                }}
+              />
+              <ImageUpload 
+                label="ऐप आइकन (PWA/Home Screen Icon)"
+                value={contentForm?.branding?.pwaIcon || ''}
+                onChange={base64 => {
+                  if (!contentForm) return;
+                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: '', pwaIcon: ''}), pwaIcon: base64}});
+                }}
+              />
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">लॉगिन स्क्रीन टेक्स्ट (Login Screen Text)</label>
+                <textarea 
+                  value={contentForm?.loginText || ''}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({...contentForm, loginText: e.target.value});
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium h-24 resize-none"
+                  placeholder="जैसे: ऐप की सुविधाओं का उपयोग करने के लिए कृपया अपनी Gmail ID से लॉगिन करें।"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Admin Access Settings */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+              <Key className="w-5 h-5 text-[#2D5A27]" />
+              एडमिन और ऐप कंट्रोल (Admin & App Control)
+            </h3>
+            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-6">
+              {/* App Status Switch */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                <div>
+                  <h4 className="font-bold text-gray-700">ऐप स्टेटस (App Status)</h4>
+                  <p className="text-[10px] text-gray-500">इसे बंद करने पर किसान ऐप का उपयोग नहीं कर पाएंगे।</p>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (!contentForm) return;
+                    setContentForm({...contentForm, isAppActive: !contentForm.isAppActive});
+                  }}
+                  className={cn(
+                    "w-14 h-8 rounded-full relative transition-colors duration-200",
+                    contentForm?.isAppActive !== false ? "bg-[#2D5A27]" : "bg-gray-300"
+                  )}
+                >
+                  <div className={cn(
+                    "absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-200",
+                    contentForm?.isAppActive !== false ? "left-7" : "left-1"
+                  )} />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">बैकअप एडमिन ईमेल (Backup Admin Emails)</p>
+                {[0, 1].map((index) => (
+                  <div key={index} className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">बैकअप ईमेल {index + 1}</label>
+                    <input 
+                      type="email" 
+                      value={contentForm?.adminEmails?.[index] || ''}
+                      onChange={e => {
+                        if (!contentForm) return;
+                        const newEmails = [...(contentForm.adminEmails || [])];
+                        newEmails[index] = e.target.value;
+                        setContentForm({...contentForm, adminEmails: newEmails});
+                      }}
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                      placeholder="example@gmail.com"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* YouTube Channel Settings */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+              <YoutubeIcon className="w-5 h-5 text-red-600" />
+              यूट्यूब चैनल लिंक (YouTube Channel)
+            </h3>
+            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">चैनल का नाम/लेबल (Label)</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.youtubeChannel?.label || ''}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({...contentForm, youtubeChannel: {...(contentForm.youtubeChannel || {url: '', label: ''}), label: e.target.value}});
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  placeholder="जैसे: हमारा कृषि चैनल"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">चैनल URL (Channel Link)</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.youtubeChannel?.url || ''}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({...contentForm, youtubeChannel: {...(contentForm.youtubeChannel || {url: '', label: ''}), url: e.target.value}});
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  placeholder="जैसे: https://youtube.com/@yourchannel"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Hero Banners */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+              <ImageIcon className="w-5 h-5 text-[#2D5A27]" />
+              मुख्य बैनर (Hero Banners)
+            </h3>
+            {contentForm?.banners.map((banner, idx) => (
+              <div key={banner.id} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">बैनर #{idx + 1}</span>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">शीर्षक (Title)</label>
+                    <input 
+                      type="text" 
+                      value={banner.title}
+                      onChange={e => {
+                        const newBanners = [...contentForm.banners];
+                        newBanners[idx].title = e.target.value;
+                        setContentForm({...contentForm, banners: newBanners});
+                      }}
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">उप-शीर्षक (Subtitle)</label>
+                    <input 
+                      type="text" 
+                      value={banner.subtitle}
+                      onChange={e => {
+                        const newBanners = [...contentForm.banners];
+                        newBanners[idx].subtitle = e.target.value;
+                        setContentForm({...contentForm, banners: newBanners});
+                      }}
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                    />
+                  </div>
+                  <ImageUpload 
+                    label="बैनर फोटो (Banner Image)"
+                    value={banner.image}
+                    onChange={base64 => {
+                      const newBanners = [...contentForm.banners];
+                      newBanners[idx].image = base64;
+                      setContentForm({...contentForm, banners: newBanners});
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* YouTube Videos */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+              <YoutubeIcon className="w-5 h-5 text-red-600" />
+              यूट्यूब वीडियो (YouTube Videos)
+            </h3>
+            {contentForm?.videos.map((video, idx) => (
+              <div key={video.id} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">वीडियो #{idx + 1}</span>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">वीडियो नाम (Title)</label>
+                    <input 
+                      type="text" 
+                      value={video.title}
+                      onChange={e => {
+                        const newVideos = [...contentForm.videos];
+                        newVideos[idx].title = e.target.value;
+                        setContentForm({...contentForm, videos: newVideos});
+                      }}
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">यूट्यूब वीडियो लिंक (Video URL)</label>
+                    <input 
+                      type="text" 
+                      value={video.videoUrl}
+                      onChange={e => {
+                        const newVideos = [...contentForm.videos];
+                        newVideos[idx].videoUrl = e.target.value;
+                        setContentForm({...contentForm, videos: newVideos});
+                      }}
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                      placeholder="जैसे: https://www.youtube.com/watch?v=..."
+                    />
+                  </div>
+                  <ImageUpload 
+                    label="वीडियो थंबनेल (Thumbnail)"
+                    value={video.thumbnail}
+                    onChange={base64 => {
+                      const newVideos = [...contentForm.videos];
+                      newVideos[idx].thumbnail = base64;
+                      setContentForm({...contentForm, videos: newVideos});
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Partner Logos */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+                <Sprout className="w-5 h-5 text-[#2D5A27]" />
+                कंपनियों के लोगो (Partner Logos)
+              </h3>
+              <button 
+                type="button"
+                onClick={() => {
+                  if (!contentForm) return;
+                  const newPartners = [...(contentForm.partners || [])];
+                  newPartners.push({ id: Date.now().toString(), name: '', logo: '' });
+                  setContentForm({...contentForm, partners: newPartners});
+                }}
+                className="text-[#2D5A27] bg-[#2D5A27]/10 p-2 rounded-xl flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
+              >
+                <Plus className="w-3 h-3" /> कंपनी जोड़ें
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+              {contentForm?.partners?.map((partner, idx) => (
+                <div key={partner.id} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4 relative group">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (!contentForm) return;
+                      const newPartners = contentForm.partners.filter(p => p.id !== partner.id);
+                      setContentForm({...contentForm, partners: newPartners});
+                    }}
+                    className="absolute top-4 right-4 p-2 text-red-500 bg-red-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">कंपनी का नाम (Company Name)</label>
+                      <input 
+                        type="text" 
+                        value={partner.name}
+                        onChange={e => {
+                          if (!contentForm) return;
+                          const newPartners = [...contentForm.partners];
+                          newPartners[idx].name = e.target.value;
+                          setContentForm({...contentForm, partners: newPartners});
+                        }}
+                        className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                        placeholder="जैसे: Bayer"
+                      />
+                    </div>
+                    <ImageUpload 
+                      label="कंपनी लोगो (Company Logo)"
+                      value={partner.logo}
+                      onChange={base64 => {
+                        if (!contentForm) return;
+                        const newPartners = [...contentForm.partners];
+                        newPartners[idx].logo = base64;
+                        setContentForm({...contentForm, partners: newPartners});
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* WhatsApp Section Details */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+              <Phone className="w-5 h-5 text-[#25D366]" />
+              WhatsApp सेक्शन (WhatsApp Section)
+            </h3>
+            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-6">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">सेक्शन टाइटल (Section Title)</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.whatsappSection?.title || ''}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({
+                      ...contentForm, 
+                      whatsappSection: { ...contentForm.whatsappSection, title: e.target.value }
+                    });
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  placeholder="जैसे: WhatsApp पर जुड़ें"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">सेक्शन जानकारी (Section Description)</label>
+                <textarea 
+                  value={contentForm?.whatsappSection?.description || ''}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({
+                      ...contentForm, 
+                      whatsappSection: { ...contentForm.whatsappSection, description: e.target.value }
+                    });
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium min-h-[80px]"
+                  placeholder="जैसे: सीधे फोटो भेजें और घर बैठे सामान मंगाएं..."
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">WhatsApp मोड (WhatsApp Mode)</label>
+                <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!contentForm) return;
+                      setContentForm({
+                        ...contentForm,
+                        whatsappSection: { ...contentForm.whatsappSection, mode: 'direct' }
+                      });
+                    }}
+                    className={cn(
+                      "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase transition-all",
+                      contentForm?.whatsappSection?.mode === 'direct' ? "bg-white text-[#2D5A27] shadow-sm" : "text-gray-400"
+                    )}
+                  >
+                    सीधा मैसेज (Direct)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!contentForm) return;
+                      setContentForm({
+                        ...contentForm,
+                        whatsappSection: { ...contentForm.whatsappSection, mode: 'group' }
+                      });
+                    }}
+                    className={cn(
+                      "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase transition-all",
+                      contentForm?.whatsappSection?.mode === 'group' ? "bg-white text-[#2D5A27] shadow-sm" : "text-gray-400"
+                    )}
+                  >
+                    ग्रुप लिंक (Group)
+                  </button>
+                </div>
+              </div>
+
+              {contentForm?.whatsappSection?.mode === 'group' && (
+                <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">WhatsApp ग्रुप लिंक (Group Link)</label>
+                  <input 
+                    type="text" 
+                    value={contentForm?.whatsappSection?.groupLink || ''}
+                    onChange={e => {
+                      if (!contentForm) return;
+                      setContentForm({
+                        ...contentForm, 
+                        whatsappSection: { ...contentForm.whatsappSection, groupLink: e.target.value }
+                      });
+                    }}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                    placeholder="जैसे: https://chat.whatsapp.com/..."
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* AI Guide Settings */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+              <YoutubeIcon className="w-5 h-5 text-red-600" />
+              AI वीडियो गाइड सेटिंग्स (AI Video Guide)
+            </h3>
+            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">YouTube वीडियो लिंक (API Key Guide)</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.apiKeyGuideVideoUrl || ''}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({ ...contentForm, apiKeyGuideVideoUrl: e.target.value });
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  placeholder="जैसे: https://www.youtube.com/watch?v=..."
+                />
+                <p className="text-[10px] text-gray-400 ml-1">यह लिंक 'प्रोफाइल' और 'API Key पॉपअप' में दिखाई देगा।</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Info */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+              <Phone className="w-5 h-5 text-[#2D5A27]" />
+              संपर्क जानकारी (Contact Info)
+            </h3>
+            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">WhatsApp नंबर (बिना + के)</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.contactInfo.whatsapp || ''}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({...contentForm, contactInfo: {...contentForm.contactInfo, whatsapp: e.target.value}});
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  placeholder="जैसे: 918982338046"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">दुकान का पता (Shop Address)</label>
+                <textarea 
+                  value={contentForm?.contactInfo.address || ''}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({...contentForm, contactInfo: {...contentForm.contactInfo, address: e.target.value}});
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium h-24 resize-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={isSaving}
+            className="w-full bg-[#2D5A27] text-white py-5 rounded-[1.5rem] font-bold flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all disabled:opacity-50 sticky bottom-4 z-10"
+          >
+            {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+            सभी बदलाव सुरक्षित करें (Save All Content)
+          </button>
+        </form>
+      )}
+
+      {/* Product Modal */}
+      <AnimatePresence>
+        {(isAdding || editingProduct) && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-[100] flex items-end sm:items-center justify-center p-4 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ y: 100 }}
+              animate={{ y: 0 }}
+              exit={{ y: 100 }}
+              className="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold text-[#4A3728]">{editingProduct ? 'उत्पाद सुधारें' : 'नया उत्पाद'}</h3>
+                  <p className="text-xs text-gray-400 font-medium">कृपया सभी जानकारी ध्यान से भरें</p>
+                </div>
+                <button onClick={() => { setIsAdding(false); setEditingProduct(null); }} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={handleProductSubmit} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">कंपनी (Brand Name)</label>
+                  <input 
+                    required
+                    type="text" 
+                    value={productForm.brand}
+                    onChange={e => setProductForm({...productForm, brand: e.target.value})}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                    placeholder="जैसे: Bayer, Syngenta"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">नाम (Hindi Name)</label>
+                  <input 
+                    required
+                    type="text" 
+                    value={productForm.hindiName}
+                    onChange={e => setProductForm({...productForm, hindiName: e.target.value})}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                    placeholder="जैसे: यूरिया खाद"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">कीमत सेटिंग (Price Setting)</label>
+                  <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
+                    <button
+                      type="button"
+                      onClick={() => setProductForm({...productForm, hidePrice: false})}
+                      className={cn(
+                        "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase transition-all",
+                        !productForm.hidePrice ? "bg-white text-[#2D5A27] shadow-sm" : "text-gray-400"
+                      )}
+                    >
+                      Price (दिखाएँ)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProductForm({...productForm, hidePrice: true})}
+                      className={cn(
+                        "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase transition-all",
+                        productForm.hidePrice ? "bg-white text-red-600 shadow-sm" : "text-gray-400"
+                      )}
+                    >
+                      Not Mentioned (छुपाएँ)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className={cn("space-y-1.5 transition-opacity", productForm.hidePrice && "opacity-50 pointer-events-none")}>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">कीमत (Price)</label>
+                    <input 
+                      required={!productForm.hidePrice}
+                      type="number" 
+                      value={productForm.price}
+                      onChange={e => setProductForm({...productForm, price: Number(e.target.value)})}
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">इकाई (Unit)</label>
+                    <input 
+                      required
+                      type="text" 
+                      value={productForm.unit}
+                      onChange={e => setProductForm({...productForm, unit: e.target.value})}
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                      placeholder="जैसे: 45kg Bag"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">श्रेणी (Category)</label>
+                  <select 
+                    value={productForm.category}
+                    onChange={e => setProductForm({...productForm, category: e.target.value as Category})}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium appearance-none"
+                  >
+                    {CATEGORIES.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <ImageUpload 
+                  label="उत्पाद फोटो (Product Photo)"
+                  value={productForm.image || ''}
+                  onChange={base64 => setProductForm({...productForm, image: base64})}
+                />
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">विवरण (Description)</label>
+                  <textarea 
+                    value={productForm.description}
+                    onChange={e => setProductForm({...productForm, description: e.target.value})}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium h-24 resize-none"
+                  />
+                </div>
+                <button 
+                  type="submit" 
+                  disabled={isSaving}
+                  className="w-full bg-[#2D5A27] text-white py-5 rounded-[1.5rem] font-bold flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all disabled:opacity-50 mt-4"
+                >
+                  {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+                  जानकारी सुरक्षित करें
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default Admin;
