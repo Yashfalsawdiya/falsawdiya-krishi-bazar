@@ -23,32 +23,32 @@ export default defineConfig(({mode}) => {
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
-          id: '/index.html',
+          id: 'com.krishibazaar.app.v1',
           dir: 'ltr',
-          lang: 'hi-IN',
-          categories: ['agriculture', 'business'],
+          lang: 'hi',
+          categories: ['agriculture', 'business', 'news'],
           prefer_related_applications: false,
           icons: [
             {
-              src: '/icon-192.png',
+              src: 'https://img.icons8.com/color/192/sprout.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/icon-192.png',
+              src: 'https://img.icons8.com/color/192/sprout.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'maskable'
             },
             {
-              src: '/icon-512.png',
+              src: 'https://img.icons8.com/color/512/sprout.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/icon-512.png',
+              src: 'https://img.icons8.com/color/512/sprout.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'

@@ -59,7 +59,7 @@ const Header: React.FC = () => {
                 {branding.logo ? (
                   <img src={branding.logo} alt="Logo" className="w-full h-full object-contain" />
                 ) : (
-                  <img src="/icon-192.png" alt="Logo" className="w-full h-full object-contain" />
+                  <Sprout className="w-9 h-9 text-[#2D5A27]" strokeWidth={2.5} />
                 )}
               </Link>
             </motion.div>
@@ -124,7 +124,7 @@ const Header: React.FC = () => {
                   {branding.logo ? (
                     <img src={branding.logo} alt="Enlarged Logo" className="w-full h-full object-contain" />
                   ) : (
-                    <img src="/icon-512.png" alt="Logo" className="w-full h-full object-contain" />
+                    <Sprout className="w-32 h-32 text-[#2D5A27]" strokeWidth={2.5} />
                   )}
                   <div className="absolute -bottom-20 left-0 right-0 text-center">
                     <h3 className="text-white text-xl font-bold leading-tight">{branding.name}</h3>
@@ -169,7 +169,7 @@ const Header: React.FC = () => {
                     {branding.logo ? (
                       <img src={branding.logo} alt="Logo" className="w-full h-full object-contain" />
                     ) : (
-                      <img src="/icon-192.png" alt="Logo" className="w-full h-full object-contain" />
+                      <Sprout className="w-8 h-8 text-[#2D5A27]" />
                     )}
                   </motion.div>
                   <button onClick={() => setIsMenuOpen(false)} className="p-2 hover:bg-white/10 rounded-full">
