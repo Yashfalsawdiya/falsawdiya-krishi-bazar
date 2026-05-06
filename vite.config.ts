@@ -23,10 +23,10 @@ export default defineConfig(({mode}) => {
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
-          id: 'com.krishibazaar.app.v1',
+          id: '/index.html',
           dir: 'ltr',
-          lang: 'hi',
-          categories: ['agriculture', 'business', 'news'],
+          lang: 'hi-IN',
+          categories: ['agriculture', 'business'],
           prefer_related_applications: false,
           icons: [
             {
