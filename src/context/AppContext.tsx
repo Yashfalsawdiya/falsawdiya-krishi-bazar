@@ -44,6 +44,19 @@ export interface AppContent {
     address: string;
   };
   apiKeyGuideVideoUrl?: string;
+  offers?: {
+    show: boolean;
+    title: string;
+    items: { id: string; image: string; title: string; link?: string }[];
+  };
+  festivalOffer?: {
+    show: boolean;
+    title: string;
+    subtitle: string;
+    image: string;
+    theme: 'diwali' | 'holi' | 'general' | 'monsoon' | 'rakhi' | 'navratri';
+    link?: string;
+  };
 }
 
 export interface UserSettings {

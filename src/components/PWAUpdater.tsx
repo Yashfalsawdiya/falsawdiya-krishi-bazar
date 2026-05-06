@@ -36,25 +36,44 @@ const PWAUpdater: React.FC = () => {
 
     // 2. Dynamic Manifest
     const manifest = {
+      id: 'com.krishibazaar.app.v1',
       name: name,
       short_name: shortName,
-      description: appContent.branding?.tagline || 'Falsawdiya Krishi Bazaar - For Farmers',
+      description: appContent.branding?.tagline || 'मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी',
       start_url: '/',
+      scope: '/',
       display: 'standalone',
       background_color: '#F5F2ED',
       theme_color: '#2D5A27',
       orientation: 'portrait',
+      dir: 'ltr',
+      lang: 'hi',
+      categories: ['agriculture', 'business', 'news'],
+      prefer_related_applications: false,
       icons: [
         {
           src: iconUrl,
           sizes: '512x512',
           type: 'image/png',
-          purpose: 'any maskable'
+          purpose: 'any'
+        },
+        {
+          src: iconUrl,
+          sizes: '512x512',
+          type: 'image/png',
+          purpose: 'maskable'
         },
         {
           src: iconUrl,
           sizes: '192x192',
-          type: 'image/png'
+          type: 'image/png',
+          purpose: 'any'
+        },
+        {
+          src: iconUrl,
+          sizes: '192x192',
+          type: 'image/png',
+          purpose: 'maskable'
         }
       ]
     };

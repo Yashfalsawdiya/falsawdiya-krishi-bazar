@@ -12,9 +12,9 @@ export default defineConfig(({mode}) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+        includeAssets: [],
         manifest: {
-          name: 'कृषि बाज़ार',
+          name: 'फल्सावदिया कृषि बाज़ार',
           short_name: 'कृषि बाज़ार',
           description: 'मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी',
           theme_color: '#2D5A27',
@@ -23,7 +23,11 @@ export default defineConfig(({mode}) => {
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
-          id: 'krishi-bazaar-pwa',
+          id: 'com.krishibazaar.app.v1',
+          dir: 'ltr',
+          lang: 'hi',
+          categories: ['agriculture', 'business', 'news'],
+          prefer_related_applications: false,
           icons: [
             {
               src: 'https://img.icons8.com/color/192/sprout.png',

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
 import { CATEGORIES } from '../data/mockData';
-import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, X as CloseIcon } from 'lucide-react';
+import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
@@ -120,6 +120,115 @@ const Home: React.FC = () => {
   };
 
   const dailyTip = getDailyTip();
+  const festivalOffer = appContent?.festivalOffer;
+
+  const FestivalSection = () => {
+    if (!festivalOffer || !festivalOffer.show) return null;
+
+    const themeStyles: Record<string, { bg: string; accent: string; text: string; border: string; icon: React.ReactNode }> = {
+      diwali: {
+        bg: 'bg-gradient-to-br from-[#6b0000] via-[#910d0d] to-[#cc4f00]',
+        accent: '#fbbf24',
+        text: 'text-orange-100',
+        border: 'border-yellow-500/30',
+        icon: '🪔'
+      },
+      holi: {
+        bg: 'bg-gradient-to-br from-[#be185d] via-[#a21caf] to-[#7e22ce]',
+        accent: '#facc15',
+        text: 'text-pink-100',
+        border: 'border-white/20',
+        icon: '🎨'
+      },
+      navratri: {
+        bg: 'bg-gradient-to-br from-[#c2410c] via-[#7c2d12] to-[#1e1b4b]',
+        accent: '#fbbf24',
+        text: 'text-orange-50',
+        border: 'border-orange-400/30',
+        icon: '🔱'
+      },
+      rakhi: {
+        bg: 'bg-gradient-to-br from-[#1e3a8a] via-[#1e40af] to-[#fbbf24]',
+        accent: '#fbbf24',
+        text: 'text-blue-100',
+        border: 'border-yellow-500/20',
+        icon: '🎁'
+      },
+      monsoon: {
+        bg: 'bg-gradient-to-br from-[#064e3b] via-[#065f46] to-[#0891b2]',
+        accent: '#4ade80',
+        text: 'text-green-50',
+        border: 'border-green-400/20',
+        icon: '🌧️'
+      },
+      general: {
+        bg: 'bg-gradient-to-br from-[#2D5A27] to-[#3D7A35]',
+        accent: '#fbbf24',
+        text: 'text-green-50',
+        border: 'border-white/10',
+        icon: '✨'
+      }
+    };
+
+    const style = themeStyles[festivalOffer.theme] || themeStyles.general;
+
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`relative overflow-hidden rounded-[2.5rem] p-6 text-white ${style.bg} border-4 ${style.border} shadow-2xl my-4 mx-1`}
+      >
+        {/* Decorative Circles */}
+        <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-yellow-500/10 rounded-full blur-2xl" />
+        
+        <div className="relative z-10 space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="bg-white/20 w-14 h-14 rounded-2xl backdrop-blur-md flex items-center justify-center text-3xl shadow-inner">
+              {style.icon}
+            </div>
+            <div>
+              <h2 className="text-xl font-black tracking-tight leading-tight">{festivalOffer.title}</h2>
+              <p className={`text-xs font-bold ${style.text} mt-0.5`}>{festivalOffer.subtitle}</p>
+            </div>
+          </div>
+          
+          {festivalOffer.image && (
+            <div className="rounded-2xl overflow-hidden aspect-[2/1] shadow-xl border border-white/10 relative group">
+              <img 
+                src={festivalOffer.image} 
+                alt={festivalOffer.title} 
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                referrerPolicy="no-referrer" 
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+            </div>
+          )}
+          
+          <button 
+            onClick={() => {
+              const message = encodeURIComponent(`नमस्ते फल्सावदिया कृषि बाज़ार, मैं "${festivalOffer.title}" के बारे में जानना चाहता हूँ।`);
+              window.open(`https://wa.me/${contactInfo.whatsapp}?text=${message}`, '_blank');
+            }}
+            className="w-full bg-white text-[#4A3728] py-4 rounded-2xl font-black text-sm shadow-[0_10px_20px_rgba(0,0,0,0.1)] active:scale-95 transition-all flex items-center justify-center gap-2 hover:bg-yellow-50 group"
+          >
+            आफर का लाभ उठाएं (Get Offer) 
+            <motion.div
+              animate={{ x: [0, 5, 0] }}
+              transition={{ repeat: Infinity, duration: 1.5 }}
+            >
+              <ArrowRight className="w-4 h-4 text-[#2D5A27]" />
+            </motion.div>
+          </button>
+        </div>
+
+        {/* Decorative Corner Icon */}
+        <div className="absolute -bottom-4 -right-4 opacity-10 rotate-12 scale-150">
+          <Sparkles className="w-24 h-24" />
+        </div>
+      </motion.div>
+    );
+  };
 
   useEffect(() => {
     fetchWeather(24.1864, 75.6328).then(setWeather).catch(console.error);
@@ -224,6 +333,43 @@ const Home: React.FC = () => {
           ))}
         </div>
       </div>
+
+      <FestivalSection />
+
+      {/* Special Offers Section */}
+      {appContent?.offers?.show && appContent.offers.items.length > 0 && (
+        <section className="pt-2 animate-in fade-in slide-in-from-top-4 duration-700">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h3 className="text-lg font-bold text-[#4A3728] flex items-center gap-2">
+              <Tag className="w-5 h-5 text-orange-500" />
+              {appContent.offers.title}
+            </h3>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 snap-x hide-scrollbar">
+            {appContent.offers.items.map((offer) => (
+              <motion.div 
+                key={offer.id}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setZoomImage({ src: offer.image, alt: offer.title })}
+                className="flex-[0_0_80%] min-w-0 snap-start bg-white rounded-3xl overflow-hidden shadow-md border border-gray-100 flex flex-col cursor-zoom-in"
+              >
+                <div className="aspect-[16/9] relative">
+                  <img 
+                    src={offer.image} 
+                    alt={offer.title} 
+                    className="absolute inset-0 w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                </div>
+                <div className="p-3 bg-white">
+                  <h4 className="text-xs font-bold text-[#2D5A27] line-clamp-1">{offer.title}</h4>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* API Key Prompt */}
       {user && !userSettings?.geminiApiKey && (

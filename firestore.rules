@@ -100,7 +100,9 @@ service cloud.firestore {
              data.whatsappSection.mode in ['direct', 'group'] &&
              data.contactInfo is map &&
              (!('isAppActive' in data) || data.isAppActive is bool) &&
-             (!('apiKeyGuideVideoUrl' in data) || data.apiKeyGuideVideoUrl is string);
+             (!('apiKeyGuideVideoUrl' in data) || data.apiKeyGuideVideoUrl is string) &&
+             (!('offers' in data) || data.offers is map) &&
+             (!('festivalOffer' in data) || data.festivalOffer is map);
     }
 
     // ===============================================================
