@@ -23,8 +23,8 @@ const Layout: React.FC = () => {
   if (appContent?.isAppActive === false && !isAdmin) {
     return (
       <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-center max-w-md mx-auto shadow-2xl p-8 text-center">
-        <div className="w-24 h-24 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-8 border-2 border-red-100">
-          <Loader2 className="w-12 h-12 text-red-400" />
+        <div className="w-24 h-24 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-8 border-2 border-red-100 overflow-hidden p-2">
+          <img src="/icon-192.png" alt="Maintenance" className="w-full h-full object-contain opacity-50 grayscale" />
         </div>
         <h1 className="text-2xl font-black text-[#4A3728] mb-4">ऐप अभी बंद है</h1>
         <p className="text-gray-500 mb-8 leading-relaxed">
@@ -54,7 +54,7 @@ const Layout: React.FC = () => {
             {branding.logo ? (
               <img src={branding.logo} alt="Logo" className="w-full h-full object-contain" />
             ) : (
-              <Sprout className="w-12 h-12 text-[#2D5A27]" />
+              <img src="/icon-192.png" alt="Logo" className="w-full h-full object-contain" />
             )}
           </div>
           <h1 className="text-3xl font-black text-[#4A3728] mb-2">{branding.name}</h1>

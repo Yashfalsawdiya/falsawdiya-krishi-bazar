@@ -12,6 +12,12 @@ export interface WeatherData {
     temp: string;
     condition: string;
   }[];
+  hourly?: {
+    time: string;
+    temp: number;
+    condition: string;
+    rainProb: number;
+  }[];
 }
 
 const CONDITION_MAP: Record<number, string> = {
@@ -40,7 +46,7 @@ const CONDITION_MAP: Record<number, string> = {
 };
 
 export const fetchWeather = async (lat: number, lon: number, force: boolean = false): Promise<WeatherData> => {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,precipitation&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,precipitation&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=8`;
   
   const CACHE_KEY = `weather_data_${lat}_${lon}`;
   const CACHE_TIME_KEY = `${CACHE_KEY}_timestamp`;
@@ -62,7 +68,7 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
     }
   }
 
-  // Fallback Data
+  // Fallback Data updated to 7 days
   const fallbackData: WeatherData = {
     temp: 30,
     condition: 'साफ आसमान',
@@ -76,7 +82,11 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
       { day: 'सोमवार', temp: '33°C', condition: 'साफ' },
       { day: 'मंगलवार', temp: '34°C', condition: 'साफ' },
       { day: 'बुधवार', temp: '35°C', condition: 'साफ' },
-    ]
+      { day: 'गुरुवार', temp: '34°C', condition: 'साफ' },
+      { day: 'शुक्रवार', temp: '33°C', condition: 'साफ' },
+      { day: 'शनिवार', temp: '32°C', condition: 'साफ' },
+    ],
+    hourly: []
   };
 
   try {
@@ -91,13 +101,28 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
 
     const days = ['रविवार', 'सोमवार', 'मंगलवार', 'बुधवार', 'गुरुवार', 'शुक्रवार', 'शनिवार'];
     
-    const forecast = data.daily.time.slice(1, 5).map((time: string, index: number) => {
+    // Slice 1 to 8 to get exactly 7 days of forecast starting from tomorrow
+    const forecast = data.daily.time.slice(1, 8).map((time: string, index: number) => {
       const date = new Date(time);
       const dayName = index === 0 ? 'कल (Tomorrow)' : days[date.getDay()];
       return {
         day: dayName,
         temp: `${Math.round(data.daily.temperature_2m_max[index + 1])}°C`,
         condition: CONDITION_MAP[data.daily.weather_code[index + 1]] || 'साफ',
+      };
+    });
+
+    // Process Hourly
+    const currentHour = new Date().getHours();
+    const startIndex = currentHour;
+    const hourly = data.hourly.time.slice(startIndex, startIndex + 24).map((time: string, index: number) => {
+      const actualIndex = startIndex + index;
+      const date = new Date(time);
+      return {
+        time: date.toLocaleTimeString('hi-IN', { hour: 'numeric', minute: 'numeric', hour12: true }),
+        temp: Math.round(data.hourly.temperature_2m[actualIndex]),
+        condition: CONDITION_MAP[data.hourly.weather_code[actualIndex]] || 'साफ',
+        rainProb: data.hourly.precipitation_probability[actualIndex]
       };
     });
 
@@ -109,7 +134,8 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
       rain: data.current.precipitation,
       maxTemp: Math.round(data.daily.temperature_2m_max[0]),
       minTemp: Math.round(data.daily.temperature_2m_min[0]),
-      forecast
+      forecast,
+      hourly
     };
 
     // Save to Cache

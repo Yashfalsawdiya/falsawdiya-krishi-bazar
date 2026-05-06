@@ -13,7 +13,7 @@ const PWAUpdater: React.FC = () => {
     const { branding } = appContent;
     const name = branding?.name || 'फल्सावदिया कृषि बाज़ार';
     const shortName = 'कृषि बाज़ार';
-    const iconUrl = branding?.pwaIcon || 'https://img.icons8.com/color/512/wheat.png';
+    const iconUrl = branding?.pwaIcon || '/icon-512.png';
 
     // 1. Update Title and Favicons
     document.title = name;

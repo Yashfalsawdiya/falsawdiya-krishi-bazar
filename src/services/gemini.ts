@@ -15,31 +15,45 @@ const getAI = (userApiKey?: string) => {
   return new GoogleGenAI({ apiKey: apiKey.trim() });
 };
 
-export async function detectDisease(base64Image: string, userApiKey?: string) {
+export interface DiseaseAnalysis {
+  analysis: string;
+  keywords: string[];
+}
+
+export async function detectDisease(base64Image: string, userApiKey?: string): Promise<DiseaseAnalysis> {
   try {
     const ai = getAI(userApiKey);
-    const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
-      contents: {
-        parts: [
-          {
-            text: `You are an expert Indian agricultural scientist and plant pathologist. 
+    
+    const prompt = `You are an expert Indian agricultural scientist and plant pathologist. 
             Analyze this photo of a crop leaf or plant. 
             
             Identify:
             1. **Crop Name (फसल का नाम)**
-            2. **Disease or Pest Type (बीमारी या कीट का प्रकार)**: Identify if it is a disease, a **Sucking Pest (रस चूसने वाला कीट)** like Aphids/Thrips/Whitefly, or a **Chewing Pest (चबाने वाला कीट)** like Caterpillars/Bollworms.
+            2. **Disease or Pest Type (बीमारी या कीट का प्रकार)**: Identify if it is a disease, a Sucking Pest, or a Chewing Pest.
             3. **Specific Name (नाम)**: Name of the disease or specific pest.
-            4. **Symptoms (लक्षण)**: What is visible in the photo? (e.g., leaf curling, holes, spots, etc.)
-            5. **Recommended Treatment (उपचार)**: 
-               - Provide specific names of pesticides, insecticides, or fungicides (e.g., Imidacloprid for sucking pests, Chlorantraniliprole for chewing pests, etc.).
-               - Provide the EXACT dosage (मात्रा) per liter of water or per acre.
-               - Provide application instructions (how to spray, when to spray, safety precautions).
-            6. **Prevention (बचाव)**: How to prevent this in the future.
+            4. **Symptoms (लक्षण)**: What is visible in the photo?
+            5. **Recommended Treatment (उपचार)**: Detailed chemical and organic solutions with dosage.
+            6. **Prevention (बचाव)**: Long-term prevention tips.
             
-            CRITICAL: Provide the entire response in CLEAR, SIMPLE HINDI (with English terms in brackets where necessary). 
-            The tone should be helpful and professional. Use formatting like bold text and bullet points for readability.`
-          },
+            FORMATTING INSTRUCTIONS:
+            1. Provide the analysis in CLEAR, SIMPLE HINDI with English terms in brackets.
+            2. At the very end of your response, provide a list of search keywords (active ingredients or pesticide categories) separated by commas that can be used to search for real products in a store.
+            
+            Return the result as a JSON object with two fields:
+            - 'analysis': The markdown string in Hindi.
+            - 'keywords': An array of strings (e.g. ["Imidacloprid", "Fungicide", "Insecticide", "Thrips"]).
+            
+            Example JSON Response:
+            {
+              "analysis": "markdown text here...",
+              "keywords": ["Imidacloprid", "Insecticide"]
+            }`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: {
+        parts: [
+          { text: prompt },
           {
             inlineData: {
               mimeType: "image/jpeg",
@@ -50,13 +64,23 @@ export async function detectDisease(base64Image: string, userApiKey?: string) {
       }
     });
 
-    return response.text;
+    const text = response.text;
+    try {
+      const jsonStr = text.replace(/```json|```/g, "").trim();
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      // Fallback if parsing fails
+      return {
+        analysis: text,
+        keywords: []
+      };
+    }
   } catch (error: any) {
     console.error("Gemini Error:", error);
-    if (error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED")) {
-      return "क्षमा करें, हमारी सेवा की सीमा (Quota) समाप्त हो गई है। कृपया कुछ देर बाद (लगभग 1-2 घंटे) फिर से प्रयास करें। (Service quota exceeded. Please try again in 1-2 hours.)";
-    }
-    return "क्षमा करें, बीमारी का पता लगाने में समस्या हुई। कृपया सुनिश्चित करें कि इंटरनेट चालू है और फोटो साफ़ है। (Error detecting disease. Please check connection and photo quality.)";
+    return {
+      analysis: "क्षमा करें, बीमारी का पता लगाने में समस्या हुई।",
+      keywords: []
+    };
   }
 }
 
@@ -92,7 +116,7 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
     Keep the language simple, encouraging, and farmer-friendly. Use bullet points.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
+      model: "gemini-3-flash-preview",
       contents: { parts: [{ text: prompt }] }
     });
 
@@ -142,7 +166,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
     6. If the user asks in another language, respond in Hindi but acknowledge their question.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
+      model: "gemini-3-flash-preview",
       contents: { parts: [{ text: prompt }] }
     });
 

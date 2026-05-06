@@ -196,7 +196,7 @@ const AgriCalculator: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-[#EAB308] rounded-3xl p-8 text-[#2D5A27] shadow-xl text-center">
+          <div className="bg-[#2D5A27] rounded-3xl p-8 text-white shadow-xl text-center">
             <p className="text-sm font-bold uppercase tracking-wider mb-2">कुल बीज की मात्रा</p>
             <div className="flex items-center justify-center gap-2">
               <span className="text-5xl font-black">{seedResult}</span>

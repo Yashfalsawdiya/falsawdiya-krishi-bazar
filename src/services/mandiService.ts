@@ -8,12 +8,18 @@ const getAI = (userApiKey?: string) => {
   return new GoogleGenAI({ apiKey: apiKey.trim() });
 };
 
+export interface MandiHistoryItem {
+  date: string;
+  price: number;
+}
+
 export interface MandiItem {
   commodity: string;
   minPrice: string;
   maxPrice: string;
   avgPrice: string;
   unit: string;
+  history?: MandiHistoryItem[];
 }
 
 export interface MandiData {
@@ -27,8 +33,58 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
   const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
   const timeStr = now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
 
-  // 1. Check Cache First (Cache for 30 mins for more live data)
-  const CACHE_KEY = `mandi_bhav_${mandiName}`;
+  // Helper for generating fallback dates
+  const getPastDate = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return d.toLocaleDateString('hi-IN', { day: '2-digit', month: 'short' });
+  };
+
+  const generateHistory = (basePrice: number, days: number = 30) => {
+    const history: MandiHistoryItem[] = [];
+    let currentPrice = basePrice;
+    for (let i = days; i >= 0; i--) {
+      const change = (Math.random() - 0.45) * 50; // Slight upward bias
+      currentPrice = Math.round(currentPrice + change);
+      history.push({
+        date: i === 0 ? "आज" : getPastDate(i),
+        price: currentPrice
+      });
+    }
+    return history;
+  };
+
+  const sanitizeMandiData = (data: MandiData): MandiData => {
+    if (!data.items) return data;
+    
+    data.items = data.items.map(item => {
+      const avg = parseInt(item.avgPrice) || 0;
+      if (!item.history || item.history.length === 0) {
+        return {
+          ...item,
+          history: generateHistory(avg, 30)
+        };
+      }
+      
+      // Ensure prices are numbers
+      item.history = item.history.map(h => ({
+        ...h,
+        price: typeof h.price === 'string' ? parseInt(h.price) : h.price
+      }));
+
+      // If history is too short, pad it
+      if (item.history.length < 30) {
+        const pads = generateHistory(item.history[0].price, 30 - item.history.length);
+        item.history = [...pads, ...item.history];
+      }
+
+      return item;
+    });
+    return data;
+  };
+
+  // 1. Check Cache First
+  const CACHE_KEY = `mandi_bhav_${mandiName}_v2`; // Bumped version to clear old cache
   const CACHE_TIME_KEY = `${CACHE_KEY}_timestamp`;
   const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
@@ -46,56 +102,73 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
     }
   }
 
-  // 2. Fallback Data (used if API fails)
+  // 2. Fallback Data
   const fallbackData: MandiData = {
     mandiName: mandiName,
     date: `${dateStr} ${timeStr}`,
     items: [
-      { commodity: "सोयाबीन", minPrice: "4200", maxPrice: "4850", avgPrice: "4550", unit: "क्विंटल" },
-      { commodity: "गेहूं", minPrice: "2350", maxPrice: "2850", avgPrice: "2600", unit: "क्विंटल" },
-      { commodity: "लहसुन", minPrice: "7500", maxPrice: "18000", avgPrice: "12500", unit: "क्विंटल" },
-      { commodity: "प्याज", minPrice: "800", maxPrice: "2400", avgPrice: "1600", unit: "क्विंटल" },
-      { commodity: "सरसों", minPrice: "4800", maxPrice: "5400", avgPrice: "5100", unit: "क्विंटल" },
-      { commodity: "चना", minPrice: "5150", maxPrice: "5900", avgPrice: "5550", unit: "क्विंटल" },
-      { commodity: "मक्का", minPrice: "1850", maxPrice: "2250", avgPrice: "2050", unit: "क्विंटल" },
-      { commodity: "मेथी", minPrice: "5200", maxPrice: "6500", avgPrice: "5800", unit: "क्विंटल" },
-      { commodity: "अलसी", minPrice: "4900", maxPrice: "5600", avgPrice: "5250", unit: "क्विंटल" },
-      { commodity: "धनिया", minPrice: "6000", maxPrice: "8500", avgPrice: "7200", unit: "क्विंटल" },
-      { commodity: "उड़द", minPrice: "6500", maxPrice: "8200", avgPrice: "7400", unit: "क्विंटल" },
-      { commodity: "isabgol (इसबगोल)", minPrice: "12000", maxPrice: "15500", avgPrice: "13500", unit: "क्विंटल" }
+      { 
+        commodity: "सोयाबीन", minPrice: "4200", maxPrice: "4850", avgPrice: "4550", unit: "क्विंटल",
+        history: generateHistory(4500, 30)
+      },
+      { 
+        commodity: "गेहूं", minPrice: "2350", maxPrice: "2850", avgPrice: "2600", unit: "क्विंटल",
+        history: generateHistory(2550, 30)
+      },
+      { 
+        commodity: "लहसुन", minPrice: "7500", maxPrice: "18000", avgPrice: "12500", unit: "क्विंटल",
+        history: generateHistory(12000, 30)
+      },
+      { 
+        commodity: "प्याज", minPrice: "800", maxPrice: "2400", avgPrice: "1600", unit: "क्विंटल",
+        history: generateHistory(1500, 30)
+      }
     ]
   };
 
   try {
     const ai = getAI(userApiKey);
-    const prompt = `You are an expert agricultural market analyst for Madhya Pradesh, India.
-    Provide a comprehensive list of market prices (Mandi Bhav) for at least 10-15 different agricultural commodities in ${mandiName}, Madhya Pradesh for TODAY, ${dateStr}. 
     
-    Return the data in a strict JSON format like this:
+    const prompt = `You are an expert agricultural market analyst for Madhya Pradesh, India.
+    Provide market prices (Mandi Bhav) for agricultural commodities in ${mandiName}, MP for TODAY, ${dateStr}. 
+    
+    IMPORTANT: For each commodity, also provide a mock historical price trend for the LAST 30 DAYS to show price fluctuations. 
+    The history should have exactly 30 data points representing consecutive days leading up to today.
+    Ensure "price" in history is a Number (integer), not a String.
+    
+    Return the data in this strict JSON format:
     {
       "mandiName": "${mandiName}",
       "date": "${dateStr} ${timeStr}",
       "items": [
-        { "commodity": "सोयाबीन", "minPrice": "4200", "maxPrice": "4800", "avgPrice": "4500", "unit": "क्विंटल" }
+        { 
+          "commodity": "सोयाबीन", 
+          "minPrice": "4200", 
+          "maxPrice": "4800", 
+          "avgPrice": "4500", 
+          "unit": "क्विंटल",
+          "history": [
+            { "date": "01 Apr", "price": 4400 },
+            ... 30 points
+            { "date": "आज", "price": 4500 }
+          ]
+        }
       ]
     }
     
-    Include as many of these as possible if relevant to ${mandiName}: 
-    Soybean (सोयाबीन), Wheat (गेहूं), Garlic (लहसुन), Onion (प्याज), Mustard (सरसों/रायड़ा), Gram (चना), Maize (मक्का), 
-    Fenugreek (मेथी), Linseed (अलसी), Coriander (धनिया), Black Gram (उड़द), Green Gram (मूंग), 
-    Isabgol (इसबगोल), Masoor (मसूर), Pea (मटर).
-    
+    Include: Soybean, Wheat, Garlic, Onion, Mustard, Gram, Maize, etc.
     Use Hindi names for commodities.
-    Only return the JSON. Use realistic current market estimates for ${dateStr} based on MP Mandi trends.`;
+    Only return JSON. Use realistic current and historical market estimates for ${mandiName}.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
+      model: "gemini-3-flash-preview",
       contents: { parts: [{ text: prompt }] }
     });
 
     const text = response.text;
     const jsonStr = text.replace(/```json|```/g, "").trim();
-    const data = JSON.parse(jsonStr);
+    const rawData = JSON.parse(jsonStr);
+    const data = sanitizeMandiData(rawData);
 
     // Save to Cache
     localStorage.setItem(CACHE_KEY, JSON.stringify(data));
@@ -119,6 +192,6 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
       } catch (e) {}
     }
     
-    return fallbackData;
+    return sanitizeMandiData(fallbackData);
   }
 }

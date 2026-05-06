@@ -183,9 +183,51 @@ const Weather: React.FC = () => {
         </div>
       </motion.div>
 
+      {/* Hourly Forecast */}
+      {weather.hourly && weather.hourly.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="font-bold text-[#4A3728] px-1 flex items-center justify-between">
+            प्रति घंटा पूर्वानुमान (Hourly Forecast)
+            <span className="text-[10px] text-[#2D5A27] font-bold bg-[#2D5A27]/10 px-2 py-0.5 rounded-full">अगले 24 घंटे</span>
+          </h3>
+          <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 hide-scrollbar snap-x">
+            {weather.hourly.map((hour, idx) => {
+              const Icon = getIcon(hour.condition);
+              const isBadWeather = hour.condition.includes('बारिश') || hour.condition.includes('गरज') || hour.condition.includes('ओले') || hour.condition.includes('बौछारें');
+              return (
+                <motion.div 
+                  key={idx}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: Math.min(idx * 0.03, 1) }}
+                  className={`flex-[0_0_85px] snap-start min-w-0 rounded-2xl p-3 flex flex-col items-center gap-1 border transition-all ${
+                    isBadWeather 
+                    ? 'bg-blue-50 border-blue-200' 
+                    : 'bg-white border-gray-100'
+                  }`}
+                >
+                  <p className="text-[10px] font-bold text-gray-500">{hour.time}</p>
+                  <Icon className={`w-7 h-7 my-1 ${isBadWeather ? 'text-blue-500' : 'text-[#2D5A27]'}`} />
+                  <p className="font-black text-gray-800">{hour.temp}°</p>
+                  {hour.rainProb > 0 && (
+                    <div className="flex items-center gap-0.5 mt-0.5">
+                      <Droplets className="w-2.5 h-2.5 text-blue-400" />
+                      <span className="text-[9px] font-bold text-blue-600">{hour.rainProb}%</span>
+                    </div>
+                  )}
+                  {isBadWeather && (
+                    <span className="text-[8px] font-black text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded-full mt-1">सावधान</span>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Forecast */}
       <div className="space-y-3">
-        <h3 className="font-bold text-[#4A3728] px-1">अगले 4 दिन का पूर्वानुमान</h3>
+        <h3 className="font-bold text-[#4A3728] px-1">अगले 7 दिन का पूर्वानुमान</h3>
         {weather.forecast.map((item, idx) => {
           const Icon = getIcon(item.condition);
           return (
