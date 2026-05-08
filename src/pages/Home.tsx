@@ -317,8 +317,8 @@ const Home: React.FC = () => {
       {/* Banner Slider */}
       <div className="overflow-hidden rounded-2xl shadow-lg" ref={emblaRef}>
         <div className="flex">
-          {banners.map((banner) => (
-            <div key={banner.id} className="relative flex-[0_0_100%] min-w-0 aspect-[5/4]">
+          {banners.map((banner, idx) => (
+            <div key={`${banner.id}-${idx}`} className="relative flex-[0_0_100%] min-w-0 aspect-[5/4]">
               <img 
                 src={banner.image} 
                 alt={banner.title} 
@@ -346,9 +346,9 @@ const Home: React.FC = () => {
             </h3>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 snap-x hide-scrollbar">
-            {appContent.offers.items.map((offer) => (
+            {appContent.offers.items.map((offer, idx) => (
               <motion.div 
-                key={offer.id}
+                key={`${offer.id}-${idx}`}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setZoomImage({ src: offer.image, alt: offer.title })}
                 className="flex-[0_0_80%] min-w-0 snap-start bg-white rounded-3xl overflow-hidden shadow-md border border-gray-100 flex flex-col cursor-zoom-in"
@@ -493,9 +493,9 @@ const Home: React.FC = () => {
           </Link>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
-          {products.slice(0, 5).map((product) => (
+          {products.slice(0, 5).map((product, idx) => (
             <motion.div 
-              key={product.id} 
+              key={`${product.id}-${idx}`} 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="min-w-[160px] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden snap-start flex flex-col"
@@ -626,8 +626,8 @@ const Home: React.FC = () => {
         
         <div className="overflow-hidden -mx-4 px-4" ref={emblaVideoRef}>
           <div className="flex gap-4">
-            {videos.map((video) => (
-              <div key={video.id} className="flex-[0_0_85%] min-w-0">
+            {videos.map((video, idx) => (
+              <div key={`${video.id}-${idx}`} className="flex-[0_0_85%] min-w-0">
                 <a 
                   href={video.videoUrl}
                   target="_blank"

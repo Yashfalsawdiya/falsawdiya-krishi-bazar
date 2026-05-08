@@ -220,9 +220,9 @@ const DiseaseDetection: React.FC = () => {
                   </h3>
                 </div>
                 <div className="grid grid-cols-1 gap-3">
-                  {matchedProducts.map((product) => (
+                  {matchedProducts.map((product, idx) => (
                     <button 
-                      key={product.id}
+                      key={`${product.id}-${idx}`}
                       onClick={() => setSelectedProduct(product)}
                       className="w-full text-left bg-white rounded-3xl p-4 shadow-sm border border-gray-100 flex items-center gap-4 active:scale-[0.98] transition-all"
                     >

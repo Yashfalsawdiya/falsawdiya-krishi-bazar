@@ -24,6 +24,7 @@ if (envConfig.apiKey) {
   firebaseConfig = envConfig; // Fallback to empty env vars if nothing found
 }
 
+console.log("Initializing Firebase with config:", { ...firebaseConfig, apiKey: firebaseConfig.apiKey ? "PRESENT" : "MISSING" });
 const app = initializeApp(firebaseConfig);
 
 // CRITICAL: Use initializeFirestore with experimentalForceLongPolling: true 
@@ -35,15 +36,22 @@ export const db = initializeFirestore(app, {
 export const auth = getAuth(app);
 
 async function testConnection() {
+  console.log("Testing Firestore connection...");
   try {
     // CRITICAL: Call getFromServer to test the connection to Firestore.
-    await getDocFromServer(doc(db, 'test', 'connection'));
-    console.log("Firestore connection successful.");
+    // We use a specific doc path that doesn't necessarily need to exist
+    await getDocFromServer(doc(db, '_connection_test_', 'check'));
+    console.log("Firestore connection test: SUCCESS (Server reached)");
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration. The client is offline.");
+    console.error("Firestore connection test: FAILED");
+    if (error instanceof Error) {
+      console.error("Error Message:", error.message);
+      if (error.message.includes('the client is offline')) {
+        console.error("The client is reporting offline mode. This may be due to environment constraints.");
+      }
+    } else {
+      console.error("Unknown Connection Error:", String(error));
     }
-    // Skip logging for other errors, as this is simply a connection test.
   }
 }
 testConnection();

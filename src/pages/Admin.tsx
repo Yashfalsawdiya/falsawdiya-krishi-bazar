@@ -76,6 +76,7 @@ const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'products' | 'content'>('products');
   const [isAdding, setIsAdding] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const [productForm, setProductForm] = useState<Partial<Product>>({
@@ -240,6 +241,62 @@ const Admin: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-20">
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {productToDelete && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setProductToDelete(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl"
+            >
+              <div className="p-8 text-center">
+                <div className="w-20 h-20 bg-red-50 rounded-[24px] flex items-center justify-center mx-auto mb-6">
+                  <Trash2 className="w-10 h-10 text-red-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">क्या आप सुनिश्चित हैं?</h3>
+                <p className="text-sm text-gray-500 mb-8 leading-relaxed">
+                  आप <span className="font-bold text-gray-900">"{productToDelete.hindiName}"</span> को हटाना चाहते हैं? यह क्रिया वापस नहीं ली जा सकती।
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => setProductToDelete(null)}
+                    className="py-4 px-6 bg-gray-100 text-gray-700 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-colors active:scale-95"
+                  >
+                    नहीं (Cancel)
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      const id = productToDelete.id;
+                      const name = productToDelete.hindiName;
+                      setProductToDelete(null);
+                      try {
+                        await deleteProduct(id);
+                        alert(`"${name}" सफलतापूर्वक डिलीट कर दिया गया है।`);
+                      } catch (error) {
+                        console.error("Delete operation failed:", error);
+                        alert("डिलीट करने में समस्या आई। कृपया पुनः प्रयास करें।");
+                      }
+                    }}
+                    className="py-4 px-6 bg-red-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-red-200 hover:bg-red-700 transition-colors active:scale-95"
+                  >
+                    हाँ (Delete)
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-[#2D5A27] rounded-xl flex items-center justify-center text-white font-bold">A</div>
@@ -282,7 +339,7 @@ const Admin: React.FC = () => {
         <>
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-gray-500 text-sm uppercase tracking-wider">
-              उत्पादों की सूची
+              उत्पादों की सूची ({products.length})
             </h3>
             <button 
               onClick={() => setIsAdding(true)}
@@ -299,10 +356,10 @@ const Admin: React.FC = () => {
                 <p className="text-sm text-gray-400">कोई उत्पाद नहीं मिला।</p>
               </div>
             ) : (
-              products.map((product) => (
+              products.map((product, idx) => (
                 <motion.div 
                   layout
-                  key={product.id} 
+                  key={`${product.id}-${idx}`} 
                   className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group"
                 >
                   <div className="flex items-center gap-4">
@@ -328,9 +385,7 @@ const Admin: React.FC = () => {
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button 
-                      onClick={async () => {
-                        if(confirm('क्या आप इसे हटाना चाहते हैं?')) await deleteProduct(product.id);
-                      }}
+                      onClick={() => setProductToDelete(product)}
                       className="p-2.5 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -488,7 +543,7 @@ const Admin: React.FC = () => {
                   onClick={() => {
                     if (!contentForm) return;
                     const newOffers = {...(contentForm.offers || {show: true, title: 'Special Offers', items: []})};
-                    newOffers.items.push({ id: Date.now().toString(), image: '', title: '', link: '' });
+                  newOffers.items.push({ id: Math.random().toString(36).substring(2, 11) + Date.now().toString(36), image: '', title: '', link: '' });
                     setContentForm({...contentForm, offers: newOffers});
                   }}
                   className="text-[#2D5A27] bg-[#2D5A27]/10 p-2 rounded-xl flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
@@ -816,7 +871,7 @@ const Admin: React.FC = () => {
                 onClick={() => {
                   if (!contentForm) return;
                   const newPartners = [...(contentForm.partners || [])];
-                  newPartners.push({ id: Date.now().toString(), name: '', logo: '' });
+                  newPartners.push({ id: Math.random().toString(36).substring(2, 11) + Date.now().toString(36), name: '', logo: '' });
                   setContentForm({...contentForm, partners: newPartners});
                 }}
                 className="text-[#2D5A27] bg-[#2D5A27]/10 p-2 rounded-xl flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"

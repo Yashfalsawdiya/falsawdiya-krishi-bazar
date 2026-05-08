@@ -149,9 +149,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
       if (!snapshot.empty) {
         const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        setProducts(prods);
+        // Remove potential duplicates just in case
+        const uniqueProds = Array.from(new Map(prods.map(p => [p.id, p])).values());
+        setProducts(uniqueProds);
       } else {
-        setProducts(PRODUCTS);
+        setProducts([]);
       }
     }, (error) => {
       const err = handleFirestoreError(error, OperationType.LIST, 'products');
@@ -211,9 +213,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteProduct = async (id: string) => {
+    console.log(`Attempting to delete product with ID: ${id}`);
     try {
-      await deleteDoc(doc(db, 'products', id));
-    } catch (error) {
+      const productRef = doc(db, 'products', id);
+      await deleteDoc(productRef);
+      console.log(`Successfully deleted product: ${id}`);
+    } catch (error: any) {
+      console.error(`Failed to delete product ${id}:`, error);
       handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
     }
   };

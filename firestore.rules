@@ -49,6 +49,10 @@ service cloud.firestore {
     // Helper Functions
     // ===============================================================
     
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -59,9 +63,9 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || 
-         (request.auth.token.email == "yashfalsawdiya36@gmail.com" && request.auth.token.email_verified == true) ||
-         (request.auth.token.email in get(/databases/$(database)/documents/settings/content).data.adminEmails && request.auth.token.email_verified == true));
+        (request.auth.token.email == "yashfalsawdiya36@gmail.com" ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin') || 
+         (exists(/databases/$(database)/documents/settings/content) && request.auth.token.get('email', '') in get(/databases/$(database)/documents/settings/content).data.get('adminEmails', [])));
     }
 
     function isValidEmail(email) {
@@ -108,6 +112,11 @@ service cloud.firestore {
     // ===============================================================
     // Rules
     // ===============================================================
+
+    // Connection Test
+    match /_connection_test_/{docId} {
+      allow read: if true;
+    }
 
     // Products Collection
     match /products/{productId} {

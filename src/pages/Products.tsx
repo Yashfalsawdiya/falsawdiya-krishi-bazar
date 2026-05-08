@@ -89,10 +89,10 @@ const Products: React.FC = () => {
       {/* Product List */}
       <div className="grid grid-cols-1 gap-4">
         {filteredProducts.length > 0 ? (
-          filteredProducts.map((product) => (
+          filteredProducts.map((product, idx) => (
             <motion.div
               layout
-              key={product.id}
+              key={`${product.id}-${idx}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex gap-4"
