@@ -63,6 +63,7 @@ import { MONTHLY_TIPS } from '../data/seasonalTips';
 
 import OrderModal from '../components/OrderModal';
 import ImageZoomModal from '../components/ImageZoomModal';
+import ProductDetailModal from '../components/ProductDetailModal';
 import { Product } from '../types';
 
 const Home: React.FC = () => {
@@ -80,6 +81,7 @@ const Home: React.FC = () => {
   const [lastQuestion, setLastQuestion] = useState<string | null>(null);
   const [chatResponse, setChatResponse] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [zoomImage, setZoomImage] = useState<{ src: string; alt: string } | null>(null);
 
@@ -498,24 +500,30 @@ const Home: React.FC = () => {
               key={`${product.id}-${idx}`} 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="min-w-[160px] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden snap-start flex flex-col"
+              onClick={() => {
+                setSelectedProduct(product);
+                setShowDetail(true);
+              }}
+              className="min-w-[160px] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden snap-start flex flex-col cursor-pointer group"
             >
               <div 
                 className="relative h-32 overflow-hidden cursor-zoom-in"
-                onClick={() => setZoomImage({ src: product.image, alt: product.hindiName })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setZoomImage({ src: product.image, alt: product.hindiName });
+                }}
               >
                 <img 
                   src={product.image} 
                   alt={product.name} 
-                  className="w-full h-full object-cover transition-transform hover:scale-110" 
+                  className="w-full h-full object-cover transition-transform group-hover:scale-110" 
                   referrerPolicy="no-referrer" 
                 />
               </div>
               <div className="p-3 flex-1 flex flex-col justify-between">
                 <div>
                   <h4 
-                    className="text-xs font-bold text-gray-800 line-clamp-1 cursor-pointer hover:text-[#2D5A27]"
-                    onClick={() => handleBuyClick(product)}
+                    className="text-xs font-bold text-gray-800 line-clamp-1 group-hover:text-[#2D5A27] transition-colors"
                   >
                     {product.hindiName}
                   </h4>
@@ -524,7 +532,10 @@ const Home: React.FC = () => {
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-bold text-[#2D5A27]">₹{product.price}</span>
                   <button 
-                    onClick={() => handleBuyClick(product)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleBuyClick(product);
+                    }}
                     className="bg-[#EAB308] p-2 rounded-lg shadow-sm active:scale-90 transition-transform"
                   >
                     <ShoppingBag className="w-3.5 h-3.5 text-[#2D5A27]" />
@@ -789,6 +800,13 @@ const Home: React.FC = () => {
           </>
         )}
       </AnimatePresence>
+
+      <ProductDetailModal
+        isOpen={showDetail}
+        onClose={() => setShowDetail(false)}
+        product={selectedProduct}
+        onBuy={handleBuyClick}
+      />
 
       <OrderModal 
         isOpen={isOrderModalOpen}

@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { CATEGORIES } from '../data/mockData';
-import { ShoppingBag, Phone, Building2 } from 'lucide-react';
+import { ShoppingBag, Building2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import OrderModal from '../components/OrderModal';
 import ImageZoomModal from '../components/ImageZoomModal';
+import ProductDetailModal from '../components/ProductDetailModal';
 import { Product } from '../types';
 
 const Products: React.FC = () => {
@@ -15,6 +16,7 @@ const Products: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
   const [zoomImage, setZoomImage] = useState<{ src: string; alt: string } | null>(null);
 
   const whatsappNumber = appContent?.contactInfo.whatsapp || '918982338046';
@@ -95,14 +97,21 @@ const Products: React.FC = () => {
               key={`${product.id}-${idx}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex gap-4"
+              onClick={() => {
+                setSelectedProduct(product);
+                setShowDetail(true);
+              }}
+              className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex gap-4 cursor-pointer active:scale-[0.99] transition-transform group"
             >
               <img 
                 src={product.image} 
                 alt={product.hindiName} 
                 className="w-24 h-24 rounded-xl object-cover cursor-zoom-in" 
                 referrerPolicy="no-referrer"
-                onClick={() => setZoomImage({ src: product.image, alt: product.hindiName })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setZoomImage({ src: product.image, alt: product.hindiName });
+                }}
               />
               <div className="flex-1 flex flex-col justify-between">
                 <div>
@@ -110,7 +119,7 @@ const Products: React.FC = () => {
                     <Building2 className="w-3 h-3" />
                     {product.brand}
                   </div>
-                  <h3 className="font-bold text-gray-800 leading-tight">{product.hindiName}</h3>
+                  <h3 className="font-bold text-gray-800 leading-tight group-hover:text-[#2D5A27] transition-colors">{product.hindiName}</h3>
                   <p className="text-[10px] text-gray-500 mb-1">{product.unit}</p>
                   {product.description && (
                     <p className="text-[11px] text-gray-600 line-clamp-2 leading-snug mt-1 italic">
@@ -126,13 +135,10 @@ const Products: React.FC = () => {
                   )}
                   <div className="flex gap-2">
                     <button 
-                      onClick={() => handleBuyClick(product)}
-                      className="bg-[#25D366] text-white p-2 rounded-full shadow-sm active:scale-90 transition-transform"
-                    >
-                      <Phone className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleBuyClick(product)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleBuyClick(product);
+                      }}
                       className="bg-[#EAB308] text-[#2D5A27] px-4 py-1.5 rounded-full text-xs font-bold shadow-sm flex items-center gap-1 active:scale-95 transition-transform"
                     >
                       <ShoppingBag className="w-3.5 h-3.5" /> खरीदें
@@ -150,6 +156,13 @@ const Products: React.FC = () => {
           </div>
         )}
       </div>
+
+      <ProductDetailModal
+        isOpen={showDetail}
+        onClose={() => setShowDetail(false)}
+        product={selectedProduct}
+        onBuy={handleBuyClick}
+      />
 
       <OrderModal 
         isOpen={isModalOpen}
