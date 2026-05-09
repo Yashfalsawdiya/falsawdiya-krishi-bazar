@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Category, Product } from '../types';
-import { CATEGORIES } from '../data/mockData';
+import { CategoryData, Product, AgriIssue } from '../types';
+// import { CATEGORIES } from '../data/mockData'; // No longer needed
 import { 
   Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
-  Youtube as YoutubeIcon, Layout, Phone, Key, Tag, Sparkles 
+  Youtube as YoutubeIcon, Layout, Phone, Key, Tag, Sparkles,
+  ListFilter, Bug, Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage } from '../lib/utils';
@@ -69,20 +70,31 @@ const ImageUpload: React.FC<{
 const Admin: React.FC = () => {
   const { 
     products, addProduct, updateProduct, deleteProduct,
+    categories, addCategory, updateCategory, deleteCategory,
+    agriIssues, addAgriIssue, updateAgriIssue, deleteAgriIssue,
     appContent, updateAppContent,
     user, isAdmin, login, logout, loading 
   } = useAppContext();
   
-  const [activeTab, setActiveTab] = useState<'products' | 'content'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'content'>('products');
   const [isAdding, setIsAdding] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<CategoryData | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<CategoryData | null>(null);
+
+  const [isAddingAgriIssue, setIsAddingAgriIssue] = useState(false);
+  const [editingAgriIssue, setEditingAgriIssue] = useState<AgriIssue | null>(null);
+  const [agriIssueToDelete, setAgriIssueToDelete] = useState<AgriIssue | null>(null);
+
   const [isSaving, setIsSaving] = useState(false);
 
   const [productForm, setProductForm] = useState<Partial<Product>>({
     name: '',
     hindiName: '',
-    category: 'seeds',
+    category: '',
     brand: '',
     price: 0,
     hidePrice: false,
@@ -92,7 +104,29 @@ const Admin: React.FC = () => {
     crops: []
   });
 
+  const [categoryForm, setCategoryForm] = useState<Omit<CategoryData, 'id'>>({
+    name: '',
+    icon: '🌱',
+    order: 0
+  });
+
+  const [agriIssueForm, setAgriIssueForm] = useState<Omit<AgriIssue, 'id'>>({
+    hindiName: '',
+    englishName: '',
+    type: 'pest',
+    description: '',
+    image: '',
+    relatedProductIds: []
+  });
+
   const [contentForm, setContentForm] = useState<AppContent | null>(null);
+
+  // Set default category if not set
+  React.useEffect(() => {
+    if (!productForm.category && categories.length > 0) {
+      setProductForm(prev => ({ ...prev, category: categories[0].id }));
+    }
+  }, [categories]);
 
   React.useEffect(() => {
     if (appContent) {
@@ -164,9 +198,47 @@ const Admin: React.FC = () => {
         await addProduct(productForm as Omit<Product, 'id'>);
         setIsAdding(false);
       }
-      setProductForm({ name: '', hindiName: '', category: 'seeds', brand: '', price: 0, unit: '', description: '', image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=400', crops: [] });
+      setProductForm({ name: '', hindiName: '', category: categories[0]?.id || '', brand: '', price: 0, unit: '', description: '', image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=400', crops: [] });
     } catch (error) {
       console.error("Error saving product:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      if (editingCategory) {
+        await updateCategory({ ...editingCategory, ...categoryForm } as CategoryData);
+        setEditingCategory(null);
+      } else {
+        await addCategory(categoryForm);
+        setIsAddingCategory(false);
+      }
+      setCategoryForm({ name: '', icon: '🌱', order: categories.length + 1 });
+    } catch (error) {
+      console.error("Error saving category:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAgriIssueSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      if (editingAgriIssue) {
+        await updateAgriIssue({ ...editingAgriIssue, ...agriIssueForm } as AgriIssue);
+        setEditingAgriIssue(null);
+      } else {
+        await addAgriIssue(agriIssueForm);
+        setIsAddingAgriIssue(false);
+      }
+      setAgriIssueForm({ hindiName: '', englishName: '', type: 'pest', description: '', image: '', relatedProductIds: [] });
+    } catch (error) {
+      console.error("Error saving agri issue:", error);
     } finally {
       setIsSaving(false);
     }
@@ -297,6 +369,116 @@ const Admin: React.FC = () => {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {categoryToDelete && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setCategoryToDelete(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl"
+            >
+              <div className="p-8 text-center">
+                <div className="w-20 h-20 bg-red-50 rounded-[24px] flex items-center justify-center mx-auto mb-6">
+                  <Trash2 className="w-10 h-10 text-red-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">क्या आप सुनिश्चित हैं?</h3>
+                <p className="text-sm text-gray-500 mb-8 leading-relaxed">
+                  आप श्रेणी <span className="font-bold text-gray-900">"{categoryToDelete.name}"</span> को हटाना चाहते हैं? यह क्रिया वापस नहीं ली जा सकती।
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => setCategoryToDelete(null)}
+                    className="py-4 px-6 bg-gray-100 text-gray-700 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-colors active:scale-95"
+                  >
+                    नहीं (Cancel)
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      const id = categoryToDelete.id;
+                      const name = categoryToDelete.name;
+                      setCategoryToDelete(null);
+                      try {
+                        await deleteCategory(id);
+                        alert(`"${name}" सफलतापूर्वक डिलीट कर दिया गया है।`);
+                      } catch (error) {
+                        console.error("Delete operation failed:", error);
+                        alert("डिलीट करने में समस्या आई। कृपया पुनः प्रयास करें।");
+                      }
+                    }}
+                    className="py-4 px-6 bg-red-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-red-200 hover:bg-red-700 transition-colors active:scale-95"
+                  >
+                    हाँ (Delete)
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {agriIssueToDelete && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setAgriIssueToDelete(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl"
+            >
+              <div className="p-8 text-center">
+                <div className="w-20 h-20 bg-red-50 rounded-[24px] flex items-center justify-center mx-auto mb-6">
+                  <Trash2 className="w-10 h-10 text-red-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">क्या आप सुनिश्चित हैं?</h3>
+                <p className="text-sm text-gray-500 mb-8 leading-relaxed">
+                  आप <span className="font-bold text-gray-900">"{agriIssueToDelete.hindiName}"</span> को हटाना चाहते हैं? यह क्रिया वापस नहीं ली जा सकती।
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => setAgriIssueToDelete(null)}
+                    className="py-4 px-6 bg-gray-100 text-gray-700 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-colors active:scale-95"
+                  >
+                    नहीं (Cancel)
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      const id = agriIssueToDelete.id;
+                      const name = agriIssueToDelete.hindiName;
+                      setAgriIssueToDelete(null);
+                      try {
+                        await deleteAgriIssue(id);
+                        alert(`"${name}" सफलतापूर्वक डिलीट कर दिया गया है।`);
+                      } catch (error) {
+                        console.error("Delete operation failed:", error);
+                        alert("डिलीट करने में समस्या आई। कृपया पुनः प्रयास करें।");
+                      }
+                    }}
+                    className="py-4 px-6 bg-red-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-red-200 hover:bg-red-700 transition-colors active:scale-95"
+                  >
+                    हाँ (Delete)
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-[#2D5A27] rounded-xl flex items-center justify-center text-white font-bold">A</div>
@@ -314,20 +496,38 @@ const Admin: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100">
+      <div className="flex gap-2 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto no-scrollbar">
         <button 
           onClick={() => setActiveTab('products')}
           className={cn(
-            "flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
             activeTab === 'products' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
           )}
         >
           <ShoppingBag className="w-4 h-4" /> उत्पाद (Products)
         </button>
         <button 
+          onClick={() => setActiveTab('categories')}
+          className={cn(
+            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'categories' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <ListFilter className="w-4 h-4" /> श्रेणियाँ (Categories)
+        </button>
+        <button 
+          onClick={() => setActiveTab('encyclopedia')}
+          className={cn(
+            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'encyclopedia' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <Bug className="w-4 h-4" /> कीड़े/रोग (Encyclopedia)
+        </button>
+        <button 
           onClick={() => setActiveTab('content')}
           className={cn(
-            "flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
             activeTab === 'content' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
           )}
         >
@@ -342,7 +542,11 @@ const Admin: React.FC = () => {
               उत्पादों की सूची ({products.length})
             </h3>
             <button 
-              onClick={() => setIsAdding(true)}
+              onClick={() => {
+                setIsAdding(true);
+                setEditingProduct(null);
+                setProductForm({ name: '', hindiName: '', category: categories[0]?.id || '', brand: '', price: 0, unit: '', description: '', image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=400', crops: [] });
+              }}
               className="bg-[#2D5A27] text-white py-2 px-4 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold active:scale-95 transition-transform"
             >
               <Plus className="w-4 h-4" /> नया जोड़ें
@@ -386,6 +590,136 @@ const Admin: React.FC = () => {
                     </button>
                     <button 
                       onClick={() => setProductToDelete(product)}
+                      className="p-2.5 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </div>
+        </>
+      ) : activeTab === 'categories' ? (
+        <>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-gray-500 text-sm uppercase tracking-wider">
+              श्रेणियों की सूची ({categories.length})
+            </h3>
+            <button 
+              onClick={() => {
+                setIsAddingCategory(true);
+                setEditingCategory(null);
+                setCategoryForm({ name: '', icon: '🌱', order: categories.length + 1 });
+              }}
+              className="bg-[#2D5A27] text-white py-2 px-4 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold active:scale-95 transition-transform"
+            >
+              <Plus className="w-4 h-4" /> नई जोड़ें
+            </button>
+          </div>
+
+          {/* Categories List */}
+          <div className="space-y-3">
+            {categories.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-100">
+                <p className="text-sm text-gray-400">कोई श्रेणी नहीं मिली।</p>
+              </div>
+            ) : (
+              categories.map((cat, idx) => (
+                <motion.div 
+                  layout
+                  key={`${cat.id}-${idx}`} 
+                  className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-2xl shadow-inner">
+                      {cat.icon}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800">{cat.name}</h4>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
+                        Order: {cat.order}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        setEditingCategory(cat);
+                        setCategoryForm({ name: cat.name, icon: cat.icon, order: cat.order });
+                        setIsAddingCategory(true);
+                      }}
+                      className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => setCategoryToDelete(cat)}
+                      className="p-2.5 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </div>
+        </>
+      ) : activeTab === 'encyclopedia' ? (
+        <>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-gray-500 text-sm uppercase tracking-wider">
+              विश्वकोश सूची ({agriIssues.length})
+            </h3>
+            <button 
+              onClick={() => {
+                setIsAddingAgriIssue(true);
+                setEditingAgriIssue(null);
+                setAgriIssueForm({ hindiName: '', englishName: '', type: 'pest', description: '', image: '', relatedProductIds: [] });
+              }}
+              className="bg-[#2D5A27] text-white py-2 px-4 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold active:scale-95 transition-transform"
+            >
+              <Plus className="w-4 h-4" /> नया जोड़ें
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {agriIssues.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-100">
+                <p className="text-sm text-gray-400">कोई डेटा नहीं मिला।</p>
+              </div>
+            ) : (
+              agriIssues.map((issue, idx) => (
+                <motion.div 
+                  layout
+                  key={`${issue.id}-${idx}`} 
+                  className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-4">
+                    <img src={issue.image} alt="" className="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-gray-50" />
+                    <div>
+                      <h4 className="font-bold text-gray-800">{issue.hindiName}</h4>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
+                        {issue.englishName} • {
+                          issue.type === 'pest' ? 'कीट' : 
+                          issue.type === 'disease' ? 'रोग' : 'पोषक तत्व की कमी'
+                        } • {issue.relatedProductIds?.length || 0} उत्पाद
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        setEditingAgriIssue(issue);
+                        setAgriIssueForm(issue);
+                        setIsAddingAgriIssue(true);
+                      }}
+                      className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => setAgriIssueToDelete(issue)}
                       className="p-2.5 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1193,10 +1527,10 @@ const Admin: React.FC = () => {
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">श्रेणी (Category)</label>
                   <select 
                     value={productForm.category}
-                    onChange={e => setProductForm({...productForm, category: e.target.value as Category})}
+                    onChange={e => setProductForm({...productForm, category: e.target.value})}
                     className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium appearance-none"
                   >
-                    {CATEGORIES.map(cat => (
+                    {categories.map(cat => (
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
                   </select>
@@ -1221,6 +1555,234 @@ const Admin: React.FC = () => {
                 >
                   {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
                   जानकारी सुरक्षित करें
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* AgriIssue Modal */}
+      <AnimatePresence>
+        {isAddingAgriIssue && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-[100] flex items-end sm:items-center justify-center p-4 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ y: 100 }}
+              animate={{ y: 0 }}
+              exit={{ y: 100 }}
+              className="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold text-[#4A3728]">{editingAgriIssue ? 'विश्वकोश सुधारें' : 'नया जोड़ें'}</h3>
+                  <p className="text-xs text-gray-400 font-medium">कीट, रोग या कमी की जानकारी भरें</p>
+                </div>
+                <button onClick={() => { setIsAddingAgriIssue(false); setEditingAgriIssue(null); }} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAgriIssueSubmit} className="space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">हिंदी नाम (Hindi Name)</label>
+                    <input 
+                      required
+                      type="text" 
+                      value={agriIssueForm.hindiName}
+                      onChange={e => setAgriIssueForm({...agriIssueForm, hindiName: e.target.value})}
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                      placeholder="जैसे: माहू (Aphids)"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">अंग्रेजी नाम (English Name)</label>
+                    <input 
+                      required
+                      type="text" 
+                      value={agriIssueForm.englishName}
+                      onChange={e => setAgriIssueForm({...agriIssueForm, englishName: e.target.value})}
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                      placeholder="जैसे: Aphids"
+                    />
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">प्रकार (Type)</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['pest', 'disease', 'deficiency'] as const).map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setAgriIssueForm({...agriIssueForm, type})}
+                          className={cn(
+                            "py-3 rounded-xl text-[10px] font-bold uppercase transition-all border-2",
+                            agriIssueForm.type === type 
+                              ? "bg-[#2D5A27] border-[#2D5A27] text-white" 
+                              : "bg-gray-50 border-gray-100 text-gray-500 hover:border-gray-200"
+                          )}
+                        >
+                          {type === 'pest' ? 'कीट' : type === 'disease' ? 'रोग' : 'कमी'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <ImageUpload 
+                    label="समस्या की फोटो (Photo)"
+                    value={agriIssueForm.image}
+                    onChange={base64 => setAgriIssueForm({...agriIssueForm, image: base64})}
+                  />
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">संक्षिप्त विवरण (Short Description)</label>
+                    <textarea 
+                      value={agriIssueForm.description}
+                      onChange={e => setAgriIssueForm({...agriIssueForm, description: e.target.value})}
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium h-24 resize-none"
+                    />
+                  </div>
+
+                  {/* Related Products Selector */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">संबंधित उत्पाद जोड़ें (Link Products)</label>
+                    <div className="bg-gray-50 rounded-2xl p-4 space-y-4 border border-gray-100">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input 
+                          type="text" 
+                          placeholder="उत्पाद खोजें..."
+                          className="w-full bg-white border border-gray-200 rounded-xl py-2 pl-9 pr-4 text-xs outline-none"
+                          onChange={(e) => {
+                            // Filter products logic if needed, but we'll show all for now
+                          }}
+                        />
+                      </div>
+                      <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                        {products.map(product => {
+                          const isSelected = agriIssueForm.relatedProductIds.includes(product.id);
+                          return (
+                            <div 
+                              key={product.id}
+                              onClick={() => {
+                                const newIds = isSelected 
+                                  ? agriIssueForm.relatedProductIds.filter(id => id !== product.id)
+                                  : [...agriIssueForm.relatedProductIds, product.id];
+                                setAgriIssueForm({...agriIssueForm, relatedProductIds: newIds});
+                              }}
+                              className={cn(
+                                "flex items-center gap-3 p-2 rounded-xl cursor-pointer transition-all border-2",
+                                isSelected ? "bg-[#2D5A27]/5 border-[#2D5A27]/20" : "bg-white border-transparent hover:border-gray-100"
+                              )}
+                            >
+                              <div className={cn(
+                                "w-4 h-4 rounded border flex items-center justify-center transition-colors",
+                                isSelected ? "bg-[#2D5A27] border-[#2D5A27]" : "bg-white border-gray-300"
+                              )}>
+                                {isSelected && <Save className="w-2.5 h-2.5 text-white" />}
+                              </div>
+                              <img src={product.image} className="w-8 h-8 rounded-lg object-cover" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-bold text-gray-700 truncate">{product.hindiName}</p>
+                                <p className="text-[9px] text-gray-400">{product.brand}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[9px] text-gray-400 italic">
+                        {agriIssueForm.relatedProductIds.length} उत्पाद चुने गए
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  disabled={isSaving}
+                  className="w-full bg-[#2D5A27] text-white py-5 rounded-[1.5rem] font-bold flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all disabled:opacity-50 mt-4"
+                >
+                  {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+                  विश्वकोश में सुरक्षित करें
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Category Modal */}
+      <AnimatePresence>
+        {isAddingCategory && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-[100] flex items-end sm:items-center justify-center p-4 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ y: 100 }}
+              animate={{ y: 0 }}
+              exit={{ y: 100 }}
+              className="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold text-[#4A3728]">{editingCategory ? 'श्रेणी सुधारें' : 'नई श्रेणी'}</h3>
+                  <p className="text-xs text-gray-400 font-medium">श्रेणी की जानकारी भरें</p>
+                </div>
+                <button onClick={() => { setIsAddingCategory(false); setEditingCategory(null); }} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCategorySubmit} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">नाम (Category Name)</label>
+                  <input 
+                    required
+                    type="text" 
+                    value={categoryForm.name}
+                    onChange={e => setCategoryForm({...categoryForm, name: e.target.value})}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                    placeholder="जैसे: कंद फसलें"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">आइकन (Emoji/Icon)</label>
+                  <input 
+                    required
+                    type="text" 
+                    value={categoryForm.icon}
+                    onChange={e => setCategoryForm({...categoryForm, icon: e.target.value})}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                    placeholder="जैसे: 🥕"
+                  />
+                  <p className="text-[9px] text-gray-400 ml-1">आप इमोजी या किसी इमेज का यूआरएल डाल सकते हैं।</p>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">क्रम (Order)</label>
+                  <input 
+                    required
+                    type="number" 
+                    value={categoryForm.order}
+                    onChange={e => setCategoryForm({...categoryForm, order: Number(e.target.value)})}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  />
+                </div>
+                
+                <button 
+                  type="submit" 
+                  disabled={isSaving}
+                  className="w-full bg-[#2D5A27] text-white py-5 rounded-[1.5rem] font-bold flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all disabled:opacity-50 mt-4"
+                >
+                  {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+                  श्रेणी सुरक्षित करें
                 </button>
               </form>
             </motion.div>

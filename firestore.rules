@@ -77,12 +77,27 @@ service cloud.firestore {
     function isValidProduct(data) {
       return data.hindiName is string && data.hindiName.size() > 0 && data.hindiName.size() < 200 &&
              data.brand is string && data.brand.size() > 0 &&
-             data.category in ["seeds", "fertilizers", "pesticides", "fungicides", "herbicides", "medicines", "implements"] &&
+             data.category is string && data.category.size() > 0 &&
              data.price is number && data.price >= 0 &&
              data.unit is string && data.unit.size() > 0 &&
              (!('hidePrice' in data) || data.hidePrice is bool) &&
              (!('image' in data) || isValidUrl(data.image)) &&
              (!('description' in data) || (data.description is string && data.description.size() < 5000));
+    }
+
+    function isValidCategory(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.icon is string && data.icon.size() > 0 &&
+             data.order is number;
+    }
+
+    function isValidAgriIssue(data) {
+      return data.hindiName is string && data.hindiName.size() > 0 &&
+             data.englishName is string && data.englishName.size() > 0 &&
+             data.type in ['pest', 'disease', 'deficiency'] &&
+             data.image is string &&
+             (!('description' in data) || data.description is string) &&
+             (!('relatedProductIds' in data) || data.relatedProductIds is list);
     }
 
     function isValidUser(data) {
@@ -151,6 +166,22 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin() && (settingId != 'content' || isValidAppContent(request.resource.data));
+    }
+
+    // Categories Collection
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidCategory(request.resource.data);
+      allow update: if isAdmin() && isValidCategory(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // Agri Issues (Encyclopedia) Collection
+    match /agriIssues/{issueId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidAgriIssue(request.resource.data);
+      allow update: if isAdmin() && isValidAgriIssue(request.resource.data);
+      allow delete: if isAdmin();
     }
   }
 }

@@ -1,10 +1,15 @@
-export type Category = 'seeds' | 'fertilizers' | 'pesticides' | 'fungicides' | 'herbicides' | 'medicines' | 'implements';
+export interface CategoryData {
+  id: string;
+  name: string;
+  icon: string;
+  order: number;
+}
 
 export interface Product {
   id: string;
   name: string;
   hindiName: string;
-  category: Category;
+  category: string;
   brand: string;
   price: number;
   hidePrice?: boolean;
@@ -42,4 +47,14 @@ export interface WeatherData {
     temp: string;
     condition: string;
   }[];
+}
+
+export interface AgriIssue {
+  id: string;
+  hindiName: string;
+  englishName: string;
+  type: 'pest' | 'disease' | 'deficiency';
+  description: string;
+  image: string;
+  relatedProductIds: string[];
 }

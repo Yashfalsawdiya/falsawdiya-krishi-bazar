@@ -24,14 +24,27 @@ if (envConfig.apiKey) {
   firebaseConfig = envConfig; // Fallback to empty env vars if nothing found
 }
 
-console.log("Initializing Firebase with config:", { ...firebaseConfig, apiKey: firebaseConfig.apiKey ? "PRESENT" : "MISSING" });
+console.log("Firebase Config Selected:", {
+  ...firebaseConfig,
+  apiKey: firebaseConfig.apiKey ? "PRESENT" : "MISSING",
+  projectId: firebaseConfig.projectId
+});
+
 const app = initializeApp(firebaseConfig);
+
+const dbId = (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== "") 
+  ? firebaseConfig.firestoreDatabaseId 
+  : (firebaseConfig.databaseId && firebaseConfig.databaseId !== "" ? firebaseConfig.databaseId : '(default)');
+
+console.log("Final Firestore Database ID:", dbId);
 
 // CRITICAL: Use initializeFirestore with experimentalForceLongPolling: true 
 // to fix connectivity issues (code=unavailable) in proxy/sandboxed environments.
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
-}, firebaseConfig.firestoreDatabaseId || '(default)');
+  experimentalAutoDetectLongPolling: false,
+  ignoreUndefinedProperties: true,
+} as any, dbId);
 
 export const auth = getAuth(app);
 

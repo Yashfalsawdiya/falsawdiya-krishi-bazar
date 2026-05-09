@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
-import { CATEGORIES } from '../data/mockData';
 import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useEmblaCarousel from 'embla-carousel-react';
@@ -67,7 +66,7 @@ import ProductDetailModal from '../components/ProductDetailModal';
 import { Product } from '../types';
 
 const Home: React.FC = () => {
-  const { products, appContent, user, userSettings } = useAppContext();
+  const { products, categories, appContent, user, userSettings } = useAppContext();
   const navigate = useNavigate();
   const [emblaRef] = useEmblaCarousel({ loop: true }, [Autoplay({ delay: 4000 })]);
   const [emblaVideoRef] = useEmblaCarousel({ align: 'start', containScroll: 'trimSnaps' });
@@ -470,7 +469,7 @@ const Home: React.FC = () => {
           <h3 className="text-lg font-bold text-[#4A3728]">श्रेणियाँ (Categories)</h3>
         </div>
         <div className="grid grid-cols-3 gap-3">
-          {CATEGORIES.map((cat, index) => (
+          {categories.map((cat, index) => (
             <motion.div
               key={cat.id}
               initial={{ opacity: 0, scale: 0.9 }}
@@ -479,7 +478,13 @@ const Home: React.FC = () => {
               onClick={() => navigate(`/products?category=${cat.id}`)}
               className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center text-center gap-2 cursor-pointer active:scale-95 transition-transform"
             >
-              <span className="text-3xl">{cat.icon}</span>
+              <div className="text-3xl w-10 h-10 flex items-center justify-center">
+                {cat.icon.startsWith('http') ? (
+                  <img src={cat.icon} alt={cat.name} className="w-full h-full object-contain" />
+                ) : (
+                  cat.icon
+                )}
+              </div>
               <span className="text-[11px] font-bold text-[#2D5A27] leading-tight">{cat.name}</span>
             </motion.div>
           ))}

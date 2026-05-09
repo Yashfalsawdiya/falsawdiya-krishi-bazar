@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { CATEGORIES } from '../data/mockData';
 import { ShoppingBag, Building2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -11,7 +10,7 @@ import ProductDetailModal from '../components/ProductDetailModal';
 import { Product } from '../types';
 
 const Products: React.FC = () => {
-  const { products, appContent } = useAppContext();
+  const { products, categories, appContent } = useAppContext();
   const [searchParams] = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -74,7 +73,7 @@ const Products: React.FC = () => {
         >
           सभी (All)
         </button>
-        {CATEGORIES.map((cat) => (
+        {categories.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setSelectedCategory(cat.id)}

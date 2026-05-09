@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, CropAdvice } from '../types';
-import { PRODUCTS, CROP_ADVICE } from '../data/mockData';
+import { Product, CropAdvice, CategoryData, AgriIssue } from '../types';
+import { PRODUCTS, CROP_ADVICE, CATEGORIES } from '../data/mockData';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { 
   collection, 
@@ -65,6 +65,8 @@ export interface UserSettings {
 
 interface AppContextType {
   products: Product[];
+  categories: CategoryData[];
+  agriIssues: AgriIssue[];
   appContent: AppContent | null;
   user: FirebaseUser | null;
   isAdmin: boolean;
@@ -74,6 +76,12 @@ interface AppContextType {
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
+  addCategory: (category: Omit<CategoryData, 'id'>) => Promise<void>;
+  updateCategory: (category: CategoryData) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
+  addAgriIssue: (issue: Omit<AgriIssue, 'id'>) => Promise<void>;
+  updateAgriIssue: (issue: AgriIssue) => Promise<void>;
+  deleteAgriIssue: (id: string) => Promise<void>;
   updateAppContent: (content: AppContent) => Promise<void>;
   updateUserSettings: (settings: UserSettings) => Promise<void>;
   login: () => Promise<void>;
@@ -84,6 +92,8 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const [categories, setCategories] = useState<CategoryData[]>(CATEGORIES);
+  const [agriIssues, setAgriIssues] = useState<AgriIssue[]>([]);
   const [appContent, setAppContent] = useState<AppContent | null>(null);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -174,10 +184,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
+    // Listen for categories
+    const qCategories = query(collection(db, 'categories'), orderBy('order'));
+    const unsubscribeCategories = onSnapshot(qCategories, (snapshot) => {
+      if (!snapshot.empty) {
+        setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData)));
+      } else {
+        // If empty in Firestore, keep using mock ones or show empty
+        // Actually, if it's the first time, maybe we should seed it? 
+        // For now just keep using mock data if empty.
+      }
+    }, (error) => {
+      const err = handleFirestoreError(error, OperationType.LIST, 'categories');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
+      }
+    });
+
+    // Listen for agriIssues
+    const unsubscribeAgriIssues = onSnapshot(collection(db, 'agriIssues'), (snapshot) => {
+      setAgriIssues(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue)));
+    }, (error) => {
+      const err = handleFirestoreError(error, OperationType.LIST, 'agriIssues');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
+      }
+    });
+
     return () => {
       unsubscribeAuth();
       unsubscribeProducts();
       unsubscribeContent();
+      unsubscribeCategories();
+      unsubscribeAgriIssues();
     };
   }, []);
 
@@ -224,6 +263,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const addCategory = async (category: Omit<CategoryData, 'id'>) => {
+    try {
+      await addDoc(collection(db, 'categories'), category);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'categories');
+    }
+  };
+
+  const updateCategory = async (category: CategoryData) => {
+    try {
+      const { id, ...data } = category;
+      await setDoc(doc(db, 'categories', id), data, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`);
+    }
+  };
+
+  const deleteCategory = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'categories', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `categories/${id}`);
+    }
+  };
+
+  const addAgriIssue = async (issue: Omit<AgriIssue, 'id'>) => {
+    try {
+      await addDoc(collection(db, 'agriIssues'), issue);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'agriIssues');
+    }
+  };
+
+  const updateAgriIssue = async (issue: AgriIssue) => {
+    try {
+      const { id, ...data } = issue;
+      await setDoc(doc(db, 'agriIssues', id), data, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `agriIssues/${issue.id}`);
+    }
+  };
+
+  const deleteAgriIssue = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'agriIssues', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `agriIssues/${id}`);
+    }
+  };
+
   const updateAppContent = async (content: AppContent) => {
     try {
       await setDoc(doc(db, 'settings', 'content'), content);
@@ -247,6 +336,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider value={{ 
       products, 
+      categories,
+      agriIssues,
       appContent,
       user, 
       isAdmin, 
@@ -256,6 +347,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addProduct, 
       updateProduct, 
       deleteProduct,
+      addCategory,
+      updateCategory,
+      deleteCategory,
+      addAgriIssue,
+      updateAgriIssue,
+      deleteAgriIssue,
       updateAppContent,
       updateUserSettings,
       login,

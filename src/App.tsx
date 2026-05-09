@@ -14,6 +14,8 @@ import Profile from './pages/Profile';
 import AgriCalculator from './pages/AgriCalculator';
 import Helpline from './pages/Helpline';
 import CropCalendar from './pages/CropCalendar';
+import Encyclopedia from './pages/Encyclopedia';
+import EncyclopediaDetail from './pages/EncyclopediaDetail';
 import PWAUpdater from './components/PWAUpdater';
 
 export default function App() {
@@ -34,6 +36,8 @@ export default function App() {
             <Route path="calculator" element={<AgriCalculator />} />
             <Route path="helpline" element={<Helpline />} />
             <Route path="calendar" element={<CropCalendar />} />
+            <Route path="encyclopedia" element={<Encyclopedia />} />
+            <Route path="encyclopedia/:id" element={<EncyclopediaDetail />} />
             <Route path="admin" element={<Admin />} />
             <Route path="profile" element={<Profile />} />
           </Route>

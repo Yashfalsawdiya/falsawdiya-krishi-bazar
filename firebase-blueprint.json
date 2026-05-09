@@ -108,6 +108,31 @@
         },
         "apiKeyGuideVideoUrl": { "type": "string" }
       }
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Product categories.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "icon": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["name", "icon", "order"]
+    },
+    "AgriIssue": {
+      "title": "AgriIssue",
+      "description": "Encyclopedia of pests, diseases, and nutrient deficiencies.",
+      "type": "object",
+      "properties": {
+        "hindiName": { "type": "string" },
+        "englishName": { "type": "string" },
+        "type": { "type": "string", "enum": ["pest", "disease", "deficiency"] },
+        "description": { "type": "string" },
+        "image": { "type": "string" },
+        "relatedProductIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["hindiName", "englishName", "type", "image"]
     }
   },
   "firestore": {
@@ -126,6 +151,14 @@
     "/settings/content": {
       "schema": "AppContent",
       "description": "Global application content settings."
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Collection of product categories."
+    },
+    "/agriIssues/{issueId}": {
+      "schema": "AgriIssue",
+      "description": "Collection of pests, diseases, and nutrient deficiencies."
     }
   }
 }
