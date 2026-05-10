@@ -16,6 +16,7 @@ import Helpline from './pages/Helpline';
 import CropCalendar from './pages/CropCalendar';
 import Encyclopedia from './pages/Encyclopedia';
 import EncyclopediaDetail from './pages/EncyclopediaDetail';
+import AiAgriExpert from './pages/AiAgriExpert';
 import PWAUpdater from './components/PWAUpdater';
 import InstallPwaModal from './components/InstallPwaModal';
 
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="calendar" element={<CropCalendar />} />
             <Route path="encyclopedia" element={<Encyclopedia />} />
             <Route path="encyclopedia/:id" element={<EncyclopediaDetail />} />
+            <Route path="ai-call" element={<AiAgriExpert />} />
             <Route path="admin" element={<Admin />} />
             <Route path="profile" element={<Profile />} />
           </Route>

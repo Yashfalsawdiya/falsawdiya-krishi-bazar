@@ -1,5 +1,5 @@
 {
   "name": "फल्सावदिया कृषि बाज़ार",
   "description": "मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी",
-  "requestFramePermissions": ["camera", "geolocation"]
+  "requestFramePermissions": ["camera", "microphone", "geolocation"]
 }

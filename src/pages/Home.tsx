@@ -394,6 +394,39 @@ const Home: React.FC = () => {
         </motion.div>
       )}
 
+      {/* AI Voice Agent Entry Section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="pt-2"
+      >
+        <Link to="/ai-call">
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-blue-50 relative overflow-hidden group active:scale-95 transition-all">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-blue-500/10 transition-colors" />
+            <div className="flex items-center gap-5">
+              <div className="relative">
+                <div className="absolute inset-0 bg-[#2D5A27] rounded-2xl blur-lg opacity-20 animate-pulse" />
+                <div className="w-16 h-16 bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl flex items-center justify-center text-white relative z-10 shadow-lg">
+                  <Phone className="w-8 h-8 animate-bounce" />
+                </div>
+                <div className="absolute -top-2 -right-2 bg-yellow-400 text-[#4A3728] text-[8px] font-black px-2 py-0.5 rounded-full shadow-sm">NEW</div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-black text-[#4A3728] leading-tight">AI कृषि विशेषज्ञ कॉल</h3>
+                <p className="text-xs text-gray-500 font-bold mt-1">सीधे बात करें और समस्या का हल पाएं</p>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <Sparkles className="w-3 h-3 text-[#EAB308]" />
+                  <span className="text-[10px] font-black text-[#2D5A27] uppercase tracking-widest">इंसानों की तरह बातचीत</span>
+                </div>
+              </div>
+              <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all">
+                <ArrowRight className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
+        </Link>
+      </motion.div>
+
       {/* Weather & Mandi Quick View */}
       <div className="grid grid-cols-2 gap-3">
         <Link to="/weather">

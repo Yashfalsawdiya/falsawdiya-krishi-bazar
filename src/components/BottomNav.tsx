@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, ShoppingBag, TrendingUp, Camera, CloudSun } from 'lucide-react';
+import { Home, ShoppingBag, TrendingUp, Camera, CloudSun, Phone } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 const BottomNav: React.FC = () => {

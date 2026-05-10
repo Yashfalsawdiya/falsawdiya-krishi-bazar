@@ -34,6 +34,7 @@ const Header: React.FC = () => {
 
   const menuItems = [
     { icon: User, label: 'मेरा प्रोफाइल (Profile)', path: '/profile', color: 'text-purple-600' },
+    { icon: Phone, label: 'AI कृषि विशेषज्ञ कॉल', path: '/ai-call', color: 'text-[#2D5A27]' },
     { icon: Bug, label: 'कीट एवं रोग निर्देशिका', path: '/encyclopedia', color: 'text-rose-600' },
     { icon: Landmark, label: 'सरकारी योजनाएं', path: '/schemes', color: 'text-blue-600' },
     { icon: Newspaper, label: 'कृषि समाचार', path: '/news', color: 'text-green-600' },
