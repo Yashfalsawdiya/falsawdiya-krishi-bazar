@@ -17,11 +17,13 @@ import CropCalendar from './pages/CropCalendar';
 import Encyclopedia from './pages/Encyclopedia';
 import EncyclopediaDetail from './pages/EncyclopediaDetail';
 import PWAUpdater from './components/PWAUpdater';
+import InstallPwaModal from './components/InstallPwaModal';
 
 export default function App() {
   return (
     <AppProvider>
       <PWAUpdater />
+      <InstallPwaModal />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Layout />}>

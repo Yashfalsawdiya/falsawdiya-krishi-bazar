@@ -4,8 +4,8 @@ import App from './App.tsx';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 
-// Register Service Worker (Disabled to prevent interference with Firebase in some environments)
-// registerSW({ immediate: true });
+// Register Service Worker
+registerSW({ immediate: true });
 
 // Global error handling for debugging deployed app
 window.onerror = function(message, source, lineno, colno, error) {
