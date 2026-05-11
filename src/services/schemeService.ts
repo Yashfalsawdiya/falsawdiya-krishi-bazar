@@ -15,9 +15,11 @@ export interface Scheme {
   eligibility: string;
   howToApply: string;
   link?: string;
+  category?: string;
+  type?: string;
 }
 
-export const fetchSchemes = async (userApiKey?: string): Promise<Scheme[]> => {
+export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = false): Promise<Scheme[]> => {
   const now = new Date();
   const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -28,7 +30,7 @@ export const fetchSchemes = async (userApiKey?: string): Promise<Scheme[]> => {
   const cachedData = localStorage.getItem(CACHE_KEY);
   const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
 
-  if (cachedData && cachedTime) {
+  if (!forceRefresh && cachedData && cachedTime) {
     const age = now.getTime() - parseInt(cachedTime);
     if (age < CACHE_DURATION) {
       try {
@@ -48,6 +50,13 @@ export const fetchSchemes = async (userApiKey?: string): Promise<Scheme[]> => {
       howToApply: "पीएम-किसान पोर्टल या CSC केंद्र के माध्यम से पंजीकरण करें।"
     },
     {
+      title: "मुख्यमंत्री किसान कल्याण योजना (MP CM-Kisan)",
+      description: "मध्य प्रदेश सरकार द्वारा पीएम-किसान के लाभार्थियों को अतिरिक्त आर्थिक सहायता।",
+      benefits: ["4000 रुपये अतिरिक्त आर्थिक सहायता", "पीएम-किसान के साथ जुड़ाव"],
+      eligibility: "पीएम-किसान योजना के पात्र किसान",
+      howToApply: "पीएम-किसान की पात्रता के आधार पर स्वतः लाभ।"
+    },
+    {
       title: "प्रधानमंत्री फसल बीमा योजना (PMFBY)",
       description: "फसल के नुकसान होने पर किसानों को बीमा कवर प्रदान किया जाता है।",
       benefits: ["कम प्रीमियम", "प्राकृतिक आपदाओं से सुरक्षा"],
@@ -59,30 +68,41 @@ export const fetchSchemes = async (userApiKey?: string): Promise<Scheme[]> => {
   try {
     const ai = getAI(userApiKey);
     const prompt = `You are an expert in Indian Government Agricultural Schemes.
-    Provide a list of the top 5 most useful current government schemes for farmers in Madhya Pradesh as of ${dateStr}.
-    Include schemes like PM-Kisan, Fasal Bima Yojana, KCC, etc.
+    Current Date: ${dateStr}.
+    Provide a comprehensive, accurate and LATEST list of the top 8-10 government schemes for farmers in India, with a focus on both Central Government and Madhya Pradesh State Government schemes.
     
-    Return the data in a strict JSON format like this:
+    Include diverse categories:
+    - Financial Aid (PM-Kisan, CM-Kisan)
+    - Infrastructure/Subsidies (Solar pumps under PM-KUSUM, Tractor/Drip Irrigation subsidies)
+    - Insurance (Fasal Bima)
+    - Equipment/Tools subsidies
+    - Crop-specific incentives
+    
+    Return the data in a strict JSON format (Array of Objects) only:
     [
       {
         "title": "Scheme Name in Hindi",
-        "description": "Brief description in Hindi",
+        "description": "Clear and detailed description in Hindi",
         "benefits": ["Benefit 1 in Hindi", "Benefit 2 in Hindi"],
-        "eligibility": "Eligibility criteria in Hindi",
-        "howToApply": "Steps to apply in Hindi",
-        "link": "Official link if known"
+        "eligibility": "Who can apply (in Hindi)",
+        "howToApply": "Step-by-step application process (in Hindi)",
+        "link": "Official website link (URL string)",
+        "category": "Central/State",
+        "type": "Financial/Subsidy/Insurance/etc"
       }
     ]
-    Only return the JSON.`;
+    Ensure all schemes are currently active and provide real, updated information. Do not return anything except the JSON code block.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
-      contents: { parts: [{ text: prompt }] }
+      model: "gemini-3-flash-preview",
+      contents: prompt
     });
 
     const text = response.text;
-    const jsonStr = text.replace(/```json|```/g, "").trim();
-    const data = JSON.parse(jsonStr);
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error("Invalid response format from AI");
+    
+    const data = JSON.parse(jsonMatch[0]);
 
     localStorage.setItem(CACHE_KEY, JSON.stringify(data));
     localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());

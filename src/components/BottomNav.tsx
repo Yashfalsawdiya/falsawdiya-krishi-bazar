@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, ShoppingBag, TrendingUp, Camera, CloudSun, Phone } from 'lucide-react';
+import { Home, ShoppingBag, Camera, CloudSun, Newspaper } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 const BottomNav: React.FC = () => {
@@ -8,7 +8,7 @@ const BottomNav: React.FC = () => {
     { to: '/', icon: Home, label: 'होम' },
     { to: '/products', icon: ShoppingBag, label: 'बाजार' },
     { to: '/disease', icon: Camera, label: 'बीमारी जाँच', primary: true },
-    { to: '/mandi', icon: TrendingUp, label: 'मंडी भाव' },
+    { to: '/news', icon: Newspaper, label: 'कृषि समाचार' },
     { to: '/weather', icon: CloudSun, label: 'मौसम' },
   ];
 

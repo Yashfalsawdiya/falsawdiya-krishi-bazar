@@ -195,7 +195,10 @@ const Home: React.FC = () => {
           </div>
           
           {festivalOffer.image && (
-            <div className="rounded-2xl overflow-hidden aspect-[2/1] shadow-xl border border-white/10 relative group">
+            <div 
+              onClick={() => setZoomImage({ src: festivalOffer.image, alt: festivalOffer.title })}
+              className="rounded-2xl overflow-hidden aspect-[2/1] shadow-xl border border-white/10 relative group cursor-zoom-in"
+            >
               <img 
                 src={festivalOffer.image} 
                 alt={festivalOffer.title} 
@@ -319,11 +322,15 @@ const Home: React.FC = () => {
       <div className="overflow-hidden rounded-2xl shadow-lg" ref={emblaRef}>
         <div className="flex">
           {banners.map((banner, idx) => (
-            <div key={`${banner.id}-${idx}`} className="relative flex-[0_0_100%] min-w-0 aspect-[5/4]">
+            <div 
+              key={`${banner.id}-${idx}`} 
+              onClick={() => setZoomImage({ src: banner.image, alt: banner.title })}
+              className="relative flex-[0_0_100%] min-w-0 aspect-[5/4] cursor-zoom-in group"
+            >
               <img 
                 src={banner.image} 
                 alt={banner.title} 
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 referrerPolicy="no-referrer"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-6 text-white">

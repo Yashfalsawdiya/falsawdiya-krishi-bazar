@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { fetchSchemes, Scheme } from '../services/schemeService';
 import { motion } from 'motion/react';
-import { Landmark, ChevronRight, Info, Loader2, ExternalLink, RefreshCw } from 'lucide-react';
+import { Landmark, ChevronRight, Info, Loader2, ExternalLink, RefreshCw, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 const Schemes: React.FC = () => {
@@ -10,10 +10,10 @@ const Schemes: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
 
-  const loadSchemes = async () => {
+  const loadSchemes = async (force: boolean = false) => {
     setLoading(true);
     try {
-      const data = await fetchSchemes(userSettings?.geminiApiKey);
+      const data = await fetchSchemes(userSettings?.geminiApiKey, force);
       setSchemes(data);
     } catch (error) {
       console.error(error);
@@ -23,7 +23,7 @@ const Schemes: React.FC = () => {
   };
 
   useEffect(() => {
-    loadSchemes();
+    loadSchemes(false);
   }, [userSettings?.geminiApiKey]);
 
   return (
@@ -35,7 +35,7 @@ const Schemes: React.FC = () => {
         </h2>
         <p className="text-sm text-gray-500">किसानों के लिए लाभकारी योजनाएं</p>
         <button 
-          onClick={loadSchemes}
+          onClick={() => loadSchemes(true)}
           className="mt-2 text-[10px] font-bold text-[#2D5A27] flex items-center gap-1 mx-auto bg-[#2D5A27]/5 px-3 py-1 rounded-full border border-[#2D5A27]/10 active:scale-95 transition-transform"
         >
           <RefreshCw className="w-3 h-3" /> ताज़ा करें (Refresh)
@@ -45,11 +45,14 @@ const Schemes: React.FC = () => {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin" />
-          <p className="text-sm font-bold text-gray-500">योजनाएं लोड हो रही हैं...</p>
+          <p className="text-sm font-bold text-gray-500 text-center px-6">
+            नवीनतम सरकारी योजनाएं खोजी जा रही हैं... <br/>
+            (Fetching latest schemes)
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {schemes.map((scheme, idx) => (
+          {schemes.map((scheme: any, idx) => (
             <motion.div
               key={idx}
               initial={{ opacity: 0, y: 10 }}
@@ -58,16 +61,28 @@ const Schemes: React.FC = () => {
               onClick={() => setSelectedScheme(scheme)}
               className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer active:scale-95 transition-transform"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-[#2D5A27]/10 rounded-xl flex items-center justify-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#2D5A27]/10 rounded-xl flex items-center justify-center shrink-0">
                   <Landmark className="w-5 h-5 text-[#2D5A27]" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-gray-800 text-sm">{scheme.title}</h3>
+                <div className="overflow-hidden">
+                  <div className="flex flex-wrap gap-1 mb-0.5">
+                    {scheme.category && (
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
+                        {scheme.category}
+                      </span>
+                    )}
+                    {scheme.type && (
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 bg-orange-50 text-orange-600 rounded-full border border-orange-100">
+                        {scheme.type}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-bold text-gray-800 text-xs leading-tight mb-0.5">{scheme.title}</h3>
                   <p className="text-[10px] text-gray-500 line-clamp-1">{scheme.description}</p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-gray-300" />
+              <ChevronRight className="w-4 h-4 text-gray-300 shrink-0 ml-2" />
             </motion.div>
           ))}
         </div>
@@ -83,8 +98,24 @@ const Schemes: React.FC = () => {
           >
             <div className="p-6 space-y-4">
               <div className="flex justify-between items-start">
-                <h3 className="text-lg font-bold text-[#2D5A27]">{selectedScheme.title}</h3>
-                <button onClick={() => setSelectedScheme(null)} className="text-gray-400 font-bold text-xl">&times;</button>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold text-[#2D5A27] leading-tight">{selectedScheme.title}</h3>
+                  <div className="flex gap-2">
+                    {selectedScheme.category && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100 uppercase tracking-wide">
+                        {selectedScheme.category}
+                      </span>
+                    )}
+                    {selectedScheme.type && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full border border-orange-100 uppercase tracking-wide">
+                        {selectedScheme.type}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button onClick={() => setSelectedScheme(null)} className="p-1 -mr-2 text-gray-400 hover:text-gray-600 transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
               </div>
               
               <div className="space-y-4">
