@@ -59,9 +59,14 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
+        !get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isBlocked', false) &&
         (request.auth.token.email == "yashfalsawdiya36@gmail.com" ||
          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin') || 
          (exists(/databases/$(database)/documents/settings/content) && request.auth.token.get('email', '') in get(/databases/$(database)/documents/settings/content).data.get('adminEmails', [])));
+    }
+
+    function isNotBlocked() {
+      return !isAuthenticated() || !get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isBlocked', false);
     }
 
     function isValidEmail(email) {
@@ -101,10 +106,19 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return data.uid is string && data.uid == request.auth.uid &&
+      return data.uid is string && (data.uid == request.auth.uid || isAdmin()) &&
              data.email is string && isValidEmail(data.email) &&
              data.role in ['admin', 'user'] &&
-             (!('geminiApiKey' in data) || (data.geminiApiKey is string && data.geminiApiKey.size() < 200));
+             (!('geminiApiKey' in data) || (data.geminiApiKey is string && data.geminiApiKey.size() < 200)) &&
+             (!('displayName' in data) || data.displayName is string) &&
+             (!('photoURL' in data) || data.photoURL is string) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 15)) &&
+             (!('isFarmer' in data) || data.isFarmer is bool) &&
+             (!('village' in data) || data.village is string) &&
+             (!('isVerified' in data) || data.isVerified is bool) &&
+             (!('isBlocked' in data) || data.isBlocked is bool) &&
+             (!('createdAt' in data) || data.createdAt is string) &&
+             (!('lastActive' in data) || data.lastActive is string);
     }
 
     function isValidAppContent(data) {
@@ -118,6 +132,15 @@ service cloud.firestore {
              (!('apiKeyGuideVideoUrl' in data) || data.apiKeyGuideVideoUrl is string) &&
              (!('offers' in data) || data.offers is map) &&
              (!('festivalOffer' in data) || data.festivalOffer is map);
+    }
+
+    function isValidNotification(data) {
+      return data.title is string && data.title.size() > 0 &&
+             data.message is string && data.message.size() > 0 &&
+             data.type in ['verification_request', 'approval', 'system'] &&
+             (!('createdAt' in data) || data.createdAt is string || data.createdAt is timestamp) &&
+             (!('targetUid' in data) || data.targetUid is string) &&
+             (!('read' in data) || data.read is bool);
     }
     
     // ===============================================================
@@ -136,7 +159,7 @@ service cloud.firestore {
 
     // Products Collection
     match /products/{productId} {
-      allow read: if true; // Publicly readable for the marketplace
+      allow read: if isNotBlocked(); 
       allow create: if isAdmin() && isValidProduct(request.resource.data);
       allow update: if isAdmin() && isValidProduct(request.resource.data);
       allow delete: if isAdmin();
@@ -144,7 +167,7 @@ service cloud.firestore {
 
     // Crop Advice Collection
     match /cropAdvice/{adviceId} {
-      allow read: if true;
+      allow read: if isNotBlocked();
       allow create: if isAdmin();
       allow update: if isAdmin();
       allow delete: if isAdmin();
@@ -152,25 +175,27 @@ service cloud.firestore {
 
     // Users Collection
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow get: if isOwner(userId) || isAdmin();
       // Users can create their own profile as 'user' unless they are the bootstrap admin
       allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && 
                     (request.resource.data.role == 'user' || isAdmin());
-      // Users can update their own profile but cannot change their role unless they are an admin
-      allow update: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && 
-                    (request.resource.data.role == resource.data.role || isAdmin());
+      // Users can update their own profile but cannot change their role or block status unless they are an admin
+      allow update: if isAuthenticated() && (isAdmin() || (isOwner(userId) && isValidUser(request.resource.data) && 
+                    (request.resource.data.role == resource.data.role) && 
+                    (request.resource.data.get('isBlocked', false) == resource.data.get('isBlocked', false))));
       allow delete: if isAdmin();
     }
 
     // Settings Collection
     match /settings/{settingId} {
-      allow read: if true;
+      allow read: if isNotBlocked();
       allow write: if isAdmin() && (settingId != 'content' || isValidAppContent(request.resource.data));
     }
 
     // Categories Collection
     match /categories/{categoryId} {
-      allow read: if true;
+      allow read: if isNotBlocked();
       allow create: if isAdmin() && isValidCategory(request.resource.data);
       allow update: if isAdmin() && isValidCategory(request.resource.data);
       allow delete: if isAdmin();
@@ -178,9 +203,18 @@ service cloud.firestore {
 
     // Agri Issues (Encyclopedia) Collection
     match /agriIssues/{issueId} {
-      allow read: if true;
+      allow read: if isNotBlocked();
       allow create: if isAdmin() && isValidAgriIssue(request.resource.data);
       allow update: if isAdmin() && isValidAgriIssue(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // Notifications Collection
+    match /notifications/{notificationId} {
+      allow list: if isAdmin() || (isAuthenticated() && resource.data.targetUid == request.auth.uid);
+      allow get: if isAdmin() || (isAuthenticated() && resource.data.targetUid == request.auth.uid);
+      allow create: if isAuthenticated() && isValidNotification(request.resource.data);
+      allow update: if isAuthenticated() && (isAdmin() || resource.data.targetUid == request.auth.uid);
       allow delete: if isAdmin();
     }
   }

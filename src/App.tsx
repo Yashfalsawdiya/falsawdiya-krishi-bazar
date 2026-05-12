@@ -19,10 +19,25 @@ import EncyclopediaDetail from './pages/EncyclopediaDetail';
 import AiAgriExpert from './pages/AiAgriExpert';
 import PWAUpdater from './components/PWAUpdater';
 import InstallPwaModal from './components/InstallPwaModal';
+import BlockedScreen from './components/BlockedScreen';
+import Onboarding from './components/Onboarding';
+import { useAppContext } from './context/AppContext';
 
-export default function App() {
+function AppRoutes() {
+  const { isBlocked, needsOnboarding, loading, user } = useAppContext();
+
+  if (loading) return null;
+
+  if (isBlocked) {
+    return <BlockedScreen />;
+  }
+
+  if (user && needsOnboarding) {
+    return <Onboarding />;
+  }
+
   return (
-    <AppProvider>
+    <>
       <PWAUpdater />
       <InstallPwaModal />
       <BrowserRouter>
@@ -47,6 +62,14 @@ export default function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <AppProvider>
+      <AppRoutes />
     </AppProvider>
   );
 }

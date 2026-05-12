@@ -6,7 +6,7 @@ import {
   Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
   Youtube as YoutubeIcon, Layout, Phone, Key, Tag, Sparkles,
-  ListFilter, Bug, Search
+  ListFilter, Bug, Search, Users, ShieldAlert, ShieldCheck, Clock, MapPin, CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage } from '../lib/utils';
@@ -73,10 +73,11 @@ const Admin: React.FC = () => {
     categories, addCategory, updateCategory, deleteCategory,
     agriIssues, addAgriIssue, updateAgriIssue, deleteAgriIssue,
     appContent, updateAppContent,
-    user, isAdmin, login, logout, loading 
+    user, isAdmin, login, logout, loading,
+    users, onlineUsersCount, blockUser, updateUserProfile, sendNotification
   } = useAppContext();
   
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'content'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'content' | 'users'>('products');
   const [isAdding, setIsAdding] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -89,7 +90,29 @@ const Admin: React.FC = () => {
   const [editingAgriIssue, setEditingAgriIssue] = useState<AgriIssue | null>(null);
   const [agriIssueToDelete, setAgriIssueToDelete] = useState<AgriIssue | null>(null);
 
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [userFilter, setUserFilter] = useState<'all' | 'online' | 'blocked' | 'farmers' | 'pending'>('all');
+
   const [isSaving, setIsSaving] = useState(false);
+
+  // Handle Query Params for Deep Linking (from notifications)
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    const filterParam = params.get('filter');
+    
+    if (tabParam && ['products', 'categories', 'encyclopedia', 'content', 'users'].includes(tabParam)) {
+      setActiveTab(tabParam as any);
+    }
+    if (filterParam && ['all', 'online', 'pending', 'farmers', 'blocked'].includes(filterParam)) {
+      setUserFilter(filterParam as any);
+    }
+    
+    // Clear params after reading to avoid sticky state
+    if (tabParam || filterParam) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   const [productForm, setProductForm] = useState<Partial<Product>>({
     name: '',
@@ -134,9 +157,9 @@ const Admin: React.FC = () => {
     } else {
       setContentForm({
         banners: [
-          { id: '1', image: 'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?auto=format&fit=crop&q=80&w=800', title: 'खाद और बीज पर भारी छूट!', subtitle: 'सीमित समय के लिए ऑफर' },
-          { id: '2', image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800', title: 'नई किस्म के सोयाबीन बीज', subtitle: 'अधिक पैदावार की गारंटी' },
-          { id: '3', image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=800', title: 'फसल सुरक्षा समाधान', subtitle: 'बेहतरीन कीटनाशक उपलब्ध' }
+          { id: '1', image: 'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?auto=format&fit=crop&q=80&w=800', title: 'खाद और बीज पर भारी छूट!', subtitle: 'सीमित समय के लिए ऑफर', showText: true },
+          { id: '2', image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800', title: 'नई किस्म के सोयाबीन बीज', subtitle: 'अधिक पैदावार की गारंटी', showText: true },
+          { id: '3', image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=800', title: 'फसल सुरक्षा समाधान', subtitle: 'बेहतरीन कीटनाशक उपलब्ध', showText: true }
         ],
         videos: [
           { id: 'v1', title: 'आधुनिक खेती की जानकारी', videoUrl: 'https://www.youtube.com/watch?v=9-3-P4mXG3A', thumbnail: 'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&q=80&w=800' },
@@ -533,6 +556,15 @@ const Admin: React.FC = () => {
         >
           <Layout className="w-4 h-4" /> कंटेंट (Content)
         </button>
+        <button 
+          onClick={() => setActiveTab('users')}
+          className={cn(
+            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'users' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <Users className="w-4 h-4" /> यूज़र्स (Users)
+        </button>
       </div>
 
       {activeTab === 'products' ? (
@@ -730,7 +762,219 @@ const Admin: React.FC = () => {
             )}
           </div>
         </>
-      ) : (
+      ) : activeTab === 'users' ? (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Users</p>
+              <h4 className="text-2xl font-bold text-[#4A3728]">{users.length}</h4>
+            </div>
+            <div className="bg-[#2D5A27]/5 p-4 rounded-3xl border border-[#2D5A27]/10 shadow-sm">
+              <p className="text-[10px] font-bold text-[#2D5A27] uppercase tracking-widest mb-1">Online Now</p>
+              <h4 className="text-2xl font-bold text-[#2D5A27] flex items-center gap-2">
+                {onlineUsersCount}
+                <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
+              </h4>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input 
+                type="text"
+                placeholder="ईमेल से खोजें... (Search by Email)"
+                value={userSearchTerm}
+                onChange={(e) => setUserSearchTerm(e.target.value)}
+                className="w-full bg-white border border-gray-200 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-[#2D5A27] shadow-sm transition-all"
+              />
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+              {[
+                { id: 'all', label: 'सभी (All)' },
+                { id: 'online', label: 'ऑनलाइन (Online)' },
+                { id: 'pending', label: 'पेंडिंग (Pending)' },
+                { id: 'farmers', label: 'किसान (Farmers)' },
+                { id: 'blocked', label: 'ब्लॉक (Blocked)' }
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setUserFilter(f.id as any)}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border",
+                    userFilter === f.id ? "bg-[#2D5A27] text-white border-[#2D5A27] shadow-md" : "bg-white text-gray-500 border-gray-200"
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {users
+              .filter(u => {
+                const matchesSearch = u.email?.toLowerCase().includes(userSearchTerm.toLowerCase()) || 
+                                     u.displayName?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+                                     u.phone?.includes(userSearchTerm);
+                
+                const fiveMinsAgo = new Date(Date.now() - 1000 * 60 * 5);
+                const isOnline = u.lastActive && new Date(u.lastActive) > fiveMinsAgo;
+
+                if (userFilter === 'online') return matchesSearch && isOnline;
+                if (userFilter === 'blocked') return matchesSearch && u.isBlocked;
+                if (userFilter === 'farmers') return matchesSearch && u.isFarmer;
+                if (userFilter === 'pending') return matchesSearch && !u.isVerified;
+                return matchesSearch;
+              })
+              .map((u) => {
+                const fiveMinsAgo = new Date(Date.now() - 1000 * 60 * 5);
+                const isOnline = u.lastActive && new Date(u.lastActive) > fiveMinsAgo;
+                const isSelf = u.uid === user?.uid;
+
+                return (
+                  <div key={u.id} className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <img src={u.photoURL || `https://ui-avatars.com/api/?name=${u.displayName || 'User'}&background=random`} alt="" className="w-12 h-12 rounded-2xl object-cover" />
+                          <div className={cn(
+                            "absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm",
+                            isOnline ? "bg-green-500" : "bg-gray-300"
+                          )} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-gray-800 text-sm leading-tight flex items-center gap-2">
+                            {u.displayName || 'Anonymous Farmer'}
+                            {isSelf && <span className="text-[8px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full uppercase tracking-tighter">You</span>}
+                          </h4>
+                          <p className="text-[10px] text-gray-400 font-medium">{u.email}</p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                            <span className={cn(
+                              "text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-tighter",
+                              isOnline ? "bg-green-50 text-green-600 border border-green-100" : "bg-gray-50 text-gray-400 border border-gray-100"
+                            )}>
+                              {isOnline ? '🟢 Online' : '⚪ Offline'}
+                            </span>
+                            {u.isVerified && (
+                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-0.5 uppercase tracking-tighter">
+                                <ShieldCheck className="w-2.5 h-2.5" /> Verified
+                              </span>
+                            )}
+                            {u.isFarmer && (
+                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100 flex items-center gap-0.5 uppercase tracking-tighter">
+                                <Sprout className="w-2.5 h-2.5" /> Farmer
+                              </span>
+                            )}
+                            {u.isBlocked && (
+                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100 uppercase tracking-tighter">
+                                🚫 Blocked
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button
+                          disabled={isSelf}
+                          onClick={async () => {
+                            const newStatus = !u.isVerified;
+                            if (window.confirm(`क्या आप वाकई ${u.isVerified ? 'वेरिफिकेशन हटाना' : 'यूजर को वेरिफाई'} करना चाहते हैं?`)) {
+                              await updateUserProfile(u.uid, { isVerified: newStatus });
+                              
+                              if (newStatus) {
+                                await sendNotification({
+                                  title: '🎉 आपकी ID Admin द्वारा सफलतापूर्वक Verify कर दी गई है।',
+                                  message: 'अब आप App का उपयोग करके अपनी खेती को और बेहतर बना सकते हैं। 🌾',
+                                  type: 'approval',
+                                  targetUid: u.uid
+                                });
+                              }
+                            }
+                          }}
+                          className={cn(
+                            "p-2 rounded-xl transition-all active:scale-95",
+                            u.isVerified ? "bg-blue-50 text-blue-500 hover:bg-blue-100" : "bg-amber-50 text-amber-500 hover:bg-amber-100 animate-pulse",
+                            isSelf && "opacity-30 grayscale cursor-not-allowed"
+                          )}
+                          title={u.isVerified ? "Remove Verification" : "Approve User"}
+                        >
+                          {u.isVerified ? <CheckCircle2 className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+                        </button>
+                        <button
+                          disabled={isSelf}
+                          onClick={() => blockUser(u.uid, !u.isBlocked)}
+                          className={cn(
+                            "p-2 rounded-xl transition-all active:scale-95",
+                            u.isBlocked ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600",
+                            isSelf && "opacity-30 grayscale cursor-not-allowed"
+                          )}
+                          title={u.isBlocked ? "Unblock" : "Block"}
+                        >
+                          {u.isBlocked ? <ShieldCheck className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-2xl">
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3 h-3 text-[#2D5A27]" />
+                        <div>
+                          <p className="text-[8px] text-gray-400 font-bold uppercase">Mobile</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-[10px] text-gray-800 font-bold">{u.phone ? `+91 ${u.phone}` : 'Not Provided'}</p>
+                            {u.phone && (
+                              <a 
+                                href={`https://wa.me/91${u.phone}`} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="bg-green-500 p-0.5 rounded-md hover:scale-110 transition-transform"
+                                title="WhatsApp on this number"
+                              >
+                                <svg className="w-2.5 h-2.5 text-white fill-current" viewBox="0 0 24 24">
+                                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.316 1.592 5.43.001 9.85-4.417 9.853-9.845.002-5.428-4.42-9.85-9.853-9.85-5.431 0-9.853 4.422-9.853 9.853 0 1.954.513 3.46 1.454 5.032l-1.01 3.681 3.773-1.057-.453-.263z" />
+                                </svg>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3 h-3 text-[#2D5A27]" />
+                        <div>
+                          <p className="text-[8px] text-gray-400 font-bold uppercase">Village</p>
+                          <p className="text-[10px] text-gray-800 font-bold truncate">{u.village || 'Not Provided'}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-3 h-3 text-gray-300" />
+                        <div>
+                          <p className="text-[8px] text-gray-400 font-bold uppercase">Joined</p>
+                          <p className="text-[10px] text-gray-600 font-medium">
+                            {u.createdAt ? new Date(u.createdAt).toLocaleDateString('hi-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'NA'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-3 h-3 text-gray-300" />
+                        <div>
+                          <p className="text-[8px] text-gray-400 font-bold uppercase">Last Active</p>
+                          <p className="text-[10px] text-gray-600 font-medium">
+                            {u.lastActive ? new Date(u.lastActive).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' }) : 'NA'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      ) : activeTab === 'content' ? (
         <form onSubmit={handleContentSubmit} className="space-y-8">
           {/* Branding Settings */}
           <div className="space-y-4">
@@ -1126,6 +1370,39 @@ const Admin: React.FC = () => {
                       className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                     />
                   </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">टेक्स्ट दिखाएँ? (Show Title & Subtitle?)</label>
+                    <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newBanners = [...contentForm.banners];
+                          newBanners[idx].showText = true;
+                          setContentForm({...contentForm, banners: newBanners});
+                        }}
+                        className={cn(
+                          "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase transition-all",
+                          banner.showText !== false ? "bg-white text-[#2D5A27] shadow-sm" : "text-gray-400"
+                        )}
+                      >
+                        हाँ (ON)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newBanners = [...contentForm.banners];
+                          newBanners[idx].showText = false;
+                          setContentForm({...contentForm, banners: newBanners});
+                        }}
+                        className={cn(
+                          "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase transition-all",
+                          banner.showText === false ? "bg-white text-red-600 shadow-sm" : "text-gray-400"
+                        )}
+                      >
+                        नहीं (OFF)
+                      </button>
+                    </div>
+                  </div>
                   <ImageUpload 
                     label="बैनर फोटो (Banner Image)"
                     value={banner.image}
@@ -1424,7 +1701,7 @@ const Admin: React.FC = () => {
             सभी बदलाव सुरक्षित करें (Save All Content)
           </button>
         </form>
-      )}
+      ) : null}
 
       {/* Product Modal */}
       <AnimatePresence>
