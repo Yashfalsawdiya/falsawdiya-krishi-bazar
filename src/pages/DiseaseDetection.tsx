@@ -46,15 +46,14 @@ const DiseaseDetection: React.FC = () => {
   const analyzeImage = async () => {
     if (!image) return;
     
-    const globalKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-    if (!userSettings?.geminiApiKey && !globalKey) {
+    if (!userSettings?.geminiApiKey) {
       setIsModalOpen(true);
       return;
     }
 
     setLoading(true);
     try {
-      const analysis = await detectDisease(image, userSettings?.geminiApiKey || globalKey);
+      const analysis = await detectDisease(image, userSettings.geminiApiKey);
       setAnalysisResult(analysis);
     } catch (error) {
       console.error("Analysis failed:", error);

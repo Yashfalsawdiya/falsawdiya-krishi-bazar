@@ -3,17 +3,24 @@ import { fetchSchemes, Scheme } from '../services/schemeService';
 import { motion } from 'motion/react';
 import { Landmark, ChevronRight, Info, Loader2, ExternalLink, RefreshCw, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import ApiKeyModal from '../components/ApiKeyModal';
 
 const Schemes: React.FC = () => {
   const { userSettings } = useAppContext();
   const [schemes, setSchemes] = useState<Scheme[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
 
   const loadSchemes = async (force: boolean = false) => {
+    if (!userSettings?.geminiApiKey) {
+      setIsModalOpen(true);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const data = await fetchSchemes(userSettings?.geminiApiKey, force);
+      const data = await fetchSchemes(userSettings.geminiApiKey, force);
       setSchemes(data);
     } catch (error) {
       console.error(error);
@@ -175,6 +182,8 @@ const Schemes: React.FC = () => {
           </motion.div>
         </div>
       )}
+      
+      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 };

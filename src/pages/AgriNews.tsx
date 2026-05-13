@@ -3,16 +3,23 @@ import { fetchAgriNews, AgriNewsItem } from '../services/newsService';
 import { motion } from 'motion/react';
 import { Newspaper, Calendar, Tag, Loader2, ExternalLink, RefreshCw, Info } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import ApiKeyModal from '../components/ApiKeyModal';
 
 const AgriNews: React.FC = () => {
   const { userSettings } = useAppContext();
   const [news, setNews] = useState<AgriNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadNews = async () => {
+    if (!userSettings?.geminiApiKey) {
+      setIsModalOpen(true);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const data = await fetchAgriNews(userSettings?.geminiApiKey);
+      const data = await fetchAgriNews(userSettings.geminiApiKey);
       setNews(data);
     } catch (error) {
       console.error(error);
@@ -101,6 +108,8 @@ const AgriNews: React.FC = () => {
           ))}
         </div>
       )}
+      
+      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 };

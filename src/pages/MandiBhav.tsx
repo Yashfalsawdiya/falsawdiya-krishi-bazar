@@ -3,11 +3,13 @@ import { fetchMandiBhav, MandiData, MandiItem } from '../services/mandiService';
 import { motion, AnimatePresence } from 'motion/react';
 import { TrendingUp, Calendar, MapPin, Loader2, Info, AlertCircle, ChevronDown, ChevronUp, LineChart as ChartIcon } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import ApiKeyModal from '../components/ApiKeyModal';
 
 const MandiBhav: React.FC = () => {
   const { userSettings } = useAppContext();
   const [data, setData] = useState<MandiData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMandi, setSelectedMandi] = useState('शामगढ़ (Shamgarh)');
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -19,9 +21,14 @@ const MandiBhav: React.FC = () => {
   ];
 
   const loadData = async (mandi: string) => {
+    if (!userSettings?.geminiApiKey) {
+      setIsModalOpen(true);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const result = await fetchMandiBhav(mandi, userSettings?.geminiApiKey);
+      const result = await fetchMandiBhav(mandi, userSettings.geminiApiKey);
       setData(result);
     } catch (error) {
       console.error(error);
@@ -158,6 +165,8 @@ const MandiBhav: React.FC = () => {
           <p className="text-sm font-bold text-gray-400">डेटा उपलब्ध नहीं है। कृपया नेटवर्क चेक करें।</p>
         </div>
       )}
+      
+      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 };
