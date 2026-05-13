@@ -2,22 +2,28 @@ import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { CategoryData, Product, AgriIssue } from '../types';
 // import { CATEGORIES } from '../data/mockData'; // No longer needed
-import { 
-  Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
+import { Link as LinkIcon, Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
   Youtube as YoutubeIcon, Layout, Phone, Key, Tag, Sparkles,
-  ListFilter, Bug, Search, Users, ShieldAlert, ShieldCheck, Clock
+  ListFilter, Bug, Search, Users, ShieldAlert, ShieldCheck, Clock,
+  AlertCircle, CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage } from '../lib/utils';
 import { AppContent } from '../context/AppContext';
+import SafeImage from '../components/SafeImage';
 
-const ImageUpload: React.FC<{ 
-  value: string; 
-  onChange: (base64: string) => void;
+const ImagePicker: React.FC<{ 
+  primaryValue: string; 
+  fallbackValue: string;
+  onPrimaryChange: (val: string) => void;
+  onFallbackChange: (val: string) => void;
   label: string;
-}> = ({ value, onChange, label }) => {
+  showFallback?: boolean;
+}> = ({ primaryValue, fallbackValue, onPrimaryChange, onFallbackChange, label, showFallback = true }) => {
   const [loading, setLoading] = useState(false);
+  const [urlInput, setUrlInput] = useState(fallbackValue || '');
+  const [urlStatus, setUrlStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -26,7 +32,7 @@ const ImageUpload: React.FC<{
       try {
         const base64 = await fileToBase64(file);
         const compressed = await compressImage(base64);
-        onChange(compressed);
+        onPrimaryChange(compressed);
       } catch (error) {
         console.error("Error uploading image:", error);
       } finally {
@@ -35,37 +41,141 @@ const ImageUpload: React.FC<{
     }
   };
 
+  const validateUrl = (url: string) => {
+    if (!url) return setUrlStatus('idle');
+    const pattern = /\.(jpeg|jpg|gif|png|webp|svg|avif)$|images\.unsplash\.com|drive\.google\.com|cloudinary\.com|imgbb\.com/i;
+    if (pattern.test(url) || url.startsWith('http')) {
+      setUrlStatus('valid');
+      onFallbackChange(url);
+    } else {
+      setUrlStatus('invalid');
+    }
+  };
+
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-4 p-4 bg-gray-50 rounded-[24px] border border-gray-100">
       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">{label}</label>
-      <div className="flex items-center gap-4">
-        <div className={cn(
-          "relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center transition-colors",
-          value ? "bg-white" : "bg-gray-100"
-        )}>
-          {value ? (
-            <img src={value} alt="Preview" className="w-full h-full object-contain p-1" />
-          ) : (
-            <ImageIcon className="w-6 h-6 text-gray-300" />
-          )}
-          {loading && (
-            <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-              <Loader2 className="w-5 h-5 text-white animate-spin" />
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Gallery Upload (Primary) */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-1.5 h-1.5 bg-[#2D5A27] rounded-full" />
+            <span className="text-[11px] font-bold text-gray-600">Option 1: गैलरी से अपलोड करें (Primary)</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "relative w-16 h-16 rounded-xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center transition-colors shadow-inner",
+              primaryValue ? "bg-white" : "bg-gray-100"
+            )}>
+              {primaryValue ? (
+                <img src={primaryValue} alt="Primary" className="w-full h-full object-contain p-1" />
+              ) : (
+                <ImageIcon className="w-5 h-5 text-gray-300" />
+              )}
+              {loading && (
+                <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                  <Loader2 className="w-4 h-4 text-white animate-spin" />
+                </div>
+              )}
             </div>
+            <div className="flex-1">
+              <label className="inline-flex items-center px-3 py-2 bg-white border border-gray-200 text-[#2D5A27] rounded-lg text-[10px] font-bold cursor-pointer hover:bg-[#2D5A27] hover:text-white transition-all active:scale-95 shadow-sm">
+                <ImageIcon className="w-3.5 h-3.5 mr-2" />
+                फोटो चुनें
+                <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+              </label>
+              {primaryValue && (
+                <button 
+                  type="button"
+                  onClick={() => onPrimaryChange('')}
+                  className="ml-2 text-red-500 hover:text-red-700 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* URL Input (Fallback) */}
+        {showFallback && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-1.5 h-1.5 bg-orange-400 rounded-full" />
+              <span className="text-[11px] font-bold text-gray-600">Option 2: इमेज URL पेस्ट करें (Fallback)</span>
+            </div>
+            <div className="space-y-2">
+              <div className="relative">
+                <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <input 
+                  type="text"
+                  placeholder="https://example.com/image.jpg"
+                  value={urlInput}
+                  onChange={(e) => {
+                    setUrlInput(e.target.value);
+                    validateUrl(e.target.value);
+                  }}
+                  className={cn(
+                    "w-full bg-white border rounded-xl py-2 pl-9 pr-10 text-[10px] outline-none transition-all shadow-sm",
+                    urlStatus === 'valid' ? "border-green-200 focus:border-green-500" : 
+                    urlStatus === 'invalid' ? "border-red-200 focus:border-red-500" : "border-gray-200 focus:border-[#2D5A27]"
+                  )}
+                />
+                {urlStatus === 'valid' && <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-500" />}
+                {urlStatus === 'invalid' && <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-red-500" />}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 bg-white rounded-lg border border-gray-100 overflow-hidden flex items-center justify-center p-0.5">
+                  {fallbackValue ? (
+                    <img src={fallbackValue} alt="Preview" className="w-full h-full object-contain" onError={() => setUrlStatus('invalid')} />
+                  ) : (
+                    <ImageIcon className="w-4 h-4 text-gray-200" />
+                  )}
+                </div>
+                <p className="text-[8px] text-gray-400 flex-1">Direct लिंक ही इस्तेमाल करें (ImgBB, Cloudinary, etc.)</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Actual Preview with Fallback Logic */}
+      <div className="mt-4 pt-4 border-t border-gray-100">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] font-bold text-gray-500">Live Preview:</span>
+          {primaryValue && fallbackValue && (
+            <span className="text-[8px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+              Fallback Enabled
+            </span>
           )}
         </div>
-        <div className="flex-1">
-          <label className="inline-flex items-center px-4 py-2 bg-white border-2 border-[#2D5A27] text-[#2D5A27] rounded-xl text-xs font-bold cursor-pointer hover:bg-[#2D5A27] hover:text-white transition-all active:scale-95">
-            <ImageIcon className="w-4 h-4 mr-2" />
-            गैलरी से चुनें (Pick from Gallery)
-            <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-          </label>
-          <p className="text-[9px] text-gray-400 mt-1 ml-1">अधिकतम 1MB साइज की फोटो चुनें</p>
+        <div className="h-32 w-full bg-white rounded-xl border border-gray-100 flex items-center justify-center overflow-hidden">
+          <SafeImage 
+            primarySrc={primaryValue}
+            fallbackSrc={fallbackValue}
+            className="h-full w-full object-contain p-2"
+          />
         </div>
       </div>
     </div>
   );
 };
+
+const ImageUpload: React.FC<{ 
+  label: string; 
+  value: string; 
+  onChange: (val: string) => void;
+}> = ({ label, value, onChange }) => (
+  <ImagePicker 
+    label={label}
+    primaryValue={value}
+    fallbackValue=""
+    onPrimaryChange={onChange}
+    onFallbackChange={() => {}}
+    showFallback={false}
+  />
+);
 
 const Admin: React.FC = () => {
   const { 
@@ -927,20 +1037,43 @@ const Admin: React.FC = () => {
                   className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                 />
               </div>
-              <ImageUpload 
+              <ImagePicker 
                 label="ऐप लोगो (App Logo)"
-                value={contentForm?.branding?.logo || ''}
-                onChange={base64 => {
+                primaryValue={contentForm?.branding?.logo || ''}
+                fallbackValue={contentForm?.branding?.logoFallback || ''}
+                onPrimaryChange={base64 => {
                   if (!contentForm) return;
-                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: '', pwaIcon: ''}), logo: base64}});
+                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), logo: base64}});
+                }}
+                onFallbackChange={url => {
+                  if (!contentForm) return;
+                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), logoFallback: url}});
                 }}
               />
-              <ImageUpload 
-                label="ऐप आइकन (PWA/Home Screen Icon)"
-                value={contentForm?.branding?.pwaIcon || ''}
-                onChange={base64 => {
+              <ImagePicker 
+                label="ऐप आइकन (PWA/Android Install Icon)"
+                primaryValue={contentForm?.branding?.pwaIcon || ''}
+                fallbackValue={contentForm?.branding?.pwaIconFallback || ''}
+                onPrimaryChange={base64 => {
                   if (!contentForm) return;
-                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: '', pwaIcon: ''}), pwaIcon: base64}});
+                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), pwaIcon: base64}});
+                }}
+                onFallbackChange={url => {
+                  if (!contentForm) return;
+                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), pwaIconFallback: url}});
+                }}
+              />
+              <ImagePicker 
+                label="स्प्लैश स्क्रीन लोगो (Splash Screen Logo)"
+                primaryValue={contentForm?.branding?.splashLogo || ''}
+                fallbackValue={contentForm?.branding?.splashLogoFallback || ''}
+                onPrimaryChange={base64 => {
+                  if (!contentForm) return;
+                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), splashLogo: base64}});
+                }}
+                onFallbackChange={url => {
+                  if (!contentForm) return;
+                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), splashLogoFallback: url}});
                 }}
               />
               <div className="space-y-1.5">
@@ -1098,13 +1231,20 @@ const Admin: React.FC = () => {
                             placeholder="जैसे: सोयाबीन कॉम्बो किट"
                           />
                         </div>
-                        <ImageUpload 
+                        <ImagePicker 
                           label="ऑफर बैनर (Offer Image)"
-                          value={item.image}
-                          onChange={base64 => {
+                          primaryValue={item.image}
+                          fallbackValue={item.fallbackImage || ''}
+                          onPrimaryChange={base64 => {
                             if (!contentForm?.offers) return;
                             const newItems = [...contentForm.offers.items];
                             newItems[idx].image = base64;
+                            setContentForm({...contentForm, offers: {...contentForm.offers, items: newItems}});
+                          }}
+                          onFallbackChange={url => {
+                            if (!contentForm?.offers) return;
+                            const newItems = [...contentForm.offers.items];
+                            newItems[idx].fallbackImage = url;
                             setContentForm({...contentForm, offers: {...contentForm.offers, items: newItems}});
                           }}
                         />
@@ -1205,12 +1345,17 @@ const Admin: React.FC = () => {
                     </div>
                   </div>
 
-                  <ImageUpload 
+                  <ImagePicker 
                     label="फेस्टिवल बैनर (Festival Banner)"
-                    value={contentForm?.festivalOffer?.image || ''}
-                    onChange={base64 => {
+                    primaryValue={contentForm?.festivalOffer?.image || ''}
+                    fallbackValue={contentForm?.festivalOffer?.fallbackImage || ''}
+                    onPrimaryChange={base64 => {
                       if (!contentForm) return;
                       setContentForm({...contentForm, festivalOffer: {...(contentForm.festivalOffer || {show: true, title: '', subtitle: '', image: '', theme: 'general'}), image: base64}});
+                    }}
+                    onFallbackChange={url => {
+                      if (!contentForm) return;
+                      setContentForm({...contentForm, festivalOffer: {...(contentForm.festivalOffer || {show: true, title: '', subtitle: '', image: '', theme: 'general'}), fallbackImage: url}});
                     }}
                   />
                 </div>
@@ -1323,12 +1468,18 @@ const Admin: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  <ImageUpload 
+                  <ImagePicker 
                     label="बैनर फोटो (Banner Image)"
-                    value={banner.image}
-                    onChange={base64 => {
+                    primaryValue={banner.image}
+                    fallbackValue={banner.fallbackImage || ''}
+                    onPrimaryChange={base64 => {
                       const newBanners = [...contentForm.banners];
                       newBanners[idx].image = base64;
+                      setContentForm({...contentForm, banners: newBanners});
+                    }}
+                    onFallbackChange={url => {
+                      const newBanners = [...contentForm.banners];
+                      newBanners[idx].fallbackImage = url;
                       setContentForm({...contentForm, banners: newBanners});
                     }}
                   />
@@ -1376,12 +1527,18 @@ const Admin: React.FC = () => {
                       placeholder="जैसे: https://www.youtube.com/watch?v=..."
                     />
                   </div>
-                  <ImageUpload 
+                  <ImagePicker 
                     label="वीडियो थंबनेल (Thumbnail)"
-                    value={video.thumbnail}
-                    onChange={base64 => {
+                    primaryValue={video.thumbnail}
+                    fallbackValue={video.fallbackThumbnail || ''}
+                    onPrimaryChange={base64 => {
                       const newVideos = [...contentForm.videos];
                       newVideos[idx].thumbnail = base64;
+                      setContentForm({...contentForm, videos: newVideos});
+                    }}
+                    onFallbackChange={url => {
+                      const newVideos = [...contentForm.videos];
+                      newVideos[idx].fallbackThumbnail = url;
                       setContentForm({...contentForm, videos: newVideos});
                     }}
                   />
@@ -1440,13 +1597,20 @@ const Admin: React.FC = () => {
                         placeholder="जैसे: Bayer"
                       />
                     </div>
-                    <ImageUpload 
+                    <ImagePicker 
                       label="कंपनी लोगो (Company Logo)"
-                      value={partner.logo}
-                      onChange={base64 => {
+                      primaryValue={partner.logo}
+                      fallbackValue={partner.fallbackLogo || ''}
+                      onPrimaryChange={base64 => {
                         if (!contentForm) return;
                         const newPartners = [...contentForm.partners];
                         newPartners[idx].logo = base64;
+                        setContentForm({...contentForm, partners: newPartners});
+                      }}
+                      onFallbackChange={url => {
+                        if (!contentForm) return;
+                        const newPartners = [...contentForm.partners];
+                        newPartners[idx].fallbackLogo = url;
                         setContentForm({...contentForm, partners: newPartners});
                       }}
                     />
@@ -1951,16 +2115,15 @@ const Admin: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">आइकन (Emoji/Icon)</label>
-                  <input 
-                    required
-                    type="text" 
-                    value={categoryForm.icon}
-                    onChange={e => setCategoryForm({...categoryForm, icon: e.target.value})}
-                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
-                    placeholder="जैसे: 🥕"
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">श्रेणी आइकन (Category Icon)</label>
+                  <p className="text-[10px] text-gray-400 mb-2">Emoji डालें (जैसे 🌱) या फोटो अपलोड/लिंक करें।</p>
+                  <ImagePicker 
+                    label="Icon Picker"
+                    primaryValue={categoryForm.icon}
+                    fallbackValue={categoryForm.fallbackIcon || ''}
+                    onPrimaryChange={val => setCategoryForm({...categoryForm, icon: val})}
+                    onFallbackChange={val => setCategoryForm({...categoryForm, fallbackIcon: val})}
                   />
-                  <p className="text-[9px] text-gray-400 ml-1">आप इमोजी या किसी इमेज का यूआरएल डाल सकते हैं।</p>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">क्रम (Order)</label>

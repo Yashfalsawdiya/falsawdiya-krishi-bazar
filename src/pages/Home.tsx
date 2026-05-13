@@ -64,6 +64,7 @@ import OrderModal from '../components/OrderModal';
 import ImageZoomModal from '../components/ImageZoomModal';
 import ProductDetailModal from '../components/ProductDetailModal';
 import { Product } from '../types';
+import SafeImage from '../components/SafeImage';
 
 const Home: React.FC = () => {
   const { products, categories, appContent, user, userSettings, fetchProducts, fetchCategories } = useAppContext();
@@ -185,9 +186,18 @@ const Home: React.FC = () => {
         
         <div className="relative z-10 space-y-4">
           <div className="flex items-center gap-4">
-            <div className="bg-white/20 w-14 h-14 rounded-2xl backdrop-blur-md flex items-center justify-center text-3xl shadow-inner">
-              {style.icon}
-            </div>
+              <div className="bg-white/20 w-14 h-14 rounded-2xl backdrop-blur-md flex items-center justify-center text-3xl shadow-inner overflow-hidden">
+                {festivalOffer.image ? (
+                   <SafeImage 
+                     primarySrc={festivalOffer.image} 
+                     fallbackSrc={festivalOffer.fallbackImage} 
+                     alt={festivalOffer.title} 
+                     className="w-full h-full object-cover" 
+                   />
+                ) : (
+                  style.icon
+                )}
+              </div>
             <div>
               <h2 className="text-xl font-black tracking-tight leading-tight">{festivalOffer.title}</h2>
               <p className={`text-xs font-bold ${style.text} mt-0.5`}>{festivalOffer.subtitle}</p>
@@ -199,11 +209,11 @@ const Home: React.FC = () => {
               onClick={() => setZoomImage({ src: festivalOffer.image, alt: festivalOffer.title })}
               className="rounded-2xl overflow-hidden aspect-[2/1] shadow-xl border border-white/10 relative group cursor-zoom-in"
             >
-              <img 
-                src={festivalOffer.image} 
+              <SafeImage 
+                primarySrc={festivalOffer.image} 
+                fallbackSrc={festivalOffer.fallbackImage}
                 alt={festivalOffer.title} 
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                referrerPolicy="no-referrer" 
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
             </div>
@@ -329,11 +339,11 @@ const Home: React.FC = () => {
               onClick={() => setZoomImage({ src: banner.image, alt: banner.title })}
               className="relative flex-[0_0_100%] min-w-0 aspect-[5/4] cursor-zoom-in group"
             >
-              <img 
-                src={banner.image} 
+              <SafeImage 
+                primarySrc={banner.image} 
+                fallbackSrc={banner.fallbackImage}
                 alt={banner.title} 
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                referrerPolicy="no-referrer"
               />
               {(banner.showText !== false) && (
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-6 text-white">
@@ -366,11 +376,11 @@ const Home: React.FC = () => {
                 className="flex-[0_0_80%] min-w-0 snap-start bg-white rounded-3xl overflow-hidden shadow-md border border-gray-100 flex flex-col cursor-zoom-in"
               >
                 <div className="aspect-[16/9] relative">
-                  <img 
-                    src={offer.image} 
+                  <SafeImage 
+                    primarySrc={offer.image} 
+                    fallbackSrc={offer.fallbackImage}
                     alt={offer.title} 
                     className="absolute inset-0 w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                 </div>
@@ -522,9 +532,14 @@ const Home: React.FC = () => {
               onClick={() => navigate(`/products?category=${cat.id}`)}
               className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center text-center gap-2 cursor-pointer active:scale-95 transition-transform"
             >
-              <div className="text-3xl w-10 h-10 flex items-center justify-center">
-                {cat.icon.startsWith('http') ? (
-                  <img src={cat.icon} alt={cat.name} className="w-full h-full object-contain" />
+              <div className="text-3xl w-10 h-10 flex items-center justify-center overflow-hidden">
+                {cat.icon.startsWith('http') || cat.icon.length > 50 ? (
+                  <SafeImage 
+                    primarySrc={cat.icon} 
+                    fallbackSrc={cat.fallbackIcon}
+                    alt={cat.name} 
+                    className="w-full h-full object-contain" 
+                  />
                 ) : (
                   cat.icon
                 )}
@@ -652,12 +667,12 @@ const Home: React.FC = () => {
           >
             {[...partners, ...partners].map((partner, idx) => (
               <div key={`${partner.id}-${idx}`} className="flex flex-col items-center gap-1.5">
-                <div className="h-14 min-w-[80px] px-4 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center">
-                  <img 
-                    src={partner.logo} 
+                <div className="h-14 min-w-[80px] px-4 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center overflow-hidden">
+                  <SafeImage 
+                    primarySrc={partner.logo} 
+                    fallbackSrc={partner.fallbackLogo}
                     alt={partner.name} 
                     className="h-8 w-auto max-w-[120px] object-contain"
-                    referrerPolicy="no-referrer"
                   />
                 </div>
                 <span className="text-[9px] font-bold text-gray-500 text-center">{partner.name}</span>
@@ -694,12 +709,12 @@ const Home: React.FC = () => {
                   rel="noopener noreferrer"
                   className="block bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 active:scale-95 transition-transform"
                 >
-                  <div className="aspect-video relative">
-                    <img 
-                      src={video.thumbnail} 
+                  <div className="aspect-video relative overflow-hidden">
+                    <SafeImage 
+                      primarySrc={video.thumbnail} 
+                      fallbackSrc={video.fallbackThumbnail}
                       alt={video.title} 
                       className="absolute inset-0 w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
                     />
                     <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
                       <div className="bg-red-600 text-white w-14 h-10 rounded-[14px] flex items-center justify-center shadow-xl group-hover:bg-red-700 transition-colors">

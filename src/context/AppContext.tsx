@@ -22,18 +22,22 @@ export interface AppContent {
     name: string;
     tagline: string;
     logo: string;
+    logoFallback?: string;
     pwaIcon?: string;
+    pwaIconFallback?: string;
+    splashLogo?: string;
+    splashLogoFallback?: string;
   };
   loginText?: string;
   adminEmails?: string[];
   isAppActive?: boolean;
-  banners: { id: string; image: string; title: string; subtitle: string; showText?: boolean }[];
-  videos: { id: string; title: string; videoUrl: string; thumbnail: string }[];
+  banners: { id: string; image: string; fallbackImage?: string; title: string; subtitle: string; showText?: boolean }[];
+  videos: { id: string; title: string; videoUrl: string; thumbnail: string; fallbackThumbnail?: string }[];
   youtubeChannel: {
     url: string;
     label: string;
   };
-  partners: { id: string; name: string; logo: string }[];
+  partners: { id: string; name: string; logo: string; fallbackLogo?: string }[];
   whatsappSection: {
     title: string;
     description: string;
@@ -48,13 +52,14 @@ export interface AppContent {
   offers?: {
     show: boolean;
     title: string;
-    items: { id: string; image: string; title: string; link?: string }[];
+    items: { id: string; image: string; fallbackImage?: string; title: string; link?: string }[];
   };
   festivalOffer?: {
     show: boolean;
     title: string;
     subtitle: string;
     image: string;
+    fallbackImage?: string;
     theme: 'diwali' | 'holi' | 'general' | 'monsoon' | 'rakhi' | 'navratri';
     link?: string;
   };
