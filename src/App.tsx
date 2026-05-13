@@ -1,14 +1,12 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AppProvider } from './context/AppContext';
+import { AppProvider, useAppContext } from './context/AppContext';
 import Layout from './components/Layout';
-import LoadingScreen from './components/LoadingScreen';
 import PWAUpdater from './components/PWAUpdater';
 import InstallPwaModal from './components/InstallPwaModal';
 import BlockedScreen from './components/BlockedScreen';
-import { useAppContext } from './context/AppContext';
 
-// Lazy load components
+// Lazy load pages
 const Home = lazy(() => import('./pages/Home'));
 const Products = lazy(() => import('./pages/Products'));
 const MandiBhav = lazy(() => import('./pages/MandiBhav'));
@@ -26,10 +24,18 @@ const Encyclopedia = lazy(() => import('./pages/Encyclopedia'));
 const EncyclopediaDetail = lazy(() => import('./pages/EncyclopediaDetail'));
 const AiAgriExpert = lazy(() => import('./pages/AiAgriExpert'));
 
+// Simple loading fallback
+const PageLoader = () => (
+  <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-600"></div>
+    <p className="text-sm font-bold text-green-700">डेटा लोड हो रहा है, कृपया प्रतीक्षा करें...</p>
+  </div>
+);
+
 function AppRoutes() {
   const { isBlocked, loading } = useAppContext();
 
-  if (loading) return <LoadingScreen />;
+  if (loading) return null;
 
   if (isBlocked) {
     return <BlockedScreen />;
@@ -40,7 +46,7 @@ function AppRoutes() {
       <PWAUpdater />
       <InstallPwaModal />
       <BrowserRouter>
-        <Suspense fallback={<LoadingScreen />}>
+        <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/" element={<Layout />}>
               <Route index element={<Home />} />

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, Loader2, AlertCircle, CheckCircle2, Image as ImageIcon, RefreshCw, Info, ShoppingCart, ArrowRight, X } from 'lucide-react';
 import { detectDisease, DiseaseAnalysis } from '../services/gemini';
 import { motion, AnimatePresence } from 'motion/react';
@@ -7,14 +7,20 @@ import { useAppContext } from '../context/AppContext';
 import ApiKeyModal from '../components/ApiKeyModal';
 
 const DiseaseDetection: React.FC = () => {
-  const { appContent, userSettings, products } = useAppContext();
+  const { appContent, userSettings, products, fetchProducts } = useAppContext();
   const [image, setImage] = useState<string | null>(null);
+
+  // ... (rest of states) ...
   const [loading, setLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<DiseaseAnalysis | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   const whatsappNumber = appContent?.contactInfo.whatsapp || '918982338046';
 
@@ -143,7 +149,7 @@ const DiseaseDetection: React.FC = () => {
           {loading ? (
             <>
               <Loader2 className="w-6 h-6 animate-spin" />
-              <span>जाँच हो रही है...</span>
+              <span>जाँच हो रही है, कृपया प्रतीक्षा करें...</span>
             </>
           ) : (
             <>

@@ -56,7 +56,7 @@ export default defineConfig(({mode}) => {
           ]
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -73,27 +73,27 @@ export default defineConfig(({mode}) => {
               }
             },
             {
+              urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'unsplash-images',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                }
+              }
+            },
+            {
               urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*/i,
               handler: 'StaleWhileRevalidate',
               options: {
-                cacheName: 'firebase-storage-cache',
+                cacheName: 'firebase-storage',
                 expiration: {
                   maxEntries: 100,
                   maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
                 },
                 cacheableResponse: {
                   statuses: [0, 200]
-                }
-              }
-            },
-            {
-              urlPattern: /\.(?:png|jpg|jpeg|svg|gif)$/,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'images-cache',
-                expiration: {
-                  maxEntries: 100,
-                  maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
                 }
               }
             }

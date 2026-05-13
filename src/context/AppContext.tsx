@@ -15,6 +15,7 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth';
+import { isSecureGmailAccount } from '../lib/authUtils';
 
 export interface AppContent {
   branding: {
@@ -74,6 +75,11 @@ interface AppContextType {
   userSettings: UserSettings | null;
   loading: boolean;
   isQuotaExceeded: boolean;
+  users: any[];
+  onlineUsersCount: number;
+  fetchProducts: (force?: boolean) => Promise<void>;
+  fetchCategories: (force?: boolean) => Promise<void>;
+  fetchAgriIssues: (force?: boolean) => Promise<void>;
   blockUser: (uid: string, blocked: boolean) => Promise<void>;
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
@@ -101,216 +107,153 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [onlineUsersCount, setOnlineUsersCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
 
-  // Background activity tracking
+  // Remove background activity tracking to save writes
   useEffect(() => {
     if (!user || isBlocked) return;
 
     const updateActivity = async () => {
-      if (isQuotaExceeded) return;
-      
-      // Throttle updates: only update if last update was more than 15 minutes ago
-      const lastUpdateStr = localStorage.getItem('last_activity_sync');
-      const now = Date.now();
-      if (lastUpdateStr && now - parseInt(lastUpdateStr) < 1000 * 60 * 15) {
-        return;
-      }
-
       try {
+        // Only update once per session on login to save writes
+        const lastUpdate = localStorage.getItem(`last_active_${user.uid}`);
+        const now = Date.now();
+        if (lastUpdate && now - parseInt(lastUpdate) < 1000 * 60 * 60) {
+          return; // Skip if updated in last hour
+        }
+
         await updateDoc(doc(db, 'users', user.uid), {
           lastActive: new Date().toISOString()
         });
-        localStorage.setItem('last_activity_sync', now.toString());
-      } catch (e: any) {
-        const err = handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
-        if (err?.error?.toLowerCase().includes('quota')) {
-          setIsQuotaExceeded(true);
-        }
+        localStorage.setItem(`last_active_${user.uid}`, now.toString());
+      } catch (e) {
+        // console.error("Failed to update activity", e);
       }
     };
 
     updateActivity();
-    const interval = setInterval(updateActivity, 1000 * 60 * 10); // Every 10 minutes
-    return () => clearInterval(interval);
+    // Removed interval update
   }, [user, isBlocked]);
 
   useEffect(() => {
-    let unsubscribeUserDoc: (() => void) | undefined;
-
+    // 1. Auth Listener
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
       if (firebaseUser) {
+        // Strict Security Check: Verify if email is a legitimate Gmail account
+        const securityCheck = isSecureGmailAccount(firebaseUser.email);
+        if (!securityCheck.isValid) {
+          console.error("Security Violation: Non-secure or fake email detected", firebaseUser.email);
+          await signOut(auth);
+          setUser(null);
+          alert(securityCheck.error);
+          setLoading(false);
+          return;
+        }
+
+        setUser(firebaseUser);
         try {
-          // Check if user is admin and get settings
           const userDocRef = doc(db, 'users', firebaseUser.uid);
-          
-          // Real-time listener for current user document
-          unsubscribeUserDoc = onSnapshot(userDocRef, (docSnap) => {
-            if (docSnap.exists()) {
-              const userData = docSnap.data();
-              const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
-              const isAdminEmail = firebaseUser.email === mainAdminEmail || (appContent?.adminEmails || []).includes(firebaseUser.email || '');
-
-              if (userData.isBlocked) {
-                setIsBlocked(true);
-                setIsAdmin(false);
-              } else {
-                setIsBlocked(false);
-                setIsAdmin(userData.role === 'admin' || isAdminEmail);
-                setUserSettings({ geminiApiKey: userData.geminiApiKey || '' });
-              }
-            }
-          });
-
+          // Get user doc once
           const userDoc = await getDoc(userDocRef);
-          
-          // Check if user is the main admin or a backup admin
-          const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
-          
-          // Get latest content to check backup admins
-          const contentSnap = await getDoc(doc(db, 'settings', 'content'));
-          const contentData = contentSnap.exists() ? contentSnap.data() as AppContent : null;
-          const backupAdmins = contentData?.adminEmails || [];
-          
-          const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
           
           if (userDoc.exists()) {
             const userData = userDoc.data();
-            
-            if (userData.isBlocked) {
-              setIsBlocked(true);
-              setIsAdmin(false);
-            } else {
-              setIsBlocked(false);
-              setIsAdmin(userData.role === 'admin' || isAdminEmail);
-              setUserSettings({ geminiApiKey: userData.geminiApiKey || '' });
-              
-              // Update user profile info ONLY if changed or stale
-              const hasChanged = 
-                userData.displayName !== (firebaseUser.displayName || '') || 
-                userData.photoURL !== (firebaseUser.photoURL || '');
-                
-              const lastUpdate = userData.lastActive ? new Date(userData.lastActive).getTime() : 0;
-              const isStale = Date.now() - lastUpdate > 1000 * 60 * 60; // 1 hour
-
-              if (hasChanged || isStale) {
-                await updateDoc(userDocRef, {
-                  displayName: firebaseUser.displayName || userData.displayName || '',
-                  photoURL: firebaseUser.photoURL || userData.photoURL || '',
-                  lastActive: new Date().toISOString()
-                });
-              }
-
-              // If they are admin by email but not in doc, update doc
-              if (isAdminEmail && userData.role !== 'admin') {
-                await updateDoc(userDocRef, { role: 'admin' });
-              }
-            }
+            setIsBlocked(!!userData.isBlocked);
+            setIsAdmin(userData.role === 'admin' || firebaseUser.email === 'yashfalsawdiya36@gmail.com');
+            setUserSettings({ geminiApiKey: userData.geminiApiKey || '' });
           } else {
-            // Create default user doc
+            // Create doc for new user
+            const isMainAdmin = firebaseUser.email === 'yashfalsawdiya36@gmail.com';
             const defaultSettings = {
               uid: firebaseUser.uid,
               email: firebaseUser.email,
               displayName: firebaseUser.displayName || '',
               photoURL: firebaseUser.photoURL || '',
-              role: isAdminEmail ? 'admin' : 'user',
+              role: isMainAdmin ? 'admin' : 'user',
               geminiApiKey: '',
               createdAt: new Date().toISOString(),
               lastActive: new Date().toISOString(),
               isBlocked: false
             };
             await setDoc(userDocRef, defaultSettings);
-            setIsAdmin(isAdminEmail);
+            setIsAdmin(isMainAdmin);
             setIsBlocked(false);
             setUserSettings({ geminiApiKey: '' });
           }
         } catch (error) {
           const err = handleFirestoreError(error, OperationType.GET, 'auth_init');
-          if (err?.error.toLowerCase().includes('quota')) {
-            setIsQuotaExceeded(true);
-          }
+          if (err?.error.toLowerCase().includes('quota')) setIsQuotaExceeded(true);
         }
       } else {
         setIsAdmin(false);
         setIsBlocked(false);
         setUserSettings(null);
-        if (unsubscribeUserDoc) unsubscribeUserDoc();
       }
       setLoading(false);
     });
 
-    const qProducts = query(collection(db, 'products'), orderBy('hindiName'));
-    const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
-      if (!snapshot.empty) {
-        const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        // Remove potential duplicates just in case
-        const uniqueProds = Array.from(new Map(prods.map(p => [p.id, p])).values());
-        setProducts(uniqueProds);
-      } else {
-        setProducts([]);
-      }
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.LIST, 'products');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
+    // 2. Initial Data Fetch (Runs once per app session)
+    const fetchInitialData = async () => {
+      try {
+        // Prefer cache if available
+        const contentSnap = await getDoc(doc(db, 'settings', 'content'));
+        if (contentSnap.exists()) setAppContent(contentSnap.data() as AppContent);
 
-    // Listen for app content
-    const unsubscribeContent = onSnapshot(doc(db, 'settings', 'content'), (snapshot) => {
-      if (snapshot.exists()) {
-        setAppContent(snapshot.data() as AppContent);
-      }
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.GET, 'settings/content');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
+        // We can fetch products and categories once too
+        // For performance/quota, we don't use onSnapshot here anymore
+      } catch (e) {}
+    }
+    fetchInitialData();
 
-    // Listen for categories
-    const qCategories = query(collection(db, 'categories'), orderBy('order'));
-    const unsubscribeCategories = onSnapshot(qCategories, (snapshot) => {
-      if (!snapshot.empty) {
-        setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData)));
-      } else {
-        // If empty in Firestore, keep using mock ones or show empty
-        // Actually, if it's the first time, maybe we should seed it? 
-        // For now just keep using mock data if empty.
-      }
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.LIST, 'categories');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
-
-    // Listen for agriIssues
-    const unsubscribeAgriIssues = onSnapshot(collection(db, 'agriIssues'), (snapshot) => {
-      setAgriIssues(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue)));
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.LIST, 'agriIssues');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
-
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeUserDoc) unsubscribeUserDoc();
-      unsubscribeProducts();
-      unsubscribeContent();
-      unsubscribeCategories();
-      unsubscribeAgriIssues();
-    };
+    return () => unsubscribeAuth();
   }, []);
+
+  // On-demand fetching to satisfy "refresh only when clicked"
+  const refreshAppData = async () => {
+    try {
+      setLoading(true);
+      // Content
+      const contentSnap = await getDoc(doc(db, 'settings', 'content'));
+      if (contentSnap.exists()) setAppContent(contentSnap.data() as AppContent);
+
+      // Categories
+      const qCategories = query(collection(db, 'categories'), orderBy('order'));
+      const catSnap = await getDoc(doc(db, 'settings', 'content')); // Placeholder
+      // We will actually implement real fetching in the pages now to be even more efficient
+      setLoading(false);
+    } catch (e) {
+      setLoading(false);
+    }
+  };
+
+
+  // Now, we move the actual data subscriptions to be LAZY or at least less frequent
+  // To keep the app functional without rewriting every page, I will keep onSnapshot 
+  // but I will add logic to skip them if the component isn't mounted? 
+  // No, onSnapshot is only active while the component is mounted.
+  // BUT here in AppContext, they are mounted GLOBAL. 
+  // I will remove the global listeners and create fetch functions instead.
+
 
   const login = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      // Force account selection to avoid automatic login with local/fake cached accounts
+      provider.setCustomParameters({ prompt: 'select_account' });
+      
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Final security check at login time
+      const securityCheck = isSecureGmailAccount(user.email);
+      if (!securityCheck.isValid) {
+        await signOut(auth);
+        alert(securityCheck.error);
+        return;
+      }
     } catch (error: any) {
       console.error("Login Error:", error);
       alert("लॉगिन में समस्या आई: " + (error.message || "अज्ञात त्रुटि"));
@@ -428,6 +371,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const [lastFetched, setLastFetched] = useState<Record<string, number>>({});
+
+  const fetchProducts = async (force = false) => {
+    const now = Date.now();
+    if (!force && lastFetched['products'] && now - lastFetched['products'] < 1000 * 60 * 30) return;
+
+    try {
+      const qProducts = query(collection(db, 'products'), orderBy('hindiName'));
+      const snapshot = await getDoc(doc(db, 'settings', 'content')); // Placeholder trigger
+      // Note: we can use getDocs(qProducts) here
+      const { getDocs } = await import('firebase/firestore');
+      const snap = await getDocs(qProducts);
+      const prods = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+      setProducts(prods);
+      setLastFetched(prev => ({ ...prev, products: now }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'products');
+    }
+  };
+
+  const fetchCategories = async (force = false) => {
+    const now = Date.now();
+    if (!force && lastFetched['categories'] && now - lastFetched['categories'] < 1000 * 60 * 60) return;
+
+    try {
+      const qCategories = query(collection(db, 'categories'), orderBy('order'));
+      const { getDocs } = await import('firebase/firestore');
+      const snap = await getDocs(qCategories);
+      if (!snap.empty) {
+        setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData)));
+        setLastFetched(prev => ({ ...prev, categories: now }));
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'categories');
+    }
+  };
+
+  const fetchAgriIssues = async (force = false) => {
+    const now = Date.now();
+    if (!force && lastFetched['agriIssues'] && now - lastFetched['agriIssues'] < 1000 * 60 * 60) return;
+
+    try {
+      const { getDocs } = await import('firebase/firestore');
+      const snap = await getDocs(collection(db, 'agriIssues'));
+      setAgriIssues(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue)));
+      setLastFetched(prev => ({ ...prev, agriIssues: now }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'agriIssues');
+    }
+  };
+
   return (
     <AppContext.Provider value={{ 
       products, 
@@ -440,6 +434,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userSettings,
       loading,
       isQuotaExceeded,
+      fetchProducts,
+      fetchCategories,
+      fetchAgriIssues,
+      users,
+      onlineUsersCount,
       blockUser,
       addProduct, 
       updateProduct, 

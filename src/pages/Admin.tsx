@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
 import { CategoryData, Product, AgriIssue } from '../types';
+// import { CATEGORIES } from '../data/mockData'; // No longer needed
 import { 
   Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
@@ -75,32 +74,10 @@ const Admin: React.FC = () => {
     agriIssues, addAgriIssue, updateAgriIssue, deleteAgriIssue,
     appContent, updateAppContent,
     user, isAdmin, login, logout, loading,
-    blockUser
+    users, onlineUsersCount, blockUser
   } = useAppContext();
-
-  const [users, setUsers] = useState<any[]>([]);
-  const [onlineUsersCount, setOnlineUsersCount] = useState(0);
   
   const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'content' | 'users'>('products');
-  
-  // Listen for users (Admin only, when users tab is active)
-  useEffect(() => {
-    if (!isAdmin || activeTab !== 'users') return;
-    
-    const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      const uList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setUsers(uList);
-      
-      // Count online users (active in last 5 minutes)
-      const fiveMinsAgo = new Date(Date.now() - 1000 * 60 * 5);
-      const online = uList.filter((u: any) => u.lastActive && new Date(u.lastActive) > fiveMinsAgo).length;
-      setOnlineUsersCount(online);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'users');
-    });
-    
-    return () => unsubscribeUsers();
-  }, [isAdmin, activeTab]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -289,7 +266,7 @@ const Admin: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin" />
-        <p className="text-sm text-gray-500 font-bold">लोड हो रहा है...</p>
+        <p className="text-sm text-gray-500 font-bold">डेटा लोड हो रहा है, कृपया प्रतीक्षा करें...</p>
       </div>
     );
   }

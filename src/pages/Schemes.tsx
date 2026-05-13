@@ -34,20 +34,34 @@ const Schemes: React.FC = () => {
           सरकारी योजनाएं (Govt Schemes)
         </h2>
         <p className="text-sm text-gray-500">किसानों के लिए लाभकारी योजनाएं</p>
-        <button 
-          onClick={() => loadSchemes(true)}
-          className="mt-2 text-[10px] font-bold text-[#2D5A27] flex items-center gap-1 mx-auto bg-[#2D5A27]/5 px-3 py-1 rounded-full border border-[#2D5A27]/10 active:scale-95 transition-transform"
-        >
-          <RefreshCw className="w-3 h-3" /> ताज़ा करें (Refresh)
-        </button>
       </div>
+
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white border-l-4 border-blue-600 rounded-xl p-4 shadow-sm space-y-2"
+      >
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+          <div className="space-y-1.5">
+            <p className="text-xs font-bold text-gray-800 leading-normal">
+              📢 सरकारी कृषि योजनाएँ प्रतिदिन सुबह 10:00 बजे अपडेट की जाती हैं।
+            </p>
+            <p className="text-[11px] text-gray-600 leading-relaxed">
+              यदि सरकार द्वारा कोई नई कृषि योजना, सब्सिडी या किसान लाभ योजना जारी की जाती है, तो वह स्वतः यहाँ दिखाई देने लगेगी।
+            </p>
+            <p className="text-[10px] text-blue-600 font-medium italic leading-relaxed pt-1 border-t border-gray-100">
+              आपके लिए कृषि से जुड़ी सरकारी योजनाएँ इंटरनेट के विभिन्न स्रोतों से खोजी और एकत्रित की जा रही हैं, ताकि आपको समय पर नई और उपयोगी जानकारी मिल सके। 🌾
+            </p>
+          </div>
+        </div>
+      </motion.div>
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin" />
           <p className="text-sm font-bold text-gray-500 text-center px-6">
-            नवीनतम सरकारी योजनाएं खोजी जा रही हैं... <br/>
-            (Fetching latest schemes)
+            डेटा लोड हो रहा है, कृपया प्रतीक्षा करें...
           </p>
         </div>
       ) : (

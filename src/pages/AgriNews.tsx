@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { fetchAgriNews, AgriNewsItem } from '../services/newsService';
 import { motion } from 'motion/react';
-import { Newspaper, Calendar, Tag, Loader2, ExternalLink, RefreshCw } from 'lucide-react';
+import { Newspaper, Calendar, Tag, Loader2, ExternalLink, RefreshCw, Info } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 const AgriNews: React.FC = () => {
@@ -43,18 +43,33 @@ const AgriNews: React.FC = () => {
           कृषि समाचार (Agri News)
         </h2>
         <p className="text-sm text-gray-500">खेती-किसानी की ताज़ा खबरें</p>
-        <button 
-          onClick={loadNews}
-          className="mt-2 text-[10px] font-bold text-[#2D5A27] flex items-center gap-1 mx-auto bg-[#2D5A27]/5 px-3 py-1 rounded-full border border-[#2D5A27]/10 active:scale-95 transition-transform"
-        >
-          <RefreshCw className="w-3 h-3" /> ताज़ा करें (Refresh)
-        </button>
       </div>
+
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white border-l-4 border-[#2D5A27] rounded-xl p-4 shadow-sm space-y-2"
+      >
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-[#2D5A27] shrink-0 mt-0.5" />
+          <div className="space-y-1.5">
+            <p className="text-xs font-bold text-gray-800 leading-normal">
+              📰 कृषि समाचार प्रतिदिन सुबह 10:00 बजे अपडेट किए जाते हैं।
+            </p>
+            <p className="text-[11px] text-gray-600 leading-relaxed">
+              यदि कोई नया कृषि समाचार उपलब्ध होगा, तो वह स्वतः यहाँ दिखाई देने लगेगा। अन्यथा, पिछला समाचार ही दिखाई देगा।
+            </p>
+            <p className="text-[10px] text-[#2D5A27] font-medium italic leading-relaxed pt-1 border-t border-gray-100">
+              आपके लिए कृषि से जुड़े समाचार इंटरनेट के विभिन्न स्रोतों से एकत्रित किए जा रहे हैं, ताकि आपको नई और उपयोगी जानकारी समय पर मिल सके। 🌾
+            </p>
+          </div>
+        </div>
+      </motion.div>
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin" />
-          <p className="text-sm font-bold text-gray-500">खबरें लोड हो रही हैं...</p>
+          <p className="text-sm font-bold text-gray-500">डेटा लोड हो रहा है, कृपया प्रतीक्षा करें...</p>
         </div>
       ) : (
         <div className="space-y-4">

@@ -66,7 +66,7 @@ import ProductDetailModal from '../components/ProductDetailModal';
 import { Product } from '../types';
 
 const Home: React.FC = () => {
-  const { products, categories, appContent, user, userSettings } = useAppContext();
+  const { products, categories, appContent, user, userSettings, fetchProducts, fetchCategories } = useAppContext();
   const navigate = useNavigate();
   const [emblaRef] = useEmblaCarousel({ loop: true }, [Autoplay({ delay: 4000 })]);
   const [emblaVideoRef] = useEmblaCarousel({ align: 'start', containScroll: 'trimSnaps' });
@@ -235,6 +235,8 @@ const Home: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchProducts();
+    fetchCategories();
     fetchWeather(24.1864, 75.6328).then(setWeather).catch(console.error);
     fetchMandiBhav('Shamgarh').then(setMandi).catch(console.error);
   }, []);

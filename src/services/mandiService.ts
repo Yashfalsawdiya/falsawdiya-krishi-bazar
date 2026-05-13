@@ -33,96 +33,69 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
   const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
   const timeStr = now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
 
-  // Helper for generating fallback dates
-  const getPastDate = (days: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() - days);
-    return d.toLocaleDateString('hi-IN', { day: '2-digit', month: 'short' });
-  };
-
-  const generateHistory = (basePrice: number, days: number = 30) => {
-    const history: MandiHistoryItem[] = [];
-    let currentPrice = basePrice;
-    for (let i = days; i >= 0; i--) {
-      const change = (Math.random() - 0.45) * 50; // Slight upward bias
-      currentPrice = Math.round(currentPrice + change);
-      history.push({
-        date: i === 0 ? "आज" : getPastDate(i),
-        price: currentPrice
-      });
-    }
-    return history;
-  };
-
-  const sanitizeMandiData = (data: MandiData): MandiData => {
-    if (!data.items) return data;
-    
-    data.items = data.items.map(item => {
-      const avg = parseInt(item.avgPrice) || 0;
-      if (!item.history || item.history.length === 0) {
-        return {
-          ...item,
-          history: generateHistory(avg, 30)
-        };
-      }
-      
-      // Ensure prices are numbers
-      item.history = item.history.map(h => ({
-        ...h,
-        price: typeof h.price === 'string' ? parseInt(h.price) : h.price
-      }));
-
-      // If history is too short, pad it
-      if (item.history.length < 30) {
-        const pads = generateHistory(item.history[0].price, 30 - item.history.length);
-        item.history = [...pads, ...item.history];
-      }
-
-      return item;
-    });
-    return data;
-  };
-
-  // 1. Check Cache First
-  const CACHE_KEY = `mandi_bhav_${mandiName}_v2`; // Bumped version to clear old cache
+  // 1. Check Cache with new 2PM / 7PM logic
+  const CACHE_KEY = `mandi_bhav_${mandiName}_v3`; 
   const CACHE_TIME_KEY = `${CACHE_KEY}_timestamp`;
-  const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
   const cachedData = localStorage.getItem(CACHE_KEY);
   const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
 
+  const nowTime = now.getTime();
+  const today2PM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 14, 0, 0).getTime();
+  const today7PM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 19, 0, 0).getTime();
+
+  let shouldRefresh = true;
+
   if (cachedData && cachedTime) {
-    const age = now.getTime() - parseInt(cachedTime);
-    if (age < CACHE_DURATION) {
-      try {
-        return JSON.parse(cachedData);
-      } catch (e) {
-        console.warn("Error parsing cached Mandi Bhav data:", e);
+    const lastFetchTime = parseInt(cachedTime);
+    const lastFetchDate = new Date(lastFetchTime);
+    const isSameDay = lastFetchDate.toDateString() === now.toDateString();
+
+    if (nowTime < today2PM) {
+      // Before 2 PM: Refresh if we don't have today's data (or data from last evening 7PM)
+      // Actually, if we have data from last night, we keep it. 
+      // If we have data from today (but before 2PM), we keep it.
+      if (isSameDay || (nowTime - lastFetchTime < 19 * 60 * 60 * 1000)) {
+        shouldRefresh = false;
+      }
+    } else if (nowTime >= today2PM && nowTime < today7PM) {
+      // Between 2 PM and 7 PM: Refresh only if last fetch was before 2 PM today
+      if (isSameDay && lastFetchTime >= today2PM) {
+        shouldRefresh = false;
+      }
+    } else {
+      // After 7 PM: Refresh only if last fetch was before 7 PM today
+      if (isSameDay && lastFetchTime >= today7PM) {
+        shouldRefresh = false;
       }
     }
   }
 
-  // 2. Fallback Data
+  if (!shouldRefresh && cachedData) {
+    try {
+      return JSON.parse(cachedData);
+    } catch (e) {
+      console.warn("Error parsing cached Mandi Bhav data:", e);
+    }
+  }
+
+  // 2. Fallback Data (Simple)
   const fallbackData: MandiData = {
     mandiName: mandiName,
     date: `${dateStr} ${timeStr}`,
     items: [
-      { 
-        commodity: "सोयाबीन", minPrice: "4200", maxPrice: "4850", avgPrice: "4550", unit: "क्विंटल",
-        history: generateHistory(4500, 30)
-      },
-      { 
-        commodity: "गेहूं", minPrice: "2350", maxPrice: "2850", avgPrice: "2600", unit: "क्विंटल",
-        history: generateHistory(2550, 30)
-      },
-      { 
-        commodity: "लहसुन", minPrice: "7500", maxPrice: "18000", avgPrice: "12500", unit: "क्विंटल",
-        history: generateHistory(12000, 30)
-      },
-      { 
-        commodity: "प्याज", minPrice: "800", maxPrice: "2400", avgPrice: "1600", unit: "क्विंटल",
-        history: generateHistory(1500, 30)
-      }
+      { commodity: "सोयाबीन", minPrice: "4200", maxPrice: "4850", avgPrice: "4550", unit: "क्विंटल" },
+      { commodity: "गेहूं", minPrice: "2350", maxPrice: "2850", avgPrice: "2600", unit: "क्विंटल" },
+      { commodity: "चना", minPrice: "5200", maxPrice: "5800", avgPrice: "5500", unit: "क्विंटल" },
+      { commodity: "मक्का", minPrice: "1900", maxPrice: "2200", avgPrice: "2050", unit: "क्विंटल" },
+      { commodity: "सरसों", minPrice: "4800", maxPrice: "5400", avgPrice: "5100", unit: "क्विंटल" },
+      { commodity: "मूंग", minPrice: "6500", maxPrice: "7500", avgPrice: "7000", unit: "क्विंटल" },
+      { commodity: "उड़द", minPrice: "6000", maxPrice: "8000", avgPrice: "7000", unit: "क्विंटल" },
+      { commodity: "मसूर", minPrice: "5500", maxPrice: "6200", avgPrice: "5800", unit: "क्विंटल" },
+      { commodity: "प्याज", minPrice: "800", maxPrice: "2400", avgPrice: "1600", unit: "क्विंटल" },
+      { commodity: "लहसुन", minPrice: "7500", maxPrice: "18000", avgPrice: "12500", unit: "क्विंटल" },
+      { commodity: "धनिया", minPrice: "5000", maxPrice: "7000", avgPrice: "6000", unit: "क्विंटल" },
+      { commodity: "कपास", minPrice: "6500", maxPrice: "7500", avgPrice: "7000", unit: "क्विंटल" }
     ]
   };
 
@@ -130,11 +103,10 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
     const ai = getAI(userApiKey);
     
     const prompt = `You are an expert agricultural market analyst for Madhya Pradesh, India.
-    Provide market prices (Mandi Bhav) for agricultural commodities in ${mandiName}, MP for TODAY, ${dateStr}. 
+    Provide current market prices (Mandi Bhav) for agricultural commodities in ${mandiName}, MP for ${dateStr}. 
     
-    IMPORTANT: For each commodity, also provide a mock historical price trend for the LAST 30 DAYS to show price fluctuations. 
-    The history should have exactly 30 data points representing consecutive days leading up to today.
-    Ensure "price" in history is a Number (integer), not a String.
+    Provide exactly 12 major commodities.
+    Include these crops: Soybean (सोयाबीन), Wheat (गेहूं), Gram (चना), Maize (मक्का), Mustard (सरसों), Moong (मूंग), Urad (उड़द), Masoor (मसूर), Onion (प्याज), Garlic (लहसुन), Coriander (धनिया), Cotton (कपास).
     
     Return the data in this strict JSON format:
     {
@@ -142,56 +114,38 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
       "date": "${dateStr} ${timeStr}",
       "items": [
         { 
-          "commodity": "सोयाबीन", 
-          "minPrice": "4200", 
-          "maxPrice": "4800", 
-          "avgPrice": "4500", 
-          "unit": "क्विंटल",
-          "history": [
-            { "date": "01 Apr", "price": 4400 },
-            ... 30 points
-            { "date": "आज", "price": 4500 }
-          ]
+          "commodity": "Commodity Name in Hindi", 
+          "minPrice": "price", 
+          "maxPrice": "price", 
+          "avgPrice": "price", 
+          "unit": "क्विंटल"
         }
       ]
     }
     
-    Include: Soybean, Wheat, Garlic, Onion, Mustard, Gram, Maize, etc.
-    Use Hindi names for commodities.
-    Only return JSON. Use realistic current and historical market estimates for ${mandiName}.`;
+    Use realistic market estimates for ${mandiName}. Only return JSON.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: { parts: [{ text: prompt }] }
+      model: "gemini-1.5-flash",
+      contents: prompt
     });
 
     const text = response.text;
-    const jsonStr = text.replace(/```json|```/g, "").trim();
-    const rawData = JSON.parse(jsonStr);
-    const data = sanitizeMandiData(rawData);
+    const jsonMatch = text.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("Invalid AI response");
+    
+    const data = JSON.parse(jsonMatch[0]);
 
     // Save to Cache
     localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-    localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
+    localStorage.setItem(CACHE_TIME_KEY, nowTime.toString());
 
     return data;
   } catch (error: any) {
-    // If it's a quota error, don't log it as a full error to avoid cluttering logs
-    const isQuotaError = error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED");
-    
-    if (isQuotaError) {
-      console.warn("Gemini API Quota Exceeded for Mandi Bhav. Using fallback data.");
-    } else {
-      console.error("Error fetching Mandi Bhav:", error);
-    }
-
-    // If we have any cached data at all (even if expired), use it as a better fallback than static data
+    console.error("Error fetching Mandi Bhav:", error);
     if (cachedData) {
-      try {
-        return JSON.parse(cachedData);
-      } catch (e) {}
+      try { return JSON.parse(cachedData); } catch (e) {}
     }
-    
-    return sanitizeMandiData(fallbackData);
+    return fallbackData;
   }
 }

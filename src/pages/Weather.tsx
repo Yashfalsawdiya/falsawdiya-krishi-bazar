@@ -118,7 +118,7 @@ const Weather: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin" />
-        <p className="text-sm text-gray-500 font-bold">मौसम की जानकारी लोड हो रही है...</p>
+        <p className="text-sm text-gray-500 font-bold">डेटा लोड हो रहा है, कृपया प्रतीक्षा करें...</p>
       </div>
     );
   }

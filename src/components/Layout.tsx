@@ -14,7 +14,7 @@ const Layout: React.FC = () => {
       <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-center max-w-md mx-auto shadow-2xl">
         <OfflineIndicator />
         <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin" />
-        <p className="mt-4 text-sm font-bold text-[#2D5A27]">लोड हो रहा है...</p>
+        <p className="mt-4 text-sm font-bold text-[#2D5A27]">डेटा लोड हो रहा है, कृपया प्रतीक्षा करें...</p>
       </div>
     );
   }

@@ -10,7 +10,7 @@ import ProductDetailModal from '../components/ProductDetailModal';
 import { Product } from '../types';
 
 const Products: React.FC = () => {
-  const { products, categories, appContent } = useAppContext();
+  const { products, categories, appContent, fetchProducts, fetchCategories } = useAppContext();
   const [searchParams] = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -21,6 +21,8 @@ const Products: React.FC = () => {
   const whatsappNumber = appContent?.contactInfo.whatsapp || '918982338046';
 
   useEffect(() => {
+    fetchProducts();
+    fetchCategories();
     const cat = searchParams.get('category');
     if (cat) {
       setSelectedCategory(cat);
