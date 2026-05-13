@@ -34,7 +34,7 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
   const timeStr = now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
 
   // 1. Check Cache with new 2PM / 7PM logic
-  const CACHE_KEY = `mandi_bhav_${mandiName}_v3`; 
+  const CACHE_KEY = `mandi_bhav_${mandiName}_v4`; 
   const CACHE_TIME_KEY = `${CACHE_KEY}_timestamp`;
 
   const cachedData = localStorage.getItem(CACHE_KEY);

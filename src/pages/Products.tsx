@@ -92,10 +92,10 @@ const Products: React.FC = () => {
       {/* Product List */}
       <div className="grid grid-cols-1 gap-4">
         {filteredProducts.length > 0 ? (
-          filteredProducts.map((product, idx) => (
+          filteredProducts.map((product) => (
             <motion.div
               layout
-              key={`${product.id}-${idx}`}
+              key={product.id}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               onClick={() => {

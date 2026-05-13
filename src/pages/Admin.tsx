@@ -69,9 +69,9 @@ const ImageUpload: React.FC<{
 
 const Admin: React.FC = () => {
   const { 
-    products, addProduct, updateProduct, deleteProduct,
-    categories, addCategory, updateCategory, deleteCategory,
-    agriIssues, addAgriIssue, updateAgriIssue, deleteAgriIssue,
+    products, addProduct, updateProduct, deleteProduct, fetchProducts,
+    categories, addCategory, updateCategory, deleteCategory, fetchCategories,
+    agriIssues, addAgriIssue, updateAgriIssue, deleteAgriIssue, fetchAgriIssues,
     appContent, updateAppContent,
     user, isAdmin, login, logout, loading,
     users, onlineUsersCount, blockUser
@@ -94,6 +94,18 @@ const Admin: React.FC = () => {
   const [userFilter, setUserFilter] = useState<'all' | 'online' | 'blocked'>('all');
 
   const [isSaving, setIsSaving] = useState(false);
+
+  // Fetch data on mount
+  React.useEffect(() => {
+    const initFetch = async () => {
+      await Promise.all([
+        fetchProducts(),
+        fetchCategories(),
+        fetchAgriIssues()
+      ]);
+    };
+    initFetch();
+  }, [fetchProducts, fetchCategories, fetchAgriIssues]);
 
   const [productForm, setProductForm] = useState<Partial<Product>>({
     name: '',
@@ -573,10 +585,10 @@ const Admin: React.FC = () => {
                 <p className="text-sm text-gray-400">कोई उत्पाद नहीं मिला।</p>
               </div>
             ) : (
-              products.map((product, idx) => (
+              products.map((product) => (
                 <motion.div 
                   layout
-                  key={`${product.id}-${idx}`} 
+                  key={product.id} 
                   className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group"
                 >
                   <div className="flex items-center gap-4">

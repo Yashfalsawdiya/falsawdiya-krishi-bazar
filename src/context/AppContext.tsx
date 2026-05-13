@@ -99,8 +99,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [products, setProducts] = useState<Product[]>(PRODUCTS);
-  const [categories, setCategories] = useState<CategoryData[]>(CATEGORIES);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<CategoryData[]>([]);
   const [agriIssues, setAgriIssues] = useState<AgriIssue[]>([]);
   const [appContent, setAppContent] = useState<AppContent | null>(null);
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -266,7 +266,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addProduct = async (product: Omit<Product, 'id'>) => {
     try {
-      await addDoc(collection(db, 'products'), product);
+      const docRef = await addDoc(collection(db, 'products'), product);
+      // Update local state immediately for better UX
+      const newProduct = { id: docRef.id, ...product } as Product;
+      setProducts(prev => [...prev, newProduct]);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'products');
     }
@@ -276,6 +279,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const { id, ...data } = updatedProduct;
       await setDoc(doc(db, 'products', id), data, { merge: true });
+      // Update local state
+      setProducts(prev => prev.map(p => p.id === id ? updatedProduct : p));
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `products/${updatedProduct.id}`);
     }
@@ -286,6 +291,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const productRef = doc(db, 'products', id);
       await deleteDoc(productRef);
+      // Update local state immediately
+      setProducts(prev => prev.filter(p => p.id !== id));
       console.log(`Successfully deleted product: ${id}`);
     } catch (error: any) {
       console.error(`Failed to delete product ${id}:`, error);
@@ -295,7 +302,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addCategory = async (category: Omit<CategoryData, 'id'>) => {
     try {
-      await addDoc(collection(db, 'categories'), category);
+      const docRef = await addDoc(collection(db, 'categories'), category);
+      const newCategory = { id: docRef.id, ...category } as CategoryData;
+      setCategories(prev => [...prev, newCategory].sort((a, b) => (a.order || 0) - (b.order || 0)));
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'categories');
     }
@@ -305,6 +314,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const { id, ...data } = category;
       await setDoc(doc(db, 'categories', id), data, { merge: true });
+      setCategories(prev => prev.map(c => c.id === id ? category : c).sort((a, b) => (a.order || 0) - (b.order || 0)));
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`);
     }
@@ -313,6 +323,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteCategory = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'categories', id));
+      setCategories(prev => prev.filter(c => c.id !== id));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `categories/${id}`);
     }
@@ -375,15 +386,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchProducts = async (force = false) => {
     const now = Date.now();
-    if (!force && lastFetched['products'] && now - lastFetched['products'] < 1000 * 60 * 30) return;
+    // Reduce cache lock to 1 minute for Admin panel and better responsiveness
+    if (!force && lastFetched['products'] && now - lastFetched['products'] < 1000 * 60) return;
 
     try {
-      const qProducts = query(collection(db, 'products'), orderBy('hindiName'));
-      const snapshot = await getDoc(doc(db, 'settings', 'content')); // Placeholder trigger
-      // Note: we can use getDocs(qProducts) here
       const { getDocs } = await import('firebase/firestore');
+      const qProducts = query(collection(db, 'products'), orderBy('hindiName'));
       const snap = await getDocs(qProducts);
       const prods = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+      
+      // If no products in Firestore, we could fall back to PRODUCTS mock data but only in DEV/PREVIEW
+      // For this app, let's just use what's in Firestore.
       setProducts(prods);
       setLastFetched(prev => ({ ...prev, products: now }));
     } catch (error) {
@@ -393,15 +406,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchCategories = async (force = false) => {
     const now = Date.now();
-    if (!force && lastFetched['categories'] && now - lastFetched['categories'] < 1000 * 60 * 60) return;
+    if (!force && lastFetched['categories'] && now - lastFetched['categories'] < 1000 * 60) return;
 
     try {
-      const qCategories = query(collection(db, 'categories'), orderBy('order'));
       const { getDocs } = await import('firebase/firestore');
+      const qCategories = query(collection(db, 'categories'), orderBy('order'));
       const snap = await getDocs(qCategories);
-      if (!snap.empty) {
-        setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData)));
+      const cats = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
+      
+      if (cats.length > 0) {
+        setCategories(cats);
         setLastFetched(prev => ({ ...prev, categories: now }));
+      } else {
+        // If categories is empty in Firestore, use mock data as default
+        setCategories(CATEGORIES);
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'categories');

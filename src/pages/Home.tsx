@@ -544,9 +544,9 @@ const Home: React.FC = () => {
           </Link>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
-          {products.slice(0, 5).map((product, idx) => (
+          {products.slice(0, 5).map((product) => (
             <motion.div 
-              key={`${product.id}-${idx}`} 
+              key={product.id} 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               onClick={() => {
