@@ -69,25 +69,12 @@ interface AppContextType {
   agriIssues: AgriIssue[];
   appContent: AppContent | null;
   user: FirebaseUser | null;
-  currentUserData: any | null;
   isAdmin: boolean;
   isBlocked: boolean;
-  isVerified: boolean;
-  needsOnboarding: boolean;
   userSettings: UserSettings | null;
   loading: boolean;
   isQuotaExceeded: boolean;
-  users: any[];
-  onlineUsersCount: number;
-  sendNotification: (notification: {
-    title: string;
-    message: string;
-    type: 'verification_request' | 'approval' | 'system';
-    targetUid?: string;
-    metadata?: any;
-  }) => Promise<void>;
   blockUser: (uid: string, blocked: boolean) => Promise<void>;
-  updateUserProfile: (targetUidOrData: string | any, data?: any) => Promise<void>;
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
@@ -111,40 +98,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [agriIssues, setAgriIssues] = useState<AgriIssue[]>([]);
   const [appContent, setAppContent] = useState<AppContent | null>(null);
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [currentUserData, setCurrentUserData] = useState<any | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
-  const [isVerified, setIsVerified] = useState(false);
-  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
-  const [users, setUsers] = useState<any[]>([]);
-  const [onlineUsersCount, setOnlineUsersCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
-
-  // Request notification permission
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
 
   // Background activity tracking
   useEffect(() => {
     if (!user || isBlocked) return;
 
     const updateActivity = async () => {
+      if (isQuotaExceeded) return;
+      
+      // Throttle updates: only update if last update was more than 15 minutes ago
+      const lastUpdateStr = localStorage.getItem('last_activity_sync');
+      const now = Date.now();
+      if (lastUpdateStr && now - parseInt(lastUpdateStr) < 1000 * 60 * 15) {
+        return;
+      }
+
       try {
         await updateDoc(doc(db, 'users', user.uid), {
           lastActive: new Date().toISOString()
         });
-      } catch (e) {
-        console.error("Failed to update activity", e);
+        localStorage.setItem('last_activity_sync', now.toString());
+      } catch (e: any) {
+        const err = handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+        if (err?.error?.toLowerCase().includes('quota')) {
+          setIsQuotaExceeded(true);
+        }
       }
     };
 
     updateActivity();
-    const interval = setInterval(updateActivity, 1000 * 60 * 3); // Every 3 minutes
+    const interval = setInterval(updateActivity, 1000 * 60 * 10); // Every 10 minutes
     return () => clearInterval(interval);
   }, [user, isBlocked]);
 
@@ -163,27 +151,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (docSnap.exists()) {
               const userData = docSnap.data();
               const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
-              const backupAdmins = appContent?.adminEmails || [];
-              const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
+              const isAdminEmail = firebaseUser.email === mainAdminEmail || (appContent?.adminEmails || []).includes(firebaseUser.email || '');
 
               if (userData.isBlocked) {
                 setIsBlocked(true);
                 setIsAdmin(false);
-                setIsVerified(false);
-                setNeedsOnboarding(false);
-                setCurrentUserData(null);
               } else {
-                const userIsAdmin = userData.role === 'admin' || isAdminEmail;
                 setIsBlocked(false);
-                setIsAdmin(userIsAdmin);
+                setIsAdmin(userData.role === 'admin' || isAdminEmail);
                 setUserSettings({ geminiApiKey: userData.geminiApiKey || '' });
-                setIsVerified(userData.isVerified || false);
-                setNeedsOnboarding(userIsAdmin ? false : (!userData.isVerified || !userData.phone));
-                setCurrentUserData(userData);
               }
-            } else {
-              setNeedsOnboarding(true);
-              setIsVerified(false);
             }
           });
 
@@ -205,24 +182,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (userData.isBlocked) {
               setIsBlocked(true);
               setIsAdmin(false);
-              setIsVerified(false);
-              setNeedsOnboarding(false);
-              setCurrentUserData(null);
             } else {
-              const userIsAdmin = userData.role === 'admin' || isAdminEmail;
               setIsBlocked(false);
-              setIsAdmin(userIsAdmin);
+              setIsAdmin(userData.role === 'admin' || isAdminEmail);
               setUserSettings({ geminiApiKey: userData.geminiApiKey || '' });
-              setIsVerified(userData.isVerified || false);
-              setNeedsOnboarding(userIsAdmin ? false : (!userData.isVerified || !userData.phone));
-              setCurrentUserData(userData);
               
-              // Update user profile info on login
-              await updateDoc(userDocRef, {
-                displayName: userData.displayName || firebaseUser.displayName || '',
-                photoURL: firebaseUser.photoURL || userData.photoURL || '',
-                lastActive: new Date().toISOString()
-              });
+              // Update user profile info ONLY if changed or stale
+              const hasChanged = 
+                userData.displayName !== (firebaseUser.displayName || '') || 
+                userData.photoURL !== (firebaseUser.photoURL || '');
+                
+              const lastUpdate = userData.lastActive ? new Date(userData.lastActive).getTime() : 0;
+              const isStale = Date.now() - lastUpdate > 1000 * 60 * 60; // 1 hour
+
+              if (hasChanged || isStale) {
+                await updateDoc(userDocRef, {
+                  displayName: firebaseUser.displayName || userData.displayName || '',
+                  photoURL: firebaseUser.photoURL || userData.photoURL || '',
+                  lastActive: new Date().toISOString()
+                });
+              }
 
               // If they are admin by email but not in doc, update doc
               if (isAdminEmail && userData.role !== 'admin') {
@@ -240,17 +219,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               geminiApiKey: '',
               createdAt: new Date().toISOString(),
               lastActive: new Date().toISOString(),
-              isBlocked: false,
-              isVerified: false,
-              phone: '',
-              isFarmer: true,
-              village: ''
+              isBlocked: false
             };
             await setDoc(userDocRef, defaultSettings);
             setIsAdmin(isAdminEmail);
             setIsBlocked(false);
-            setIsVerified(isAdminEmail); // Auto-verify admin on first creation if admin by email
-            setNeedsOnboarding(isAdminEmail ? false : true);
             setUserSettings({ geminiApiKey: '' });
           }
         } catch (error) {
@@ -262,30 +235,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } else {
         setIsAdmin(false);
         setIsBlocked(false);
-        setIsVerified(false);
-        setNeedsOnboarding(false);
-        setCurrentUserData(null);
         setUserSettings(null);
         if (unsubscribeUserDoc) unsubscribeUserDoc();
       }
       setLoading(false);
     });
 
-    // Listen for users (Admin only)
-    let unsubscribeUsers: (() => void) | undefined;
-    if (isAdmin) {
-      unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-        const uList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setUsers(uList);
-        
-        // Count online users (active in last 5 minutes)
-        const fiveMinsAgo = new Date(Date.now() - 1000 * 60 * 5);
-        const online = uList.filter((u: any) => u.lastActive && new Date(u.lastActive) > fiveMinsAgo).length;
-        setOnlineUsersCount(online);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'users');
-      });
-    }
     const qProducts = query(collection(db, 'products'), orderBy('hindiName'));
     const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
       if (!snapshot.empty) {
@@ -342,45 +297,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
-    // Notification listener
-    let unsubscribeNotifications: (() => void) | undefined;
-    if (user) {
-      const qNotifs = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'));
-      unsubscribeNotifications = onSnapshot(qNotifs, (snapshot) => {
-        // Only process changes after listener is attached to avoid old notification spam
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === "added") {
-            const notif = change.doc.data();
-            // Check if it's within the last minute to avoid backlog browser alerts
-            const isRecent = new Date().getTime() - new Date(notif.createdAt).getTime() < 60000;
-            
-            if (isRecent) {
-              const isForMe = notif.targetUid === user.uid;
-              const isAdminNotif = isAdmin && notif.type === 'verification_request';
-
-              if (isForMe || isAdminNotif) {
-                if ("Notification" in window && Notification.permission === "granted") {
-                  const n = new Notification(notif.title, {
-                    body: notif.message,
-                    icon: '/pwa-192x192.png'
-                  });
-                  n.onclick = () => {
-                    window.focus();
-                    if (isAdminNotif) {
-                      // Navigate to Admin Users tab with Pending filter
-                      window.location.href = '/admin?tab=users&filter=pending';
-                    }
-                  };
-                }
-              }
-            }
-          }
-        });
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'notifications');
-      });
-    }
-
     return () => {
       unsubscribeAuth();
       if (unsubscribeUserDoc) unsubscribeUserDoc();
@@ -388,9 +304,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubscribeContent();
       unsubscribeCategories();
       unsubscribeAgriIssues();
-      if (unsubscribeNotifications) unsubscribeNotifications();
     };
-  }, [user, isAdmin]);
+  }, []);
 
   const login = async () => {
     try {
@@ -513,43 +428,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const sendNotification = async (notification: {
-    title: string;
-    message: string;
-    type: 'verification_request' | 'approval' | 'system';
-    targetUid?: string;
-    metadata?: any;
-  }) => {
-    try {
-      await addDoc(collection(db, 'notifications'), {
-        ...notification,
-        read: false,
-        createdAt: new Date().toISOString(),
-        senderUid: user?.uid || 'system'
-      });
-    } catch (error) {
-      console.error("Failed to send notification", error);
-      // Don't throw for notifications, they are secondary
-    }
-  };
-
-  const updateUserProfile = async (targetUidOrData: string | any, data?: any) => {
-    let targetUid = user?.uid;
-    let updateData = targetUidOrData;
-
-    if (typeof targetUidOrData === 'string') {
-      targetUid = targetUidOrData;
-      updateData = data;
-    }
-
-    if (!targetUid) return;
-    try {
-      await updateDoc(doc(db, 'users', targetUid), updateData);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${targetUid}`);
-    }
-  };
-
   return (
     <AppContext.Provider value={{ 
       products, 
@@ -557,19 +435,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       agriIssues,
       appContent,
       user, 
-      currentUserData,
       isAdmin, 
       isBlocked,
-      isVerified,
-      needsOnboarding,
       userSettings,
       loading,
       isQuotaExceeded,
-      users,
-      onlineUsersCount,
-      sendNotification,
       blockUser,
-      updateUserProfile,
       addProduct, 
       updateProduct, 
       deleteProduct,

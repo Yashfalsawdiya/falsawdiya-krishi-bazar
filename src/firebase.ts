@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { initializeFirestore, doc, getDocFromServer, enableIndexedDbPersistence } from 'firebase/firestore';
 
 // Try to load from JSON file, fallback to environment variables for Vercel/Production
 let firebaseConfig: any;
@@ -45,6 +45,19 @@ export const db = initializeFirestore(app, {
   experimentalAutoDetectLongPolling: false,
   ignoreUndefinedProperties: true,
 } as any, dbId);
+
+// Enable offline persistence
+enableIndexedDbPersistence(db).catch((err) => {
+  if (err.code === 'failed-precondition') {
+    // Multiple tabs open, persistence can only be enabled
+    // in one tab at a a time.
+    console.warn('Firestore persistence failed-precondition');
+  } else if (err.code === 'unimplemented') {
+    // The current browser does not support all of the
+    // features required to enable persistence
+    console.warn('Firestore persistence unimplemented');
+  }
+});
 
 export const auth = getAuth(app);
 

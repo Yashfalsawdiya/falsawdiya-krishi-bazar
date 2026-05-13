@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { db, handleFirestoreError, OperationType } from '../firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { CategoryData, Product, AgriIssue } from '../types';
-// import { CATEGORIES } from '../data/mockData'; // No longer needed
 import { 
   Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
   Youtube as YoutubeIcon, Layout, Phone, Key, Tag, Sparkles,
-  ListFilter, Bug, Search, Users, ShieldAlert, ShieldCheck, Clock, MapPin, CheckCircle2
+  ListFilter, Bug, Search, Users, ShieldAlert, ShieldCheck, Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage } from '../lib/utils';
@@ -74,10 +75,32 @@ const Admin: React.FC = () => {
     agriIssues, addAgriIssue, updateAgriIssue, deleteAgriIssue,
     appContent, updateAppContent,
     user, isAdmin, login, logout, loading,
-    users, onlineUsersCount, blockUser, updateUserProfile, sendNotification
+    blockUser
   } = useAppContext();
+
+  const [users, setUsers] = useState<any[]>([]);
+  const [onlineUsersCount, setOnlineUsersCount] = useState(0);
   
   const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'content' | 'users'>('products');
+  
+  // Listen for users (Admin only, when users tab is active)
+  useEffect(() => {
+    if (!isAdmin || activeTab !== 'users') return;
+    
+    const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const uList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setUsers(uList);
+      
+      // Count online users (active in last 5 minutes)
+      const fiveMinsAgo = new Date(Date.now() - 1000 * 60 * 5);
+      const online = uList.filter((u: any) => u.lastActive && new Date(u.lastActive) > fiveMinsAgo).length;
+      setOnlineUsersCount(online);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'users');
+    });
+    
+    return () => unsubscribeUsers();
+  }, [isAdmin, activeTab]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -91,28 +114,9 @@ const Admin: React.FC = () => {
   const [agriIssueToDelete, setAgriIssueToDelete] = useState<AgriIssue | null>(null);
 
   const [userSearchTerm, setUserSearchTerm] = useState('');
-  const [userFilter, setUserFilter] = useState<'all' | 'online' | 'blocked' | 'farmers' | 'pending'>('all');
+  const [userFilter, setUserFilter] = useState<'all' | 'online' | 'blocked'>('all');
 
   const [isSaving, setIsSaving] = useState(false);
-
-  // Handle Query Params for Deep Linking (from notifications)
-  React.useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tabParam = params.get('tab');
-    const filterParam = params.get('filter');
-    
-    if (tabParam && ['products', 'categories', 'encyclopedia', 'content', 'users'].includes(tabParam)) {
-      setActiveTab(tabParam as any);
-    }
-    if (filterParam && ['all', 'online', 'pending', 'farmers', 'blocked'].includes(filterParam)) {
-      setUserFilter(filterParam as any);
-    }
-    
-    // Clear params after reading to avoid sticky state
-    if (tabParam || filterParam) {
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
 
   const [productForm, setProductForm] = useState<Partial<Product>>({
     name: '',
@@ -794,8 +798,6 @@ const Admin: React.FC = () => {
               {[
                 { id: 'all', label: 'सभी (All)' },
                 { id: 'online', label: 'ऑनलाइन (Online)' },
-                { id: 'pending', label: 'पेंडिंग (Pending)' },
-                { id: 'farmers', label: 'किसान (Farmers)' },
                 { id: 'blocked', label: 'ब्लॉक (Blocked)' }
               ].map(f => (
                 <button
@@ -816,16 +818,13 @@ const Admin: React.FC = () => {
             {users
               .filter(u => {
                 const matchesSearch = u.email?.toLowerCase().includes(userSearchTerm.toLowerCase()) || 
-                                     u.displayName?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-                                     u.phone?.includes(userSearchTerm);
+                                     u.displayName?.toLowerCase().includes(userSearchTerm.toLowerCase());
                 
                 const fiveMinsAgo = new Date(Date.now() - 1000 * 60 * 5);
                 const isOnline = u.lastActive && new Date(u.lastActive) > fiveMinsAgo;
 
                 if (userFilter === 'online') return matchesSearch && isOnline;
                 if (userFilter === 'blocked') return matchesSearch && u.isBlocked;
-                if (userFilter === 'farmers') return matchesSearch && u.isFarmer;
-                if (userFilter === 'pending') return matchesSearch && !u.isVerified;
                 return matchesSearch;
               })
               .map((u) => {
@@ -835,7 +834,7 @@ const Admin: React.FC = () => {
 
                 return (
                   <div key={u.id} className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm space-y-4">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="relative">
                           <img src={u.photoURL || `https://ui-avatars.com/api/?name=${u.displayName || 'User'}&background=random`} alt="" className="w-12 h-12 rounded-2xl object-cover" />
@@ -850,23 +849,13 @@ const Admin: React.FC = () => {
                             {isSelf && <span className="text-[8px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full uppercase tracking-tighter">You</span>}
                           </h4>
                           <p className="text-[10px] text-gray-400 font-medium">{u.email}</p>
-                          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                          <div className="flex items-center gap-2 mt-1">
                             <span className={cn(
                               "text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-tighter",
                               isOnline ? "bg-green-50 text-green-600 border border-green-100" : "bg-gray-50 text-gray-400 border border-gray-100"
                             )}>
                               {isOnline ? '🟢 Online' : '⚪ Offline'}
                             </span>
-                            {u.isVerified && (
-                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-0.5 uppercase tracking-tighter">
-                                <ShieldCheck className="w-2.5 h-2.5" /> Verified
-                              </span>
-                            )}
-                            {u.isFarmer && (
-                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100 flex items-center gap-0.5 uppercase tracking-tighter">
-                                <Sprout className="w-2.5 h-2.5" /> Farmer
-                              </span>
-                            )}
                             {u.isBlocked && (
                               <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100 uppercase tracking-tighter">
                                 🚫 Blocked
@@ -876,32 +865,6 @@ const Admin: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex gap-1.5">
-                        <button
-                          disabled={isSelf}
-                          onClick={async () => {
-                            const newStatus = !u.isVerified;
-                            if (window.confirm(`क्या आप वाकई ${u.isVerified ? 'वेरिफिकेशन हटाना' : 'यूजर को वेरिफाई'} करना चाहते हैं?`)) {
-                              await updateUserProfile(u.uid, { isVerified: newStatus });
-                              
-                              if (newStatus) {
-                                await sendNotification({
-                                  title: '🎉 आपकी ID Admin द्वारा सफलतापूर्वक Verify कर दी गई है।',
-                                  message: 'अब आप App का उपयोग करके अपनी खेती को और बेहतर बना सकते हैं। 🌾',
-                                  type: 'approval',
-                                  targetUid: u.uid
-                                });
-                              }
-                            }
-                          }}
-                          className={cn(
-                            "p-2 rounded-xl transition-all active:scale-95",
-                            u.isVerified ? "bg-blue-50 text-blue-500 hover:bg-blue-100" : "bg-amber-50 text-amber-500 hover:bg-amber-100 animate-pulse",
-                            isSelf && "opacity-30 grayscale cursor-not-allowed"
-                          )}
-                          title={u.isVerified ? "Remove Verification" : "Approve User"}
-                        >
-                          {u.isVerified ? <CheckCircle2 className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
-                        </button>
                         <button
                           disabled={isSelf}
                           onClick={() => blockUser(u.uid, !u.isBlocked)}
@@ -916,46 +879,14 @@ const Admin: React.FC = () => {
                         </button>
                       </div>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-2xl">
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-3 h-3 text-[#2D5A27]" />
-                        <div>
-                          <p className="text-[8px] text-gray-400 font-bold uppercase">Mobile</p>
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-[10px] text-gray-800 font-bold">{u.phone ? `+91 ${u.phone}` : 'Not Provided'}</p>
-                            {u.phone && (
-                              <a 
-                                href={`https://wa.me/91${u.phone}`} 
-                                target="_blank" 
-                                rel="noreferrer"
-                                className="bg-green-500 p-0.5 rounded-md hover:scale-110 transition-transform"
-                                title="WhatsApp on this number"
-                              >
-                                <svg className="w-2.5 h-2.5 text-white fill-current" viewBox="0 0 24 24">
-                                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.316 1.592 5.43.001 9.85-4.417 9.853-9.845.002-5.428-4.42-9.85-9.853-9.85-5.431 0-9.853 4.422-9.853 9.853 0 1.954.513 3.46 1.454 5.032l-1.01 3.681 3.773-1.057-.453-.263z" />
-                                </svg>
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-3 h-3 text-[#2D5A27]" />
-                        <div>
-                          <p className="text-[8px] text-gray-400 font-bold uppercase">Village</p>
-                          <p className="text-[10px] text-gray-800 font-bold truncate">{u.village || 'Not Provided'}</p>
-                        </div>
-                      </div>
-                    </div>
                     
-                    <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-50">
                       <div className="flex items-center gap-2">
                         <Clock className="w-3 h-3 text-gray-300" />
                         <div>
                           <p className="text-[8px] text-gray-400 font-bold uppercase">Joined</p>
                           <p className="text-[10px] text-gray-600 font-medium">
-                            {u.createdAt ? new Date(u.createdAt).toLocaleDateString('hi-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'NA'}
+                            {u.createdAt ? new Date(u.createdAt).toLocaleDateString('hi-IN', { day: 'numeric', month: 'short' }) : 'NA'}
                           </p>
                         </div>
                       </div>

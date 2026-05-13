@@ -112,10 +112,6 @@ service cloud.firestore {
              (!('geminiApiKey' in data) || (data.geminiApiKey is string && data.geminiApiKey.size() < 200)) &&
              (!('displayName' in data) || data.displayName is string) &&
              (!('photoURL' in data) || data.photoURL is string) &&
-             (!('phone' in data) || (data.phone is string && data.phone.size() <= 15)) &&
-             (!('isFarmer' in data) || data.isFarmer is bool) &&
-             (!('village' in data) || data.village is string) &&
-             (!('isVerified' in data) || data.isVerified is bool) &&
              (!('isBlocked' in data) || data.isBlocked is bool) &&
              (!('createdAt' in data) || data.createdAt is string) &&
              (!('lastActive' in data) || data.lastActive is string);
@@ -132,15 +128,6 @@ service cloud.firestore {
              (!('apiKeyGuideVideoUrl' in data) || data.apiKeyGuideVideoUrl is string) &&
              (!('offers' in data) || data.offers is map) &&
              (!('festivalOffer' in data) || data.festivalOffer is map);
-    }
-
-    function isValidNotification(data) {
-      return data.title is string && data.title.size() > 0 &&
-             data.message is string && data.message.size() > 0 &&
-             data.type in ['verification_request', 'approval', 'system'] &&
-             (!('createdAt' in data) || data.createdAt is string || data.createdAt is timestamp) &&
-             (!('targetUid' in data) || data.targetUid is string) &&
-             (!('read' in data) || data.read is bool);
     }
     
     // ===============================================================
@@ -206,15 +193,6 @@ service cloud.firestore {
       allow read: if isNotBlocked();
       allow create: if isAdmin() && isValidAgriIssue(request.resource.data);
       allow update: if isAdmin() && isValidAgriIssue(request.resource.data);
-      allow delete: if isAdmin();
-    }
-
-    // Notifications Collection
-    match /notifications/{notificationId} {
-      allow list: if isAdmin() || (isAuthenticated() && resource.data.targetUid == request.auth.uid);
-      allow get: if isAdmin() || (isAuthenticated() && resource.data.targetUid == request.auth.uid);
-      allow create: if isAuthenticated() && isValidNotification(request.resource.data);
-      allow update: if isAuthenticated() && (isAdmin() || resource.data.targetUid == request.auth.uid);
       allow delete: if isAdmin();
     }
   }
