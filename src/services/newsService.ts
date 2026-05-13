@@ -23,41 +23,23 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
 
   const CACHE_KEY = 'agri_news_cache';
   const CACHE_TIME_KEY = 'agri_news_cache_time';
-  
+  const CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour for fresher news
+
   const cachedData = localStorage.getItem(CACHE_KEY);
   const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
 
-  const nowTime = now.getTime();
-  const today10AM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0, 0).getTime();
-
-  let shouldRefresh = true;
-
   if (cachedData && cachedTime) {
-    const lastFetchTime = parseInt(cachedTime);
-    const lastFetchDate = new Date(lastFetchTime);
-    const isSameDay = lastFetchDate.toDateString() === now.toDateString();
-
-    // If it is before 10 AM today and we have data from yesterday or earlier today
-    if (nowTime < today10AM) {
-      if (isSameDay || (nowTime - lastFetchTime < 24 * 60 * 60 * 1000)) {
-        shouldRefresh = false;
+    const age = now.getTime() - parseInt(cachedTime);
+    if (age < CACHE_DURATION) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        // Invalidate if old format (missing url)
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].url) {
+          return parsed;
+        }
+      } catch (e) {
+        console.warn("Error parsing cached news:", e);
       }
-    } else {
-      // It is after 10 AM today. Refresh only if last fetch was before 10 AM today.
-      if (isSameDay && lastFetchTime >= today10AM) {
-        shouldRefresh = false;
-      }
-    }
-  }
-
-  if (!shouldRefresh && cachedData) {
-    try {
-      const parsed = JSON.parse(cachedData);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    } catch (e) {
-      console.warn("Error parsing cached news:", e);
     }
   }
 
@@ -69,17 +51,22 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
       source: "कृषि जागरण",
       url: "https://hindi.krishijagran.com/",
       category: "Market"
+    },
+    {
+      title: "नई सिंचाई योजना के लिए पंजीकरण शुरू",
+      summary: "राज्य सरकार ने ड्रिप सिंचाई पर 80% तक सब्सिडी देने की घोषणा की है। किसान ऑनलाइन पोर्टल पर आवेदन कर सकते हैं।",
+      date: dateStr,
+      source: "सरकारी विज्ञप्ति",
+      url: "https://mpkrishi.mp.gov.in/",
+      category: "Policy"
     }
   ];
 
   try {
     const ai = getAI(userApiKey);
     const prompt = `You are an agricultural news reporter in India.
-    Provide exactly 10 latest news headlines related to Indian agriculture, specifically for farmers in Madhya Pradesh, as of ${dateStr}.
-    Focus on these areas: Madhya Pradesh local news, India level agriculture, Government Schemes, Weather alerts, Crop advice, Mandi prices, and Agri-Technology.
-    
-    Ensure the news is varied and not just one topic. 
-    Ensure the news is HIGHLY RELEVANT for today or the current week.
+    Provide the top 5 latest news headlines related to Indian agriculture, specifically for farmers in Madhya Pradesh, as of ${dateStr}.
+    Focus on new policies, market trends, weather alerts, or new farming technologies.
     
     Return the data in a strict JSON format like this:
     [
@@ -87,12 +74,12 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
         "title": "News Headline in Hindi",
         "summary": "2-3 sentence summary in Hindi",
         "date": "${dateStr}",
-        "source": "News Source Name (e.g., Krishi Jagran, DD Kisan, Patrika MP)",
+        "source": "News Source Name (e.g., Krishi Jagran, DD Kisan)",
         "url": "Direct URL to the news article or source website",
         "category": "Policy/Market/Technology/Weather"
       }
     ]
-    Only return the JSON list.`;
+    Only return the JSON.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-flash-latest",
@@ -104,7 +91,7 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
     const data = JSON.parse(jsonStr);
 
     localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-    localStorage.setItem(CACHE_TIME_KEY, nowTime.toString());
+    localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
 
     return data;
   } catch (error: any) {

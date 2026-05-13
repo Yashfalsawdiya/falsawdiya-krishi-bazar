@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Bug, Droplet, Sprout, ChevronRight } from 'lucide-react';
@@ -8,14 +8,10 @@ import { cn } from '../lib/utils';
 type IssueType = 'all' | 'pest' | 'disease' | 'deficiency';
 
 const Encyclopedia: React.FC = () => {
-  const { agriIssues, fetchAgriIssues } = useAppContext();
+  const { agriIssues } = useAppContext();
   const [activeType, setActiveType] = useState<IssueType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
-
-  useEffect(() => {
-    fetchAgriIssues();
-  }, [fetchAgriIssues]);
 
   const types = [
     { id: 'all', label: 'सभी', icon: Sprout, color: 'bg-green-500' },

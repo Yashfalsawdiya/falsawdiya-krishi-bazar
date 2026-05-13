@@ -5,7 +5,6 @@ import BottomNav from './BottomNav';
 import OfflineIndicator from './OfflineIndicator';
 import { useAppContext } from '../context/AppContext';
 import { LogIn, Sprout, Loader2 } from 'lucide-react';
-import SafeImage from './SafeImage';
 
 const Layout: React.FC = () => {
   const { user, loading, login, appContent, isAdmin } = useAppContext();
@@ -14,19 +13,8 @@ const Layout: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-center max-w-md mx-auto shadow-2xl">
         <OfflineIndicator />
-        <div className="w-20 h-20 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-6 overflow-hidden p-2">
-          {appContent?.branding?.splashLogo || appContent?.branding?.logo ? (
-            <SafeImage 
-              primarySrc={appContent.branding.splashLogo || appContent.branding.logo}
-              fallbackSrc={appContent.branding.splashLogoFallback || appContent.branding.logoFallback}
-              alt="Splash"
-              className="w-full h-full object-contain animate-pulse"
-            />
-          ) : (
-             <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-green-600"></div>
-          )}
-        </div>
-        <p className="text-sm font-bold text-[#2D5A27] animate-pulse">डेटा लोड हो रहा है...</p>
+        <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin" />
+        <p className="mt-4 text-sm font-bold text-[#2D5A27]">लोड हो रहा है...</p>
       </div>
     );
   }
@@ -36,13 +24,7 @@ const Layout: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-center max-w-md mx-auto shadow-2xl p-8 text-center">
         <div className="w-24 h-24 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-8 border-2 border-red-100 overflow-hidden p-2">
-          <SafeImage 
-            primarySrc={appContent.branding.logo} 
-            fallbackSrc={appContent.branding.logoFallback}
-            alt="Maintenance" 
-            className="w-full h-full object-contain opacity-50 grayscale" 
-            placeholderSrc="/icon-192.png"
-          />
+          <img src="/icon-192.png" alt="Maintenance" className="w-full h-full object-contain opacity-50 grayscale" />
         </div>
         <h1 className="text-2xl font-black text-[#4A3728] mb-4">ऐप अभी बंद है</h1>
         <p className="text-gray-500 mb-8 leading-relaxed">
@@ -68,14 +50,12 @@ const Layout: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#F5F2ED] flex flex-col max-w-md mx-auto shadow-2xl relative overflow-hidden">
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-          <div className="w-24 h-24 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-8 border-2 border-[#2D5A27]/10 overflow-hidden p-3 transition-transform hover:scale-105">
-            <SafeImage 
-              primarySrc={branding.logo} 
-              fallbackSrc={branding.logoFallback}
-              placeholderSrc="/icon-192.png"
-              alt="Logo" 
-              className="w-full h-full object-contain" 
-            />
+          <div className="w-24 h-24 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-8 border-2 border-[#2D5A27]/10 overflow-hidden p-2">
+            {branding.logo ? (
+              <img src={branding.logo} alt="Logo" className="w-full h-full object-contain" />
+            ) : (
+              <img src="/icon-192.png" alt="Logo" className="w-full h-full object-contain" />
+            )}
           </div>
           <h1 className="text-3xl font-black text-[#4A3728] mb-2">{branding.name}</h1>
           <p className="text-gray-500 mb-12 font-medium">{branding.tagline}</p>

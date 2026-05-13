@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Camera, Upload, Loader2, AlertCircle, CheckCircle2, Image as ImageIcon, RefreshCw, Info, ShoppingCart, ArrowRight, X } from 'lucide-react';
 import { detectDisease, DiseaseAnalysis } from '../services/gemini';
 import { motion, AnimatePresence } from 'motion/react';
@@ -7,20 +7,14 @@ import { useAppContext } from '../context/AppContext';
 import ApiKeyModal from '../components/ApiKeyModal';
 
 const DiseaseDetection: React.FC = () => {
-  const { appContent, userSettings, products, fetchProducts } = useAppContext();
+  const { appContent, userSettings, products } = useAppContext();
   const [image, setImage] = useState<string | null>(null);
-
-  // ... (rest of states) ...
   const [loading, setLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<DiseaseAnalysis | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
 
   const whatsappNumber = appContent?.contactInfo.whatsapp || '918982338046';
 
@@ -46,14 +40,15 @@ const DiseaseDetection: React.FC = () => {
   const analyzeImage = async () => {
     if (!image) return;
     
-    if (!userSettings?.geminiApiKey) {
+    const globalKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    if (!userSettings?.geminiApiKey && !globalKey) {
       setIsModalOpen(true);
       return;
     }
 
     setLoading(true);
     try {
-      const analysis = await detectDisease(image, userSettings.geminiApiKey);
+      const analysis = await detectDisease(image, userSettings?.geminiApiKey || globalKey);
       setAnalysisResult(analysis);
     } catch (error) {
       console.error("Analysis failed:", error);
@@ -148,7 +143,7 @@ const DiseaseDetection: React.FC = () => {
           {loading ? (
             <>
               <Loader2 className="w-6 h-6 animate-spin" />
-              <span>जाँच हो रही है, कृपया प्रतीक्षा करें...</span>
+              <span>जाँच हो रही है...</span>
             </>
           ) : (
             <>

@@ -2,28 +2,22 @@ import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { CategoryData, Product, AgriIssue } from '../types';
 // import { CATEGORIES } from '../data/mockData'; // No longer needed
-import { Link as LinkIcon, Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
+import { 
+  Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
   Youtube as YoutubeIcon, Layout, Phone, Key, Tag, Sparkles,
-  ListFilter, Bug, Search, Users, ShieldAlert, ShieldCheck, Clock,
-  AlertCircle, CheckCircle2
+  ListFilter, Bug, Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage } from '../lib/utils';
 import { AppContent } from '../context/AppContext';
-import SafeImage from '../components/SafeImage';
 
-const ImagePicker: React.FC<{ 
-  primaryValue: string; 
-  fallbackValue: string;
-  onPrimaryChange: (val: string) => void;
-  onFallbackChange: (val: string) => void;
+const ImageUpload: React.FC<{ 
+  value: string; 
+  onChange: (base64: string) => void;
   label: string;
-  showFallback?: boolean;
-}> = ({ primaryValue, fallbackValue, onPrimaryChange, onFallbackChange, label, showFallback = true }) => {
+}> = ({ value, onChange, label }) => {
   const [loading, setLoading] = useState(false);
-  const [urlInput, setUrlInput] = useState(fallbackValue || '');
-  const [urlStatus, setUrlStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -32,7 +26,7 @@ const ImagePicker: React.FC<{
       try {
         const base64 = await fileToBase64(file);
         const compressed = await compressImage(base64);
-        onPrimaryChange(compressed);
+        onChange(compressed);
       } catch (error) {
         console.error("Error uploading image:", error);
       } finally {
@@ -41,153 +35,48 @@ const ImagePicker: React.FC<{
     }
   };
 
-  const validateUrl = (url: string) => {
-    if (!url) return setUrlStatus('idle');
-    const pattern = /\.(jpeg|jpg|gif|png|webp|svg|avif)$|images\.unsplash\.com|drive\.google\.com|cloudinary\.com|imgbb\.com/i;
-    if (pattern.test(url) || url.startsWith('http')) {
-      setUrlStatus('valid');
-      onFallbackChange(url);
-    } else {
-      setUrlStatus('invalid');
-    }
-  };
-
   return (
-    <div className="space-y-4 p-4 bg-gray-50 rounded-[24px] border border-gray-100">
+    <div className="space-y-1.5">
       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">{label}</label>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Gallery Upload (Primary) */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-1.5 h-1.5 bg-[#2D5A27] rounded-full" />
-            <span className="text-[11px] font-bold text-gray-600">Option 1: गैलरी से अपलोड करें (Primary)</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className={cn(
-              "relative w-16 h-16 rounded-xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center transition-colors shadow-inner",
-              primaryValue ? "bg-white" : "bg-gray-100"
-            )}>
-              {primaryValue ? (
-                <img src={primaryValue} alt="Primary" className="w-full h-full object-contain p-1" />
-              ) : (
-                <ImageIcon className="w-5 h-5 text-gray-300" />
-              )}
-              {loading && (
-                <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                  <Loader2 className="w-4 h-4 text-white animate-spin" />
-                </div>
-              )}
+      <div className="flex items-center gap-4">
+        <div className={cn(
+          "relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center transition-colors",
+          value ? "bg-white" : "bg-gray-100"
+        )}>
+          {value ? (
+            <img src={value} alt="Preview" className="w-full h-full object-contain p-1" />
+          ) : (
+            <ImageIcon className="w-6 h-6 text-gray-300" />
+          )}
+          {loading && (
+            <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+              <Loader2 className="w-5 h-5 text-white animate-spin" />
             </div>
-            <div className="flex-1">
-              <label className="inline-flex items-center px-3 py-2 bg-white border border-gray-200 text-[#2D5A27] rounded-lg text-[10px] font-bold cursor-pointer hover:bg-[#2D5A27] hover:text-white transition-all active:scale-95 shadow-sm">
-                <ImageIcon className="w-3.5 h-3.5 mr-2" />
-                फोटो चुनें
-                <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-              </label>
-              {primaryValue && (
-                <button 
-                  type="button"
-                  onClick={() => onPrimaryChange('')}
-                  className="ml-2 text-red-500 hover:text-red-700 transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* URL Input (Fallback) */}
-        {showFallback && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-1.5 h-1.5 bg-orange-400 rounded-full" />
-              <span className="text-[11px] font-bold text-gray-600">Option 2: इमेज URL पेस्ट करें (Fallback)</span>
-            </div>
-            <div className="space-y-2">
-              <div className="relative">
-                <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                <input 
-                  type="text"
-                  placeholder="https://example.com/image.jpg"
-                  value={urlInput}
-                  onChange={(e) => {
-                    setUrlInput(e.target.value);
-                    validateUrl(e.target.value);
-                  }}
-                  className={cn(
-                    "w-full bg-white border rounded-xl py-2 pl-9 pr-10 text-[10px] outline-none transition-all shadow-sm",
-                    urlStatus === 'valid' ? "border-green-200 focus:border-green-500" : 
-                    urlStatus === 'invalid' ? "border-red-200 focus:border-red-500" : "border-gray-200 focus:border-[#2D5A27]"
-                  )}
-                />
-                {urlStatus === 'valid' && <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-500" />}
-                {urlStatus === 'invalid' && <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-red-500" />}
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-white rounded-lg border border-gray-100 overflow-hidden flex items-center justify-center p-0.5">
-                  {fallbackValue ? (
-                    <img src={fallbackValue} alt="Preview" className="w-full h-full object-contain" onError={() => setUrlStatus('invalid')} />
-                  ) : (
-                    <ImageIcon className="w-4 h-4 text-gray-200" />
-                  )}
-                </div>
-                <p className="text-[8px] text-gray-400 flex-1">Direct लिंक ही इस्तेमाल करें (ImgBB, Cloudinary, etc.)</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Actual Preview with Fallback Logic */}
-      <div className="mt-4 pt-4 border-t border-gray-100">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-bold text-gray-500">Live Preview:</span>
-          {primaryValue && fallbackValue && (
-            <span className="text-[8px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-              Fallback Enabled
-            </span>
           )}
         </div>
-        <div className="h-32 w-full bg-white rounded-xl border border-gray-100 flex items-center justify-center overflow-hidden">
-          <SafeImage 
-            primarySrc={primaryValue}
-            fallbackSrc={fallbackValue}
-            className="h-full w-full object-contain p-2"
-          />
+        <div className="flex-1">
+          <label className="inline-flex items-center px-4 py-2 bg-white border-2 border-[#2D5A27] text-[#2D5A27] rounded-xl text-xs font-bold cursor-pointer hover:bg-[#2D5A27] hover:text-white transition-all active:scale-95">
+            <ImageIcon className="w-4 h-4 mr-2" />
+            गैलरी से चुनें (Pick from Gallery)
+            <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+          </label>
+          <p className="text-[9px] text-gray-400 mt-1 ml-1">अधिकतम 1MB साइज की फोटो चुनें</p>
         </div>
       </div>
     </div>
   );
 };
 
-const ImageUpload: React.FC<{ 
-  label: string; 
-  value: string; 
-  onChange: (val: string) => void;
-}> = ({ label, value, onChange }) => (
-  <ImagePicker 
-    label={label}
-    primaryValue={value}
-    fallbackValue=""
-    onPrimaryChange={onChange}
-    onFallbackChange={() => {}}
-    showFallback={false}
-  />
-);
-
 const Admin: React.FC = () => {
   const { 
-    products, addProduct, updateProduct, deleteProduct, fetchProducts,
-    categories, addCategory, updateCategory, deleteCategory, fetchCategories,
-    agriIssues, addAgriIssue, updateAgriIssue, deleteAgriIssue, fetchAgriIssues,
+    products, addProduct, updateProduct, deleteProduct,
+    categories, addCategory, updateCategory, deleteCategory,
+    agriIssues, addAgriIssue, updateAgriIssue, deleteAgriIssue,
     appContent, updateAppContent,
-    user, isAdmin, login, logout, loading,
-    users, onlineUsersCount, blockUser
+    user, isAdmin, login, logout, loading 
   } = useAppContext();
   
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'content' | 'users'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'content'>('products');
   const [isAdding, setIsAdding] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -200,22 +89,7 @@ const Admin: React.FC = () => {
   const [editingAgriIssue, setEditingAgriIssue] = useState<AgriIssue | null>(null);
   const [agriIssueToDelete, setAgriIssueToDelete] = useState<AgriIssue | null>(null);
 
-  const [userSearchTerm, setUserSearchTerm] = useState('');
-  const [userFilter, setUserFilter] = useState<'all' | 'online' | 'blocked'>('all');
-
   const [isSaving, setIsSaving] = useState(false);
-
-  // Fetch data on mount
-  React.useEffect(() => {
-    const initFetch = async () => {
-      await Promise.all([
-        fetchProducts(),
-        fetchCategories(),
-        fetchAgriIssues()
-      ]);
-    };
-    initFetch();
-  }, [fetchProducts, fetchCategories, fetchAgriIssues]);
 
   const [productForm, setProductForm] = useState<Partial<Product>>({
     name: '',
@@ -260,9 +134,9 @@ const Admin: React.FC = () => {
     } else {
       setContentForm({
         banners: [
-          { id: '1', image: 'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?auto=format&fit=crop&q=80&w=800', title: 'खाद और बीज पर भारी छूट!', subtitle: 'सीमित समय के लिए ऑफर', showText: true },
-          { id: '2', image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800', title: 'नई किस्म के सोयाबीन बीज', subtitle: 'अधिक पैदावार की गारंटी', showText: true },
-          { id: '3', image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=800', title: 'फसल सुरक्षा समाधान', subtitle: 'बेहतरीन कीटनाशक उपलब्ध', showText: true }
+          { id: '1', image: 'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?auto=format&fit=crop&q=80&w=800', title: 'खाद और बीज पर भारी छूट!', subtitle: 'सीमित समय के लिए ऑफर' },
+          { id: '2', image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800', title: 'नई किस्म के सोयाबीन बीज', subtitle: 'अधिक पैदावार की गारंटी' },
+          { id: '3', image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=800', title: 'फसल सुरक्षा समाधान', subtitle: 'बेहतरीन कीटनाशक उपलब्ध' }
         ],
         videos: [
           { id: 'v1', title: 'आधुनिक खेती की जानकारी', videoUrl: 'https://www.youtube.com/watch?v=9-3-P4mXG3A', thumbnail: 'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&q=80&w=800' },
@@ -388,7 +262,7 @@ const Admin: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin" />
-        <p className="text-sm text-gray-500 font-bold">डेटा लोड हो रहा है, कृपया प्रतीक्षा करें...</p>
+        <p className="text-sm text-gray-500 font-bold">लोड हो रहा है...</p>
       </div>
     );
   }
@@ -659,15 +533,6 @@ const Admin: React.FC = () => {
         >
           <Layout className="w-4 h-4" /> कंटेंट (Content)
         </button>
-        <button 
-          onClick={() => setActiveTab('users')}
-          className={cn(
-            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'users' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <Users className="w-4 h-4" /> यूज़र्स (Users)
-        </button>
       </div>
 
       {activeTab === 'products' ? (
@@ -695,10 +560,10 @@ const Admin: React.FC = () => {
                 <p className="text-sm text-gray-400">कोई उत्पाद नहीं मिला।</p>
               </div>
             ) : (
-              products.map((product) => (
+              products.map((product, idx) => (
                 <motion.div 
                   layout
-                  key={product.id} 
+                  key={`${product.id}-${idx}`} 
                   className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group"
                 >
                   <div className="flex items-center gap-4">
@@ -865,146 +730,7 @@ const Admin: React.FC = () => {
             )}
           </div>
         </>
-      ) : activeTab === 'users' ? (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Users</p>
-              <h4 className="text-2xl font-bold text-[#4A3728]">{users.length}</h4>
-            </div>
-            <div className="bg-[#2D5A27]/5 p-4 rounded-3xl border border-[#2D5A27]/10 shadow-sm">
-              <p className="text-[10px] font-bold text-[#2D5A27] uppercase tracking-widest mb-1">Online Now</p>
-              <h4 className="text-2xl font-bold text-[#2D5A27] flex items-center gap-2">
-                {onlineUsersCount}
-                <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
-              </h4>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input 
-                type="text"
-                placeholder="ईमेल से खोजें... (Search by Email)"
-                value={userSearchTerm}
-                onChange={(e) => setUserSearchTerm(e.target.value)}
-                className="w-full bg-white border border-gray-200 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-[#2D5A27] shadow-sm transition-all"
-              />
-            </div>
-
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-              {[
-                { id: 'all', label: 'सभी (All)' },
-                { id: 'online', label: 'ऑनलाइन (Online)' },
-                { id: 'blocked', label: 'ब्लॉक (Blocked)' }
-              ].map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => setUserFilter(f.id as any)}
-                  className={cn(
-                    "px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border",
-                    userFilter === f.id ? "bg-[#2D5A27] text-white border-[#2D5A27] shadow-md" : "bg-white text-gray-500 border-gray-200"
-                  )}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {users
-              .filter(u => {
-                const matchesSearch = u.email?.toLowerCase().includes(userSearchTerm.toLowerCase()) || 
-                                     u.displayName?.toLowerCase().includes(userSearchTerm.toLowerCase());
-                
-                const fiveMinsAgo = new Date(Date.now() - 1000 * 60 * 5);
-                const isOnline = u.lastActive && new Date(u.lastActive) > fiveMinsAgo;
-
-                if (userFilter === 'online') return matchesSearch && isOnline;
-                if (userFilter === 'blocked') return matchesSearch && u.isBlocked;
-                return matchesSearch;
-              })
-              .map((u) => {
-                const fiveMinsAgo = new Date(Date.now() - 1000 * 60 * 5);
-                const isOnline = u.lastActive && new Date(u.lastActive) > fiveMinsAgo;
-                const isSelf = u.uid === user?.uid;
-
-                return (
-                  <div key={u.id} className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <img src={u.photoURL || `https://ui-avatars.com/api/?name=${u.displayName || 'User'}&background=random`} alt="" className="w-12 h-12 rounded-2xl object-cover" />
-                          <div className={cn(
-                            "absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm",
-                            isOnline ? "bg-green-500" : "bg-gray-300"
-                          )} />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-gray-800 text-sm leading-tight flex items-center gap-2">
-                            {u.displayName || 'Anonymous Farmer'}
-                            {isSelf && <span className="text-[8px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full uppercase tracking-tighter">You</span>}
-                          </h4>
-                          <p className="text-[10px] text-gray-400 font-medium">{u.email}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className={cn(
-                              "text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-tighter",
-                              isOnline ? "bg-green-50 text-green-600 border border-green-100" : "bg-gray-50 text-gray-400 border border-gray-100"
-                            )}>
-                              {isOnline ? '🟢 Online' : '⚪ Offline'}
-                            </span>
-                            {u.isBlocked && (
-                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100 uppercase tracking-tighter">
-                                🚫 Blocked
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-1.5">
-                        <button
-                          disabled={isSelf}
-                          onClick={() => blockUser(u.uid, !u.isBlocked)}
-                          className={cn(
-                            "p-2 rounded-xl transition-all active:scale-95",
-                            u.isBlocked ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600",
-                            isSelf && "opacity-30 grayscale cursor-not-allowed"
-                          )}
-                          title={u.isBlocked ? "Unblock" : "Block"}
-                        >
-                          {u.isBlocked ? <ShieldCheck className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-50">
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-3 h-3 text-gray-300" />
-                        <div>
-                          <p className="text-[8px] text-gray-400 font-bold uppercase">Joined</p>
-                          <p className="text-[10px] text-gray-600 font-medium">
-                            {u.createdAt ? new Date(u.createdAt).toLocaleDateString('hi-IN', { day: 'numeric', month: 'short' }) : 'NA'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-3 h-3 text-gray-300" />
-                        <div>
-                          <p className="text-[8px] text-gray-400 font-bold uppercase">Last Active</p>
-                          <p className="text-[10px] text-gray-600 font-medium">
-                            {u.lastActive ? new Date(u.lastActive).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' }) : 'NA'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-      ) : activeTab === 'content' ? (
+      ) : (
         <form onSubmit={handleContentSubmit} className="space-y-8">
           {/* Branding Settings */}
           <div className="space-y-4">
@@ -1037,43 +763,20 @@ const Admin: React.FC = () => {
                   className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                 />
               </div>
-              <ImagePicker 
+              <ImageUpload 
                 label="ऐप लोगो (App Logo)"
-                primaryValue={contentForm?.branding?.logo || ''}
-                fallbackValue={contentForm?.branding?.logoFallback || ''}
-                onPrimaryChange={base64 => {
+                value={contentForm?.branding?.logo || ''}
+                onChange={base64 => {
                   if (!contentForm) return;
-                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), logo: base64}});
-                }}
-                onFallbackChange={url => {
-                  if (!contentForm) return;
-                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), logoFallback: url}});
+                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: '', pwaIcon: ''}), logo: base64}});
                 }}
               />
-              <ImagePicker 
-                label="ऐप आइकन (PWA/Android Install Icon)"
-                primaryValue={contentForm?.branding?.pwaIcon || ''}
-                fallbackValue={contentForm?.branding?.pwaIconFallback || ''}
-                onPrimaryChange={base64 => {
+              <ImageUpload 
+                label="ऐप आइकन (PWA/Home Screen Icon)"
+                value={contentForm?.branding?.pwaIcon || ''}
+                onChange={base64 => {
                   if (!contentForm) return;
-                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), pwaIcon: base64}});
-                }}
-                onFallbackChange={url => {
-                  if (!contentForm) return;
-                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), pwaIconFallback: url}});
-                }}
-              />
-              <ImagePicker 
-                label="स्प्लैश स्क्रीन लोगो (Splash Screen Logo)"
-                primaryValue={contentForm?.branding?.splashLogo || ''}
-                fallbackValue={contentForm?.branding?.splashLogoFallback || ''}
-                onPrimaryChange={base64 => {
-                  if (!contentForm) return;
-                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), splashLogo: base64}});
-                }}
-                onFallbackChange={url => {
-                  if (!contentForm) return;
-                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), splashLogoFallback: url}});
+                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: '', pwaIcon: ''}), pwaIcon: base64}});
                 }}
               />
               <div className="space-y-1.5">
@@ -1231,20 +934,13 @@ const Admin: React.FC = () => {
                             placeholder="जैसे: सोयाबीन कॉम्बो किट"
                           />
                         </div>
-                        <ImagePicker 
+                        <ImageUpload 
                           label="ऑफर बैनर (Offer Image)"
-                          primaryValue={item.image}
-                          fallbackValue={item.fallbackImage || ''}
-                          onPrimaryChange={base64 => {
+                          value={item.image}
+                          onChange={base64 => {
                             if (!contentForm?.offers) return;
                             const newItems = [...contentForm.offers.items];
                             newItems[idx].image = base64;
-                            setContentForm({...contentForm, offers: {...contentForm.offers, items: newItems}});
-                          }}
-                          onFallbackChange={url => {
-                            if (!contentForm?.offers) return;
-                            const newItems = [...contentForm.offers.items];
-                            newItems[idx].fallbackImage = url;
                             setContentForm({...contentForm, offers: {...contentForm.offers, items: newItems}});
                           }}
                         />
@@ -1345,17 +1041,12 @@ const Admin: React.FC = () => {
                     </div>
                   </div>
 
-                  <ImagePicker 
+                  <ImageUpload 
                     label="फेस्टिवल बैनर (Festival Banner)"
-                    primaryValue={contentForm?.festivalOffer?.image || ''}
-                    fallbackValue={contentForm?.festivalOffer?.fallbackImage || ''}
-                    onPrimaryChange={base64 => {
+                    value={contentForm?.festivalOffer?.image || ''}
+                    onChange={base64 => {
                       if (!contentForm) return;
                       setContentForm({...contentForm, festivalOffer: {...(contentForm.festivalOffer || {show: true, title: '', subtitle: '', image: '', theme: 'general'}), image: base64}});
-                    }}
-                    onFallbackChange={url => {
-                      if (!contentForm) return;
-                      setContentForm({...contentForm, festivalOffer: {...(contentForm.festivalOffer || {show: true, title: '', subtitle: '', image: '', theme: 'general'}), fallbackImage: url}});
                     }}
                   />
                 </div>
@@ -1435,51 +1126,12 @@ const Admin: React.FC = () => {
                       className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                     />
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">टेक्स्ट दिखाएँ? (Show Title & Subtitle?)</label>
-                    <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newBanners = [...contentForm.banners];
-                          newBanners[idx].showText = true;
-                          setContentForm({...contentForm, banners: newBanners});
-                        }}
-                        className={cn(
-                          "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase transition-all",
-                          banner.showText !== false ? "bg-white text-[#2D5A27] shadow-sm" : "text-gray-400"
-                        )}
-                      >
-                        हाँ (ON)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newBanners = [...contentForm.banners];
-                          newBanners[idx].showText = false;
-                          setContentForm({...contentForm, banners: newBanners});
-                        }}
-                        className={cn(
-                          "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase transition-all",
-                          banner.showText === false ? "bg-white text-red-600 shadow-sm" : "text-gray-400"
-                        )}
-                      >
-                        नहीं (OFF)
-                      </button>
-                    </div>
-                  </div>
-                  <ImagePicker 
+                  <ImageUpload 
                     label="बैनर फोटो (Banner Image)"
-                    primaryValue={banner.image}
-                    fallbackValue={banner.fallbackImage || ''}
-                    onPrimaryChange={base64 => {
+                    value={banner.image}
+                    onChange={base64 => {
                       const newBanners = [...contentForm.banners];
                       newBanners[idx].image = base64;
-                      setContentForm({...contentForm, banners: newBanners});
-                    }}
-                    onFallbackChange={url => {
-                      const newBanners = [...contentForm.banners];
-                      newBanners[idx].fallbackImage = url;
                       setContentForm({...contentForm, banners: newBanners});
                     }}
                   />
@@ -1527,18 +1179,12 @@ const Admin: React.FC = () => {
                       placeholder="जैसे: https://www.youtube.com/watch?v=..."
                     />
                   </div>
-                  <ImagePicker 
+                  <ImageUpload 
                     label="वीडियो थंबनेल (Thumbnail)"
-                    primaryValue={video.thumbnail}
-                    fallbackValue={video.fallbackThumbnail || ''}
-                    onPrimaryChange={base64 => {
+                    value={video.thumbnail}
+                    onChange={base64 => {
                       const newVideos = [...contentForm.videos];
                       newVideos[idx].thumbnail = base64;
-                      setContentForm({...contentForm, videos: newVideos});
-                    }}
-                    onFallbackChange={url => {
-                      const newVideos = [...contentForm.videos];
-                      newVideos[idx].fallbackThumbnail = url;
                       setContentForm({...contentForm, videos: newVideos});
                     }}
                   />
@@ -1597,20 +1243,13 @@ const Admin: React.FC = () => {
                         placeholder="जैसे: Bayer"
                       />
                     </div>
-                    <ImagePicker 
+                    <ImageUpload 
                       label="कंपनी लोगो (Company Logo)"
-                      primaryValue={partner.logo}
-                      fallbackValue={partner.fallbackLogo || ''}
-                      onPrimaryChange={base64 => {
+                      value={partner.logo}
+                      onChange={base64 => {
                         if (!contentForm) return;
                         const newPartners = [...contentForm.partners];
                         newPartners[idx].logo = base64;
-                        setContentForm({...contentForm, partners: newPartners});
-                      }}
-                      onFallbackChange={url => {
-                        if (!contentForm) return;
-                        const newPartners = [...contentForm.partners];
-                        newPartners[idx].fallbackLogo = url;
                         setContentForm({...contentForm, partners: newPartners});
                       }}
                     />
@@ -1785,7 +1424,7 @@ const Admin: React.FC = () => {
             सभी बदलाव सुरक्षित करें (Save All Content)
           </button>
         </form>
-      ) : null}
+      )}
 
       {/* Product Modal */}
       <AnimatePresence>
@@ -2115,15 +1754,16 @@ const Admin: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">श्रेणी आइकन (Category Icon)</label>
-                  <p className="text-[10px] text-gray-400 mb-2">Emoji डालें (जैसे 🌱) या फोटो अपलोड/लिंक करें।</p>
-                  <ImagePicker 
-                    label="Icon Picker"
-                    primaryValue={categoryForm.icon}
-                    fallbackValue={categoryForm.fallbackIcon || ''}
-                    onPrimaryChange={val => setCategoryForm({...categoryForm, icon: val})}
-                    onFallbackChange={val => setCategoryForm({...categoryForm, fallbackIcon: val})}
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">आइकन (Emoji/Icon)</label>
+                  <input 
+                    required
+                    type="text" 
+                    value={categoryForm.icon}
+                    onChange={e => setCategoryForm({...categoryForm, icon: e.target.value})}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                    placeholder="जैसे: 🥕"
                   />
+                  <p className="text-[9px] text-gray-400 ml-1">आप इमोजी या किसी इमेज का यूआरएल डाल सकते हैं।</p>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">क्रम (Order)</label>

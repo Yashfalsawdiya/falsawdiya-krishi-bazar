@@ -10,7 +10,7 @@ import ProductDetailModal from '../components/ProductDetailModal';
 import { Product } from '../types';
 
 const Products: React.FC = () => {
-  const { products, categories, appContent, fetchProducts, fetchCategories } = useAppContext();
+  const { products, categories, appContent } = useAppContext();
   const [searchParams] = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -21,8 +21,6 @@ const Products: React.FC = () => {
   const whatsappNumber = appContent?.contactInfo.whatsapp || '918982338046';
 
   useEffect(() => {
-    fetchProducts();
-    fetchCategories();
     const cat = searchParams.get('category');
     if (cat) {
       setSelectedCategory(cat);
@@ -92,10 +90,10 @@ const Products: React.FC = () => {
       {/* Product List */}
       <div className="grid grid-cols-1 gap-4">
         {filteredProducts.length > 0 ? (
-          filteredProducts.map((product) => (
+          filteredProducts.map((product, idx) => (
             <motion.div
               layout
-              key={product.id}
+              key={`${product.id}-${idx}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               onClick={() => {

@@ -45,14 +45,8 @@
       "properties": {
         "uid": { "type": "string" },
         "email": { "type": "string" },
-        "displayName": { "type": "string" },
-        "photoURL": { "type": "string" },
         "role": { "type": "string", "enum": ["admin", "user"] },
-        "geminiApiKey": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "lastActive": { "type": "string", "format": "date-time" },
-        "isBlocked": { "type": "boolean" },
-        "isSuspended": { "type": "boolean" }
+        "geminiApiKey": { "type": "string" }
       },
       "required": ["uid", "email", "role"]
     },

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Download, X, Smartphone, CheckCircle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import SafeImage from './SafeImage';
 
 /**
  * Component to handle PWA installation prompt
@@ -92,17 +91,8 @@ const InstallPwaModal: React.FC = () => {
               <X className="w-5 h-5" />
             </button>
 
-            <div className="w-20 h-20 bg-[#2D5A27]/10 rounded-[28px] flex items-center justify-center mx-auto mb-6 overflow-hidden p-3">
-              {appContent?.branding?.pwaIcon || appContent?.branding?.logo ? (
-                <SafeImage 
-                  primarySrc={appContent.branding.pwaIcon || appContent.branding.logo}
-                  fallbackSrc={appContent.branding.pwaIconFallback || appContent.branding.logoFallback}
-                  alt="Install Icon"
-                  className="w-full h-full object-contain"
-                />
-              ) : (
-                <Smartphone className="w-10 h-10 text-[#2D5A27]" />
-              )}
+            <div className="w-20 h-20 bg-[#2D5A27]/10 rounded-[28px] flex items-center justify-center mx-auto mb-6">
+              <Smartphone className="w-10 h-10 text-[#2D5A27]" />
             </div>
 
             <h3 className="text-xl font-black text-[#4A3728] mb-2">

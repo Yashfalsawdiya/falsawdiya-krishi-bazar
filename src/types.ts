@@ -2,7 +2,6 @@ export interface CategoryData {
   id: string;
   name: string;
   icon: string;
-  fallbackIcon?: string;
   order: number;
 }
 

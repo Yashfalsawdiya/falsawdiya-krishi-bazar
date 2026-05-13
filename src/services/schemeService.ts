@@ -25,41 +25,19 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
 
   const CACHE_KEY = 'agri_schemes_cache';
   const CACHE_TIME_KEY = 'agri_schemes_cache_time';
-  
+  const CACHE_DURATION = 4 * 60 * 60 * 1000; // 4 hours
+
   const cachedData = localStorage.getItem(CACHE_KEY);
   const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
 
-  const nowTime = now.getTime();
-  const today10AM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0, 0).getTime();
-
-  let shouldRefresh = true;
-
-  if (cachedData && cachedTime) {
-    const lastFetchTime = parseInt(cachedTime);
-    const lastFetchDate = new Date(lastFetchTime);
-    const isSameDay = lastFetchDate.toDateString() === now.toDateString();
-
-    // If it is before 10 AM today and we have data from yesterday or earlier today
-    if (nowTime < today10AM) {
-      if (isSameDay || (nowTime - lastFetchTime < 24 * 60 * 60 * 1000)) {
-        shouldRefresh = false;
+  if (!forceRefresh && cachedData && cachedTime) {
+    const age = now.getTime() - parseInt(cachedTime);
+    if (age < CACHE_DURATION) {
+      try {
+        return JSON.parse(cachedData);
+      } catch (e) {
+        console.warn("Error parsing cached schemes:", e);
       }
-    } else {
-      // It is after 10 AM today. Refresh only if last fetch was before 10 AM today.
-      if (isSameDay && lastFetchTime >= today10AM) {
-        shouldRefresh = false;
-      }
-    }
-  }
-
-  if (!shouldRefresh && cachedData) {
-    try {
-      const parsed = JSON.parse(cachedData);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    } catch (e) {
-      console.warn("Error parsing cached schemes:", e);
     }
   }
 
@@ -91,7 +69,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     const ai = getAI(userApiKey);
     const prompt = `You are an expert in Indian Government Agricultural Schemes.
     Current Date: ${dateStr}.
-    Provide a comprehensive, accurate and LATEST list of the top 10-12 government schemes for farmers in India, with a focus on both Central Government and Madhya Pradesh State Government schemes.
+    Provide a comprehensive, accurate and LATEST list of the top 8-10 government schemes for farmers in India, with a focus on both Central Government and Madhya Pradesh State Government schemes.
     
     Include diverse categories:
     - Financial Aid (PM-Kisan, CM-Kisan)
@@ -116,7 +94,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     Ensure all schemes are currently active and provide real, updated information. Do not return anything except the JSON code block.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt
     });
 
@@ -127,7 +105,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     const data = JSON.parse(jsonMatch[0]);
 
     localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-    localStorage.setItem(CACHE_TIME_KEY, nowTime.toString());
+    localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
 
     return data;
   } catch (error: any) {
