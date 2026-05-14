@@ -26,6 +26,7 @@ export interface AppContent {
     pwaIcon?: string | ImageSource;
     androidIcon?: string | ImageSource;
     splashLogo?: string | ImageSource;
+    showHeroText?: boolean;
   };
   loginText?: string;
   adminEmails?: string[];
