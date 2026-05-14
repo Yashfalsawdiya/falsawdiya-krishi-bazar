@@ -16,6 +16,7 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth';
+import { validateGmailAccount } from '../lib/authUtils';
 
 export interface AppContent {
   branding: {
@@ -202,6 +203,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const initialize = async () => {
       // 1. Listen for Auth
       onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+          // Strict Validation Check
+          const validation = validateGmailAccount(firebaseUser.email, firebaseUser.emailVerified);
+          if (!validation.isValid) {
+            console.error("Auth Strict Validation Failed:", validation.error);
+            await signOut(auth);
+            setUser(null);
+            alert(`प्रवेश वर्जित: ${validation.error}`);
+            setLoading(false);
+            return;
+          }
+        }
+
         setUser(firebaseUser);
         if (firebaseUser) {
           try {
@@ -259,7 +273,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const login = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      // Add custom parameter to force account picker
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(auth, provider);
+      
+      // Perform immediate validation after login
+      const validation = validateGmailAccount(result.user.email, result.user.emailVerified);
+      if (!validation.isValid) {
+        await signOut(auth);
+        throw new Error(validation.error);
+      }
     } catch (error: any) {
       console.error("Login Error:", error);
       alert("लॉगिन में समस्या आई: " + (error.message || "अज्ञात त्रुटि"));

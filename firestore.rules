@@ -50,7 +50,10 @@ service cloud.firestore {
     // ===============================================================
     
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null && 
+             request.auth.token.email_verified == true && 
+             request.auth.token.email.matches(".*@gmail\\.com$") &&
+             !request.auth.token.email.matches(".*\\+.*@gmail\\.com$");
     }
 
     function isOwner(userId) {
@@ -102,7 +105,7 @@ service cloud.firestore {
 
     function isValidUser(data) {
       return data.uid is string && data.uid == request.auth.uid &&
-             data.email is string && isValidEmail(data.email) &&
+             data.email is string && data.email == request.auth.token.email &&
              data.role in ['admin', 'user'] &&
              (!('geminiApiKey' in data) || (data.geminiApiKey is string && data.geminiApiKey.size() < 200));
     }
