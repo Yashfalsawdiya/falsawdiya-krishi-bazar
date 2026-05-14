@@ -11,6 +11,9 @@ import {
   doc, 
   setDoc,
   getDoc,
+  getDocs,
+  getDocsFromCache,
+  getDocsFromServer,
   query,
   orderBy,
   Unsubscribe
@@ -112,6 +115,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const [allUsers, setAllUsers] = useState<UserRecord[]>([]);
 
+  // Sync Logic: Check if we need to sync today (after 10 AM)
+  const isSyncNeeded = () => {
+    const lastSyncStr = localStorage.getItem('last_agri_sync_date');
+    const now = new Date();
+    const todayStr = now.toDateString();
+    
+    // If we already synced today, no need
+    if (lastSyncStr === todayStr) return false;
+    
+    // If it's before 10 AM, we use yesterday's cache (unless first time)
+    if (now.getHours() < 10 && lastSyncStr) return false;
+    
+    return true;
+  };
+
+  const markSyncDone = () => {
+    localStorage.setItem('last_agri_sync_date', new Date().toDateString());
+  };
+
   useEffect(() => {
     let unsubscribeUserDoc: Unsubscribe | null = null;
 
@@ -210,46 +232,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const loadProducts = () => {
-    const qProducts = query(collection(db, 'products'), orderBy('hindiName'));
-    return onSnapshot(qProducts, (snapshot) => {
-      if (!snapshot.empty) {
+    const q = query(collection(db, 'products'), orderBy('hindiName'));
+    
+    const fetch = async () => {
+      try {
+        let snapshot;
+        if (isSyncNeeded()) {
+          console.log("Daily sync: Fetching products from server...");
+          snapshot = await getDocsFromServer(q);
+          markSyncDone(); // Mark generic sync done after first major fetch
+        } else {
+          try {
+            snapshot = await getDocsFromCache(q);
+            if (snapshot.empty) throw new Error("Cache empty");
+          } catch (e) {
+            snapshot = await getDocsFromServer(q);
+          }
+        }
+        
         const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        const uniqueProds = Array.from(new Map(prods.map(p => [p.id, p])).values());
-        setProducts(uniqueProds);
-      } else {
-        setProducts([]);
+        setProducts(prods);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.LIST, 'products');
       }
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.LIST, 'products');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
+    };
+
+    fetch();
+    // Return dummy unsubscribe since we switched to getDocs for quota saving
+    return () => {};
   };
 
   const loadCategoryData = () => {
-    const qCategories = query(collection(db, 'categories'), orderBy('order'));
-    return onSnapshot(qCategories, (snapshot) => {
-      if (!snapshot.empty) {
+    const q = query(collection(db, 'categories'), orderBy('order'));
+    
+    const fetch = async () => {
+      try {
+        let snapshot;
+        if (isSyncNeeded()) {
+          snapshot = await getDocsFromServer(q);
+        } else {
+          try {
+            snapshot = await getDocsFromCache(q);
+            if (snapshot.empty) throw new Error("Cache empty");
+          } catch (e) {
+            snapshot = await getDocsFromServer(q);
+          }
+        }
         setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData)));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.LIST, 'categories');
       }
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.LIST, 'categories');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
+    };
+
+    fetch();
+    return () => {};
   };
 
   const loadAgriIssues = () => {
-    return onSnapshot(collection(db, 'agriIssues'), (snapshot) => {
-      setAgriIssues(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue)));
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.LIST, 'agriIssues');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
+    const q = collection(db, 'agriIssues');
+    
+    const fetch = async () => {
+      try {
+        let snapshot;
+        if (isSyncNeeded()) {
+          snapshot = await getDocsFromServer(q);
+        } else {
+          try {
+            snapshot = await getDocsFromCache(q);
+            if (snapshot.empty) throw new Error("Cache empty");
+          } catch (e) {
+            snapshot = await getDocsFromServer(q);
+          }
+        }
+        setAgriIssues(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue)));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.LIST, 'agriIssues');
       }
-    });
+    };
+
+    fetch();
+    return () => {};
   };
 
   // Dedicated effect for app content - important for branding
