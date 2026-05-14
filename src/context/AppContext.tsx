@@ -404,7 +404,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateUserStatus = async (uid: string, isBlocked: boolean) => {
     if (!isAdmin) return;
+    
     try {
+      // Protection for Admins: Main Admin and Backup Admin cannot be blocked
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        const uData = userDoc.data();
+        const isMainAdmin = uData.email === 'yashfalsawdiya36@gmail.com';
+        const isBackupAdmin = appContent?.adminEmails?.includes(uData.email);
+        
+        if (isMainAdmin || isBackupAdmin) {
+          alert("एडमिन आईडी को ब्लॉक नहीं किया जा सकता। (Admin IDs cannot be blocked)");
+          return;
+        }
+      }
+
       await updateDoc(doc(db, 'users', uid), { isBlocked });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);

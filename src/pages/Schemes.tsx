@@ -1,22 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { fetchSchemes, Scheme } from '../services/schemeService';
 import { motion } from 'motion/react';
-import { Landmark, ChevronRight, Info, Loader2, ExternalLink, RefreshCw, X } from 'lucide-react';
+import { Landmark, ChevronRight, Info, Loader2, ExternalLink, RefreshCw, X, Key } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import ApiKeyModal from '../components/ApiKeyModal';
 
 const Schemes: React.FC = () => {
   const { userSettings } = useAppContext();
   const [schemes, setSchemes] = useState<Scheme[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadSchemes = async (force: boolean = false) => {
     setLoading(true);
     try {
       const data = await fetchSchemes(userSettings?.geminiApiKey, force);
       setSchemes(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      if (error.message === 'USER_API_KEY_MISSING') {
+        setIsModalOpen(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -28,6 +33,7 @@ const Schemes: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-10">
+      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <div className="text-center">
         <h2 className="text-xl font-bold text-[#4A3728] flex items-center justify-center gap-2">
           <Landmark className="w-6 h-6 text-[#2D5A27]" />

@@ -1,23 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { fetchAgriNews, AgriNewsItem } from '../services/newsService';
 import { motion } from 'motion/react';
-import { Newspaper, Calendar, Tag, Loader2, ExternalLink, RefreshCw } from 'lucide-react';
+import { Newspaper, Calendar, Tag, Loader2, ExternalLink, RefreshCw, Key } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { cn } from '../lib/utils';
 import SmartImage from '../components/SmartImage';
+import ApiKeyModal from '../components/ApiKeyModal';
 
 const AgriNews: React.FC = () => {
   const { userSettings } = useAppContext();
   const [news, setNews] = useState<AgriNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadNews = async () => {
     setLoading(true);
     try {
       const data = await fetchAgriNews(userSettings?.geminiApiKey);
       setNews(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      if (error.message === 'USER_API_KEY_MISSING') {
+        setIsModalOpen(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -57,6 +62,7 @@ const AgriNews: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-10">
+      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <div className="text-center">
         <h2 className="text-xl font-bold text-[#4A3728] flex items-center justify-center gap-2">
           <Newspaper className="w-6 h-6 text-[#2D5A27]" />

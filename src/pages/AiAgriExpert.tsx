@@ -249,7 +249,7 @@ const AiAgriExpert: React.FC = () => {
     } catch (err: any) {
       console.error("Permission request failed:", err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.name === 'SecurityError') {
-        setError("माइक एक्सेस ब्लॉक है। यह अक्सर तब होता है जब ऐप छोटे फ्रेम में चल रहा हो। कृपया 'नये टैब में खोलें' बटन दबाएं या ब्राउज़र की ताला (Lock) सेटिंग्स में जाकर 'Allow' करें।");
+        setError("माइक एक्सेस ब्लॉक है। कृपया ब्राउज़र की ताला (Lock) सेटिंग्स में जाकर माइक्रोफोन के लिए 'Allow' चुनें।");
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setError("आपके फोन में माइक्रोफोन नहीं मिला।");
       } else {
@@ -259,10 +259,6 @@ const AiAgriExpert: React.FC = () => {
       setPermissionGranted(false);
       return false;
     }
-  };
-
-  const handleOpenInNewTab = () => {
-    window.open(window.location.href, '_blank', 'noopener,noreferrer');
   };
 
   const startCall = async () => {
@@ -554,14 +550,6 @@ const AiAgriExpert: React.FC = () => {
                   className="w-full text-sm font-black text-white bg-red-500 py-4 rounded-2xl shadow-lg active:scale-95 transition-transform"
                 >
                   {permissionGranted ? "फिर से कोशिश करें" : "अनुमति दें (Allow Permission)"}
-                </button>
-                
-                <button 
-                  onClick={handleOpenInNewTab}
-                  className="w-full text-xs font-bold text-gray-500 bg-gray-50 py-3 rounded-2xl border border-gray-100 active:scale-95 transition-transform flex items-center justify-center gap-2"
-                >
-                  <Sparkles className="w-4 h-4 text-[#2D5A27]" />
-                  नये टैब में खोलें (Open in New Tab)
                 </button>
               </div>
             </div>

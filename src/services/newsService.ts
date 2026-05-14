@@ -1,9 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 
 const getAI = (userApiKey?: string) => {
-  const apiKey = userApiKey || import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  const apiKey = userApiKey;
   if (!apiKey || apiKey.trim() === "") {
-    throw new Error("GEMINI_API_KEY is not configured.");
+    throw new Error("USER_API_KEY_MISSING");
   }
   return new GoogleGenAI({ apiKey: apiKey.trim() });
 };
@@ -112,6 +112,9 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
     
     return fallbackData;
   } catch (error: any) {
+    if (error.message === 'USER_API_KEY_MISSING') {
+      throw error;
+    }
     console.error("Error fetching news with search:", error);
     
     if (cachedData) {

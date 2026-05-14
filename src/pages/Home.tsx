@@ -263,8 +263,12 @@ const Home: React.FC = () => {
     try {
       const response = await askAiQuestion(question, weather, userSettings?.geminiApiKey);
       setChatResponse(response);
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Question failed:", error);
+      if (error.message === 'USER_API_KEY_MISSING') {
+        setIsModalOpen(true);
+        setIsChatOpen(false);
+      }
     } finally {
       setIsAiLoading(false);
     }
@@ -282,8 +286,11 @@ const Home: React.FC = () => {
     try {
       const advice = await getDynamicAdvice(weather, "Kharif", "Soybean", userSettings.geminiApiKey);
       setAiAdvice(advice);
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Advice failed:", error);
+      if (error.message === 'USER_API_KEY_MISSING') {
+        setIsModalOpen(true);
+      }
     } finally {
       setIsAiLoading(false);
     }

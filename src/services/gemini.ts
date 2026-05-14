@@ -1,15 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 
 const getAI = (userApiKey?: string) => {
-  let apiKey = userApiKey;
+  const apiKey = userApiKey;
   
-  // If userApiKey is empty or undefined, look for environment variables
   if (!apiKey || apiKey.trim() === "") {
-    apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-  }
-
-  if (!apiKey || apiKey.trim() === "") {
-    throw new Error("GEMINI_API_KEY is not configured.");
+    throw new Error("USER_API_KEY_MISSING");
   }
   
   return new GoogleGenAI({ apiKey: apiKey.trim() });
@@ -128,6 +123,9 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
 
     return adviceText;
   } catch (error: any) {
+    if (error.message === 'USER_API_KEY_MISSING') {
+      throw error;
+    }
     console.error("Gemini Advice Error:", error);
     
     // Try to return cached advice if available
@@ -172,6 +170,9 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
 
     return response.text;
   } catch (error: any) {
+    if (error.message === 'USER_API_KEY_MISSING') {
+      throw error;
+    }
     console.error("Gemini Chat Error:", error);
     if (error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED")) {
       return "क्षमा करें, सेवा की सीमा (Quota) समाप्त हो गई है। कृपया बाद में प्रयास करें।";

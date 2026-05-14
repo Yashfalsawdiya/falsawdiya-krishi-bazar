@@ -1,9 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 
 const getAI = (userApiKey?: string) => {
-  const apiKey = userApiKey || import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  const apiKey = userApiKey;
   if (!apiKey || apiKey.trim() === "") {
-    throw new Error("GEMINI_API_KEY is not configured.");
+    throw new Error("USER_API_KEY_MISSING");
   }
   return new GoogleGenAI({ apiKey: apiKey.trim() });
 };
@@ -109,6 +109,9 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
 
     return data;
   } catch (error: any) {
+    if (error.message === 'USER_API_KEY_MISSING') {
+      throw error;
+    }
     const isQuotaError = error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED");
     if (isQuotaError) {
       console.warn("Gemini API Quota Exceeded for Schemes. Using fallback.");

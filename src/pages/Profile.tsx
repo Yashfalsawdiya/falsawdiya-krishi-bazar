@@ -140,10 +140,41 @@ const Profile: React.FC = () => {
           )}
         </button>
 
-        <div className="pt-2 border-t border-gray-50 uppercase">
+        <div className="pt-2 border-t border-gray-100 flex flex-col gap-2">
+          <button 
+            onClick={() => {
+              if (confirm('क्या आप ऐप की पुरानी कैश (Cache) साफ करके रिफ्रेश करना चाहते हैं? इससे पुराने ग्लिचेस ठीक हो जाएंगे।')) {
+                // Clear Service Workers
+                if ('serviceWorker' in navigator) {
+                  navigator.serviceWorker.getRegistrations().then(registrations => {
+                    for (const registration of registrations) {
+                      registration.unregister();
+                    }
+                  });
+                }
+                // Clear Cache Storage
+                if ('caches' in window) {
+                  caches.keys().then(names => {
+                    for (const name of names) {
+                      caches.delete(name);
+                    }
+                  });
+                }
+                // Clear Web Storage
+                localStorage.clear();
+                sessionStorage.clear();
+                // Perform a hard-like reload
+                window.location.href = window.location.origin + '?clear_cache=' + new Date().getTime();
+              }
+            }}
+            className="w-full py-4 text-orange-600 text-[10px] font-bold flex items-center justify-center gap-2 bg-orange-50 rounded-xl border border-orange-100 active:scale-95 transition-transform shadow-sm"
+          >
+            <RefreshCw className="w-3 h-3" /> ऐप कैश साफ करें (Clear Cache & Reset)
+          </button>
+
           <button 
             onClick={handleRenew}
-            className="w-full py-3 text-[#2D5A27] text-[10px] font-bold flex items-center justify-center gap-2 bg-[#2D5A27]/5 rounded-xl border border-[#2D5A27]/10"
+            className="w-full py-3 text-[#2D5A27] text-[10px] font-bold flex items-center justify-center gap-2 bg-[#2D5A27]/5 rounded-xl border border-[#2D5A27]/10 active:scale-95 transition-transform"
           >
             <RefreshCw className="w-3 h-3" /> नई Key जनरेट करें (Renew)
           </button>

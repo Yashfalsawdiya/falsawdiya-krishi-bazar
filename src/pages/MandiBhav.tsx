@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { fetchMandiBhav, MandiData, MandiItem } from '../services/mandiService';
 import { motion, AnimatePresence } from 'motion/react';
-import { TrendingUp, Calendar, MapPin, Loader2, RefreshCw, AlertCircle, LineChart as ChartIcon } from 'lucide-react';
+import { TrendingUp, Calendar, MapPin, Loader2, RefreshCw, AlertCircle, LineChart as ChartIcon, Key } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import ApiKeyModal from '../components/ApiKeyModal';
 
 const MandiBhav: React.FC = () => {
   const { userSettings } = useAppContext();
   const [data, setData] = useState<MandiData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMandi, setSelectedMandi] = useState('शामगढ़ (Shamgarh)');
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -23,8 +25,11 @@ const MandiBhav: React.FC = () => {
     try {
       const result = await fetchMandiBhav(mandi, userSettings?.geminiApiKey);
       setData(result);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      if (error.message === 'USER_API_KEY_MISSING') {
+        setIsModalOpen(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -36,6 +41,7 @@ const MandiBhav: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-10">
+      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <div className="text-center">
         <h2 className="text-xl font-bold text-[#4A3728] flex items-center justify-center gap-2">
           <TrendingUp className="w-6 h-6 text-[#2D5A27]" />
