@@ -67,8 +67,16 @@ import SmartImage from '../components/SmartImage';
 import { Product, ImageSource } from '../types';
 
 const Home: React.FC = () => {
-  const { products, categories, appContent, user, userSettings } = useAppContext();
+  const { products, categories, appContent, user, userSettings, loadProducts } = useAppContext();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubscribe = loadProducts();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
   const [emblaRef] = useEmblaCarousel({ loop: true }, [Autoplay({ delay: 4000 })]);
   const [emblaVideoRef] = useEmblaCarousel({ align: 'start', containScroll: 'trimSnaps' });
   const [weather, setWeather] = useState<WeatherData | null>(null);

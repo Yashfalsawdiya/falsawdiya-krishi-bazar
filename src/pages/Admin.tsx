@@ -80,8 +80,22 @@ const Admin: React.FC = () => {
     agriIssues, addAgriIssue, updateAgriIssue, deleteAgriIssue,
     appContent, updateAppContent,
     user, isAdmin, login, logout, loading,
-    allUsers, updateUserStatus
+    allUsers, updateUserStatus,
+    loadProducts, loadCategoryData, loadAgriIssues
   } = useAppContext();
+
+  React.useEffect(() => {
+    if (isAdmin) {
+      const unsubProducts = loadProducts();
+      const unsubCats = loadCategoryData();
+      const unsubIssues = loadAgriIssues();
+      return () => {
+        if (unsubProducts) unsubProducts();
+        if (unsubCats) unsubCats();
+        if (unsubIssues) unsubIssues();
+      };
+    }
+  }, [isAdmin]);
   
   const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'content' | 'users'>('products');
   const [userSearchQuery, setUserSearchQuery] = useState('');

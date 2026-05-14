@@ -9,8 +9,18 @@ import { cn } from '../lib/utils';
 type IssueType = 'all' | 'pest' | 'disease' | 'deficiency';
 
 const Encyclopedia: React.FC = () => {
-  const { agriIssues } = useAppContext();
+  const { agriIssues, loadAgriIssues, loadCategoryData } = useAppContext();
   const [activeType, setActiveType] = useState<IssueType>('all');
+
+  React.useEffect(() => {
+    const unsubIssues = loadAgriIssues();
+    const unsubCats = loadCategoryData();
+    return () => {
+      if (unsubIssues) unsubIssues();
+      if (unsubCats) unsubCats();
+    };
+  }, []);
+
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 

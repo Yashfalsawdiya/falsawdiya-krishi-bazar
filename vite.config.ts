@@ -78,7 +78,7 @@ export default defineConfig(({mode}) => {
       })
     ],
     define: {
-      '__APP_VERSION__': JSON.stringify(new Date().getTime().toString()),
+      '__APP_VERSION__': JSON.stringify('1.0.4'), // Stable version, bump manually when needed
       'process.env.GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || env.GEMINI_API_KEY),
       'process.env.VITE_FIREBASE_API_KEY': JSON.stringify(env.VITE_FIREBASE_API_KEY),
       'process.env.VITE_FIREBASE_AUTH_DOMAIN': JSON.stringify(env.VITE_FIREBASE_AUTH_DOMAIN),

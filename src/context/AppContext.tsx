@@ -79,6 +79,9 @@ interface AppContextType {
   loading: boolean;
   isQuotaExceeded: boolean;
   allUsers: UserRecord[];
+  loadProducts: () => Unsubscribe | undefined;
+  loadCategoryData: () => Unsubscribe | undefined;
+  loadAgriIssues: () => Unsubscribe | undefined;
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
@@ -113,39 +116,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let unsubscribeUserDoc: Unsubscribe | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      // Clean up previous user doc listener
+      console.log("Auth state changed:", firebaseUser?.email || "No User");
+
       if (unsubscribeUserDoc) {
         unsubscribeUserDoc();
         unsubscribeUserDoc = null;
       }
 
       if (firebaseUser) {
-        // Strict runtime validation for existing/persisted sessions
-        const { isValid } = validateLoginEmail(firebaseUser.email);
-        if (!isValid) {
-          console.warn("Invalid session detected. Signing out...");
-          await signOut(auth);
-          setUser(null);
-          setLoading(false);
-          return;
+        // Basic check, don't sign out immediately on restore if email is briefly missing
+        if (firebaseUser.email) {
+          const { isValid } = validateLoginEmail(firebaseUser.email);
+          if (!isValid) {
+            console.warn("Invalid session detected on restore for:", firebaseUser.email);
+            // We might want to allow them to stay if it was a previously accepted email,
+            // but for safety we sign out. However, let's be sure it's valid first.
+            await signOut(auth);
+            setUser(null);
+            setLoading(false);
+            return;
+          }
         }
 
+        setUser(firebaseUser);
+
         try {
-          // Setup real-time listener for user profile to handle instant blocking
+          // Setup real-time listener for user profile
           unsubscribeUserDoc = onSnapshot(doc(db, 'users', firebaseUser.uid), async (snapshot) => {
             if (snapshot.exists()) {
               const userData = snapshot.data();
               
-              // CRITICAL: Check if user is blocked
               if (userData.isBlocked === true) {
-                console.warn("User account is blocked. Signing out...");
+                console.warn("User account blocked reactive check.");
                 await signOut(auth);
                 setUser(null);
-                alert("आपका अकाउंट ब्लॉक कर दिया गया है। (Your account has been blocked)");
+                setLoading(false);
+                alert("आपका अकाउंट ब्लॉक है। (Account Blocked)");
                 return;
               }
 
               const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
+              // Check admin status against content or static list
               const contentSnap = await getDoc(doc(db, 'settings', 'content'));
               const contentData = contentSnap.exists() ? contentSnap.data() as AppContent : null;
               const backupAdmins = contentData?.adminEmails || [];
@@ -153,14 +164,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
               setIsAdmin(userData.role === 'admin' || isAdminEmail);
               setUserSettings({ geminiApiKey: userData.geminiApiKey || '' });
-              setUser(firebaseUser);
-
-              // If they are admin by email but not in doc, update doc
-              if (isAdminEmail && userData.role !== 'admin') {
-                await updateDoc(doc(db, 'users', firebaseUser.uid), { role: 'admin' });
-              }
             } else {
-              // Create default user doc if it doesn't exist
+              // Create default doc if missing
               const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
               const contentSnap = await getDoc(doc(db, 'settings', 'content'));
               const contentData = contentSnap.exists() ? contentSnap.data() as AppContent : null;
@@ -178,26 +183,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               await setDoc(doc(db, 'users', firebaseUser.uid), defaultSettings);
               setIsAdmin(isAdminEmail);
               setUserSettings({ geminiApiKey: '' });
-              setUser(firebaseUser);
             }
+            setLoading(false);
+          }, (error) => {
+            console.error("User doc listener error:", error);
+            // Even if listener fails (e.g. permission denied), we should probably let them see the app 
+            // if we have the firebaseUser, but some features might be missing.
+            setLoading(false);
           });
         } catch (error) {
-          const err = handleFirestoreError(error, OperationType.GET, 'auth_init');
-          if (err?.error.toLowerCase().includes('quota')) {
-            setIsQuotaExceeded(true);
-          }
+          console.error("Auth init error:", error);
+          setLoading(false);
         }
       } else {
         setUser(null);
         setIsAdmin(false);
         setUserSettings(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    // Listen for products
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeUserDoc) unsubscribeUserDoc();
+    };
+  }, []);
+
+  const loadProducts = () => {
     const qProducts = query(collection(db, 'products'), orderBy('hindiName'));
-    const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
+    return onSnapshot(qProducts, (snapshot) => {
       if (!snapshot.empty) {
         const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         const uniqueProds = Array.from(new Map(prods.map(p => [p.id, p])).values());
@@ -211,8 +225,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsQuotaExceeded(true);
       }
     });
+  };
 
-    // Listen for app content
+  const loadCategoryData = () => {
+    const qCategories = query(collection(db, 'categories'), orderBy('order'));
+    return onSnapshot(qCategories, (snapshot) => {
+      if (!snapshot.empty) {
+        setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData)));
+      }
+    }, (error) => {
+      const err = handleFirestoreError(error, OperationType.LIST, 'categories');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
+      }
+    });
+  };
+
+  const loadAgriIssues = () => {
+    return onSnapshot(collection(db, 'agriIssues'), (snapshot) => {
+      setAgriIssues(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue)));
+    }, (error) => {
+      const err = handleFirestoreError(error, OperationType.LIST, 'agriIssues');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
+      }
+    });
+  };
+
+  // Dedicated effect for app content - important for branding
+  useEffect(() => {
     const unsubscribeContent = onSnapshot(doc(db, 'settings', 'content'), (snapshot) => {
       if (snapshot.exists()) {
         setAppContent(snapshot.data() as AppContent);
@@ -223,38 +264,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsQuotaExceeded(true);
       }
     });
-
-    // Listen for categories
-    const qCategories = query(collection(db, 'categories'), orderBy('order'));
-    const unsubscribeCategories = onSnapshot(qCategories, (snapshot) => {
-      if (!snapshot.empty) {
-        setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData)));
-      }
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.LIST, 'categories');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
-
-    // Listen for agriIssues
-    const unsubscribeAgriIssues = onSnapshot(collection(db, 'agriIssues'), (snapshot) => {
-      setAgriIssues(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue)));
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.LIST, 'agriIssues');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
-
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeUserDoc) unsubscribeUserDoc();
-      unsubscribeProducts();
-      unsubscribeContent();
-      unsubscribeCategories();
-      unsubscribeAgriIssues();
-    };
+    return () => unsubscribeContent();
   }, []);
 
   // Additional effect to listen for all users if admin
@@ -437,6 +447,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       loading,
       isQuotaExceeded,
       allUsers,
+      loadProducts,
+      loadCategoryData,
+      loadAgriIssues,
       addProduct, 
       updateProduct, 
       deleteProduct,

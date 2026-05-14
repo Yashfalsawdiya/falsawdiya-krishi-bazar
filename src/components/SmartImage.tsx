@@ -83,6 +83,7 @@ const SmartImage: React.FC<SmartImageProps> = ({
         )}
         onError={handleError}
         referrerPolicy="no-referrer"
+        loading="lazy"
       />
       
       {hasError && (

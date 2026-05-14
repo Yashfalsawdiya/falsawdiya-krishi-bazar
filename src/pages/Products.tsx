@@ -11,7 +11,7 @@ import ProductDetailModal from '../components/ProductDetailModal';
 import { Product, ImageSource } from '../types';
 
 const Products: React.FC = () => {
-  const { products, categories, appContent } = useAppContext();
+  const { products, categories, appContent, loadProducts } = useAppContext();
   const [searchParams] = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -20,6 +20,13 @@ const Products: React.FC = () => {
   const [zoomImage, setZoomImage] = useState<{ src: string | ImageSource; alt: string } | null>(null);
 
   const whatsappNumber = appContent?.contactInfo.whatsapp || '918982338046';
+
+  useEffect(() => {
+    const unsubscribe = loadProducts();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const cat = searchParams.get('category');

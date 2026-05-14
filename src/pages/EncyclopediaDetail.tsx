@@ -10,9 +10,18 @@ import ImageZoomModal from '../components/ImageZoomModal';
 
 const EncyclopediaDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { agriIssues, products, appContent } = useAppContext();
+  const { agriIssues, products, appContent, loadAgriIssues, loadProducts } = useAppContext();
   const navigate = useNavigate();
   const [zoomImage, setZoomImage] = React.useState<string | ImageSource | null>(null);
+
+  React.useEffect(() => {
+    const unsubIssues = loadAgriIssues();
+    const unsubProducts = loadProducts();
+    return () => {
+      if (unsubIssues) unsubIssues();
+      if (unsubProducts) unsubProducts();
+    };
+  }, []);
 
   const issue = useMemo(() => agriIssues.find(i => i.id === id), [agriIssues, id]);
   

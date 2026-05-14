@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
 
 // Try to load from JSON file, fallback to environment variables for Vercel/Production
@@ -47,6 +47,11 @@ export const db = initializeFirestore(app, {
 } as any, dbId);
 
 export const auth = getAuth(app);
+
+// Explicitly set persistence to Local (Default but being safe for session longevity)
+setPersistence(auth, browserLocalPersistence).catch(err => {
+  console.error("Auth persistence error:", err);
+});
 
 async function testConnection() {
   console.log("Testing Firestore connection...");
