@@ -6,18 +6,24 @@ import {
   Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
   Youtube as YoutubeIcon, Layout, Phone, Key, Tag, Sparkles,
-  ListFilter, Bug, Search
+  ListFilter, Bug, Search, Smartphone, ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage } from '../lib/utils';
 import { AppContent } from '../context/AppContext';
+import { ImageSource } from '../types';
+import DualImageInput from '../components/DualImageInput';
+import SmartImage from '../components/SmartImage';
 
 const ImageUpload: React.FC<{ 
-  value: string; 
-  onChange: (base64: string) => void;
+  value: string | ImageSource; 
+  onChange: (value: string | ImageSource) => void;
   label: string;
 }> = ({ value, onChange, label }) => {
+  // Keeping this for non-critical images or simple base64 usage
+  // but updating it to handle ImageSource just in case
   const [loading, setLoading] = useState(false);
+  const imageUrl = typeof value === 'string' ? value : value?.primary || value?.fallback || '';
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -41,10 +47,10 @@ const ImageUpload: React.FC<{
       <div className="flex items-center gap-4">
         <div className={cn(
           "relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center transition-colors",
-          value ? "bg-white" : "bg-gray-100"
+          imageUrl ? "bg-white" : "bg-gray-100"
         )}>
-          {value ? (
-            <img src={value} alt="Preview" className="w-full h-full object-contain p-1" />
+          {imageUrl ? (
+            <img src={imageUrl} alt="Preview" className="w-full h-full object-contain p-1" />
           ) : (
             <ImageIcon className="w-6 h-6 text-gray-300" />
           )}
@@ -146,7 +152,10 @@ const Admin: React.FC = () => {
         branding: {
           name: 'फल्सावदिया कृषि बाज़ार',
           tagline: 'किसान का भरोसा, हमारी पहचान',
-          logo: ''
+          logo: '',
+          pwaIcon: '',
+          androidIcon: '',
+          splashLogo: ''
         },
         loginText: 'ऐप की सुविधाओं का उपयोग करने के लिए कृपया अपनी Gmail ID से लॉगिन करें।',
         adminEmails: [],
@@ -272,11 +281,12 @@ const Admin: React.FC = () => {
       <div className="flex flex-col items-center justify-center h-64 gap-6 text-center">
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 max-w-sm w-full">
           <div className="w-16 h-16 bg-[#2D5A27]/10 rounded-2xl flex items-center justify-center mx-auto mb-4 overflow-hidden">
-            {appContent?.branding?.logo ? (
-              <img src={appContent.branding.logo} alt="Logo" className="w-full h-full object-contain p-1" />
-            ) : (
-              <LogIn className="w-8 h-8 text-[#2D5A27]" />
-            )}
+            <SmartImage 
+              src={appContent?.branding?.logo} 
+              alt="Logo" 
+              className="w-full h-full" 
+              objectFit="contain" 
+            />
           </div>
           <h2 className="text-xl font-bold text-[#4A3728] mb-2">एडमिन लॉगिन</h2>
           <p className="text-sm text-gray-500 mb-8">डेटा बदलने के लिए कृपया लॉगिन करें</p>
@@ -568,7 +578,7 @@ const Admin: React.FC = () => {
                 >
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <img src={product.image} alt="" className="w-14 h-14 rounded-xl object-cover shadow-sm" />
+                      <SmartImage src={product.image} alt="" className="w-14 h-14 rounded-xl shadow-sm" objectFit="cover" />
                       <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#2D5A27] rounded-full border-2 border-white" />
                     </div>
                     <div>
@@ -632,8 +642,10 @@ const Admin: React.FC = () => {
                   className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-2xl shadow-inner">
-                      {cat.icon}
+                    <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-2xl shadow-inner overflow-hidden">
+                      {typeof cat.icon === 'string' ? cat.icon : (
+                        <SmartImage src={cat.icon} alt={cat.name} className="w-full h-full" objectFit="contain" />
+                      )}
                     </div>
                     <div>
                       <h4 className="font-bold text-gray-800">{cat.name}</h4>
@@ -696,7 +708,9 @@ const Admin: React.FC = () => {
                   className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group"
                 >
                   <div className="flex items-center gap-4">
-                    <img src={issue.image} alt="" className="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-gray-50" />
+                    <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-gray-50 shadow-sm">
+                      <SmartImage src={issue.image} alt="" className="w-full h-full" objectFit="cover" />
+                    </div>
                     <div>
                       <h4 className="font-bold text-gray-800">{issue.hindiName}</h4>
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
@@ -763,20 +777,36 @@ const Admin: React.FC = () => {
                   className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                 />
               </div>
-              <ImageUpload 
-                label="ऐप लोगो (App Logo)"
-                value={contentForm?.branding?.logo || ''}
-                onChange={base64 => {
+              <DualImageInput 
+                label="ऐप लोगो (App Logo) *"
+                value={contentForm?.branding?.logo}
+                onChange={source => {
                   if (!contentForm) return;
-                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: '', pwaIcon: ''}), logo: base64}});
+                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), logo: source}});
                 }}
               />
-              <ImageUpload 
-                label="ऐप आइकन (PWA/Home Screen Icon)"
-                value={contentForm?.branding?.pwaIcon || ''}
-                onChange={base64 => {
+              <DualImageInput 
+                label="PWA होम स्क्रीन आइकन (PWA/Home Icon)"
+                value={contentForm?.branding?.pwaIcon}
+                onChange={source => {
                   if (!contentForm) return;
-                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: '', pwaIcon: ''}), pwaIcon: base64}});
+                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), pwaIcon: source}});
+                }}
+              />
+              <DualImageInput 
+                label="एंड्रॉयड इंस्टॉल आइकन (Android Install Icon)"
+                value={contentForm?.branding?.androidIcon}
+                onChange={source => {
+                  if (!contentForm) return;
+                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), androidIcon: source}});
+                }}
+              />
+              <DualImageInput 
+                label="स्प्लैश स्क्रीन लोगो (Splash Screen Logo)"
+                value={contentForm?.branding?.splashLogo}
+                onChange={source => {
+                  if (!contentForm) return;
+                  setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), splashLogo: source}});
                 }}
               />
               <div className="space-y-1.5">
@@ -934,13 +964,13 @@ const Admin: React.FC = () => {
                             placeholder="जैसे: सोयाबीन कॉम्बो किट"
                           />
                         </div>
-                        <ImageUpload 
+                        <DualImageInput 
                           label="ऑफर बैनर (Offer Image)"
                           value={item.image}
-                          onChange={base64 => {
+                          onChange={source => {
                             if (!contentForm?.offers) return;
                             const newItems = [...contentForm.offers.items];
-                            newItems[idx].image = base64;
+                            newItems[idx].image = source;
                             setContentForm({...contentForm, offers: {...contentForm.offers, items: newItems}});
                           }}
                         />
@@ -1041,12 +1071,12 @@ const Admin: React.FC = () => {
                     </div>
                   </div>
 
-                  <ImageUpload 
+                  <DualImageInput 
                     label="फेस्टिवल बैनर (Festival Banner)"
-                    value={contentForm?.festivalOffer?.image || ''}
-                    onChange={base64 => {
+                    value={contentForm?.festivalOffer?.image}
+                    onChange={source => {
                       if (!contentForm) return;
-                      setContentForm({...contentForm, festivalOffer: {...(contentForm.festivalOffer || {show: true, title: '', subtitle: '', image: '', theme: 'general'}), image: base64}});
+                      setContentForm({...contentForm, festivalOffer: {...(contentForm.festivalOffer || {show: true, title: '', subtitle: '', image: '', theme: 'general'}), image: source}});
                     }}
                   />
                 </div>
@@ -1126,12 +1156,12 @@ const Admin: React.FC = () => {
                       className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                     />
                   </div>
-                  <ImageUpload 
+                  <DualImageInput 
                     label="बैनर फोटो (Banner Image)"
                     value={banner.image}
-                    onChange={base64 => {
+                    onChange={source => {
                       const newBanners = [...contentForm.banners];
-                      newBanners[idx].image = base64;
+                      newBanners[idx].image = source;
                       setContentForm({...contentForm, banners: newBanners});
                     }}
                   />
@@ -1179,12 +1209,12 @@ const Admin: React.FC = () => {
                       placeholder="जैसे: https://www.youtube.com/watch?v=..."
                     />
                   </div>
-                  <ImageUpload 
+                  <DualImageInput 
                     label="वीडियो थंबनेल (Thumbnail)"
                     value={video.thumbnail}
-                    onChange={base64 => {
+                    onChange={source => {
                       const newVideos = [...contentForm.videos];
-                      newVideos[idx].thumbnail = base64;
+                      newVideos[idx].thumbnail = source;
                       setContentForm({...contentForm, videos: newVideos});
                     }}
                   />
@@ -1243,13 +1273,13 @@ const Admin: React.FC = () => {
                         placeholder="जैसे: Bayer"
                       />
                     </div>
-                    <ImageUpload 
+                    <DualImageInput 
                       label="कंपनी लोगो (Company Logo)"
                       value={partner.logo}
-                      onChange={base64 => {
+                      onChange={source => {
                         if (!contentForm) return;
                         const newPartners = [...contentForm.partners];
-                        newPartners[idx].logo = base64;
+                        newPartners[idx].logo = source;
                         setContentForm({...contentForm, partners: newPartners});
                       }}
                     />
@@ -1538,7 +1568,7 @@ const Admin: React.FC = () => {
                 <ImageUpload 
                   label="उत्पाद फोटो (Product Photo)"
                   value={productForm.image || ''}
-                  onChange={base64 => setProductForm({...productForm, image: base64})}
+                  onChange={source => setProductForm({...productForm, image: source})}
                 />
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">विवरण (Description)</label>
@@ -1635,8 +1665,8 @@ const Admin: React.FC = () => {
 
                   <ImageUpload 
                     label="समस्या की फोटो (Photo)"
-                    value={agriIssueForm.image}
-                    onChange={base64 => setAgriIssueForm({...agriIssueForm, image: base64})}
+                    value={agriIssueForm.image || ''}
+                    onChange={source => setAgriIssueForm({...agriIssueForm, image: source})}
                   />
 
                   <div className="space-y-1.5">
@@ -1686,7 +1716,9 @@ const Admin: React.FC = () => {
                               )}>
                                 {isSelected && <Save className="w-2.5 h-2.5 text-white" />}
                               </div>
-                              <img src={product.image} className="w-8 h-8 rounded-lg object-cover" />
+                              <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0">
+                                <SmartImage src={product.image} alt={product.hindiName} className="w-full h-full" objectFit="cover" />
+                              </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-[11px] font-bold text-gray-700 truncate">{product.hindiName}</p>
                                 <p className="text-[9px] text-gray-400">{product.brand}</p>
@@ -1755,15 +1787,22 @@ const Admin: React.FC = () => {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">आइकन (Emoji/Icon)</label>
-                  <input 
-                    required
-                    type="text" 
+                  <DualImageInput 
+                    label="श्रेणी आइकन (Category Icon)"
                     value={categoryForm.icon}
-                    onChange={e => setCategoryForm({...categoryForm, icon: e.target.value})}
-                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
-                    placeholder="जैसे: 🥕"
+                    onChange={source => setCategoryForm({...categoryForm, icon: source})}
+                    description="इमोजी के लिए नीचे टेक्स्ट बॉक्स उपयोग करें, इमेज के लिए ऊपर अपलोड करें"
                   />
-                  <p className="text-[9px] text-gray-400 ml-1">आप इमोजी या किसी इमेज का यूआरएल डाल सकते हैं।</p>
+                  <div className="mt-2">
+                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1 text-xs">इमोजी (Simple Emoji Mode)</label>
+                    <input 
+                      type="text" 
+                      value={typeof categoryForm.icon === 'string' ? categoryForm.icon : ''}
+                      onChange={e => setCategoryForm({...categoryForm, icon: e.target.value})}
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-3 outline-none transition-all font-medium text-xl"
+                      placeholder="जैसे: 🥕"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">क्रम (Order)</label>

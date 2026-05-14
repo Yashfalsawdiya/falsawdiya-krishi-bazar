@@ -50,18 +50,38 @@
       },
       "required": ["uid", "email", "role"]
     },
+    "ImageSource": {
+      "title": "ImageSource",
+      "description": "Dual source image with primary and fallback URLs.",
+      "type": "object",
+      "properties": {
+        "primary": { "type": "string" },
+        "fallback": { "type": "string" }
+      }
+    },
     "AppContent": {
       "title": "AppContent",
       "description": "Global application content like banners and videos.",
       "type": "object",
       "properties": {
+        "branding": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "tagline": { "type": "string" },
+            "logo": { "oneOf": [{ "type": "string" }, { "$ref": "ImageSource" }] },
+            "pwaIcon": { "oneOf": [{ "type": "string" }, { "$ref": "ImageSource" }] },
+            "androidIcon": { "oneOf": [{ "type": "string" }, { "$ref": "ImageSource" }] },
+            "splashLogo": { "oneOf": [{ "type": "string" }, { "$ref": "ImageSource" }] }
+          }
+        },
         "banners": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
               "id": { "type": "string" },
-              "image": { "type": "string" },
+              "image": { "oneOf": [{ "type": "string" }, { "$ref": "ImageSource" }] },
               "title": { "type": "string" },
               "subtitle": { "type": "string" }
             }
@@ -75,7 +95,7 @@
               "id": { "type": "string" },
               "title": { "type": "string" },
               "videoId": { "type": "string" },
-              "thumbnail": { "type": "string" }
+              "thumbnail": { "oneOf": [{ "type": "string" }, { "$ref": "ImageSource" }] }
             }
           }
         },
@@ -86,7 +106,7 @@
             "properties": {
               "id": { "type": "string" },
               "name": { "type": "string" },
-              "logo": { "type": "string" }
+              "logo": { "oneOf": [{ "type": "string" }, { "$ref": "ImageSource" }] }
             }
           }
         },
@@ -106,7 +126,17 @@
             "address": { "type": "string" }
           }
         },
-        "apiKeyGuideVideoUrl": { "type": "string" }
+        "apiKeyGuideVideoUrl": { "type": "string" },
+        "festivalOffer": {
+          "type": "object",
+          "properties": {
+            "show": { "type": "boolean" },
+            "title": { "type": "string" },
+            "subtitle": { "type": "string" },
+            "image": { "oneOf": [{ "type": "string" }, { "$ref": "ImageSource" }] },
+            "theme": { "type": "string" }
+          }
+        }
       }
     },
     "Category": {
@@ -115,7 +145,7 @@
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "icon": { "type": "string" },
+        "icon": { "oneOf": [{ "type": "string" }, { "$ref": "ImageSource" }] },
         "order": { "type": "number" }
       },
       "required": ["name", "icon", "order"]

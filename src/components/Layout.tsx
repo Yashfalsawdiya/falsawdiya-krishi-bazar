@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import BottomNav from './BottomNav';
 import OfflineIndicator from './OfflineIndicator';
+import SmartImage from './SmartImage';
 import { useAppContext } from '../context/AppContext';
 import { LogIn, Sprout, Loader2 } from 'lucide-react';
 
@@ -24,7 +25,12 @@ const Layout: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-center max-w-md mx-auto shadow-2xl p-8 text-center">
         <div className="w-24 h-24 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-8 border-2 border-red-100 overflow-hidden p-2">
-          <img src="/icon-192.png" alt="Maintenance" className="w-full h-full object-contain opacity-50 grayscale" />
+          <SmartImage 
+            src="/icon-192.png" 
+            alt="Maintenance" 
+            className="w-full h-full opacity-50 grayscale" 
+            objectFit="contain" 
+          />
         </div>
         <h1 className="text-2xl font-black text-[#4A3728] mb-4">ऐप अभी बंद है</h1>
         <p className="text-gray-500 mb-8 leading-relaxed">
@@ -51,11 +57,13 @@ const Layout: React.FC = () => {
       <div className="min-h-screen bg-[#F5F2ED] flex flex-col max-w-md mx-auto shadow-2xl relative overflow-hidden">
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
           <div className="w-24 h-24 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-8 border-2 border-[#2D5A27]/10 overflow-hidden p-2">
-            {branding.logo ? (
-              <img src={branding.logo} alt="Logo" className="w-full h-full object-contain" />
-            ) : (
-              <img src="/icon-192.png" alt="Logo" className="w-full h-full object-contain" />
-            )}
+            <SmartImage 
+              src={branding.logo} 
+              fallbackSrc="/icon-192.png"
+              alt="Logo" 
+              className="w-full h-full" 
+              objectFit="contain" 
+            />
           </div>
           <h1 className="text-3xl font-black text-[#4A3728] mb-2">{branding.name}</h1>
           <p className="text-gray-500 mb-12 font-medium">{branding.tagline}</p>

@@ -3,15 +3,18 @@ import QuickPinchZoom, { make3dTransformValue } from 'react-quick-pinch-zoom';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import SmartImage from './SmartImage';
+import { ImageSource } from '../types';
+
 interface ImageZoomModalProps {
   isOpen: boolean;
   onClose: () => void;
-  imageSrc: string;
+  imageSrc: string | ImageSource;
   altText: string;
 }
 
 const ImageZoomModal: React.FC<ImageZoomModalProps> = ({ isOpen, onClose, imageSrc, altText }) => {
-  const imgRef = useRef<HTMLImageElement>(null);
+  const imgRef = useRef<HTMLDivElement>(null);
 
   const onUpdate = ({ x, y, scale }: { x: number; y: number; scale: number }) => {
     if (imgRef.current) {
@@ -43,13 +46,14 @@ const ImageZoomModal: React.FC<ImageZoomModalProps> = ({ isOpen, onClose, imageS
           {/* Zoom Container */}
           <div className="flex-1 relative overflow-hidden flex items-center justify-center">
             <QuickPinchZoom onUpdate={onUpdate} containerProps={{ style: { width: '100%', height: '100%' } }}>
-              <img
-                ref={imgRef}
-                src={imageSrc}
-                alt={altText}
-                className="max-w-full max-h-full object-contain"
-                referrerPolicy="no-referrer"
-              />
+              <div ref={imgRef} className="w-full h-full flex items-center justify-center">
+                <SmartImage
+                  src={imageSrc}
+                  alt={altText}
+                  className="max-w-full max-h-full"
+                  objectFit="contain"
+                />
+              </div>
             </QuickPinchZoom>
           </div>
 

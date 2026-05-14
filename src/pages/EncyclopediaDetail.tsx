@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import SmartImage from '../components/SmartImage';
 import { ChevronLeft, Bug, Droplet, Sprout, ShoppingBag, MessageCircle, AlertCircle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { ImageSource } from '../types';
 import { cn } from '../lib/utils';
 import ImageZoomModal from '../components/ImageZoomModal';
 
@@ -10,7 +12,7 @@ const EncyclopediaDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { agriIssues, products, appContent } = useAppContext();
   const navigate = useNavigate();
-  const [zoomImage, setZoomImage] = React.useState<string | null>(null);
+  const [zoomImage, setZoomImage] = React.useState<string | ImageSource | null>(null);
 
   const issue = useMemo(() => agriIssues.find(i => i.id === id), [agriIssues, id]);
   
@@ -62,10 +64,11 @@ const EncyclopediaDetail: React.FC = () => {
           animate={{ opacity: 1 }}
           className="absolute inset-0"
         >
-          <img 
+          <SmartImage 
             src={issue.image} 
             alt={issue.hindiName} 
-            className="w-full h-full object-cover"
+            className="w-full h-full"
+            objectFit="cover"
             onClick={() => setZoomImage(issue.image)}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -140,10 +143,11 @@ const EncyclopediaDetail: React.FC = () => {
                   className="bg-white rounded-[28px] p-5 shadow-sm border border-gray-100 group flex gap-5 overflow-hidden"
                 >
                   <div className="relative w-24 h-24 flex-shrink-0">
-                    <img 
+                    <SmartImage 
                       src={product.image} 
-                      className="w-full h-full object-contain rounded-2xl bg-gray-50 p-2" 
+                      className="w-full h-full rounded-2xl bg-gray-50 p-2" 
                       alt={product.hindiName}
+                      objectFit="contain"
                     />
                     {product.price > 0 && !product.hidePrice && (
                       <div className="absolute -bottom-2 -left-1 px-3 py-1 bg-[#F59E0B] text-white rounded-full text-[10px] font-black shadow-lg">

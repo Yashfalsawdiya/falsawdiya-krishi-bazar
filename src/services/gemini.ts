@@ -1,18 +1,15 @@
 import { GoogleGenAI } from "@google/genai";
 
 const getAI = (userApiKey?: string) => {
-  let apiKey = userApiKey;
-  
-  // If userApiKey is empty or undefined, look for environment variables
-  if (!apiKey || apiKey.trim() === "") {
-    apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-  }
+  // STRICT ENFORCEMENT: Only use API key provided by the user.
+  // Never fallback to environment variables in production to protect owner's quota.
+  const apiKey = userApiKey?.trim();
 
-  if (!apiKey || apiKey.trim() === "") {
-    throw new Error("GEMINI_API_KEY is not configured.");
+  if (!apiKey || apiKey === "") {
+    throw new Error("USER_API_KEY_REQUIRED");
   }
   
-  return new GoogleGenAI({ apiKey: apiKey.trim() });
+  return new GoogleGenAI({ apiKey: apiKey });
 };
 
 export interface DiseaseAnalysis {

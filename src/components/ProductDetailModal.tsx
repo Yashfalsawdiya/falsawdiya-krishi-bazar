@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ShoppingBag, Building2, Tag, Info, Wheat } from 'lucide-react';
 import { Product } from '../types';
+import SmartImage from './SmartImage';
 
 interface ProductDetailModalProps {
   isOpen: boolean;
@@ -31,12 +32,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
             className="relative bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
           >
             {/* Header Image */}
-            <div className="relative h-64 sm:h-80 bg-gray-100 flex-shrink-0">
-              <img 
+            <div className="relative h-64 sm:h-80 bg-gray-100 flex-shrink-0 overflow-hidden">
+              <SmartImage 
                 src={product.image} 
                 alt={product.hindiName}
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
+                className="w-full h-full"
+                objectFit="cover"
               />
               <button 
                 onClick={onClose}

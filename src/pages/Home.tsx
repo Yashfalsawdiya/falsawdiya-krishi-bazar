@@ -63,7 +63,8 @@ import { MONTHLY_TIPS } from '../data/seasonalTips';
 import OrderModal from '../components/OrderModal';
 import ImageZoomModal from '../components/ImageZoomModal';
 import ProductDetailModal from '../components/ProductDetailModal';
-import { Product } from '../types';
+import SmartImage from '../components/SmartImage';
+import { Product, ImageSource } from '../types';
 
 const Home: React.FC = () => {
   const { products, categories, appContent, user, userSettings } = useAppContext();
@@ -82,7 +83,7 @@ const Home: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
-  const [zoomImage, setZoomImage] = useState<{ src: string; alt: string } | null>(null);
+  const [zoomImage, setZoomImage] = useState<{ src: string | ImageSource; alt: string } | null>(null);
 
   const banners = appContent?.banners || BANNERS;
   const videos = appContent?.videos || [
@@ -199,11 +200,11 @@ const Home: React.FC = () => {
               onClick={() => setZoomImage({ src: festivalOffer.image, alt: festivalOffer.title })}
               className="rounded-2xl overflow-hidden aspect-[2/1] shadow-xl border border-white/10 relative group cursor-zoom-in"
             >
-              <img 
+              <SmartImage 
                 src={festivalOffer.image} 
                 alt={festivalOffer.title} 
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                referrerPolicy="no-referrer" 
+                className="w-full h-full"
+                objectFit="cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
             </div>
@@ -327,12 +328,12 @@ const Home: React.FC = () => {
               onClick={() => setZoomImage({ src: banner.image, alt: banner.title })}
               className="relative flex-[0_0_100%] min-w-0 aspect-[5/4] cursor-zoom-in group"
             >
-              <img 
-                src={banner.image} 
-                alt={banner.title} 
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                referrerPolicy="no-referrer"
-              />
+                <SmartImage 
+                  src={banner.image} 
+                  alt={banner.title} 
+                  className="absolute inset-0 w-full h-full"
+                  objectFit="cover"
+                />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-6 text-white">
                 <h2 className="text-xl font-bold mb-1">{banner.title}</h2>
                 <p className="text-sm opacity-90">{banner.subtitle}</p>
@@ -362,11 +363,11 @@ const Home: React.FC = () => {
                 className="flex-[0_0_80%] min-w-0 snap-start bg-white rounded-3xl overflow-hidden shadow-md border border-gray-100 flex flex-col cursor-zoom-in"
               >
                 <div className="aspect-[16/9] relative">
-                  <img 
+                  <SmartImage 
                     src={offer.image} 
                     alt={offer.title} 
-                    className="absolute inset-0 w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
+                    className="absolute inset-0 w-full h-full"
+                    objectFit="cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                 </div>
@@ -518,11 +519,11 @@ const Home: React.FC = () => {
               onClick={() => navigate(`/products?category=${cat.id}`)}
               className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center text-center gap-2 cursor-pointer active:scale-95 transition-transform"
             >
-              <div className="text-3xl w-10 h-10 flex items-center justify-center">
-                {cat.icon.startsWith('http') ? (
-                  <img src={cat.icon} alt={cat.name} className="w-full h-full object-contain" />
-                ) : (
+              <div className="text-3xl w-10 h-10 flex items-center justify-center overflow-hidden">
+                {typeof cat.icon === 'string' ? (
                   cat.icon
+                ) : (
+                  <SmartImage src={cat.icon} alt={cat.name} className="w-full h-full" objectFit="contain" />
                 )}
               </div>
               <span className="text-[11px] font-bold text-[#2D5A27] leading-tight">{cat.name}</span>
@@ -558,11 +559,11 @@ const Home: React.FC = () => {
                   setZoomImage({ src: product.image, alt: product.hindiName });
                 }}
               >
-                <img 
+                <SmartImage 
                   src={product.image} 
                   alt={product.name} 
-                  className="w-full h-full object-cover transition-transform group-hover:scale-110" 
-                  referrerPolicy="no-referrer" 
+                  className="w-full h-full transition-transform group-hover:scale-110" 
+                  objectFit="cover"
                 />
               </div>
               <div className="p-3 flex-1 flex flex-col justify-between">
@@ -648,14 +649,14 @@ const Home: React.FC = () => {
           >
             {[...partners, ...partners].map((partner, idx) => (
               <div key={`${partner.id}-${idx}`} className="flex flex-col items-center gap-1.5">
-                <div className="h-14 min-w-[80px] px-4 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center">
-                  <img 
-                    src={partner.logo} 
-                    alt={partner.name} 
-                    className="h-8 w-auto max-w-[120px] object-contain"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
+                  <div className="h-14 min-w-[80px] px-4 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center overflow-hidden">
+                    <SmartImage 
+                      src={partner.logo} 
+                      alt={partner.name} 
+                      className="h-8 w-auto max-w-[120px]"
+                      objectFit="contain"
+                    />
+                  </div>
                 <span className="text-[9px] font-bold text-gray-500 text-center">{partner.name}</span>
               </div>
             ))}
@@ -691,11 +692,11 @@ const Home: React.FC = () => {
                   className="block bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 active:scale-95 transition-transform"
                 >
                   <div className="aspect-video relative">
-                    <img 
+                    <SmartImage 
                       src={video.thumbnail} 
                       alt={video.title} 
-                      className="absolute inset-0 w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
+                      className="absolute inset-0 w-full h-full"
+                      objectFit="cover"
                     />
                     <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
                       <div className="bg-red-600 text-white w-14 h-10 rounded-[14px] flex items-center justify-center shadow-xl group-hover:bg-red-700 transition-colors">

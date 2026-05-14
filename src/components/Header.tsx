@@ -3,6 +3,7 @@ import { Search, Menu, Sprout, X, Landmark, Phone, Newspaper, User, Calculator, 
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
+import SmartImage from './SmartImage';
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -58,11 +59,13 @@ const Header: React.FC = () => {
                 to={isAdmin ? "/admin" : "#"} 
                 className="w-14 h-14 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-inner p-1.5"
               >
-                {branding.logo ? (
-                  <img src={branding.logo} alt="Logo" className="w-full h-full object-contain" />
-                ) : (
-                  <img src="/icon-192.png" alt="Logo" className="w-full h-full object-contain" />
-                )}
+                <SmartImage 
+                  src={branding.logo} 
+                  fallbackSrc="/icon-192.png"
+                  alt="Logo" 
+                  className="w-full h-full" 
+                  objectFit="contain" 
+                />
               </Link>
             </motion.div>
             <div>
@@ -119,15 +122,19 @@ const Header: React.FC = () => {
                 >
                   <button 
                     onClick={() => setIsLogoEnlarged(false)}
-                    className="absolute -top-4 -right-4 w-10 h-10 bg-[#2D5A27] text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white"
+                    className="absolute -top-4 -right-4 w-10 h-10 bg-[#2D5A27] text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white z-20"
                   >
                     <X className="w-6 h-6" />
                   </button>
-                  {branding.logo ? (
-                    <img src={branding.logo} alt="Enlarged Logo" className="w-full h-full object-contain" />
-                  ) : (
-                    <img src="/icon-512.png" alt="Logo" className="w-full h-full object-contain" />
-                  )}
+                  <div className="w-full h-full overflow-hidden flex items-center justify-center">
+                    <SmartImage 
+                      src={branding.logo} 
+                      fallbackSrc="/icon-512.png"
+                      alt="Enlarged Logo" 
+                      className="w-full h-full" 
+                      objectFit="contain" 
+                    />
+                  </div>
                   <div className="absolute -bottom-20 left-0 right-0 text-center">
                     <h3 className="text-white text-xl font-bold leading-tight">{branding.name}</h3>
                     <p className="text-green-400 text-sm font-medium mt-1">{branding.tagline}</p>
@@ -168,11 +175,13 @@ const Header: React.FC = () => {
                     onClick={handleLogoClick}
                     className="w-12 h-12 bg-white rounded-full flex items-center justify-center overflow-hidden p-1 shadow-inner cursor-pointer"
                   >
-                    {branding.logo ? (
-                      <img src={branding.logo} alt="Logo" className="w-full h-full object-contain" />
-                    ) : (
-                      <img src="/icon-192.png" alt="Logo" className="w-full h-full object-contain" />
-                    )}
+                    <SmartImage 
+                      src={branding.logo} 
+                      fallbackSrc="/icon-192.png"
+                      alt="Logo" 
+                      className="w-full h-full" 
+                      objectFit="contain" 
+                    />
                   </motion.div>
                   <button onClick={() => setIsMenuOpen(false)} className="p-2 hover:bg-white/10 rounded-full">
                     <X className="w-6 h-6" />

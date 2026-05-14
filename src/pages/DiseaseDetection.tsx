@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Camera, Upload, Loader2, AlertCircle, CheckCircle2, Image as ImageIcon, RefreshCw, Info, ShoppingCart, ArrowRight, X } from 'lucide-react';
 import { detectDisease, DiseaseAnalysis } from '../services/gemini';
 import { motion, AnimatePresence } from 'motion/react';
+import SmartImage from '../components/SmartImage';
 import Markdown from 'react-markdown';
 import { useAppContext } from '../context/AppContext';
 import ApiKeyModal from '../components/ApiKeyModal';
@@ -40,22 +41,29 @@ const DiseaseDetection: React.FC = () => {
   const analyzeImage = async () => {
     if (!image) return;
     
-    const globalKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-    if (!userSettings?.geminiApiKey && !globalKey) {
+    if (!userSettings?.geminiApiKey) {
       setIsModalOpen(true);
       return;
     }
 
     setLoading(true);
     try {
-      const analysis = await detectDisease(image, userSettings?.geminiApiKey || globalKey);
+      const analysis = await detectDisease(image, userSettings.geminiApiKey);
+      if (analysis.analysis === "USER_API_KEY_REQUIRED") {
+        setIsModalOpen(true);
+        return;
+      }
       setAnalysisResult(analysis);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Analysis failed:", error);
-      setAnalysisResult({ 
-        analysis: "क्षमा करें, जाँच करने में समस्या हुई। कृपया फिर से प्रयास करें।",
-        keywords: [] 
-      });
+      if (error.message === "USER_API_KEY_REQUIRED") {
+        setIsModalOpen(true);
+      } else {
+        setAnalysisResult({ 
+          analysis: "क्षमा करें, जाँच करने में समस्या हुई। कृपया फिर से प्रयास करें।",
+          keywords: [] 
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -227,11 +235,11 @@ const DiseaseDetection: React.FC = () => {
                       className="w-full text-left bg-white rounded-3xl p-4 shadow-sm border border-gray-100 flex items-center gap-4 active:scale-[0.98] transition-all"
                     >
                       <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-50 flex-shrink-0">
-                        <img 
+                        <SmartImage 
                           src={product.image} 
                           alt={product.name} 
-                          className="w-full h-full object-cover" 
-                          referrerPolicy="no-referrer"
+                          className="w-full h-full" 
+                          objectFit="cover"
                         />
                       </div>
                       <div className="flex-1 min-w-0">

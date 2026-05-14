@@ -1,7 +1,12 @@
+export interface ImageSource {
+  primary: string;
+  fallback: string;
+}
+
 export interface CategoryData {
   id: string;
   name: string;
-  icon: string;
+  icon: string | ImageSource; // Supporting legacy string icon or new dual source
   order: number;
 }
 
@@ -14,7 +19,7 @@ export interface Product {
   price: number;
   hidePrice?: boolean;
   unit: string;
-  image: string;
+  image: string | ImageSource;
   description: string;
   crops: string[];
 }
@@ -23,7 +28,7 @@ export interface CropAdvice {
   id: string;
   name: string;
   hindiName: string;
-  image: string;
+  image: string | ImageSource;
   stages: {
     stage: string;
     hindiStage: string;
@@ -55,6 +60,6 @@ export interface AgriIssue {
   englishName: string;
   type: 'pest' | 'disease' | 'deficiency';
   description: string;
-  image: string;
+  image: string | ImageSource;
   relatedProductIds: string[];
 }

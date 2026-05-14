@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import SmartImage from '../components/SmartImage';
 import { useNavigate } from 'react-router-dom';
 import { Search, Bug, Droplet, Sprout, ChevronRight } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -87,10 +88,11 @@ const Encyclopedia: React.FC = () => {
               className="bg-white rounded-[24px] p-4 flex items-center gap-4 shadow-sm border border-gray-100 active:scale-98 transition-all"
             >
               <div className="relative">
-                <img 
+                <SmartImage 
                   src={issue.image} 
                   alt={issue.hindiName} 
-                  className="w-20 h-20 rounded-2xl object-cover shadow-sm border border-gray-50"
+                  className="w-20 h-20 rounded-2xl border border-gray-50"
+                  objectFit="cover"
                 />
                 <div className={cn(
                   "absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center shadow-md",

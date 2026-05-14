@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { ImageSource } from '../types';
 
 /**
  * Dynamically updates PWA manifest and icons based on appContent from Firestore
@@ -13,7 +14,15 @@ const PWAUpdater: React.FC = () => {
     const { branding } = appContent;
     const name = branding?.name || 'फल्सावदिया कृषि बाज़ार';
     const shortName = 'कृषि बाज़ार';
-    const iconUrl = branding?.pwaIcon || '/icon-512.png';
+    
+    // Extract string URL from potentially complex branding icons
+    const getIconUrl = (source: string | ImageSource | undefined) => {
+      if (!source) return '/icon-512.png';
+      if (typeof source === 'string') return source;
+      return source.primary || source.fallback || '/icon-512.png';
+    };
+
+    const iconUrl = getIconUrl(branding?.pwaIcon);
 
     // 1. Update Title and Favicons
     document.title = name;

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Sparkles, AlertCircle, ChevronLeft, Loader2, User, Camera, CameraOff } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Sparkles, AlertCircle, ChevronLeft, Loader2, User, Camera, CameraOff, Key } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
 import { cn } from '../lib/utils';
+import ApiKeyModal from '../components/ApiKeyModal';
 
 // Audio constants
 const SAMPLE_RATE = 24000;
@@ -22,6 +23,7 @@ const AiAgriExpert: React.FC = () => {
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [isCameraOn, setIsCameraOn] = useState(false);
   const isCameraOnRef = useRef(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [callDuration, setCallDuration] = useState(0);
   const [status, setStatus] = useState<'idle' | 'requesting_permission' | 'connecting' | 'connected' | 'error'>('idle');
@@ -267,8 +269,7 @@ const AiAgriExpert: React.FC = () => {
 
   const startCall = async () => {
     if (!userSettings?.geminiApiKey) {
-      setError("कृपया अपनी प्रोफाइल में Gemini API Key सेट करें।");
-      setStatus('error');
+      setIsModalOpen(true);
       return;
     }
 
@@ -433,6 +434,7 @@ const AiAgriExpert: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-between p-6 pb-24">
+      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       {/* Header */}
       <div className="w-full flex items-center justify-between mb-8">
         <button 
@@ -567,10 +569,30 @@ const AiAgriExpert: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4 max-w-xs mx-auto">
-              <h3 className="text-xl font-black text-[#4A3728]">विशेषज्ञ से सीधी बात</h3>
-              <p className="text-xs text-gray-500 font-medium leading-relaxed">
-                बिल्कुल इंसानों की तरह बात करने वाला हमारा AI एक्सपर्ट खेती की किसी भी समस्या का तुरंत समाधान देगा। 
-              </p>
+              {!userSettings?.geminiApiKey ? (
+                <div className="space-y-4">
+                  <div className="w-12 h-12 bg-[#F5F2ED] rounded-full flex items-center justify-center mx-auto mb-2">
+                    <Key className="w-6 h-6 text-[#2D5A27]" />
+                  </div>
+                  <h3 className="text-xl font-black text-[#4A3728]">API Key आवश्यक है</h3>
+                  <p className="text-xs text-gray-500 font-medium leading-relaxed">
+                    AI एक्सपर्ट लाइव वीडियो कॉल के लिए आपकी अपनी Gemini API Key का होना ज़रूरी है। 
+                  </p>
+                  <button 
+                    onClick={() => setIsModalOpen(true)}
+                    className="w-full bg-[#2D5A27] text-white py-3 rounded-2xl font-black shadow-lg flex items-center justify-center gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" /> अपनी Key सेट करें
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <h3 className="text-xl font-black text-[#4A3728]">विशेषज्ञ से सीधी बात</h3>
+                  <p className="text-xs text-gray-500 font-medium leading-relaxed">
+                    बिल्कुल इंसानों की तरह बात करने वाला हमारा AI एक्सपर्ट खेती की किसी भी समस्या का तुरंत समाधान देगा। 
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -597,7 +619,8 @@ const AiAgriExpert: React.FC = () => {
             className={cn(
               "w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-2xl active:scale-95 hover:scale-105",
               isCalling ? "bg-red-500 shadow-red-200" : "bg-[#2D5A27] hover:bg-[#3D7A35] shadow-green-200",
-              (status === 'requesting_permission' || status === 'connecting') && "opacity-50 cursor-not-allowed"
+              (status === 'requesting_permission' || status === 'connecting') && "opacity-50 cursor-not-allowed",
+              !isCalling && !userSettings?.geminiApiKey && "opacity-50"
             )}
           >
             {isCalling ? <PhoneOff className="w-10 h-10 text-white" /> : <Phone className="w-10 h-10 text-white" />}
@@ -621,7 +644,7 @@ const AiAgriExpert: React.FC = () => {
             animate={{ opacity: 1 }}
             className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest"
           >
-            {status === 'requesting_permission' ? 'अनुमति का इंतज़ार...' : 'कॉल शुरू करने के लिए हरा बटन दबाएं'}
+            {status === 'requesting_permission' ? 'अनुमति का इंतज़ार...' : !userSettings?.geminiApiKey ? 'पहले API Key दर्ज करें' : 'कॉल शुरू करने के लिए हरा बटन दबाएं'}
           </motion.p>
         )}
       </div>
