@@ -101,9 +101,11 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return data.uid is string && data.uid == request.auth.uid &&
+      return data.uid is string && 
              data.email is string && isValidEmail(data.email) &&
              data.role in ['admin', 'user'] &&
+             (!('isBlocked' in data) || data.isBlocked is bool) &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
              (!('geminiApiKey' in data) || (data.geminiApiKey is string && data.geminiApiKey.size() < 200));
     }
 
@@ -115,6 +117,7 @@ service cloud.firestore {
              data.whatsappSection.mode in ['direct', 'group'] &&
              data.contactInfo is map &&
              (!('isAppActive' in data) || data.isAppActive is bool) &&
+             (!('showBannerText' in data) || data.showBannerText is bool) &&
              (!('apiKeyGuideVideoUrl' in data) || data.apiKeyGuideVideoUrl is string) &&
              (!('offers' in data) || data.offers is map) &&
              (!('festivalOffer' in data) || data.festivalOffer is map);
@@ -154,11 +157,13 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       // Users can create their own profile as 'user' unless they are the bootstrap admin
-      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && 
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
                     (request.resource.data.role == 'user' || isAdmin());
-      // Users can update their own profile but cannot change their role unless they are an admin
-      allow update: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && 
-                    (request.resource.data.role == resource.data.role || isAdmin());
+      // Users can update their own profile but cannot change their role or block status unless they are an admin
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && 
+                        request.resource.data.role == resource.data.role && 
+                        request.resource.data.get('isBlocked', false) == resource.data.get('isBlocked', false)) || 
+                    (isAdmin() && isValidUser(request.resource.data));
       allow delete: if isAdmin();
     }
 

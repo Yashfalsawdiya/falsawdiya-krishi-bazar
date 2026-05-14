@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource } from '../types';
+import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord } from '../types';
 import { PRODUCTS, CROP_ADVICE, CATEGORIES } from '../data/mockData';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { 
@@ -12,9 +12,11 @@ import {
   setDoc,
   getDoc,
   query,
-  orderBy
+  orderBy,
+  Unsubscribe
 } from 'firebase/firestore';
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth';
+import { validateLoginEmail } from '../utils/security';
 
 export interface AppContent {
   branding: {
@@ -28,6 +30,7 @@ export interface AppContent {
   loginText?: string;
   adminEmails?: string[];
   isAppActive?: boolean;
+  showBannerText?: boolean;
   banners: { id: string; image: string | ImageSource; title: string; subtitle: string }[];
   videos: { id: string; title: string; videoUrl: string; thumbnail: string | ImageSource }[];
   youtubeChannel: {
@@ -75,6 +78,7 @@ interface AppContextType {
   userSettings: UserSettings | null;
   loading: boolean;
   isQuotaExceeded: boolean;
+  allUsers: UserRecord[];
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
@@ -86,6 +90,7 @@ interface AppContextType {
   deleteAgriIssue: (id: string) => Promise<void>;
   updateAppContent: (content: AppContent) => Promise<void>;
   updateUserSettings: (settings: UserSettings) => Promise<void>;
+  updateUserStatus: (uid: string, isBlocked: boolean) => Promise<void>;
   login: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -102,47 +107,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
+  const [allUsers, setAllUsers] = useState<UserRecord[]>([]);
 
   useEffect(() => {
+    let unsubscribeUserDoc: Unsubscribe | null = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
+      // Clean up previous user doc listener
+      if (unsubscribeUserDoc) {
+        unsubscribeUserDoc();
+        unsubscribeUserDoc = null;
+      }
+
       if (firebaseUser) {
+        // Strict runtime validation for existing/persisted sessions
+        const { isValid } = validateLoginEmail(firebaseUser.email);
+        if (!isValid) {
+          console.warn("Invalid session detected. Signing out...");
+          await signOut(auth);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
         try {
-          // Check if user is admin and get settings
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
-          const userDoc = await getDoc(userDocRef);
-          
-          // Check if user is the main admin or a backup admin
-          const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
-          
-          // Get latest content to check backup admins
-          const contentSnap = await getDoc(doc(db, 'settings', 'content'));
-          const contentData = contentSnap.exists() ? contentSnap.data() as AppContent : null;
-          const backupAdmins = contentData?.adminEmails || [];
-          
-          const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
-          
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setIsAdmin(userData.role === 'admin' || isAdminEmail);
-            setUserSettings({ geminiApiKey: userData.geminiApiKey || '' });
-            
-            // If they are admin by email but not in doc, update doc
-            if (isAdminEmail && userData.role !== 'admin') {
-              await updateDoc(userDocRef, { role: 'admin' });
+          // Setup real-time listener for user profile to handle instant blocking
+          unsubscribeUserDoc = onSnapshot(doc(db, 'users', firebaseUser.uid), async (snapshot) => {
+            if (snapshot.exists()) {
+              const userData = snapshot.data();
+              
+              // CRITICAL: Check if user is blocked
+              if (userData.isBlocked === true) {
+                console.warn("User account is blocked. Signing out...");
+                await signOut(auth);
+                setUser(null);
+                alert("आपका अकाउंट ब्लॉक कर दिया गया है। (Your account has been blocked)");
+                return;
+              }
+
+              const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
+              const contentSnap = await getDoc(doc(db, 'settings', 'content'));
+              const contentData = contentSnap.exists() ? contentSnap.data() as AppContent : null;
+              const backupAdmins = contentData?.adminEmails || [];
+              const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
+
+              setIsAdmin(userData.role === 'admin' || isAdminEmail);
+              setUserSettings({ geminiApiKey: userData.geminiApiKey || '' });
+              setUser(firebaseUser);
+
+              // If they are admin by email but not in doc, update doc
+              if (isAdminEmail && userData.role !== 'admin') {
+                await updateDoc(doc(db, 'users', firebaseUser.uid), { role: 'admin' });
+              }
+            } else {
+              // Create default user doc if it doesn't exist
+              const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
+              const contentSnap = await getDoc(doc(db, 'settings', 'content'));
+              const contentData = contentSnap.exists() ? contentSnap.data() as AppContent : null;
+              const backupAdmins = contentData?.adminEmails || [];
+              const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
+
+              const defaultSettings = {
+                uid: firebaseUser.uid,
+                email: firebaseUser.email,
+                displayName: firebaseUser.displayName || '',
+                role: isAdminEmail ? 'admin' : 'user',
+                isBlocked: false,
+                geminiApiKey: ''
+              };
+              await setDoc(doc(db, 'users', firebaseUser.uid), defaultSettings);
+              setIsAdmin(isAdminEmail);
+              setUserSettings({ geminiApiKey: '' });
+              setUser(firebaseUser);
             }
-          } else {
-            // Create default user doc
-            const defaultSettings = {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              role: isAdminEmail ? 'admin' : 'user',
-              geminiApiKey: ''
-            };
-            await setDoc(userDocRef, defaultSettings);
-            setIsAdmin(isAdminEmail);
-            setUserSettings({ geminiApiKey: '' });
-          }
+          });
         } catch (error) {
           const err = handleFirestoreError(error, OperationType.GET, 'auth_init');
           if (err?.error.toLowerCase().includes('quota')) {
@@ -150,6 +188,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
       } else {
+        setUser(null);
         setIsAdmin(false);
         setUserSettings(null);
       }
@@ -161,7 +200,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
       if (!snapshot.empty) {
         const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        // Remove potential duplicates just in case
         const uniqueProds = Array.from(new Map(prods.map(p => [p.id, p])).values());
         setProducts(uniqueProds);
       } else {
@@ -191,10 +229,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribeCategories = onSnapshot(qCategories, (snapshot) => {
       if (!snapshot.empty) {
         setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData)));
-      } else {
-        // If empty in Firestore, keep using mock ones or show empty
-        // Actually, if it's the first time, maybe we should seed it? 
-        // For now just keep using mock data if empty.
       }
     }, (error) => {
       const err = handleFirestoreError(error, OperationType.LIST, 'categories');
@@ -215,6 +249,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return () => {
       unsubscribeAuth();
+      if (unsubscribeUserDoc) unsubscribeUserDoc();
       unsubscribeProducts();
       unsubscribeContent();
       unsubscribeCategories();
@@ -222,13 +257,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  // Additional effect to listen for all users if admin
+  useEffect(() => {
+    if (isAdmin) {
+      const unsubscribeAllUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+        setAllUsers(snapshot.docs.map(doc => ({ ...doc.data() } as UserRecord)));
+      });
+      return () => unsubscribeAllUsers();
+    } else {
+      setAllUsers([]);
+    }
+  }, [isAdmin]);
+
   const login = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      provider.setCustomParameters({ prompt: 'select_account' });
+      
+      const result = await signInWithPopup(auth, provider);
+      const loggedUser = result.user;
+
+      // Strict validation for newly logged in user
+      const { isValid, reason } = validateLoginEmail(loggedUser.email);
+      
+      if (!isValid) {
+        console.warn(`Blocked login attempt from: ${loggedUser.email}. Reason: ${reason}`);
+        await signOut(auth);
+        alert(reason);
+        return;
+      }
+
+      // Check if user is blocked immediately after login
+      const userDoc = await getDoc(doc(db, 'users', loggedUser.uid));
+      if (userDoc.exists() && userDoc.data().isBlocked === true) {
+        await signOut(auth);
+        alert("आपका अकाउंट ब्लॉक कर दिया गया है। (Your account has been blocked)");
+        return;
+      }
+      
     } catch (error: any) {
       console.error("Login Error:", error);
-      alert("लॉगिन में समस्या आई: " + (error.message || "अज्ञात त्रुटि"));
+      if (error.code !== 'auth/popup-closed-by-user') {
+        alert("लॉगिन में समस्या आई: " + (error.message || "अज्ञात त्रुटि"));
+      }
     }
   };
 
@@ -254,13 +325,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteProduct = async (id: string) => {
-    console.log(`Attempting to delete product with ID: ${id}`);
     try {
-      const productRef = doc(db, 'products', id);
-      await deleteDoc(productRef);
-      console.log(`Successfully deleted product: ${id}`);
-    } catch (error: any) {
-      console.error(`Failed to delete product ${id}:`, error);
+      await deleteDoc(doc(db, 'products', id));
+    } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
     }
   };
@@ -335,6 +402,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateUserStatus = async (uid: string, isBlocked: boolean) => {
+    if (!isAdmin) return;
+    try {
+      await updateDoc(doc(db, 'users', uid), { isBlocked });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
+    }
+  };
+
   return (
     <AppContext.Provider value={{ 
       products, 
@@ -346,6 +422,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userSettings,
       loading,
       isQuotaExceeded,
+      allUsers,
       addProduct, 
       updateProduct, 
       deleteProduct,
@@ -357,6 +434,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteAgriIssue,
       updateAppContent,
       updateUserSettings,
+      updateUserStatus,
       login,
       logout
     }}>

@@ -56,6 +56,7 @@ export default defineConfig(({mode}) => {
           ]
         },
         workbox: {
+          cleanupOutdatedCaches: true,
           globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
           runtimeCaching: [
             {
@@ -65,7 +66,7 @@ export default defineConfig(({mode}) => {
                 cacheName: 'google-fonts-cache',
                 expiration: {
                   maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 365 // <--- 365 days
+                  maxAgeSeconds: 60 * 60 * 24 * 365
                 },
                 cacheableResponse: {
                   statuses: [0, 200]
@@ -77,6 +78,7 @@ export default defineConfig(({mode}) => {
       })
     ],
     define: {
+      '__APP_VERSION__': JSON.stringify(new Date().getTime().toString()),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || env.GEMINI_API_KEY),
       'process.env.VITE_FIREBASE_API_KEY': JSON.stringify(env.VITE_FIREBASE_API_KEY),
       'process.env.VITE_FIREBASE_AUTH_DOMAIN': JSON.stringify(env.VITE_FIREBASE_AUTH_DOMAIN),

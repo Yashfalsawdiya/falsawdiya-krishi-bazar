@@ -45,7 +45,9 @@
       "properties": {
         "uid": { "type": "string" },
         "email": { "type": "string" },
+        "displayName": { "type": "string" },
         "role": { "type": "string", "enum": ["admin", "user"] },
+        "isBlocked": { "type": "boolean" },
         "geminiApiKey": { "type": "string" }
       },
       "required": ["uid", "email", "role"]
@@ -87,6 +89,7 @@
             }
           }
         },
+        "showBannerText": { "type": "boolean", "description": "Toggle to show or hide the title and subtitle on hero banners." },
         "videos": {
           "type": "array",
           "items": {

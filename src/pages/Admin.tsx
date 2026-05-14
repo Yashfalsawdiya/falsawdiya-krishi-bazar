@@ -6,7 +6,7 @@ import {
   Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
   Youtube as YoutubeIcon, Layout, Phone, Key, Tag, Sparkles,
-  ListFilter, Bug, Search, Smartphone, ShieldCheck
+  ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage } from '../lib/utils';
@@ -79,10 +79,12 @@ const Admin: React.FC = () => {
     categories, addCategory, updateCategory, deleteCategory,
     agriIssues, addAgriIssue, updateAgriIssue, deleteAgriIssue,
     appContent, updateAppContent,
-    user, isAdmin, login, logout, loading 
+    user, isAdmin, login, logout, loading,
+    allUsers, updateUserStatus
   } = useAppContext();
   
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'content'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'content' | 'users'>('products');
+  const [userSearchQuery, setUserSearchQuery] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -160,6 +162,7 @@ const Admin: React.FC = () => {
         loginText: 'ऐप की सुविधाओं का उपयोग करने के लिए कृपया अपनी Gmail ID से लॉगिन करें।',
         adminEmails: [],
         isAppActive: true,
+        showBannerText: true,
         youtubeChannel: {
           url: 'https://youtube.com/@falsawdiya',
           label: 'हमारा कृषि चैनल'
@@ -543,6 +546,15 @@ const Admin: React.FC = () => {
         >
           <Layout className="w-4 h-4" /> कंटेंट (Content)
         </button>
+        <button 
+          onClick={() => setActiveTab('users')}
+          className={cn(
+            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'users' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <Users className="w-4 h-4" /> यूज़र्स (Users)
+        </button>
       </div>
 
       {activeTab === 'products' ? (
@@ -744,6 +756,91 @@ const Admin: React.FC = () => {
             )}
           </div>
         </>
+      ) : activeTab === 'users' ? (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-gray-500 text-sm uppercase tracking-wider">
+              यूज़र्स सूची ({allUsers.length})
+            </h3>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input 
+              type="text" 
+              placeholder="ईमेल से खोजें (Search by Email)..."
+              value={userSearchQuery}
+              onChange={(e) => setUserSearchQuery(e.target.value)}
+              className="w-full bg-white border border-gray-100 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-[#2D5A27] shadow-sm transition-all"
+            />
+          </div>
+
+          <div className="space-y-3">
+            {allUsers
+              .filter(u => u.email.toLowerCase().includes(userSearchQuery.toLowerCase()))
+              .map((u) => {
+                const isMainAdmin = u.email === 'yashfalsawdiya36@gmail.com';
+                const isBackupAdmin = appContent?.adminEmails?.includes(u.email);
+                const canManage = !isMainAdmin && !isBackupAdmin;
+
+                return (
+                  <motion.div 
+                    layout
+                    key={u.uid}
+                    className={cn(
+                      "bg-white p-4 rounded-2xl shadow-sm border flex items-center justify-between",
+                      u.isBlocked ? "border-red-100 bg-red-50/10" : "border-gray-100"
+                    )}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                        "w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg shadow-inner",
+                        u.isBlocked ? "bg-red-100 text-red-600" : "bg-gray-100 text-[#4A3728]"
+                      )}>
+                        {u.displayName?.[0] || u.email[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-gray-800">{u.displayName || 'Anonymous'}</h4>
+                          {!canManage && (
+                            <span className="bg-[#2D5A27]/10 text-[#2D5A27] text-[8px] font-bold px-1.5 py-0.5 rounded-md uppercase">Admin</span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-gray-400 font-medium">{u.email}</p>
+                      </div>
+                    </div>
+                    
+                    {canManage && (
+                      <button 
+                        onClick={() => {
+                          const action = u.isBlocked ? 'अनब्लॉक' : 'ब्लॉक';
+                          if (confirm(`क्या आप वाकई इस यूजर को ${action} करना चाहते हैं?`)) {
+                            updateUserStatus(u.uid, !u.isBlocked);
+                          }
+                        }}
+                        className={cn(
+                          "flex flex-col items-center gap-1 p-2 rounded-xl transition-all active:scale-95",
+                          u.isBlocked 
+                            ? "bg-green-50 text-green-600 hover:bg-green-100" 
+                            : "bg-red-50 text-red-600 hover:bg-red-100"
+                        )}
+                      >
+                        {u.isBlocked ? <CheckCircle className="w-5 h-5" /> : <Ban className="w-5 h-5" />}
+                        <span className="text-[8px] font-bold uppercase">{u.isBlocked ? 'Unblock' : 'Block'}</span>
+                      </button>
+                    )}
+                  </motion.div>
+                );
+              })}
+            
+            {allUsers.filter(u => u.email.toLowerCase().includes(userSearchQuery.toLowerCase())).length === 0 && (
+              <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-100">
+                <p className="text-sm text-gray-400">कोई यूजर नहीं मिला।</p>
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
         <form onSubmit={handleContentSubmit} className="space-y-8">
           {/* Branding Settings */}
@@ -1120,10 +1217,31 @@ const Admin: React.FC = () => {
 
           {/* Hero Banners */}
           <div className="space-y-4">
-            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
-              <ImageIcon className="w-5 h-5 text-[#2D5A27]" />
-              मुख्य बैनर (Hero Banners)
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-[#2D5A27]" />
+                मुख्य बैनर (Hero Banners)
+              </h3>
+              <div className="flex items-center gap-4">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">Text ON/OFF</span>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (!contentForm) return;
+                    setContentForm({...contentForm, showBannerText: contentForm.showBannerText !== false ? false : true});
+                  }}
+                  className={cn(
+                    "w-12 h-6 rounded-full relative transition-colors duration-200",
+                    contentForm?.showBannerText !== false ? "bg-[#2D5A27]" : "bg-gray-300"
+                  )}
+                >
+                  <div className={cn(
+                    "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-200",
+                    contentForm?.showBannerText !== false ? "left-7" : "left-1"
+                  )} />
+                </button>
+              </div>
+            </div>
             {contentForm?.banners.map((banner, idx) => (
               <div key={banner.id} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                 <div className="flex items-center justify-between">

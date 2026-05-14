@@ -63,3 +63,12 @@ export interface AgriIssue {
   image: string | ImageSource;
   relatedProductIds: string[];
 }
+
+export interface UserRecord {
+  uid: string;
+  email: string;
+  displayName?: string;
+  role: 'admin' | 'user';
+  isBlocked?: boolean;
+  geminiApiKey?: string;
+}
