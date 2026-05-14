@@ -41,29 +41,22 @@ const DiseaseDetection: React.FC = () => {
   const analyzeImage = async () => {
     if (!image) return;
     
-    if (!userSettings?.geminiApiKey) {
+    const globalKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    if (!userSettings?.geminiApiKey && !globalKey) {
       setIsModalOpen(true);
       return;
     }
 
     setLoading(true);
     try {
-      const analysis = await detectDisease(image, userSettings.geminiApiKey);
-      if (analysis.analysis === "USER_API_KEY_REQUIRED") {
-        setIsModalOpen(true);
-        return;
-      }
+      const analysis = await detectDisease(image, userSettings?.geminiApiKey || globalKey);
       setAnalysisResult(analysis);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Analysis failed:", error);
-      if (error.message === "USER_API_KEY_REQUIRED") {
-        setIsModalOpen(true);
-      } else {
-        setAnalysisResult({ 
-          analysis: "क्षमा करें, जाँच करने में समस्या हुई। कृपया फिर से प्रयास करें।",
-          keywords: [] 
-        });
-      }
+      setAnalysisResult({ 
+        analysis: "क्षमा करें, जाँच करने में समस्या हुई। कृपया फिर से प्रयास करें।",
+        keywords: [] 
+      });
     } finally {
       setLoading(false);
     }

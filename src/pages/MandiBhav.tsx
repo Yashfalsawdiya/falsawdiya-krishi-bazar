@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { fetchMandiBhav, MandiData, MandiItem } from '../services/mandiService';
 import { motion, AnimatePresence } from 'motion/react';
-import { TrendingUp, Calendar, MapPin, Loader2, RefreshCw, AlertCircle, LineChart as ChartIcon, Key } from 'lucide-react';
+import { TrendingUp, Calendar, MapPin, Loader2, RefreshCw, AlertCircle, LineChart as ChartIcon } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import ApiKeyModal from '../components/ApiKeyModal';
 
 const MandiBhav: React.FC = () => {
   const { userSettings } = useAppContext();
@@ -11,7 +10,6 @@ const MandiBhav: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedMandi, setSelectedMandi] = useState('शामगढ़ (Shamgarh)');
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const mandis = [
     'शामगढ़ (Shamgarh)',
@@ -21,20 +19,12 @@ const MandiBhav: React.FC = () => {
   ];
 
   const loadData = async (mandi: string) => {
-    if (!userSettings?.geminiApiKey) {
-      setLoading(false);
-      return;
-    }
-    
     setLoading(true);
     try {
-      const result = await fetchMandiBhav(mandi, userSettings.geminiApiKey);
+      const result = await fetchMandiBhav(mandi, userSettings?.geminiApiKey);
       setData(result);
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      if (error.message === "USER_API_KEY_REQUIRED") {
-        setIsModalOpen(true);
-      }
     } finally {
       setLoading(false);
     }
@@ -46,7 +36,6 @@ const MandiBhav: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-10">
-      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <div className="text-center">
         <h2 className="text-xl font-bold text-[#4A3728] flex items-center justify-center gap-2">
           <TrendingUp className="w-6 h-6 text-[#2D5A27]" />
@@ -80,23 +69,7 @@ const MandiBhav: React.FC = () => {
         ))}
       </div>
 
-      {!userSettings?.geminiApiKey ? (
-        <div className="p-8 bg-white rounded-3xl border border-gray-100 shadow-sm text-center space-y-4">
-          <div className="w-16 h-16 bg-[#F5F2ED] rounded-full flex items-center justify-center mx-auto">
-            <Key className="w-8 h-8 text-[#2D5A27]" />
-          </div>
-          <h3 className="font-bold text-[#4A3728]">ताज़ा भाव देखने के लिए API Key चाहिए</h3>
-          <p className="text-xs text-gray-500 leading-relaxed">
-            मंडी भाव AI (Gemini) द्वारा इंटरनेट से खोजे जाते हैं। इसके लिए आपको अपनी प्रोफाइल में अपनी API Key सेट करनी होगी।
-          </p>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="w-full bg-[#2D5A27] text-white py-3 rounded-2xl font-black shadow-lg"
-          >
-            अपनी API Key सेट करें
-          </button>
-        </div>
-      ) : loading ? (
+      {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin" />
           <p className="text-sm font-bold text-gray-500">ताज़ा भाव लोड हो रहे हैं...</p>

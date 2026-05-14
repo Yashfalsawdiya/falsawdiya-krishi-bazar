@@ -1,33 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { fetchAgriNews, AgriNewsItem } from '../services/newsService';
 import { motion } from 'motion/react';
-import { Newspaper, Calendar, Tag, Loader2, ExternalLink, RefreshCw, Key } from 'lucide-react';
+import { Newspaper, Calendar, Tag, Loader2, ExternalLink, RefreshCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { cn } from '../lib/utils';
 import SmartImage from '../components/SmartImage';
-import ApiKeyModal from '../components/ApiKeyModal';
 
 const AgriNews: React.FC = () => {
   const { userSettings } = useAppContext();
   const [news, setNews] = useState<AgriNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadNews = async () => {
-    if (!userSettings?.geminiApiKey) {
-      setLoading(false);
-      return;
-    }
-    
     setLoading(true);
     try {
-      const data = await fetchAgriNews(userSettings.geminiApiKey);
+      const data = await fetchAgriNews(userSettings?.geminiApiKey);
       setNews(data);
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      if (error.message === "USER_API_KEY_REQUIRED") {
-        setIsModalOpen(true);
-      }
     } finally {
       setLoading(false);
     }
@@ -67,7 +57,6 @@ const AgriNews: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-10">
-      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <div className="text-center">
         <h2 className="text-xl font-bold text-[#4A3728] flex items-center justify-center gap-2">
           <Newspaper className="w-6 h-6 text-[#2D5A27]" />
@@ -76,30 +65,14 @@ const AgriNews: React.FC = () => {
         <p className="text-sm text-gray-500">खेती-किसानी की ताज़ा और प्रमाणित खबरें</p>
         <button 
           onClick={loadNews}
-          disabled={loading || !userSettings?.geminiApiKey}
+          disabled={loading}
           className="mt-2 text-[10px] font-bold text-[#2D5A27] flex items-center gap-1 mx-auto bg-[#2D5A27]/5 px-3 py-1.5 rounded-full border border-[#2D5A27]/10 active:scale-95 transition-transform disabled:opacity-50"
         >
           <RefreshCw className={cn("w-3 h-3", loading && "animate-spin")} /> ताज़ा करें (Refresh)
         </button>
       </div>
 
-      {!userSettings?.geminiApiKey ? (
-        <div className="p-8 bg-white rounded-3xl border border-gray-100 shadow-sm text-center space-y-4">
-          <div className="w-16 h-16 bg-[#F5F2ED] rounded-full flex items-center justify-center mx-auto">
-            <Key className="w-8 h-8 text-[#2D5A27]" />
-          </div>
-          <h3 className="font-bold text-[#4A3728]">ताज़ा खबरें देखने के लिए API Key चाहिए</h3>
-          <p className="text-xs text-gray-500 leading-relaxed">
-            कृषि समाचार AI द्वारा दुनिया भर से खोजे जाते हैं। इसके लिए आपको अपनी प्रोफाइल में अपनी API Key सेट करनी होगी।
-          </p>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="w-full bg-[#2D5A27] text-white py-3 rounded-2xl font-black shadow-lg"
-          >
-            अपनी API Key सेट करें
-          </button>
-        </div>
-      ) : loading ? (
+      {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <div className="relative">
             <Loader2 className="w-12 h-12 text-[#2D5A27] animate-spin" />

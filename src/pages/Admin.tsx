@@ -155,8 +155,7 @@ const Admin: React.FC = () => {
           logo: '',
           pwaIcon: '',
           androidIcon: '',
-          splashLogo: '',
-          showHeroText: true
+          splashLogo: ''
         },
         loginText: 'ऐप की सुविधाओं का उपयोग करने के लिए कृपया अपनी Gmail ID से लॉगिन करें।',
         adminEmails: [],
@@ -810,28 +809,6 @@ const Admin: React.FC = () => {
                   setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), splashLogo: source}});
                 }}
               />
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
-                <div>
-                  <h4 className="font-bold text-gray-700">Hero बैनर टेक्स्ट (Show Hero Text)</h4>
-                  <p className="text-[10px] text-gray-500">बैनर पर टाइटल और सब-टाइटल दिखाने के लिए इसे चालू रखें।</p>
-                </div>
-                <button 
-                  type="button"
-                  onClick={() => {
-                    if (!contentForm) return;
-                    setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), showHeroText: !contentForm.branding?.showHeroText}});
-                  }}
-                  className={cn(
-                    "w-14 h-8 rounded-full relative transition-colors duration-200",
-                    contentForm?.branding?.showHeroText !== false ? "bg-[#2D5A27]" : "bg-gray-300"
-                  )}
-                >
-                  <div className={cn(
-                    "absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-200",
-                    contentForm?.branding?.showHeroText !== false ? "left-7" : "left-1"
-                  )} />
-                </button>
-              </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">लॉगिन स्क्रीन टेक्स्ट (Login Screen Text)</label>
                 <textarea 

@@ -1,11 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
 
 const getAI = (userApiKey?: string) => {
-  const apiKey = userApiKey?.trim();
-  if (!apiKey || apiKey === "") {
-    throw new Error("USER_API_KEY_REQUIRED");
+  const apiKey = userApiKey || import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === "") {
+    throw new Error("GEMINI_API_KEY is not configured.");
   }
-  return new GoogleGenAI({ apiKey: apiKey });
+  return new GoogleGenAI({ apiKey: apiKey.trim() });
 };
 
 export interface MandiHistoryItem {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource } from '../types';
 import { PRODUCTS, CROP_ADVICE, CATEGORIES } from '../data/mockData';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
@@ -11,12 +11,10 @@ import {
   doc, 
   setDoc,
   getDoc,
-  getDocs,
   query,
   orderBy
 } from 'firebase/firestore';
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth';
-import { validateGmailAccount } from '../lib/authUtils';
 
 export interface AppContent {
   branding: {
@@ -26,7 +24,6 @@ export interface AppContent {
     pwaIcon?: string | ImageSource;
     androidIcon?: string | ImageSource;
     splashLogo?: string | ImageSource;
-    showHeroText?: boolean;
   };
   loginText?: string;
   adminEmails?: string[];
@@ -91,199 +88,144 @@ interface AppContextType {
   updateUserSettings: (settings: UserSettings) => Promise<void>;
   login: () => Promise<void>;
   logout: () => Promise<void>;
-  triggerDataSync: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Cache Keys
-const CACHE_PRODUCTS = 'agri_cache_products';
-const CACHE_CATEGORIES = 'agri_cache_categories';
-const CACHE_ISSUES = 'agri_cache_issues';
-const CACHE_CONTENT = 'agri_cache_content';
-const CACHE_LAST_SYNC = 'agri_last_sync_time';
-
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [products, setProducts] = useState<Product[]>(() => {
-    const cached = localStorage.getItem(CACHE_PRODUCTS);
-    return cached ? JSON.parse(cached) : PRODUCTS;
-  });
-  const [categories, setCategories] = useState<CategoryData[]>(() => {
-    const cached = localStorage.getItem(CACHE_CATEGORIES);
-    return cached ? JSON.parse(cached) : CATEGORIES;
-  });
-  const [agriIssues, setAgriIssues] = useState<AgriIssue[]>(() => {
-    const cached = localStorage.getItem(CACHE_ISSUES);
-    return cached ? JSON.parse(cached) : [];
-  });
-  const [appContent, setAppContent] = useState<AppContent | null>(() => {
-    const cached = localStorage.getItem(CACHE_CONTENT);
-    return cached ? JSON.parse(cached) : null;
-  });
-  
+  const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const [categories, setCategories] = useState<CategoryData[]>(CATEGORIES);
+  const [agriIssues, setAgriIssues] = useState<AgriIssue[]>([]);
+  const [appContent, setAppContent] = useState<AppContent | null>(null);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
 
-  const triggerDataUpdateTimestamp = async () => {
-    try {
-      await setDoc(doc(db, 'settings', 'sync'), { lastUpdate: Date.now() });
-    } catch (e) {
-      console.error("Error updating sync timestamp:", e);
-    }
-  };
-
-  const syncAllData = useCallback(async () => {
-    console.log("Syncing all data with Firebase...");
-    try {
-      // 1. Fetch Categories
-      const qCats = query(collection(db, 'categories'), orderBy('order'));
-      const catsSnap = await getDocs(qCats);
-      const cats = catsSnap.docs.map(d => ({ id: d.id, ...d.data() } as CategoryData));
-      if (cats.length > 0) {
-        setCategories(cats);
-        localStorage.setItem(CACHE_CATEGORIES, JSON.stringify(cats));
-      }
-
-      // 2. Fetch Products
-      const qProds = query(collection(db, 'products'), orderBy('hindiName'));
-      const prodsSnap = await getDocs(qProds);
-      const prods = prodsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Product));
-      setProducts(prods);
-      localStorage.setItem(CACHE_PRODUCTS, JSON.stringify(prods));
-
-      // 3. Fetch AgriIssues
-      const issuesSnap = await getDocs(collection(db, 'agriIssues'));
-      const issues = issuesSnap.docs.map(d => ({ id: d.id, ...d.data() } as AgriIssue));
-      setAgriIssues(issues);
-      localStorage.setItem(CACHE_ISSUES, JSON.stringify(issues));
-
-      // 4. Fetch App Content
-      const contentSnap = await getDoc(doc(db, 'settings', 'content'));
-      if (contentSnap.exists()) {
-        const content = contentSnap.data() as AppContent;
-        setAppContent(content);
-        localStorage.setItem(CACHE_CONTENT, JSON.stringify(content));
-      }
-
-      // Update sync time
-      const now = Date.now();
-      localStorage.setItem(CACHE_LAST_SYNC, now.toString());
-
-    } catch (error) {
-      console.error("Sync Error:", error);
-      handleFirestoreError(error, OperationType.GET, 'full_data_sync');
-    }
-  }, []);
-
-  const checkSyncStatus = useCallback(async () => {
-    try {
-      const syncSnap = await getDoc(doc(db, 'settings', 'sync'));
-      if (syncSnap.exists()) {
-        const serverLastUpdate = syncSnap.data().lastUpdate || 0;
-        const localLastSync = parseInt(localStorage.getItem(CACHE_LAST_SYNC) || '0');
-
-        if (serverLastUpdate > localLastSync) {
-          await syncAllData();
-        } else {
-          console.log("App data is up to date (Loaded from Cache)");
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+      if (firebaseUser) {
+        try {
+          // Check if user is admin and get settings
+          const userDocRef = doc(db, 'users', firebaseUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          // Check if user is the main admin or a backup admin
+          const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
+          
+          // Get latest content to check backup admins
+          const contentSnap = await getDoc(doc(db, 'settings', 'content'));
+          const contentData = contentSnap.exists() ? contentSnap.data() as AppContent : null;
+          const backupAdmins = contentData?.adminEmails || [];
+          
+          const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
+          
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setIsAdmin(userData.role === 'admin' || isAdminEmail);
+            setUserSettings({ geminiApiKey: userData.geminiApiKey || '' });
+            
+            // If they are admin by email but not in doc, update doc
+            if (isAdminEmail && userData.role !== 'admin') {
+              await updateDoc(userDocRef, { role: 'admin' });
+            }
+          } else {
+            // Create default user doc
+            const defaultSettings = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              role: isAdminEmail ? 'admin' : 'user',
+              geminiApiKey: ''
+            };
+            await setDoc(userDocRef, defaultSettings);
+            setIsAdmin(isAdminEmail);
+            setUserSettings({ geminiApiKey: '' });
+          }
+        } catch (error) {
+          const err = handleFirestoreError(error, OperationType.GET, 'auth_init');
+          if (err?.error.toLowerCase().includes('quota')) {
+            setIsQuotaExceeded(true);
+          }
         }
       } else {
-        // First time or sync doc missing
-        await syncAllData();
-        await triggerDataUpdateTimestamp();
+        setIsAdmin(false);
+        setUserSettings(null);
       }
-    } catch (e) {
-      console.warn("Sync check failed, using cache/mock data", e);
-    }
-  }, [syncAllData]);
+      setLoading(false);
+    });
 
-  useEffect(() => {
-    const initialize = async () => {
-      // 1. Listen for Auth
-      onAuthStateChanged(auth, async (firebaseUser) => {
-        if (firebaseUser) {
-          // Strict Validation Check
-          const validation = validateGmailAccount(firebaseUser.email, firebaseUser.emailVerified);
-          if (!validation.isValid) {
-            console.error("Auth Strict Validation Failed:", validation.error);
-            await signOut(auth);
-            setUser(null);
-            alert(`प्रवेश वर्जित: ${validation.error}`);
-            setLoading(false);
-            return;
-          }
-        }
+    // Listen for products
+    const qProducts = query(collection(db, 'products'), orderBy('hindiName'));
+    const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
+      if (!snapshot.empty) {
+        const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        // Remove potential duplicates just in case
+        const uniqueProds = Array.from(new Map(prods.map(p => [p.id, p])).values());
+        setProducts(uniqueProds);
+      } else {
+        setProducts([]);
+      }
+    }, (error) => {
+      const err = handleFirestoreError(error, OperationType.LIST, 'products');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
+      }
+    });
 
-        setUser(firebaseUser);
-        if (firebaseUser) {
-          try {
-            const userDocRef = doc(db, 'users', firebaseUser.uid);
-            const userDoc = await getDoc(userDocRef);
-            
-            const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
-            
-            // We need content to check backup admins, but we might have it in cache
-            let contentData = appContent;
-            if (!contentData) {
-              const snap = await getDoc(doc(db, 'settings', 'content'));
-              contentData = snap.exists() ? snap.data() as AppContent : null;
-            }
-            
-            const backupAdmins = contentData?.adminEmails || [];
-            const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
-            
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              setIsAdmin(userData.role === 'admin' || isAdminEmail);
-              setUserSettings({ geminiApiKey: userData.geminiApiKey || '' });
-              
-              if (isAdminEmail && userData.role !== 'admin') {
-                await updateDoc(userDocRef, { role: 'admin' });
-              }
-            } else {
-              const defaultSettings = {
-                uid: firebaseUser.uid,
-                email: firebaseUser.email,
-                role: isAdminEmail ? 'admin' : 'user',
-                geminiApiKey: ''
-              };
-              await setDoc(userDocRef, defaultSettings);
-              setIsAdmin(isAdminEmail);
-              setUserSettings({ geminiApiKey: '' });
-            }
-          } catch (error) {
-            handleFirestoreError(error, OperationType.GET, 'auth_init');
-          }
-        } else {
-          setIsAdmin(false);
-          setUserSettings(null);
-        }
-        setLoading(false);
-      });
+    // Listen for app content
+    const unsubscribeContent = onSnapshot(doc(db, 'settings', 'content'), (snapshot) => {
+      if (snapshot.exists()) {
+        setAppContent(snapshot.data() as AppContent);
+      }
+    }, (error) => {
+      const err = handleFirestoreError(error, OperationType.GET, 'settings/content');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
+      }
+    });
 
-      // 2. Perform Smart Sync
-      await checkSyncStatus();
+    // Listen for categories
+    const qCategories = query(collection(db, 'categories'), orderBy('order'));
+    const unsubscribeCategories = onSnapshot(qCategories, (snapshot) => {
+      if (!snapshot.empty) {
+        setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData)));
+      } else {
+        // If empty in Firestore, keep using mock ones or show empty
+        // Actually, if it's the first time, maybe we should seed it? 
+        // For now just keep using mock data if empty.
+      }
+    }, (error) => {
+      const err = handleFirestoreError(error, OperationType.LIST, 'categories');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
+      }
+    });
+
+    // Listen for agriIssues
+    const unsubscribeAgriIssues = onSnapshot(collection(db, 'agriIssues'), (snapshot) => {
+      setAgriIssues(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue)));
+    }, (error) => {
+      const err = handleFirestoreError(error, OperationType.LIST, 'agriIssues');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
+      }
+    });
+
+    return () => {
+      unsubscribeAuth();
+      unsubscribeProducts();
+      unsubscribeContent();
+      unsubscribeCategories();
+      unsubscribeAgriIssues();
     };
-
-    initialize();
-  }, [checkSyncStatus]);
+  }, []);
 
   const login = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      // Add custom parameter to force account picker
-      provider.setCustomParameters({ prompt: 'select_account' });
-      const result = await signInWithPopup(auth, provider);
-      
-      // Perform immediate validation after login
-      const validation = validateGmailAccount(result.user.email, result.user.emailVerified);
-      if (!validation.isValid) {
-        await signOut(auth);
-        throw new Error(validation.error);
-      }
+      await signInWithPopup(auth, provider);
     } catch (error: any) {
       console.error("Login Error:", error);
       alert("लॉगिन में समस्या आई: " + (error.message || "अज्ञात त्रुटि"));
@@ -297,8 +239,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addProduct = async (product: Omit<Product, 'id'>) => {
     try {
       await addDoc(collection(db, 'products'), product);
-      await triggerDataUpdateTimestamp();
-      await syncAllData();
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'products');
     }
@@ -308,19 +248,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const { id, ...data } = updatedProduct;
       await setDoc(doc(db, 'products', id), data, { merge: true });
-      await triggerDataUpdateTimestamp();
-      await syncAllData();
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `products/${updatedProduct.id}`);
     }
   };
 
   const deleteProduct = async (id: string) => {
+    console.log(`Attempting to delete product with ID: ${id}`);
     try {
-      await deleteDoc(doc(db, 'products', id));
-      await triggerDataUpdateTimestamp();
-      await syncAllData();
+      const productRef = doc(db, 'products', id);
+      await deleteDoc(productRef);
+      console.log(`Successfully deleted product: ${id}`);
     } catch (error: any) {
+      console.error(`Failed to delete product ${id}:`, error);
       handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
     }
   };
@@ -328,8 +268,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addCategory = async (category: Omit<CategoryData, 'id'>) => {
     try {
       await addDoc(collection(db, 'categories'), category);
-      await triggerDataUpdateTimestamp();
-      await syncAllData();
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'categories');
     }
@@ -339,8 +277,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const { id, ...data } = category;
       await setDoc(doc(db, 'categories', id), data, { merge: true });
-      await triggerDataUpdateTimestamp();
-      await syncAllData();
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`);
     }
@@ -349,8 +285,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteCategory = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'categories', id));
-      await triggerDataUpdateTimestamp();
-      await syncAllData();
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `categories/${id}`);
     }
@@ -359,8 +293,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addAgriIssue = async (issue: Omit<AgriIssue, 'id'>) => {
     try {
       await addDoc(collection(db, 'agriIssues'), issue);
-      await triggerDataUpdateTimestamp();
-      await syncAllData();
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'agriIssues');
     }
@@ -370,8 +302,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const { id, ...data } = issue;
       await setDoc(doc(db, 'agriIssues', id), data, { merge: true });
-      await triggerDataUpdateTimestamp();
-      await syncAllData();
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `agriIssues/${issue.id}`);
     }
@@ -380,8 +310,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteAgriIssue = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'agriIssues', id));
-      await triggerDataUpdateTimestamp();
-      await syncAllData();
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `agriIssues/${id}`);
     }
@@ -390,8 +318,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateAppContent = async (content: AppContent) => {
     try {
       await setDoc(doc(db, 'settings', 'content'), content);
-      await triggerDataUpdateTimestamp();
-      await syncAllData();
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/content');
     }
@@ -432,8 +358,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateAppContent,
       updateUserSettings,
       login,
-      logout,
-      triggerDataSync: syncAllData
+      logout
     }}>
       {children}
     </AppContext.Provider>

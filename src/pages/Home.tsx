@@ -334,12 +334,10 @@ const Home: React.FC = () => {
                   className="absolute inset-0 w-full h-full"
                   objectFit="cover"
                 />
-              {appContent?.branding?.showHeroText !== false && (
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-6 text-white">
-                  <h2 className="text-xl font-bold mb-1">{banner.title}</h2>
-                  <p className="text-sm opacity-90">{banner.subtitle}</p>
-                </div>
-              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-6 text-white">
+                <h2 className="text-xl font-bold mb-1">{banner.title}</h2>
+                <p className="text-sm opacity-90">{banner.subtitle}</p>
+              </div>
             </div>
           ))}
         </div>
