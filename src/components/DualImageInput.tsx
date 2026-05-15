@@ -69,6 +69,12 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Check file size (2MB = 2 * 1024 * 1024 bytes)
+    if (file.size > 2 * 1024 * 1024) {
+      alert("फोटो का साइज 2MB से ज्यादा है। कृपया 2MB से कम साइज की फोटो चुनें।");
+      return;
+    }
+
     setUploading(true);
     try {
       const base64 = await fileToBase64(file);
@@ -134,14 +140,21 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
             {primary ? (
               <>
                 <img src={primary} alt="Primary" className="w-full h-full object-contain p-2" />
-                <button 
-                  onClick={clearPrimary}
-                  className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-                <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-[#2D5A27] text-white text-[8px] font-bold rounded-md flex items-center gap-1 shadow-sm">
-                  <CheckCircle2 className="w-2 h-2" /> UPLOADED
+                <div className="absolute top-3 right-3 flex gap-2">
+                  <label className="p-3 bg-[#2D5A27] text-white rounded-2xl shadow-xl cursor-pointer active:scale-90 transition-all border border-white/20">
+                    <Upload className="w-5 h-5" />
+                    <input type="file" className="hidden" accept="image/*" onChange={handlePrimaryUpload} />
+                  </label>
+                  <button 
+                    type="button"
+                    onClick={clearPrimary}
+                    className="p-3 bg-red-500 text-white rounded-2xl shadow-xl active:scale-90 transition-all border border-white/20"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="absolute bottom-2 left-2 px-2.5 py-1 bg-[#2D5A27] text-white text-[8px] font-bold rounded-lg flex items-center gap-1.5 shadow-sm">
+                  <CheckCircle2 className="w-2.5 h-2.5" /> UPLOADED
                 </div>
               </>
             ) : (
@@ -151,7 +164,7 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
                 </div>
                 <div className="text-center">
                   <span className="text-[10px] font-bold text-[#2D5A27] block">गैलरी से चुनें</span>
-                  <span className="text-[8px] text-gray-400">High Quality Photos</span>
+                  <span className="text-[8px] text-gray-400">Max 2MB size • High Quality</span>
                 </div>
                 <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handlePrimaryUpload} />
               </>
@@ -183,7 +196,20 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
                 )}
               />
               <LinkIcon className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400" />
-              <div className="absolute right-3.5 top-3.5">
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                {fallback && (
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setFallback('');
+                      onChange({ primary, fallback: '' });
+                      setUrlStatus('idle');
+                    }}
+                    className="p-2.5 text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition-all active:scale-90"
+                  >
+                    <X className="w-4 h-4 font-bold" />
+                  </button>
+                )}
                 {urlStatus === 'checking' && <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />}
                 {urlStatus === 'valid' && <CheckCircle2 className="w-4 h-4 text-green-500" />}
                 {urlStatus === 'invalid' && <AlertCircle className="w-4 h-4 text-red-500" />}

@@ -251,10 +251,6 @@ const Home: React.FC = () => {
   const handleOpenChat = () => {
     if (appLoading) return;
 
-    if (!userSettings?.geminiApiKey) {
-      setIsModalOpen(true);
-      return;
-    }
     setIsChatOpen(true);
     setChatResponse(null);
     setLastQuestion(null);
@@ -277,10 +273,7 @@ const Home: React.FC = () => {
       setChatResponse(response);
     } catch (error: any) {
       console.error("AI Question failed:", error);
-      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
-        setIsModalOpen(true);
-        setIsChatOpen(false);
-      }
+      setChatResponse("क्षमा करें, वर्तमान में आपके प्रश्न का उत्तर देने में समस्या हुई।");
     } finally {
       setIsAiLoading(false);
     }
@@ -302,9 +295,6 @@ const Home: React.FC = () => {
       setAiAdvice(advice);
     } catch (error: any) {
       console.error("AI Advice failed:", error);
-      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
-        setIsModalOpen(true);
-      }
     } finally {
       setIsAiLoading(false);
     }

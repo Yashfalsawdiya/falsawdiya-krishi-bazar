@@ -61,7 +61,14 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
 
   try {
     const ai = getAI(userApiKey);
-    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
+    if (!ai) {
+      if (cachedData) {
+        try {
+          return JSON.parse(cachedData);
+        } catch (e) {}
+      }
+      return fallbackData;
+    }
     const prompt = `Search for the latest and most important agricultural news for India and Madhya Pradesh as of today ${dateStr}.
     Find news about:
     1. Madhya Pradesh Agriculture (MP)
@@ -114,9 +121,6 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
     
     return fallbackData;
   } catch (error: any) {
-    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
-      throw error;
-    }
     console.error("Error fetching news with search:", error);
     
     if (cachedData) {

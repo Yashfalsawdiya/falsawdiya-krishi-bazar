@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Sparkles, AlertCircle, ChevronLeft, Loader2, User, Camera, CameraOff } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Sparkles, AlertCircle, ChevronLeft, Loader2, User, Camera, CameraOff, Key, ArrowRight } from 'lucide-react';
 import ApiKeyModal from '../components/ApiKeyModal';
 import { useAppContext } from '../context/AppContext';
 import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
@@ -466,6 +466,32 @@ const AiAgriExpert: React.FC = () => {
       endCall();
     };
   }, [endCall]);
+
+  if (!userSettings?.geminiApiKey) {
+    return (
+      <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-20 h-20 bg-purple-100 rounded-3xl flex items-center justify-center mb-6 shadow-sm">
+          <Key className="w-10 h-10 text-purple-600" />
+        </div>
+        <h2 className="text-xl font-bold text-[#4A3728] mb-2 tracking-tight">AI वॉइस कॉल सुविधा</h2>
+        <p className="text-gray-500 text-sm max-w-xs mb-8 leading-relaxed font-medium">
+          इस सुविधा का उपयोग करने के लिए कृपया अपनी प्रोफाइल में <strong>Gemini API Key</strong> सेट करें। इसके बाद आप AI विशेषज्ञ से सीधे बात कर पाएंगे।
+        </p>
+        <button 
+          onClick={() => navigate('/profile')}
+          className="w-full max-w-xs bg-[#2D5A27] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-green-100 active:scale-95 transition-all mb-4"
+        >
+          प्रोफ़ाइल में जाएँ (Go to Profile) <ArrowRight className="w-5 h-5" />
+        </button>
+        <button 
+          onClick={() => navigate(-1)}
+          className="text-gray-400 text-xs font-bold uppercase tracking-widest"
+        >
+          वापस जाएँ (Go Back)
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-between p-6 pb-24">

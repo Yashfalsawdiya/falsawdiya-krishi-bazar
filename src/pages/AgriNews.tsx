@@ -17,20 +17,12 @@ const AgriNews: React.FC = () => {
     // Wait for app state to load before judging key presence
     if (appLoading) return;
 
-    if (!userSettings?.geminiApiKey) {
-      setIsModalOpen(true);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     try {
       const data = await fetchAgriNews(userSettings?.geminiApiKey);
       setNews(data);
     } catch (error: any) {
       console.error(error);
-      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
-        setIsModalOpen(true);
-      }
     } finally {
       setLoading(false);
     }

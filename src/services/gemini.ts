@@ -18,7 +18,12 @@ export interface DiseaseAnalysis {
 export async function detectDisease(base64Image: string, userApiKey?: string): Promise<DiseaseAnalysis> {
   try {
     const ai = getAI(userApiKey);
-    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
+    if (!ai) {
+      return {
+        analysis: "बीमारी की जाँच के लिए कृपया प्रोफाइल में अपनी 'Gemini API Key' सेट करें।",
+        keywords: []
+      };
+    }
     
     const prompt = `You are an expert Indian agricultural scientist and plant pathologist. 
             Analyze this photo of a crop leaf or plant. 
@@ -72,12 +77,9 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
       };
     }
   } catch (error: any) {
-    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
-      throw error;
-    }
     console.error("Gemini Error:", error);
     return {
-      analysis: "क्षमा करें, बीमारी का पता लगाने में समस्या हुई।",
+      analysis: "क्षमा करें, वर्तमान में बीमारी का पता लगाने में समस्या हुई।",
       keywords: []
     };
   }
@@ -90,7 +92,11 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
 
   try {
     const ai = getAI(userApiKey);
-    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
+    if (!ai) {
+      const cachedAdvice = localStorage.getItem(CACHE_KEY);
+      if (cachedAdvice) return cachedAdvice;
+      return null;
+    }
     const now = new Date();
     const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
@@ -128,9 +134,6 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
 
     return adviceText;
   } catch (error: any) {
-    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
-      throw error;
-    }
     console.error("Gemini Advice Error:", error);
     
     // Try to return cached advice if available
@@ -149,7 +152,9 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
 export async function askAiQuestion(question: string, weatherData: any, userApiKey?: string) {
   try {
     const ai = getAI(userApiKey);
-    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
+    if (!ai) {
+      return "कृषि संबंधी सवाल पूछने के लिए कृपया प्रोफाइल में अपनी 'Gemini API Key' सेट करें।";
+    }
     const now = new Date();
     const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -176,9 +181,6 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
 
     return response.text;
   } catch (error: any) {
-    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
-      throw error;
-    }
     console.error("Gemini Chat Error:", error);
     if (error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED")) {
       return "क्षमा करें, सेवा की सीमा (Quota) समाप्त हो गई है। कृपया बाद में प्रयास करें।";
