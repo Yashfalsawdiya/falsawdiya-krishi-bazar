@@ -313,26 +313,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const loadCategoryData = () => {
     const q = query(collection(db, 'categories'), orderBy('order'));
     
+    // Seed from cache immediately
     const cached = getCachedData<CategoryData>('categories');
-    if (cached && categories.length <= CATEGORIES.length) { // CATEGORIES is the mockData default
+    if (cached) {
       setCategories(cached);
     }
 
     const fetch = async () => {
       try {
         let snapshot;
+        // Only fetch from server if sync is needed (once a day at 10 AM)
         if (isSyncNeeded() || !cached) {
           try {
             snapshot = await getDocsFromServer(q);
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
             setCategories(data);
             setCacheData('categories', data);
+            markSyncDone(); // Mark that we did a sync check today
           } catch (e) {
             snapshot = await getDocsFromCache(q);
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
-            setCategories(data);
+            if (!snapshot.empty) {
+              const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
+              setCategories(data);
+            }
           }
         } else {
+          // Use cache - zero Firestore cost
           try {
             snapshot = await getDocsFromCache(q);
             if (!snapshot.empty) {
@@ -341,10 +347,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               setCacheData('categories', data);
             }
           } catch (e) {
-            snapshot = await getDocsFromServer(q);
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
-            setCategories(data);
-            setCacheData('categories', data);
+            // Fallback
           }
         }
       } catch (error) {
@@ -376,6 +379,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue));
             setAgriIssues(data);
             setCacheData('agriIssues', data);
+            markSyncDone();
           } catch (e) {
             snapshot = await getDocsFromCache(q);
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue));
@@ -390,10 +394,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               setCacheData('agriIssues', data);
             }
           } catch (e) {
-            snapshot = await getDocsFromServer(q);
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue));
-            setAgriIssues(data);
-            setCacheData('agriIssues', data);
+            // Use cached state
           }
         }
       } catch (error) {
