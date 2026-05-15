@@ -15,64 +15,6 @@ import { ImageSource } from '../types';
 import DualImageInput from '../components/DualImageInput';
 import SmartImage from '../components/SmartImage';
 
-const ImageUpload: React.FC<{ 
-  value: string | ImageSource; 
-  onChange: (value: string | ImageSource) => void;
-  label: string;
-}> = ({ value, onChange, label }) => {
-  // Keeping this for non-critical images or simple base64 usage
-  // but updating it to handle ImageSource just in case
-  const [loading, setLoading] = useState(false);
-  const imageUrl = getDirectImageURL(typeof value === 'string' ? value : value?.primary || value?.fallback || '');
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setLoading(true);
-      try {
-        const base64 = await fileToBase64(file);
-        const compressed = await compressImage(base64);
-        onChange(compressed);
-      } catch (error) {
-        console.error("Error uploading image:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  return (
-    <div className="space-y-1.5">
-      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">{label}</label>
-      <div className="flex items-center gap-4">
-        <div className={cn(
-          "relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center transition-colors",
-          imageUrl ? "bg-transparent shadow-inner" : "bg-gray-100"
-        )}>
-          {imageUrl ? (
-            <img src={imageUrl} alt="Preview" className="w-full h-full object-contain p-1" />
-          ) : (
-            <ImageIcon className="w-6 h-6 text-gray-300" />
-          )}
-          {loading && (
-            <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-              <Loader2 className="w-5 h-5 text-white animate-spin" />
-            </div>
-          )}
-        </div>
-        <div className="flex-1">
-          <label className="inline-flex items-center px-4 py-2 bg-white border-2 border-[#2D5A27] text-[#2D5A27] rounded-xl text-xs font-bold cursor-pointer hover:bg-[#2D5A27] hover:text-white transition-all active:scale-95">
-            <ImageIcon className="w-4 h-4 mr-2" />
-            गैलरी से चुनें (Pick from Gallery)
-            <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-          </label>
-          <p className="text-[9px] text-gray-400 mt-1 ml-1">High Quality Photos</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const Admin: React.FC = () => {
   const { 
     products, addProduct, updateProduct, deleteProduct,
@@ -122,13 +64,13 @@ const Admin: React.FC = () => {
     hidePrice: false,
     unit: '',
     description: '',
-    image: '',
+    image: { primary: '', fallback: '' },
     crops: []
   });
 
   const [categoryForm, setCategoryForm] = useState<Omit<CategoryData, 'id'>>({
     name: '',
-    icon: '🌱',
+    icon: { primary: '', fallback: '' },
     order: 0
   });
 
@@ -137,7 +79,7 @@ const Admin: React.FC = () => {
     englishName: '',
     type: 'pest',
     description: '',
-    image: '',
+    image: { primary: '', fallback: '' },
     relatedProductIds: []
   });
 
@@ -224,7 +166,7 @@ const Admin: React.FC = () => {
         await addProduct(productForm as Omit<Product, 'id'>);
         setIsAdding(false);
       }
-      setProductForm({ name: '', hindiName: '', category: categories[0]?.id || '', brand: '', price: 0, unit: '', description: '', image: '', crops: [] });
+      setProductForm({ name: '', hindiName: '', category: categories[0]?.id || '', brand: '', price: 0, unit: '', description: '', image: { primary: '', fallback: '' }, crops: [] });
     } catch (error) {
       console.error("Error saving product:", error);
     } finally {
@@ -243,7 +185,7 @@ const Admin: React.FC = () => {
         await addCategory(categoryForm);
         setIsAddingCategory(false);
       }
-      setCategoryForm({ name: '', icon: '🌱', order: categories.length + 1 });
+      setCategoryForm({ name: '', icon: { primary: '', fallback: '' }, order: categories.length + 1 });
     } catch (error) {
       console.error("Error saving category:", error);
     } finally {
@@ -262,7 +204,7 @@ const Admin: React.FC = () => {
         await addAgriIssue(agriIssueForm);
         setIsAddingAgriIssue(false);
       }
-      setAgriIssueForm({ hindiName: '', englishName: '', type: 'pest', description: '', image: '', relatedProductIds: [] });
+      setAgriIssueForm({ hindiName: '', englishName: '', type: 'pest', description: '', image: { primary: '', fallback: '' }, relatedProductIds: [] });
     } catch (error) {
       console.error("Error saving agri issue:", error);
     } finally {
@@ -581,7 +523,7 @@ const Admin: React.FC = () => {
               onClick={() => {
                 setIsAdding(true);
                 setEditingProduct(null);
-                setProductForm({ name: '', hindiName: '', category: categories[0]?.id || '', brand: '', price: 0, unit: '', description: '', image: '', crops: [] });
+                setProductForm({ name: '', hindiName: '', category: categories[0]?.id || '', brand: '', price: 0, unit: '', description: '', image: { primary: '', fallback: '' }, crops: [] });
               }}
               className="bg-[#2D5A27] text-white py-2 px-4 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold active:scale-95 transition-transform"
             >
@@ -646,7 +588,7 @@ const Admin: React.FC = () => {
               onClick={() => {
                 setIsAddingCategory(true);
                 setEditingCategory(null);
-                setCategoryForm({ name: '', icon: '🌱', order: categories.length + 1 });
+                setCategoryForm({ name: '', icon: { primary: '', fallback: '' }, order: categories.length + 1 });
               }}
               className="bg-[#2D5A27] text-white py-2 px-4 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold active:scale-95 transition-transform"
             >
@@ -713,7 +655,7 @@ const Admin: React.FC = () => {
               onClick={() => {
                 setIsAddingAgriIssue(true);
                 setEditingAgriIssue(null);
-                setAgriIssueForm({ hindiName: '', englishName: '', type: 'pest', description: '', image: '', relatedProductIds: [] });
+                setAgriIssueForm({ hindiName: '', englishName: '', type: 'pest', description: '', image: { primary: '', fallback: '' }, relatedProductIds: [] });
               }}
               className="bg-[#2D5A27] text-white py-2 px-4 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold active:scale-95 transition-transform"
             >
@@ -1697,9 +1639,9 @@ const Admin: React.FC = () => {
                     ))}
                   </select>
                 </div>
-                <ImageUpload 
+                <DualImageInput 
                   label="उत्पाद फोटो (Product Photo)"
-                  value={productForm.image || ''}
+                  value={productForm.image}
                   onChange={source => setProductForm({...productForm, image: source})}
                 />
                 <div className="space-y-1.5">
@@ -1795,9 +1737,9 @@ const Admin: React.FC = () => {
                     </div>
                   </div>
 
-                  <ImageUpload 
+                  <DualImageInput 
                     label="समस्या की फोटो (Photo)"
-                    value={agriIssueForm.image || ''}
+                    value={agriIssueForm.image}
                     onChange={source => setAgriIssueForm({...agriIssueForm, image: source})}
                   />
 

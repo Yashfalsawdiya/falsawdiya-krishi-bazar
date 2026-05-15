@@ -124,7 +124,7 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
             <div className="w-5 h-5 rounded-full bg-[#2D5A27]/10 flex items-center justify-center">
               <Upload className="w-3 h-3 text-[#2D5A27]" />
             </div>
-            <span className="text-[10px] font-bold text-[#4A3728] uppercase tracking-wide">Primary (Upload)</span>
+            <span className="text-[10px] font-bold text-[#4A3728] uppercase tracking-wide">गैलरी से चुनें (Pick from Gallery)</span>
           </div>
           
           <div className={cn(
@@ -165,7 +165,7 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
             <div className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center">
               <LinkIcon className="w-3 h-3 text-blue-500" />
             </div>
-            <span className="text-[10px] font-bold text-[#4A3728] uppercase tracking-wide">Backup (Image URL)</span>
+            <span className="text-[10px] font-bold text-[#4A3728] uppercase tracking-wide">Google Drive Image URL</span>
           </div>
 
           <div className="space-y-2">
@@ -174,7 +174,7 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
                 type="text" 
                 value={fallback}
                 onChange={(e) => handleFallbackChange(e.target.value)}
-                placeholder="Paste direct image link here..."
+                placeholder="Google Drive या direct image link यहाँ पेस्ट करें..."
                 className={cn(
                   "w-full bg-white border-2 rounded-2xl p-3 pl-10 text-xs font-medium outline-none transition-all",
                   urlStatus === 'valid' ? "border-green-100 focus:border-green-500" :
