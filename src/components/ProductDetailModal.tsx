@@ -32,7 +32,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
             className="relative bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
           >
             {/* Header Image */}
-            <div className="relative h-64 sm:h-80 bg-gray-100 flex-shrink-0 overflow-hidden">
+            <div className="relative h-64 sm:h-80 flex-shrink-0 overflow-hidden">
               <SmartImage 
                 src={product.image} 
                 alt={product.hindiName}

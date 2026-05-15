@@ -282,19 +282,25 @@ const DiseaseDetection: React.FC = () => {
               <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6" />
               
               <div className="flex gap-4 mb-6">
-                <div className="w-24 h-24 rounded-3xl overflow-hidden bg-gray-100 flex-shrink-0 shadow-md">
-                  <img 
-                    src={selectedProduct.image} 
-                    alt={selectedProduct.name} 
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+                <div className="w-24 h-24 rounded-3xl overflow-hidden flex-shrink-0 shadow-md bg-gray-50">
+                  {selectedProduct.image ? (
+                    <img 
+                      src={selectedProduct.image} 
+                      alt={selectedProduct.name} 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <ImageIcon className="w-8 h-8 text-gray-300" />
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1">
                   <p className="text-[#2D5A27] text-[10px] font-black uppercase tracking-wider mb-0.5">{selectedProduct.brand || 'Local Brand'}</p>
                   <h3 className="text-lg font-black text-gray-900 leading-tight mb-1">{selectedProduct.hindiName || selectedProduct.name}</h3>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-lg text-[10px] font-bold">मात्रा: {selectedProduct.unit || 'N/A'}</span>
+                    <span className="bg-white border border-gray-100 text-gray-600 px-2 py-0.5 rounded-lg text-[10px] font-bold">मात्रा: {selectedProduct.unit || 'N/A'}</span>
                   </div>
                   <p className="text-2xl font-black text-[#2D5A27]">₹{selectedProduct.price}</p>
                 </div>

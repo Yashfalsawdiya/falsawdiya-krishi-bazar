@@ -71,6 +71,9 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
       };
     }
   } catch (error: any) {
+    if (error.message === 'USER_API_KEY_MISSING') {
+      throw error;
+    }
     console.error("Gemini Error:", error);
     return {
       analysis: "क्षमा करें, बीमारी का पता लगाने में समस्या हुई।",

@@ -9,7 +9,7 @@ import {
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { fileToBase64, cn, compressImage } from '../lib/utils';
+import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
 import { AppContent } from '../context/AppContext';
 import { ImageSource } from '../types';
 import DualImageInput from '../components/DualImageInput';
@@ -23,7 +23,7 @@ const ImageUpload: React.FC<{
   // Keeping this for non-critical images or simple base64 usage
   // but updating it to handle ImageSource just in case
   const [loading, setLoading] = useState(false);
-  const imageUrl = typeof value === 'string' ? value : value?.primary || value?.fallback || '';
+  const imageUrl = getDirectImageURL(typeof value === 'string' ? value : value?.primary || value?.fallback || '');
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -47,7 +47,7 @@ const ImageUpload: React.FC<{
       <div className="flex items-center gap-4">
         <div className={cn(
           "relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-dashed border-gray-200 flex items-center justify-center transition-colors",
-          imageUrl ? "bg-white" : "bg-gray-100"
+          imageUrl ? "bg-transparent shadow-inner" : "bg-gray-100"
         )}>
           {imageUrl ? (
             <img src={imageUrl} alt="Preview" className="w-full h-full object-contain p-1" />
@@ -297,7 +297,7 @@ const Admin: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-6 text-center">
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 max-w-sm w-full">
-          <div className="w-16 h-16 bg-[#2D5A27]/10 rounded-2xl flex items-center justify-center mx-auto mb-4 overflow-hidden">
+          <div className="w-16 h-16 bg-transparent rounded-2xl flex items-center justify-center mx-auto mb-4 overflow-hidden shadow-sm border border-gray-100">
             <SmartImage 
               src={appContent?.branding?.logo} 
               alt="Logo" 

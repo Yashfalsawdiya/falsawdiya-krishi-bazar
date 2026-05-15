@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Sparkles, AlertCircle, ChevronLeft, Loader2, User, Camera, CameraOff } from 'lucide-react';
+import ApiKeyModal from '../components/ApiKeyModal';
 import { useAppContext } from '../context/AppContext';
 import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
 import { cn } from '../lib/utils';
@@ -14,6 +15,7 @@ const AiAgriExpert: React.FC = () => {
   const { userSettings, appContent } = useAppContext();
   const navigate = useNavigate();
   
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [isCalling, setIsCalling] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const isMutedRef = useRef(false);
@@ -89,10 +91,17 @@ const AiAgriExpert: React.FC = () => {
       if (isCalling && status === 'connected') {
         if (isCameraOn) {
           try {
-            // Request camera
-            const videoStream = await navigator.mediaDevices.getUserMedia({ 
-              video: { facingMode: { exact: 'environment' } } 
-            });
+            // Request camera - avoid 'exact' constraint to prevent 'Requested device not found' on desktop/non-conforming devices
+            let videoConstraints: any = { facingMode: 'environment' };
+            
+            let videoStream;
+            try {
+              videoStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
+            } catch (e) {
+              console.warn("Failed with environment facingMode, trying default video", e);
+              videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            }
+            
             const videoTrack = videoStream.getVideoTracks()[0];
             if (streamRef.current) {
               streamRef.current.addTrack(videoTrack);
@@ -241,7 +250,8 @@ const AiAgriExpert: React.FC = () => {
     setError(null);
     try {
       // Direct call to getUserMedia within user gesture
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isCameraOn });
+      // Explicitly relax constraints to ensure it works on most devices
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop());
       setPermissionGranted(true);
       setStatus('idle');
@@ -263,8 +273,7 @@ const AiAgriExpert: React.FC = () => {
 
   const startCall = async () => {
     if (!userSettings?.geminiApiKey) {
-      setError("कृपया अपनी प्रोफाइल में Gemini API Key सेट करें।");
-      setStatus('error');
+      setIsApiKeyModalOpen(true);
       return;
     }
 
@@ -275,10 +284,30 @@ const AiAgriExpert: React.FC = () => {
 
     try {
       // 1. Setup Media First (Required for User Gesture context)
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: true, 
-        video: isCameraOn ? { facingMode: { exact: 'environment' } } : false 
-      });
+      let videoConstraints: any = false;
+      if (isCameraOn) {
+        videoConstraints = { facingMode: 'environment' };
+      }
+
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: true, 
+          video: videoConstraints 
+        });
+      } catch (innerErr) {
+        console.warn("Retrying media with relaxed constraints", innerErr);
+        // If fails, try just audio first, or fallback to any video
+        if (isCameraOn) {
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: true, 
+            video: true 
+          });
+        } else {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+      }
+
       streamRef.current = stream;
       if (videoRef.current && isCameraOn) {
         videoRef.current.srcObject = stream;
@@ -395,9 +424,17 @@ const AiAgriExpert: React.FC = () => {
         });
       };
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Call initialization failed:", err);
-      setError("माइक्रोफोन या कैमरा एक्सेस की अनुमति नहीं मिली।");
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.name === 'SecurityError') {
+        setError("माइक एक्सेस की अनुमति ब्लॉक है। कृपया ब्राउज़र सेटिंग्स में जाकर 'Allow' करें।");
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError' || err.name === 'Requested device not found') {
+        setError("ज़रूरी डिवाइस (माइक्रोफोन या कैमरा) नहीं मिला।");
+      } else if (err.name === 'OverconstrainedError') {
+        setError("कैमरा सपोर्ट नहीं कर रहा है। कृपया कैमरा बंद करके कॉल करें।");
+      } else {
+        setError("कॉल शुरू करने में तकनीकी समस्या आई।");
+      }
       setStatus('error');
       setIsCalling(false);
     }
@@ -429,6 +466,7 @@ const AiAgriExpert: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-between p-6 pb-24">
+      <ApiKeyModal isOpen={isApiKeyModalOpen} onClose={() => setIsApiKeyModalOpen(false)} />
       {/* Header */}
       <div className="w-full flex items-center justify-between mb-8">
         <button 

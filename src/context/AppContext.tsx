@@ -209,8 +209,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLoading(false);
           }, (error) => {
             console.error("User doc listener error:", error);
-            // Even if listener fails (e.g. permission denied), we should probably let them see the app 
-            // if we have the firebaseUser, but some features might be missing.
+            const err = handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
+            if (err?.error.toLowerCase().includes('quota')) {
+              setIsQuotaExceeded(true);
+            }
             setLoading(false);
           });
         } catch (error) {
@@ -238,22 +240,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         let snapshot;
         if (isSyncNeeded()) {
-          console.log("Daily sync: Fetching products from server...");
-          snapshot = await getDocsFromServer(q);
-          markSyncDone(); // Mark generic sync done after first major fetch
+          try {
+            snapshot = await getDocsFromServer(q);
+            markSyncDone(); 
+          } catch (serverError) {
+            console.warn("Live sync failed, using cache:", serverError);
+            snapshot = await getDocsFromCache(q);
+          }
         } else {
           try {
             snapshot = await getDocsFromCache(q);
             if (snapshot.empty) throw new Error("Cache empty");
           } catch (e) {
-            snapshot = await getDocsFromServer(q);
+            try {
+              snapshot = await getDocsFromServer(q);
+            } catch (serverError) {
+              snapshot = await getDocsFromCache(q);
+            }
           }
         }
         
         const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         setProducts(prods);
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'products');
+        const err = handleFirestoreError(error, OperationType.LIST, 'products');
+        if (err?.error.toLowerCase().includes('quota')) {
+          setIsQuotaExceeded(true);
+        }
       }
     };
 
@@ -269,18 +282,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         let snapshot;
         if (isSyncNeeded()) {
-          snapshot = await getDocsFromServer(q);
+          try {
+            snapshot = await getDocsFromServer(q);
+          } catch (e) {
+            snapshot = await getDocsFromCache(q);
+          }
         } else {
           try {
             snapshot = await getDocsFromCache(q);
             if (snapshot.empty) throw new Error("Cache empty");
           } catch (e) {
-            snapshot = await getDocsFromServer(q);
+            try {
+              snapshot = await getDocsFromServer(q);
+            } catch (retryError) {
+              snapshot = await getDocsFromCache(q);
+            }
           }
         }
         setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData)));
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'categories');
+        const err = handleFirestoreError(error, OperationType.LIST, 'categories');
+        if (err?.error.toLowerCase().includes('quota')) {
+          setIsQuotaExceeded(true);
+        }
       }
     };
 
@@ -295,18 +319,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         let snapshot;
         if (isSyncNeeded()) {
-          snapshot = await getDocsFromServer(q);
+          try {
+            snapshot = await getDocsFromServer(q);
+          } catch (e) {
+            snapshot = await getDocsFromCache(q);
+          }
         } else {
           try {
             snapshot = await getDocsFromCache(q);
             if (snapshot.empty) throw new Error("Cache empty");
           } catch (e) {
-            snapshot = await getDocsFromServer(q);
+            try {
+              snapshot = await getDocsFromServer(q);
+            } catch (retryError) {
+              snapshot = await getDocsFromCache(q);
+            }
           }
         }
         setAgriIssues(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue)));
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'agriIssues');
+        const err = handleFirestoreError(error, OperationType.LIST, 'agriIssues');
+        if (err?.error.toLowerCase().includes('quota')) {
+          setIsQuotaExceeded(true);
+        }
       }
     };
 
@@ -334,6 +369,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isAdmin) {
       const unsubscribeAllUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
         setAllUsers(snapshot.docs.map(doc => ({ ...doc.data() } as UserRecord)));
+      }, (error) => {
+        const err = handleFirestoreError(error, OperationType.LIST, 'users');
+        if (err?.error.toLowerCase().includes('quota')) {
+          setIsQuotaExceeded(true);
+        }
       });
       return () => unsubscribeAllUsers();
     } else {

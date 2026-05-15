@@ -74,14 +74,18 @@ async function testConnection() {
     await getDocFromServer(doc(db, '_connection_test_', 'check'));
     console.log("Firestore connection test: SUCCESS (Server reached)");
   } catch (error) {
-    console.error("Firestore connection test: FAILED");
-    if (error instanceof Error) {
-      console.error("Error Message:", error.message);
-      if (error.message.includes('the client is offline')) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isQuotaError = errorMessage.toLowerCase().includes('quota') || errorMessage.includes('429');
+    
+    if (isQuotaError) {
+      console.warn("Firestore connection test: PARTIAL SUCCESS (Server reached but Quota Exceeded)");
+      console.warn("The app will operate in OFFLINE/CACHE-ONLY mode until quota resets.");
+    } else {
+      console.error("Firestore connection test: FAILED");
+      console.error("Error Message:", errorMessage);
+      if (errorMessage.includes('the client is offline')) {
         console.error("The client is reporting offline mode. This may be due to environment constraints.");
       }
-    } else {
-      console.error("Unknown Connection Error:", String(error));
     }
   }
 }

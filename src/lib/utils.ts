@@ -62,3 +62,30 @@ export async function compressImage(base64: string, maxWidth = 800, quality = 0.
     img.onerror = error => reject(error);
   });
 }
+
+/**
+ * Converts various link formats (like Google Drive) into direct image URLs
+ */
+export function getDirectImageURL(url: string | undefined): string {
+  if (!url || typeof url !== 'string' || url.trim() === '') return '';
+  
+  const trimmedUrl = url.trim();
+  
+  // Google Drive conversion
+  // Format 1: https://drive.google.com/file/d/FILE_ID/view
+  // Format 2: https://drive.google.com/open?id=FILE_ID
+  // Format 3: https://docs.google.com/file/d/FILE_ID/edit
+  // Format 4: https://drive.google.com/uc?id=FILE_ID
+  const googleDriveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]+)/;
+  const match = trimmedUrl.match(googleDriveRegex);
+  
+  if (match && match[1]) {
+    const fileId = match[1];
+    // Return high-quality direct link format
+    return `https://lh3.googleusercontent.com/d/${fileId}`;
+  }
+
+  // Add more conversions here if needed (Dropbox, etc.)
+  
+  return url;
+}

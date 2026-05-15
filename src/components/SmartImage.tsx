@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ImageSource } from '../types';
-import { cn } from '../lib/utils';
+import { cn, getDirectImageURL } from '../lib/utils';
 import { ImageIcon, AlertCircle } from 'lucide-react';
 
 interface SmartImageProps {
@@ -20,29 +20,31 @@ const SmartImage: React.FC<SmartImageProps> = ({
   objectFit = 'cover',
   onClick
 }) => {
-  const [currentSrc, setCurrentSrc] = useState<string>('');
+  const [currentSrc, setCurrentSrc] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
   const [isPrimaryFailed, setIsPrimaryFailed] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     setHasError(false);
     setIsPrimaryFailed(false);
+    setIsLoaded(false);
     
     if (!src) {
-      setCurrentSrc(fallbackSrc);
+      setCurrentSrc(getDirectImageURL(fallbackSrc));
       return;
     }
 
     if (typeof src === 'string') {
-      setCurrentSrc(src);
+      setCurrentSrc(getDirectImageURL(src));
     } else {
       // It's an ImageSource object
       if (src.primary) {
-        setCurrentSrc(src.primary);
+        setCurrentSrc(getDirectImageURL(src.primary));
       } else if (src.fallback) {
-        setCurrentSrc(src.fallback);
+        setCurrentSrc(getDirectImageURL(src.fallback));
       } else {
-        setCurrentSrc(fallbackSrc);
+        setCurrentSrc(getDirectImageURL(fallbackSrc));
       }
     }
   }, [src, fallbackSrc]);
@@ -52,39 +54,42 @@ const SmartImage: React.FC<SmartImageProps> = ({
       // Primary failed, try fallback
       setIsPrimaryFailed(true);
       if (src.fallback) {
-        setCurrentSrc(src.fallback);
+        setCurrentSrc(getDirectImageURL(src.fallback));
       } else {
         setHasError(true);
-        setCurrentSrc(fallbackSrc);
+        setCurrentSrc(getDirectImageURL(fallbackSrc));
       }
     } else {
       // Both or single source failed
       setHasError(true);
-      setCurrentSrc(fallbackSrc);
+      setCurrentSrc(getDirectImageURL(fallbackSrc));
     }
   };
 
   return (
     <div 
-      className={cn("relative overflow-hidden bg-gray-100", className)}
+      className={cn("relative overflow-hidden", className)}
       onClick={onClick}
     >
-      <img
-        src={currentSrc}
-        alt={alt}
-        className={cn(
-          "w-full h-full transition-opacity duration-300",
-          hasError ? "opacity-40 grayscale" : "opacity-100",
-          objectFit === 'cover' && "object-cover",
-          objectFit === 'contain' && "object-contain",
-          objectFit === 'fill' && "object-fill",
-          objectFit === 'none' && "object-none",
-          objectFit === 'scale-down' && "object-scale-down"
-        )}
-        onError={handleError}
-        referrerPolicy="no-referrer"
-        loading="lazy"
-      />
+      {currentSrc && (
+        <img
+          src={currentSrc}
+          alt={alt}
+          className={cn(
+            "w-full h-full transition-opacity duration-300",
+            hasError ? "opacity-40 grayscale" : (isLoaded ? "opacity-100" : "opacity-0"),
+            objectFit === 'cover' && "object-cover",
+            objectFit === 'contain' && "object-contain",
+            objectFit === 'fill' && "object-fill",
+            objectFit === 'none' && "object-none",
+            objectFit === 'scale-down' && "object-scale-down"
+          )}
+          onLoad={() => setIsLoaded(true)}
+          onError={handleError}
+          referrerPolicy="no-referrer"
+          loading="lazy"
+        />
+      )}
       
       {hasError && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center">

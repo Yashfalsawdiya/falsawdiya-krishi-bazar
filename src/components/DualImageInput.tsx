@@ -10,7 +10,7 @@ import {
   X,
   Eye
 } from 'lucide-react';
-import { fileToBase64, compressImage, cn } from '../lib/utils';
+import { fileToBase64, compressImage, cn, getDirectImageURL } from '../lib/utils';
 
 interface DualImageInputProps {
   label: string;
@@ -46,9 +46,11 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
       return;
     }
     
+    const directUrl = getDirectImageURL(url);
+    
     // Basic regex for direct image links
-    const isImage = /\.(jpg|jpeg|png|webp|avif|gif|svg)$/i.test(url.split('?')[0]);
-    const isHosted = /drive\.google\.com|imgbb\.com|cloudinary\.com|cdn\./.test(url);
+    const isImage = /\.(jpg|jpeg|png|webp|avif|gif|svg)$/i.test(directUrl.split('?')[0]);
+    const isHosted = /drive\.google\.com|docs\.google\.com|googleusercontent\.com|imgbb\.com|cloudinary\.com|cdn\./.test(directUrl);
     
     if (isImage || isHosted) {
       setUrlStatus('checking');
@@ -57,7 +59,7 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
       const img = new Image();
       img.onload = () => setUrlStatus('valid');
       img.onerror = () => setUrlStatus('invalid');
-      img.src = url;
+      img.src = directUrl;
     } else {
       setUrlStatus('invalid');
     }
@@ -194,7 +196,7 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
             )}>
               {fallback ? (
                 <img 
-                  src={fallback} 
+                  src={getDirectImageURL(fallback)} 
                   alt="URL Preview" 
                   className="w-full h-full object-contain p-2"
                   onError={() => setUrlStatus('invalid')}
@@ -218,12 +220,16 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
           <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-3 text-center">Live Logic Preview</p>
           <div className="flex gap-4 items-center justify-center">
             <div className="space-y-1 text-center">
-              <div className="w-24 h-24 rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-                <img 
-                  src={primary || fallback || 'https://via.placeholder.com/150'} 
-                  alt="Logic Preview"
-                  className="w-full h-full object-cover"
-                />
+              <div className="w-24 h-24 rounded-2xl border border-gray-200 overflow-hidden shadow-sm flex items-center justify-center bg-gray-50">
+                {(primary || fallback) ? (
+                  <img 
+                    src={primary || getDirectImageURL(fallback)} 
+                    alt="Logic Preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <ImageIcon className="w-6 h-6 text-gray-200" />
+                )}
               </div>
               <p className="text-[8px] font-bold text-[#2D5A27]">{primary ? 'PRIMARY ACTIVE' : fallback ? 'BACKUP ACTIVE' : 'NO IMAGE'}</p>
             </div>
