@@ -8,7 +8,7 @@ import { useAppContext } from '../context/AppContext';
 import ApiKeyModal from '../components/ApiKeyModal';
 
 const DiseaseDetection: React.FC = () => {
-  const { appContent, userSettings, products } = useAppContext();
+  const { appContent, userSettings, products, loading: appLoading } = useAppContext();
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<DiseaseAnalysis | null>(null);
@@ -41,6 +41,8 @@ const DiseaseDetection: React.FC = () => {
   const analyzeImage = async () => {
     if (!image) return;
     
+    if (appLoading) return;
+
     if (!userSettings?.geminiApiKey) {
       setIsModalOpen(true);
       return;
@@ -52,7 +54,7 @@ const DiseaseDetection: React.FC = () => {
       setAnalysisResult(analysis);
     } catch (error: any) {
       console.error("Analysis failed:", error);
-      if (error.message === 'USER_API_KEY_MISSING') {
+      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
         setIsModalOpen(true);
       } else {
         setAnalysisResult({ 

@@ -16,7 +16,7 @@ const SmartImage: React.FC<SmartImageProps> = ({
   src, 
   alt, 
   className, 
-  fallbackSrc = 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=400',
+  fallbackSrc = '',
   objectFit = 'cover',
   onClick
 }) => {

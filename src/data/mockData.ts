@@ -17,7 +17,7 @@ export const CROP_ADVICE: CropAdvice[] = [
     id: 'soybean',
     name: 'Soybean',
     hindiName: 'सोयाबीन',
-    image: 'https://images.unsplash.com/photo-1594644435-946443513146?auto=format&fit=crop&q=80&w=400',
+    image: '',
     stages: [
       {
         stage: 'Sowing (बुवाई)',
@@ -37,7 +37,7 @@ export const CROP_ADVICE: CropAdvice[] = [
     id: 'garlic',
     name: 'Garlic',
     hindiName: 'लहसुन',
-    image: 'https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?auto=format&fit=crop&q=80&w=400',
+    image: '',
     stages: [
       {
         stage: 'Bulb Formation (कंद बनना)',
@@ -51,7 +51,7 @@ export const CROP_ADVICE: CropAdvice[] = [
     id: 'wheat',
     name: 'Wheat',
     hindiName: 'गेहूँ',
-    image: 'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&q=80&w=400',
+    image: '',
     stages: [
       {
         stage: 'CRI Stage (जड़ विकास)',
@@ -65,7 +65,7 @@ export const CROP_ADVICE: CropAdvice[] = [
     id: 'orange',
     name: 'Orange',
     hindiName: 'संतरा',
-    image: 'https://images.unsplash.com/photo-1557800636-894a64c1696f?auto=format&fit=crop&q=80&w=400',
+    image: '',
     stages: [
       {
         stage: 'Flowering (फूल आना)',

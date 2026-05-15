@@ -4,7 +4,7 @@ const getAI = (userApiKey?: string) => {
   const apiKey = userApiKey;
   
   if (!apiKey || apiKey.trim() === "") {
-    throw new Error("USER_API_KEY_MISSING");
+    return null;
   }
   
   return new GoogleGenAI({ apiKey: apiKey.trim() });
@@ -18,6 +18,7 @@ export interface DiseaseAnalysis {
 export async function detectDisease(base64Image: string, userApiKey?: string): Promise<DiseaseAnalysis> {
   try {
     const ai = getAI(userApiKey);
+    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
     
     const prompt = `You are an expert Indian agricultural scientist and plant pathologist. 
             Analyze this photo of a crop leaf or plant. 
@@ -71,7 +72,7 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
       };
     }
   } catch (error: any) {
-    if (error.message === 'USER_API_KEY_MISSING') {
+    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
       throw error;
     }
     console.error("Gemini Error:", error);
@@ -89,6 +90,7 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
 
   try {
     const ai = getAI(userApiKey);
+    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
     const now = new Date();
     const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
@@ -126,7 +128,7 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
 
     return adviceText;
   } catch (error: any) {
-    if (error.message === 'USER_API_KEY_MISSING') {
+    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
       throw error;
     }
     console.error("Gemini Advice Error:", error);
@@ -147,6 +149,7 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
 export async function askAiQuestion(question: string, weatherData: any, userApiKey?: string) {
   try {
     const ai = getAI(userApiKey);
+    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
     const now = new Date();
     const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -173,7 +176,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
 
     return response.text;
   } catch (error: any) {
-    if (error.message === 'USER_API_KEY_MISSING') {
+    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
       throw error;
     }
     console.error("Gemini Chat Error:", error);

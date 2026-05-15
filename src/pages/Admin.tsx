@@ -122,7 +122,7 @@ const Admin: React.FC = () => {
     hidePrice: false,
     unit: '',
     description: '',
-    image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=400',
+    image: '',
     crops: []
   });
 
@@ -156,14 +156,14 @@ const Admin: React.FC = () => {
     } else {
       setContentForm({
         banners: [
-          { id: '1', image: 'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?auto=format&fit=crop&q=80&w=800', title: 'खाद और बीज पर भारी छूट!', subtitle: 'सीमित समय के लिए ऑफर' },
-          { id: '2', image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800', title: 'नई किस्म के सोयाबीन बीज', subtitle: 'अधिक पैदावार की गारंटी' },
-          { id: '3', image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=800', title: 'फसल सुरक्षा समाधान', subtitle: 'बेहतरीन कीटनाशक उपलब्ध' }
+          { id: '1', image: '', title: 'खाद और बीज पर भारी छूट!', subtitle: 'सीमित समय के लिए ऑफर' },
+          { id: '2', image: '', title: 'नई किस्म के सोयाबीन बीज', subtitle: 'अधिक पैदावार की गारंटी' },
+          { id: '3', image: '', title: 'फसल सुरक्षा समाधान', subtitle: 'बेहतरीन कीटनाशक उपलब्ध' }
         ],
         videos: [
-          { id: 'v1', title: 'आधुनिक खेती की जानकारी', videoUrl: 'https://www.youtube.com/watch?v=9-3-P4mXG3A', thumbnail: 'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&q=80&w=800' },
-          { id: 'v2', title: 'मिट्टी परीक्षण कैसे करें', videoUrl: 'https://www.youtube.com/watch?v=6Z_L2v_p-m8', thumbnail: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800' },
-          { id: 'v3', title: 'जैविक खाद बनाने की विधि', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', thumbnail: 'https://images.unsplash.com/photo-1560493676-04071c5f467b?auto=format&fit=crop&q=80&w=800' }
+          { id: 'v1', title: 'आधुनिक खेती की जानकारी', videoUrl: 'https://www.youtube.com/watch?v=9-3-P4mXG3A', thumbnail: '' },
+          { id: 'v2', title: 'मिट्टी परीक्षण कैसे करें', videoUrl: 'https://www.youtube.com/watch?v=6Z_L2v_p-m8', thumbnail: '' },
+          { id: 'v3', title: 'जैविक खाद बनाने की विधि', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', thumbnail: '' }
         ],
         branding: {
           name: 'फल्सावदिया कृषि बाज़ार',
@@ -182,9 +182,9 @@ const Admin: React.FC = () => {
           label: 'हमारा कृषि चैनल'
         },
         partners: [
-          { id: 'p1', name: 'Bayer', logo: 'https://picsum.photos/seed/Bayer/100/100' },
-          { id: 'p2', name: 'Syngenta', logo: 'https://picsum.photos/seed/Syngenta/100/100' },
-          { id: 'p3', name: 'UPL', logo: 'https://picsum.photos/seed/UPL/100/100' }
+          { id: 'p1', name: 'Bayer', logo: '' },
+          { id: 'p2', name: 'Syngenta', logo: '' },
+          { id: 'p3', name: 'UPL', logo: '' }
         ],
         whatsappSection: {
           title: 'WhatsApp पर जुड़ें',
@@ -224,7 +224,7 @@ const Admin: React.FC = () => {
         await addProduct(productForm as Omit<Product, 'id'>);
         setIsAdding(false);
       }
-      setProductForm({ name: '', hindiName: '', category: categories[0]?.id || '', brand: '', price: 0, unit: '', description: '', image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=400', crops: [] });
+      setProductForm({ name: '', hindiName: '', category: categories[0]?.id || '', brand: '', price: 0, unit: '', description: '', image: '', crops: [] });
     } catch (error) {
       console.error("Error saving product:", error);
     } finally {
@@ -581,7 +581,7 @@ const Admin: React.FC = () => {
               onClick={() => {
                 setIsAdding(true);
                 setEditingProduct(null);
-                setProductForm({ name: '', hindiName: '', category: categories[0]?.id || '', brand: '', price: 0, unit: '', description: '', image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=400', crops: [] });
+                setProductForm({ name: '', hindiName: '', category: categories[0]?.id || '', brand: '', price: 0, unit: '', description: '', image: '', crops: [] });
               }}
               className="bg-[#2D5A27] text-white py-2 px-4 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold active:scale-95 transition-transform"
             >

@@ -14,7 +14,7 @@ export function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export async function compressImage(base64: string, maxWidth = 800, quality = 0.7): Promise<string> {
+export async function compressImage(base64: string, maxWidth = 2048, quality = 0.9): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = base64;
@@ -85,7 +85,14 @@ export function getDirectImageURL(url: string | undefined): string {
     return `https://lh3.googleusercontent.com/d/${fileId}`;
   }
 
-  // Add more conversions here if needed (Dropbox, etc.)
-  
   return url;
+}
+
+/**
+ * Returns a high-resolution version of an image URL by stripping common compression/resizing parameters
+ * For Google Drive, the direct URL is already high-quality.
+ */
+export function getHighResImageURL(url: string | undefined): string {
+  if (!url || typeof url !== 'string' || url.trim() === '') return '';
+  return getDirectImageURL(url);
 }

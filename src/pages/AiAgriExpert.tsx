@@ -12,7 +12,7 @@ const SAMPLE_RATE = 24000;
 const CHUNK_SIZE = 4096;
 
 const AiAgriExpert: React.FC = () => {
-  const { userSettings, appContent } = useAppContext();
+  const { userSettings, appContent, loading: appLoading } = useAppContext();
   const navigate = useNavigate();
   
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
@@ -272,6 +272,8 @@ const AiAgriExpert: React.FC = () => {
   };
 
   const startCall = async () => {
+    if (appLoading) return;
+
     if (!userSettings?.geminiApiKey) {
       setIsApiKeyModalOpen(true);
       return;

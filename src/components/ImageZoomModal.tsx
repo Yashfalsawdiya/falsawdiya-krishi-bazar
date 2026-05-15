@@ -1,10 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import QuickPinchZoom, { make3dTransformValue } from 'react-quick-pinch-zoom';
-import { X } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, Maximize, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-import SmartImage from './SmartImage';
 import { ImageSource } from '../types';
+import { getHighResImageURL, cn } from '../lib/utils';
 
 interface ImageZoomModalProps {
   isOpen: boolean;
@@ -15,6 +15,14 @@ interface ImageZoomModalProps {
 
 const ImageZoomModal: React.FC<ImageZoomModalProps> = ({ isOpen, onClose, imageSrc, altText }) => {
   const imgRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Reset loading when image changes
+  useEffect(() => {
+    if (isOpen) {
+      setLoading(true);
+    }
+  }, [imageSrc, isOpen]);
 
   const onUpdate = ({ x, y, scale }: { x: number; y: number; scale: number }) => {
     if (imgRef.current) {
@@ -23,6 +31,11 @@ const ImageZoomModal: React.FC<ImageZoomModalProps> = ({ isOpen, onClose, imageS
     }
   };
 
+  // Convert to string and get high res URL
+  const highResSrc = typeof imageSrc === 'string' 
+    ? getHighResImageURL(imageSrc) 
+    : getHighResImageURL(imageSrc.primary || imageSrc.fallback || '');
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -30,37 +43,69 @@ const ImageZoomModal: React.FC<ImageZoomModalProps> = ({ isOpen, onClose, imageS
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] bg-black flex flex-col"
+          className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-md flex flex-col"
         >
           {/* Header */}
-          <div className="flex justify-between items-center p-4 text-white z-10">
-            <h3 className="text-sm font-medium truncate pr-8">{altText}</h3>
+          <motion.div 
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="flex justify-between items-center p-5 text-white z-10 bg-gradient-to-b from-black/60 to-transparent"
+          >
+            <div className="flex items-center gap-3">
+              <div className="bg-white/10 p-2 rounded-xl backdrop-blur-md">
+                <Maximize className="w-4 h-4 text-gray-300" />
+              </div>
+              <h3 className="text-sm font-bold truncate max-w-[200px] sm:max-w-md">{altText}</h3>
+            </div>
             <button
               onClick={onClose}
-              className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
+              className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-all active:scale-90 border border-white/5"
             >
               <X className="w-6 h-6" />
             </button>
-          </div>
+          </motion.div>
 
           {/* Zoom Container */}
-          <div className="flex-1 relative overflow-hidden flex items-center justify-center">
+          <div className="flex-1 relative overflow-hidden flex items-center justify-center p-4">
+            {loading && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 gap-4">
+                <Loader2 className="w-10 h-10 animate-spin text-[#EAB308]" />
+                <p className="text-[10px] font-bold uppercase tracking-widest animate-pulse">High Quality loading...</p>
+              </div>
+            )}
             <QuickPinchZoom onUpdate={onUpdate} containerProps={{ style: { width: '100%', height: '100%' } }}>
               <div ref={imgRef} className="w-full h-full flex items-center justify-center">
-                <SmartImage
-                  src={imageSrc}
+                <img
+                  src={highResSrc}
                   alt={altText}
-                  className="max-w-full max-h-full"
-                  objectFit="contain"
+                  className={cn(
+                    "max-w-full max-h-full shadow-2xl rounded-sm transition-all duration-500",
+                    loading ? "opacity-0 scale-95 blur-xl" : "opacity-100 scale-100 blur-0"
+                  )}
+                  onLoad={() => setLoading(false)}
+                  referrerPolicy="no-referrer"
                 />
               </div>
             </QuickPinchZoom>
           </div>
 
           {/* Footer Instruction */}
-          <div className="p-4 text-center text-white/60 text-xs">
-            ज़ूम करने के लिए पिंच करें या डबल टैप करें (Pinch or double tap to zoom)
-          </div>
+          <motion.div 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="p-8 text-center text-white/80 z-10 bg-gradient-to-t from-black/60 to-transparent"
+          >
+            <div className="inline-flex items-center gap-6 px-6 py-3 bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl">
+              <div className="flex items-center gap-2 text-[10px] sm:text-xs font-bold uppercase tracking-widest">
+                <ZoomIn className="w-4 h-4 text-[#EAB308]" />
+                Pinch to Zoom
+              </div>
+              <div className="w-px h-4 bg-white/10" />
+              <div className="text-[11px] sm:text-sm font-medium">
+                अंगुलियों से ज़ूम करें
+              </div>
+            </div>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>

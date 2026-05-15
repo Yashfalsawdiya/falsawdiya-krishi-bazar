@@ -8,12 +8,15 @@ import SmartImage from '../components/SmartImage';
 import ApiKeyModal from '../components/ApiKeyModal';
 
 const AgriNews: React.FC = () => {
-  const { userSettings } = useAppContext();
+  const { userSettings, loading: appLoading } = useAppContext();
   const [news, setNews] = useState<AgriNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadNews = async () => {
+    // Wait for app state to load before judging key presence
+    if (appLoading) return;
+
     if (!userSettings?.geminiApiKey) {
       setIsModalOpen(true);
       setLoading(false);
@@ -25,7 +28,7 @@ const AgriNews: React.FC = () => {
       setNews(data);
     } catch (error: any) {
       console.error(error);
-      if (error.message === 'USER_API_KEY_MISSING') {
+      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
         setIsModalOpen(true);
       }
     } finally {
@@ -34,8 +37,10 @@ const AgriNews: React.FC = () => {
   };
 
   useEffect(() => {
-    loadNews();
-  }, [userSettings?.geminiApiKey]);
+    if (!appLoading) {
+      loadNews();
+    }
+  }, [appLoading, userSettings?.geminiApiKey]);
 
   const getCategoryColor = (cat: string) => {
     switch (cat) {

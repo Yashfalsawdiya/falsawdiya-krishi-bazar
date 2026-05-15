@@ -6,7 +6,7 @@ import { useAppContext } from '../context/AppContext';
 import ApiKeyModal from '../components/ApiKeyModal';
 
 const MandiBhav: React.FC = () => {
-  const { userSettings } = useAppContext();
+  const { userSettings, loading: appLoading } = useAppContext();
   const [data, setData] = useState<MandiData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -21,6 +21,8 @@ const MandiBhav: React.FC = () => {
   ];
 
   const loadData = async (mandi: string) => {
+    if (appLoading) return;
+
     if (!userSettings?.geminiApiKey) {
       setIsModalOpen(true);
       setLoading(false);
@@ -32,7 +34,7 @@ const MandiBhav: React.FC = () => {
       setData(result);
     } catch (error: any) {
       console.error(error);
-      if (error.message === 'USER_API_KEY_MISSING') {
+      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
         setIsModalOpen(true);
       }
     } finally {
@@ -41,8 +43,10 @@ const MandiBhav: React.FC = () => {
   };
 
   useEffect(() => {
-    loadData(selectedMandi);
-  }, [selectedMandi, userSettings?.geminiApiKey]);
+    if (!appLoading) {
+      loadData(selectedMandi);
+    }
+  }, [selectedMandi, appLoading, userSettings?.geminiApiKey]);
 
   return (
     <div className="space-y-6 pb-10">

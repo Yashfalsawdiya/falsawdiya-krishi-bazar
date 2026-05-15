@@ -6,13 +6,15 @@ import { useAppContext } from '../context/AppContext';
 import ApiKeyModal from '../components/ApiKeyModal';
 
 const Schemes: React.FC = () => {
-  const { userSettings } = useAppContext();
+  const { userSettings, loading: appLoading } = useAppContext();
   const [schemes, setSchemes] = useState<Scheme[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadSchemes = async (force: boolean = false) => {
+    if (appLoading) return;
+
     if (!userSettings?.geminiApiKey) {
       setIsModalOpen(true);
       setLoading(false);
@@ -24,7 +26,7 @@ const Schemes: React.FC = () => {
       setSchemes(data);
     } catch (error: any) {
       console.error(error);
-      if (error.message === 'USER_API_KEY_MISSING') {
+      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
         setIsModalOpen(true);
       }
     } finally {
@@ -33,8 +35,10 @@ const Schemes: React.FC = () => {
   };
 
   useEffect(() => {
-    loadSchemes(false);
-  }, [userSettings?.geminiApiKey]);
+    if (!appLoading) {
+      loadSchemes(false);
+    }
+  }, [appLoading, userSettings?.geminiApiKey]);
 
   return (
     <div className="space-y-6 pb-10">

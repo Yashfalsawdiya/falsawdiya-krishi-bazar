@@ -4,7 +4,7 @@ const getAI = (userApiKey?: string) => {
   const apiKey = userApiKey;
   
   if (!apiKey || apiKey.trim() === "") {
-    throw new Error("USER_API_KEY_MISSING");
+    return null;
   }
   return new GoogleGenAI({ apiKey: apiKey.trim() });
 };
@@ -129,6 +129,7 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
 
   try {
     const ai = getAI(userApiKey);
+    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
     
     const prompt = `You are an expert agricultural market analyst for Madhya Pradesh, India.
     Provide market prices (Mandi Bhav) for agricultural commodities in ${mandiName}, MP for TODAY, ${dateStr}. 
@@ -177,7 +178,7 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
 
     return data;
   } catch (error: any) {
-    if (error.message === 'USER_API_KEY_MISSING') {
+    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
       throw error;
     }
     // If it's a quota error, don't log it as a full error to avoid cluttering logs

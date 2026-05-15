@@ -14,19 +14,19 @@ import { AnimatePresence } from 'motion/react';
 const BANNERS = [
   {
     id: 1,
-    image: 'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?auto=format&fit=crop&q=80&w=800',
+    image: '',
     title: 'खाद और बीज पर भारी छूट!',
     subtitle: 'सीमित समय के लिए ऑफर'
   },
   {
     id: 2,
-    image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800',
+    image: '',
     title: 'नई किस्म के सोयाबीन बीज',
     subtitle: 'अधिक पैदावार की गारंटी'
   },
   {
     id: 3,
-    image: 'https://images.unsplash.com/photo-1595841696677-6489ff3f8cd1?auto=format&fit=crop&q=80&w=800',
+    image: '',
     title: 'फसल सुरक्षा समाधान',
     subtitle: 'बेहतरीन कीटनाशक उपलब्ध'
   }
@@ -37,19 +37,19 @@ const VIDEOS = [
     id: 'v1',
     title: 'आधुनिक खेती की जानकारी',
     videoId: '9-3-P4mXG3A',
-    thumbnail: 'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&q=80&w=800'
+    thumbnail: ''
   },
   {
     id: 'v2',
     title: 'मिट्टी परीक्षण कैसे करें',
     videoId: '6Z_L2v_p-m8',
-    thumbnail: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800'
+    thumbnail: ''
   },
   {
     id: 'v3',
     title: 'जैविक खाद बनाने की विधि',
     videoId: 'dQw4w9WgXcQ',
-    thumbnail: 'https://images.unsplash.com/photo-1560493676-04071c5f467b?auto=format&fit=crop&q=80&w=800'
+    thumbnail: ''
   }
 ];
 
@@ -67,7 +67,7 @@ import SmartImage from '../components/SmartImage';
 import { Product, ImageSource } from '../types';
 
 const Home: React.FC = () => {
-  const { products, categories, appContent, user, userSettings, loadProducts } = useAppContext();
+  const { products, categories, appContent, user, userSettings, loadProducts, loading: appLoading } = useAppContext();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -95,11 +95,11 @@ const Home: React.FC = () => {
 
   const banners = appContent?.banners || BANNERS;
   const videos = appContent?.videos || [
-    { id: 'v1', title: 'आधुनिक खेती की जानकारी', videoUrl: 'https://www.youtube.com/watch?v=9-3-P4mXG3A', thumbnail: 'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&q=80&w=800' },
-    { id: 'v2', title: 'मिट्टी परीक्षण कैसे करें', videoUrl: 'https://www.youtube.com/watch?v=6Z_L2v_p-m8', thumbnail: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=800' },
-    { id: 'v3', title: 'जैविक खाद बनाने की विधि', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', thumbnail: 'https://images.unsplash.com/photo-1560493676-04071c5f467b?auto=format&fit=crop&q=80&w=800' }
+    { id: 'v1', title: 'आधुनिक खेती की जानकारी', videoUrl: 'https://www.youtube.com/watch?v=9-3-P4mXG3A', thumbnail: '' },
+    { id: 'v2', title: 'मिट्टी परीक्षण कैसे करें', videoUrl: 'https://www.youtube.com/watch?v=6Z_L2v_p-m8', thumbnail: '' },
+    { id: 'v3', title: 'जैविक खाद बनाने की विधि', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', thumbnail: '' }
   ];
-  const partners = appContent?.partners || PARTNERS.map((name, i) => ({ id: `p${i}`, name, logo: `https://picsum.photos/seed/${name.replace(/\s/g, '')}/100/100` }));
+  const partners = appContent?.partners || PARTNERS.map((name, i) => ({ id: `p${i}`, name, logo: '' }));
   const whatsappSection = appContent?.whatsappSection || {
     title: 'WhatsApp पर जुड़ें',
     description: 'सीधे फोटो भेजें और घर बैठे सामान मंगाएं या दुकान पर आकर ले जाएं।',
@@ -249,6 +249,8 @@ const Home: React.FC = () => {
   }, []);
 
   const handleOpenChat = () => {
+    if (appLoading) return;
+
     if (!userSettings?.geminiApiKey) {
       setIsModalOpen(true);
       return;
@@ -261,6 +263,8 @@ const Home: React.FC = () => {
 
   const handleAskQuestion = async () => {
     if (!userQuestion.trim()) return;
+    
+    if (appLoading) return;
 
     const question = userQuestion.trim();
     setLastQuestion(question);
@@ -273,7 +277,7 @@ const Home: React.FC = () => {
       setChatResponse(response);
     } catch (error: any) {
       console.error("AI Question failed:", error);
-      if (error.message === 'USER_API_KEY_MISSING') {
+      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
         setIsModalOpen(true);
         setIsChatOpen(false);
       }
@@ -283,6 +287,8 @@ const Home: React.FC = () => {
   };
 
   const handleGetAiAdvice = async () => {
+    if (appLoading) return;
+
     if (!userSettings?.geminiApiKey) {
       setIsModalOpen(true);
       return;
@@ -296,7 +302,7 @@ const Home: React.FC = () => {
       setAiAdvice(advice);
     } catch (error: any) {
       console.error("AI Advice failed:", error);
-      if (error.message === 'USER_API_KEY_MISSING') {
+      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
         setIsModalOpen(true);
       }
     } finally {
