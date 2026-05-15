@@ -48,7 +48,7 @@ const DiseaseDetection: React.FC = () => {
 
     setLoading(true);
     try {
-      const analysis = await detectDisease(image, userSettings.geminiApiKey);
+      const analysis = await detectDisease(image, userSettings?.geminiApiKey);
       setAnalysisResult(analysis);
     } catch (error: any) {
       console.error("Analysis failed:", error);

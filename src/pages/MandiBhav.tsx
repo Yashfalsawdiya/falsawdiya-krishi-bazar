@@ -21,6 +21,11 @@ const MandiBhav: React.FC = () => {
   ];
 
   const loadData = async (mandi: string) => {
+    if (!userSettings?.geminiApiKey) {
+      setIsModalOpen(true);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const result = await fetchMandiBhav(mandi, userSettings?.geminiApiKey);

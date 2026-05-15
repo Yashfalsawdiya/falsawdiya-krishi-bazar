@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 
 const getAI = (userApiKey?: string) => {
   const apiKey = userApiKey;
+  
   if (!apiKey || apiKey.trim() === "") {
     throw new Error("USER_API_KEY_MISSING");
   }

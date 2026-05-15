@@ -13,6 +13,11 @@ const Schemes: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadSchemes = async (force: boolean = false) => {
+    if (!userSettings?.geminiApiKey) {
+      setIsModalOpen(true);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await fetchSchemes(userSettings?.geminiApiKey, force);

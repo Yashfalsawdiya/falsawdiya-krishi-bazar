@@ -292,7 +292,7 @@ const Home: React.FC = () => {
 
     setIsAiLoading(true);
     try {
-      const advice = await getDynamicAdvice(weather, "Kharif", "Soybean", userSettings.geminiApiKey);
+      const advice = await getDynamicAdvice(weather, "Kharif", "Soybean", userSettings?.geminiApiKey);
       setAiAdvice(advice);
     } catch (error: any) {
       console.error("AI Advice failed:", error);

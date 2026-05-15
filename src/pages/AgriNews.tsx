@@ -14,6 +14,11 @@ const AgriNews: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadNews = async () => {
+    if (!userSettings?.geminiApiKey) {
+      setIsModalOpen(true);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await fetchAgriNews(userSettings?.geminiApiKey);
