@@ -34,6 +34,7 @@ export interface AppContent {
   adminEmails?: string[];
   isAppActive?: boolean;
   showBannerText?: boolean;
+  lastDatabaseUpdate?: number; // Last time any DB collection was modified
   banners: { id: string; image: string | ImageSource; title: string; subtitle: string }[];
   videos: { id: string; title: string; videoUrl: string; thumbnail: string | ImageSource }[];
   youtubeChannel: {
@@ -118,6 +119,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sync Logic: Check if we need to sync today (after 10 AM)
   const isSyncNeeded = () => {
+    // If a database update is detected via AppContent, we always need sync
+    const lastProcessedUpdate = Number(localStorage.getItem('last_processed_db_update') || '0');
+    const cloudLastUpdate = appContent?.lastDatabaseUpdate || 0;
+    
+    if (cloudLastUpdate > lastProcessedUpdate) {
+      console.log("Database update detected from cloud, forcing sync...");
+      return true;
+    }
+
     const lastSyncStr = localStorage.getItem('last_agri_sync_date');
     const now = new Date();
     const todayStr = now.toDateString();
@@ -133,6 +143,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const markSyncDone = () => {
     localStorage.setItem('last_agri_sync_date', new Date().toDateString());
+    if (appContent?.lastDatabaseUpdate) {
+      localStorage.setItem('last_processed_db_update', appContent.lastDatabaseUpdate.toString());
+    }
+  };
+
+  const notifyDatabaseChange = async () => {
+    try {
+      const timestamp = Date.now();
+      const contentRef = doc(db, 'settings', 'content');
+      const snap = await getDoc(contentRef);
+      if (snap.exists()) {
+        await updateDoc(contentRef, { lastDatabaseUpdate: timestamp });
+      }
+      localStorage.setItem('last_processed_db_update', timestamp.toString());
+    } catch (e) {
+      console.error("Error notifying DB change:", e);
+    }
   };
 
   useEffect(() => {
@@ -319,18 +346,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCategories(cached);
     }
 
-    const fetch = async () => {
+    const fetch = async (forceServer = false) => {
       try {
         let snapshot;
-        // Only fetch from server if sync is needed (once a day at 10 AM)
-        if (isSyncNeeded() || !cached) {
+        // Only fetch from server if sync is needed or forced
+        if (forceServer || isSyncNeeded() || !cached) {
           try {
             snapshot = await getDocsFromServer(q);
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
-            setCategories(data);
-            setCacheData('categories', data);
-            markSyncDone(); // Mark that we did a sync check today
+            if (data.length > 0) {
+              setCategories(data);
+              setCacheData('categories', data);
+              markSyncDone(); // Mark that we did a sync check today
+            }
           } catch (e) {
+            console.warn("Categories server fetch failed, trying cache:", e);
             snapshot = await getDocsFromCache(q);
             if (!snapshot.empty) {
               const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
@@ -359,6 +389,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     fetch();
+
+    // For admins or when sync is needed, we want reactive updates
+    if (isAdmin || isSyncNeeded()) {
+      return onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
+          setCategories(data);
+          setCacheData('categories', data);
+        }
+      }, (error) => {
+        console.error("Categories snapshot failed:", error);
+      });
+    }
+
     return () => {};
   };
 
@@ -424,6 +468,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribeContent();
   }, []);
 
+  // Re-trigger sync when appContent updates (reactive database changes)
+  useEffect(() => {
+    if (appContent?.lastDatabaseUpdate) {
+      const lastProcessed = Number(localStorage.getItem('last_processed_db_update') || '0');
+      if (appContent.lastDatabaseUpdate > lastProcessed) {
+        console.log("Database update detected via AppContent, refreshing data...");
+        loadProducts();
+        loadCategoryData();
+        loadAgriIssues();
+      }
+    }
+  }, [appContent?.lastDatabaseUpdate]);
+
   // Additional effect to listen for all users if admin
   useEffect(() => {
     if (isAdmin) {
@@ -481,7 +538,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addProduct = async (product: Omit<Product, 'id'>) => {
     try {
-      await addDoc(collection(db, 'products'), product);
+      const docRef = await addDoc(collection(db, 'products'), product);
+      const newProduct = { ...product, id: docRef.id } as Product;
+      
+      // Update local state and cache
+      setProducts(prev => {
+        const updated = [...prev, newProduct];
+        setCacheData('products', updated);
+        return updated;
+      });
+      
+      await notifyDatabaseChange();
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'products');
     }
@@ -491,6 +558,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const { id, ...data } = updatedProduct;
       await setDoc(doc(db, 'products', id), data, { merge: true });
+      
+      // Update local state and cache
+      setProducts(prev => {
+        const updated = prev.map(p => p.id === id ? updatedProduct : p);
+        setCacheData('products', updated);
+        return updated;
+      });
+
+      await notifyDatabaseChange();
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `products/${updatedProduct.id}`);
     }
@@ -499,6 +575,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteProduct = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'products', id));
+      
+      // Update local state and cache
+      setProducts(prev => {
+        const updated = prev.filter(p => p.id !== id);
+        setCacheData('products', updated);
+        return updated;
+      });
+
+      await notifyDatabaseChange();
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
     }
@@ -517,6 +602,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await Promise.all(deletePromises);
       setProducts([]);
       localStorage.removeItem('last_agri_sync_date'); // Clear sync flag to force refresh
+      await notifyDatabaseChange();
       console.log("All products deleted from Firestore.");
     } catch (error) {
       console.error("Error clearing products:", error);
@@ -539,7 +625,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addCategory = async (category: Omit<CategoryData, 'id'>) => {
     try {
-      await addDoc(collection(db, 'categories'), category);
+      const docRef = await addDoc(collection(db, 'categories'), category);
+      const newCategory = { ...category, id: docRef.id } as CategoryData;
+      
+      setCategories(prev => {
+        const updated = [...prev, newCategory].sort((a, b) => a.order - b.order);
+        setCacheData('categories', updated);
+        return updated;
+      });
+
+      await notifyDatabaseChange();
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'categories');
     }
@@ -549,6 +644,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const { id, ...data } = category;
       await setDoc(doc(db, 'categories', id), data, { merge: true });
+      
+      setCategories(prev => {
+        const updated = prev.map(c => c.id === id ? category : c).sort((a, b) => a.order - b.order);
+        setCacheData('categories', updated);
+        return updated;
+      });
+
+      await notifyDatabaseChange();
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`);
     }
@@ -557,6 +660,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteCategory = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'categories', id));
+      
+      setCategories(prev => {
+        const updated = prev.filter(c => c.id !== id);
+        setCacheData('categories', updated);
+        const lastSyncStr = localStorage.getItem('last_agri_sync_date');
+        if (updated.length === 0 && lastSyncStr) {
+          localStorage.removeItem('last_agri_sync_date'); // Force re-fetch if empty
+        }
+        return updated;
+      });
+
+      await notifyDatabaseChange();
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `categories/${id}`);
     }
@@ -564,7 +679,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addAgriIssue = async (issue: Omit<AgriIssue, 'id'>) => {
     try {
-      await addDoc(collection(db, 'agriIssues'), issue);
+      const docRef = await addDoc(collection(db, 'agriIssues'), issue);
+      const newIssue = { ...issue, id: docRef.id } as AgriIssue;
+      
+      setAgriIssues(prev => {
+        const updated = [...prev, newIssue];
+        setCacheData('agriIssues', updated);
+        return updated;
+      });
+
+      await notifyDatabaseChange();
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'agriIssues');
     }
@@ -574,6 +698,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const { id, ...data } = issue;
       await setDoc(doc(db, 'agriIssues', id), data, { merge: true });
+      
+      setAgriIssues(prev => {
+        const updated = prev.map(i => i.id === id ? issue : i);
+        setCacheData('agriIssues', updated);
+        return updated;
+      });
+
+      await notifyDatabaseChange();
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `agriIssues/${issue.id}`);
     }
@@ -582,6 +714,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteAgriIssue = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'agriIssues', id));
+      
+      setAgriIssues(prev => {
+        const updated = prev.filter(i => i.id !== id);
+        setCacheData('agriIssues', updated);
+        return updated;
+      });
+
+      await notifyDatabaseChange();
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `agriIssues/${id}`);
     }

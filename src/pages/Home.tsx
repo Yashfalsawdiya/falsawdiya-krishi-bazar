@@ -545,11 +545,27 @@ const Home: React.FC = () => {
               className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center text-center gap-2 cursor-pointer active:scale-95 transition-transform"
             >
               <div className="text-3xl w-10 h-10 flex items-center justify-center overflow-hidden">
-                {typeof cat.icon === 'string' && cat.icon.length <= 4 ? (
-                  cat.icon
-                ) : (
-                  <SmartImage src={cat.icon} alt={cat.name} className="w-full h-full" objectFit="contain" />
-                )}
+                {(() => {
+                  const isEmoji = typeof cat.icon === 'string' && 
+                                  cat.icon.trim().length > 0 && 
+                                  cat.icon.length <= 8 && 
+                                  !cat.icon.startsWith('http') && 
+                                  !cat.icon.startsWith('data:');
+                  
+                  if (isEmoji) return cat.icon;
+                  
+                  // Check if we have valid icon data (string URL or ImageSource object)
+                  const hasIconData = typeof cat.icon === 'string' 
+                    ? cat.icon.trim().length > 0 
+                    : (cat.icon && (cat.icon.primary || cat.icon.fallback));
+
+                  if (hasIconData) {
+                    return <SmartImage src={cat.icon} alt={cat.name} className="w-full h-full" objectFit="contain" />;
+                  }
+
+                  // Fallback for empty icons
+                  return "📦";
+                })()}
               </div>
               <span className="text-[11px] font-bold text-[#2D5A27] leading-tight">{cat.name}</span>
             </motion.div>
