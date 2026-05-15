@@ -67,15 +67,13 @@ import SmartImage from '../components/SmartImage';
 import { Product, ImageSource } from '../types';
 
 const Home: React.FC = () => {
-  const { products, categories, appContent, user, userSettings, loadProducts, loadCategoryData, loading: appLoading } = useAppContext();
+  const { products, categories, appContent, user, userSettings, loadProducts, loading: appLoading } = useAppContext();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const unsubProducts = loadProducts();
-    const unsubCats = loadCategoryData();
+    const unsubscribe = loadProducts();
     return () => {
-      if (unsubProducts) unsubProducts();
-      if (unsubCats) unsubCats();
+      if (unsubscribe) unsubscribe();
     };
   }, []);
 
@@ -545,7 +543,7 @@ const Home: React.FC = () => {
               className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center text-center gap-2 cursor-pointer active:scale-95 transition-transform"
             >
               <div className="text-3xl w-10 h-10 flex items-center justify-center overflow-hidden">
-                {typeof cat.icon === 'string' && cat.icon.length <= 4 ? (
+                {typeof cat.icon === 'string' ? (
                   cat.icon
                 ) : (
                   <SmartImage src={cat.icon} alt={cat.name} className="w-full h-full" objectFit="contain" />
