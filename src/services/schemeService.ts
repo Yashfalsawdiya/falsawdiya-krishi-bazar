@@ -68,14 +68,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
 
   try {
     const ai = getAI(userApiKey);
-    if (!ai) {
-      if (cachedData) {
-        try {
-          return JSON.parse(cachedData);
-        } catch (e) {}
-      }
-      return fallbackData;
-    }
+    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
     const prompt = `You are an expert in Indian Government Agricultural Schemes.
     Current Date: ${dateStr}.
     Provide a comprehensive, accurate and LATEST list of the top 8-10 government schemes for farmers in India, with a focus on both Central Government and Madhya Pradesh State Government schemes.
@@ -118,6 +111,9 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
 
     return data;
   } catch (error: any) {
+    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
+      throw error;
+    }
     const isQuotaError = error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED");
     if (isQuotaError) {
       console.warn("Gemini API Quota Exceeded for Schemes. Using fallback.");

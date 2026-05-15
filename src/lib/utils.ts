@@ -14,7 +14,7 @@ export function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export async function compressImage(base64: string, maxWidth = 2560, quality = 0.92): Promise<string> {
+export async function compressImage(base64: string, maxWidth = 2048, quality = 0.9): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = base64;

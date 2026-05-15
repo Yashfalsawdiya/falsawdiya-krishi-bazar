@@ -43,16 +43,25 @@ const DiseaseDetection: React.FC = () => {
     
     if (appLoading) return;
 
+    if (!userSettings?.geminiApiKey) {
+      setIsModalOpen(true);
+      return;
+    }
+
     setLoading(true);
     try {
       const analysis = await detectDisease(image, userSettings?.geminiApiKey);
       setAnalysisResult(analysis);
     } catch (error: any) {
       console.error("Analysis failed:", error);
-      setAnalysisResult({ 
-        analysis: "क्षमा करें, वर्तमान में जाँच करने में समस्या हुई। कृपया अपनी नेटवर्क चेक करें या बाद में प्रयास करें।",
-        keywords: [] 
-      });
+      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
+        setIsModalOpen(true);
+      } else {
+        setAnalysisResult({ 
+          analysis: "क्षमा करें, जाँच करने में समस्या हुई। कृपया अपनी API Key चेक करें या बाद में प्रयास करें।",
+          keywords: [] 
+        });
+      }
     } finally {
       setLoading(false);
     }

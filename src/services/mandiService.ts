@@ -129,14 +129,7 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
 
   try {
     const ai = getAI(userApiKey);
-    if (!ai) {
-      if (cachedData) {
-        try {
-          return JSON.parse(cachedData);
-        } catch (e) {}
-      }
-      return sanitizeMandiData(fallbackData);
-    }
+    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
     
     const prompt = `You are an expert agricultural market analyst for Madhya Pradesh, India.
     Provide market prices (Mandi Bhav) for agricultural commodities in ${mandiName}, MP for TODAY, ${dateStr}. 
@@ -185,6 +178,9 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
 
     return data;
   } catch (error: any) {
+    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
+      throw error;
+    }
     // If it's a quota error, don't log it as a full error to avoid cluttering logs
     const isQuotaError = error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED");
     

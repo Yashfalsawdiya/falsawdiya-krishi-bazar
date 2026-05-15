@@ -15,12 +15,20 @@ const Schemes: React.FC = () => {
   const loadSchemes = async (force: boolean = false) => {
     if (appLoading) return;
 
+    if (!userSettings?.geminiApiKey) {
+      setIsModalOpen(true);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await fetchSchemes(userSettings?.geminiApiKey, force);
       setSchemes(data);
     } catch (error: any) {
       console.error(error);
+      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
+        setIsModalOpen(true);
+      }
     } finally {
       setLoading(false);
     }
