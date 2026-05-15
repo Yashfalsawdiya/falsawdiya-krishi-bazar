@@ -66,7 +66,7 @@ const ImageUpload: React.FC<{
             गैलरी से चुनें (Pick from Gallery)
             <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
           </label>
-          <p className="text-[9px] text-gray-400 mt-1 ml-1">अधिकतम 1MB साइज की फोटो चुनें</p>
+          <p className="text-[9px] text-gray-400 mt-1 ml-1">High Quality Photos</p>
         </div>
       </div>
     </div>

@@ -673,14 +673,18 @@ const Home: React.FC = () => {
             {[...partners, ...partners].map((partner, idx) => (
               <div key={`${partner.id}-${idx}`} className="flex flex-col items-center gap-1.5">
                   <div className="h-14 min-w-[80px] px-4 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center overflow-hidden">
-                    <SmartImage 
-                      src={partner.logo} 
-                      alt={partner.name} 
-                      className="h-8 w-auto max-w-[120px]"
-                      objectFit="contain"
-                    />
+                    {partner.logo ? (
+                      <SmartImage 
+                        src={partner.logo} 
+                        alt={partner.name} 
+                        className="h-8 w-auto max-w-[120px]"
+                        objectFit="contain"
+                      />
+                    ) : (
+                      <span className="text-[10px] font-black text-[#2D5A27]">{partner.name}</span>
+                    )}
                   </div>
-                <span className="text-[9px] font-bold text-gray-500 text-center">{partner.name}</span>
+                {partner.logo && <span className="text-[9px] font-bold text-gray-500 text-center">{partner.name}</span>}
               </div>
             ))}
           </motion.div>

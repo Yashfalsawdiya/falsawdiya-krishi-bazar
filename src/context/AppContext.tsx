@@ -234,35 +234,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  // Cache helpers
+  const getCachedData = <T,>(key: string): T[] | null => {
+    try {
+      const cached = localStorage.getItem(`agri_cache_${key}`);
+      if (cached) {
+        return JSON.parse(cached) as T[];
+      }
+    } catch (e) {
+      console.error(`Error reading cache for ${key}:`, e);
+    }
+    return null;
+  };
+
+  const setCacheData = <T,>(key: string, data: T[]) => {
+    try {
+      localStorage.setItem(`agri_cache_${key}`, JSON.stringify(data));
+    } catch (e) {
+      console.error(`Error saving cache for ${key}:`, e);
+    }
+  };
+
   const loadProducts = () => {
     const q = query(collection(db, 'products'), orderBy('hindiName'));
     
+    // First, seed from cache if available for ultra-fast load
+    const cached = getCachedData<Product>('products');
+    if (cached && products.length === 0) {
+      setProducts(cached);
+    }
+
     const fetch = async () => {
       try {
         let snapshot;
-        if (isSyncNeeded()) {
+        // Only fetch from server if sync is needed (once a day or if cache empty)
+        if (isSyncNeeded() || !cached) {
           try {
             snapshot = await getDocsFromServer(q);
             markSyncDone(); 
+            const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+            setProducts(prods);
+            setCacheData('products', prods);
           } catch (serverError) {
             console.warn("Live sync failed, using cache:", serverError);
             snapshot = await getDocsFromCache(q);
+            const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+            setProducts(prods);
           }
         } else {
+          // Already have fresh enough cache in localStorage/Firestore cache
           try {
             snapshot = await getDocsFromCache(q);
-            if (snapshot.empty) throw new Error("Cache empty");
-          } catch (e) {
-            try {
-              snapshot = await getDocsFromServer(q);
-            } catch (serverError) {
-              snapshot = await getDocsFromCache(q);
+            if (!snapshot.empty) {
+              const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+              setProducts(prods);
+              setCacheData('products', prods);
             }
+          } catch (e) {
+            // Fallback to server if cache fetch fails
+            snapshot = await getDocsFromServer(q);
+            const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+            setProducts(prods);
+            setCacheData('products', prods);
           }
         }
-        
-        const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        setProducts(prods);
       } catch (error) {
         const err = handleFirestoreError(error, OperationType.LIST, 'products');
         if (err?.error.toLowerCase().includes('quota')) {
@@ -272,35 +307,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     fetch();
-    // Return dummy unsubscribe since we switched to getDocs for quota saving
     return () => {};
   };
 
   const loadCategoryData = () => {
     const q = query(collection(db, 'categories'), orderBy('order'));
     
+    const cached = getCachedData<CategoryData>('categories');
+    if (cached && categories.length <= CATEGORIES.length) { // CATEGORIES is the mockData default
+      setCategories(cached);
+    }
+
     const fetch = async () => {
       try {
         let snapshot;
-        if (isSyncNeeded()) {
+        if (isSyncNeeded() || !cached) {
           try {
             snapshot = await getDocsFromServer(q);
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
+            setCategories(data);
+            setCacheData('categories', data);
           } catch (e) {
             snapshot = await getDocsFromCache(q);
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
+            setCategories(data);
           }
         } else {
           try {
             snapshot = await getDocsFromCache(q);
-            if (snapshot.empty) throw new Error("Cache empty");
-          } catch (e) {
-            try {
-              snapshot = await getDocsFromServer(q);
-            } catch (retryError) {
-              snapshot = await getDocsFromCache(q);
+            if (!snapshot.empty) {
+              const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
+              setCategories(data);
+              setCacheData('categories', data);
             }
+          } catch (e) {
+            snapshot = await getDocsFromServer(q);
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
+            setCategories(data);
+            setCacheData('categories', data);
           }
         }
-        setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData)));
       } catch (error) {
         const err = handleFirestoreError(error, OperationType.LIST, 'categories');
         if (err?.error.toLowerCase().includes('quota')) {
@@ -316,28 +362,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const loadAgriIssues = () => {
     const q = collection(db, 'agriIssues');
     
+    const cached = getCachedData<AgriIssue>('agriIssues');
+    if (cached && agriIssues.length === 0) {
+      setAgriIssues(cached);
+    }
+
     const fetch = async () => {
       try {
         let snapshot;
-        if (isSyncNeeded()) {
+        if (isSyncNeeded() || !cached) {
           try {
             snapshot = await getDocsFromServer(q);
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue));
+            setAgriIssues(data);
+            setCacheData('agriIssues', data);
           } catch (e) {
             snapshot = await getDocsFromCache(q);
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue));
+            setAgriIssues(data);
           }
         } else {
           try {
             snapshot = await getDocsFromCache(q);
-            if (snapshot.empty) throw new Error("Cache empty");
-          } catch (e) {
-            try {
-              snapshot = await getDocsFromServer(q);
-            } catch (retryError) {
-              snapshot = await getDocsFromCache(q);
+            if (!snapshot.empty) {
+              const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue));
+              setAgriIssues(data);
+              setCacheData('agriIssues', data);
             }
+          } catch (e) {
+            snapshot = await getDocsFromServer(q);
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue));
+            setAgriIssues(data);
+            setCacheData('agriIssues', data);
           }
         }
-        setAgriIssues(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue)));
       } catch (error) {
         const err = handleFirestoreError(error, OperationType.LIST, 'agriIssues');
         if (err?.error.toLowerCase().includes('quota')) {

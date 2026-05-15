@@ -151,7 +151,7 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
                 </div>
                 <div className="text-center">
                   <span className="text-[10px] font-bold text-[#2D5A27] block">गैलरी से चुनें</span>
-                  <span className="text-[8px] text-gray-400">Max 1MB size</span>
+                  <span className="text-[8px] text-gray-400">High Quality Photos</span>
                 </div>
                 <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handlePrimaryUpload} />
               </>
