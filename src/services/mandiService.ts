@@ -161,7 +161,7 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: "You are an expert Mandi Bhav Reporter for Madhya Pradesh. Always return accurate JSON data.",
+          systemInstruction: "You are an expert Mandi Bhav Reporter for Madhya Pradesh representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Always return accurate JSON data.",
           tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           responseSchema: schema
@@ -173,7 +173,7 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: "You are an expert Mandi Bhav Reporter. Provide estimated Mandi Bhav for given location in JSON.",
+          systemInstruction: "You are an expert Mandi Bhav Reporter representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Provide estimated Mandi Bhav for given location in JSON.",
           responseMimeType: "application/json",
           responseSchema: schema
         }

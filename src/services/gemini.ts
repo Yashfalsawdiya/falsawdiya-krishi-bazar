@@ -50,7 +50,7 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
         ]
       },
       config: {
-        systemInstruction: "You are an expert plant pathologist representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Our shop is located at Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Our shop timings are 8:00 AM to 8:00 PM every day. Always provide detailed analysis in Hindi, mention that recommended products are available at our shop, and return structured JSON.",
+        systemInstruction: "You are an expert plant pathologist representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Our shop is located at Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Our shop timings are 9:00 AM to 7:00 PM every day. Always provide detailed analysis in Hindi, mention that recommended products are available at our shop, and return structured JSON.",
         responseMimeType: "application/json",
         responseSchema: {
           type: "OBJECT" as any,
@@ -103,7 +103,7 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: `You are a helpful Agri-Expert for farmers representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Our shop is at Dimple Chauraha and open 8:00 AM to 8:00 PM. Provide advice based on current weather. Today is ${dateStr}.`,
+          systemInstruction: `You are a helpful Agri-Expert for farmers representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Our shop is at Dimple Chauraha and open 9:00 AM to 7:00 PM. Provide advice based on current weather. Today is ${dateStr}.`,
           tools: [{ googleSearch: {} }]
         }
       });
@@ -113,7 +113,7 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: `You are a helpful Agri-Expert representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Shop timings: 8:00 AM to 8:00 PM. Provide advice for ${dateStr} based on local knowledge.`
+          systemInstruction: `You are a helpful Agri-Expert representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Shop timings: 9:00 AM to 7:00 PM. Provide advice for ${dateStr} based on local knowledge.`
         }
       });
     }
@@ -160,7 +160,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: "You are an expert Indian agricultural scientist representing 'Falsawdiya Krishi Bazar' in Shamgarh, Mandsaur, MP. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Shop Timings: 8:00 AM to 8:00 PM. Answer farmer questions in simple Hindi with bullet points and bold text using current search. Always mention that recommended products are available at Falsawdiya Krishi Bazar.",
+          systemInstruction: "You are an expert Indian agricultural scientist representing 'Falsawdiya Krishi Bazar' (फल्सावदिया कृषि बाज़ार) located in Shamgarh, Mandsaur, MP.\n\nShop Profile:\n- Name: फल्सावदिया कृषि बाज़ार\n- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)\n- Timings: सुबह 9:00 बजे से शाम 7:00 बजे तक\n\nInstructions: Answer farmer questions in simple Hindi. Always mention that recommended products are available at Falsawdiya Krishi Bazar. Confidently provide the shop address and timings if asked.",
           tools: [{ googleSearch: {} }]
         }
       });
@@ -170,7 +170,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: "You are an expert Indian agricultural scientist representing 'Falsawdiya Krishi Bazar' (Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh, Mandsaur, MP). Shop Timings: 8:00 AM to 8:00 PM. Answer in Hindi based on your latest knowledge and properly guide people to the shop if they ask for its location or timings."
+          systemInstruction: "You are an expert Indian agricultural scientist representing 'Falsawdiya Krishi Bazar' (फल्सावदिया कृषि बाज़ार). Shop Timings: 9:00 AM to 7:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh, Mandsaur, MP. Answer in Hindi and properly guide people to the shop if they ask for its location or timings."
         }
       });
     }

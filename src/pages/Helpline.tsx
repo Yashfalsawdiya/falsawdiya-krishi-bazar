@@ -12,7 +12,11 @@ const Helpline: React.FC = () => {
       icon: ShoppingBag,
       color: "bg-purple-100 text-purple-600",
       numbers: [
-        { name: "फल्सावदिया कृषि बाज़ार", number: "8982338046", desc: "कृषि सलाह और सामान के लिए" }
+        { 
+          name: "फल्सावदिया कृषि बाज़ार", 
+          number: "8982338046", 
+          desc: "पता: डिंपल चौराहा, शामगढ़ | समय: सुबह 9:00 - शाम 7:00" 
+        }
       ]
     },
     {
