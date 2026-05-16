@@ -42,7 +42,7 @@ const Admin: React.FC = () => {
     }
   }, [isAdmin]);
   
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users'>('content');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -538,6 +538,15 @@ const Admin: React.FC = () => {
       {/* Tabs */}
       <div className="flex gap-2 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto no-scrollbar">
         <button 
+          onClick={() => setActiveTab('content')}
+          className={cn(
+            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'content' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <Layout className="w-4 h-4" /> कंटेंट (Content)
+        </button>
+        <button 
           onClick={() => setActiveTab('products')}
           className={cn(
             "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
@@ -572,15 +581,6 @@ const Admin: React.FC = () => {
           )}
         >
           <Phone className="w-4 h-4" /> हेल्पलाइन (Helplines)
-        </button>
-        <button 
-          onClick={() => setActiveTab('content')}
-          className={cn(
-            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'content' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <Layout className="w-4 h-4" /> कंटेंट (Content)
         </button>
         <button 
           onClick={() => setActiveTab('users')}
