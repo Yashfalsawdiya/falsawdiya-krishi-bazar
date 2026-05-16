@@ -158,7 +158,7 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
     try {
       console.log(`Fetching Mandi Bhav for ${mandiName} with Search...`);
       response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Mandi Bhav Reporter for Madhya Pradesh. Always return accurate JSON data.",
@@ -170,7 +170,7 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
     } catch (searchError) {
       console.warn("Mandi Search failed, using status knowledge...", searchError);
       response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Mandi Bhav Reporter. Provide estimated Mandi Bhav for given location in JSON.",

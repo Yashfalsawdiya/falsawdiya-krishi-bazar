@@ -104,7 +104,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     try {
       console.log("Fetching detailed schemes with Grounding...");
       response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Government Scheme Consultant for Indian Farmers. Provide professional, detailed, and current schemes in a structured JSON format. Categorize them as Central or State government schemes.",
@@ -135,7 +135,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     } catch (searchError) {
       console.warn("Scheme grounding failed, using standard generation...", searchError);
       response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Government Scheme Consultant. Provide 20 most important agri schemes in JSON format using latest knowledge.",

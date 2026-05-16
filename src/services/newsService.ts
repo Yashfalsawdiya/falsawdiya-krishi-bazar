@@ -189,7 +189,7 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
     try {
       console.log("Fetching news with Google Search Grounding...");
       response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: "You are a specialized Agricultural News reporter for Indian farmers. Always provide real, current, and detailed news updates in a JSON array format.",
@@ -218,7 +218,7 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
     } catch (searchError: any) {
       console.warn("Google Search Grounding failed, retrying with standard generation...", searchError);
       response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: "You are a specialized Agricultural News reporter for Indian farmers. Provide 20 most important agri news items as of today. Use your latest knowledge if search is unavailable.",

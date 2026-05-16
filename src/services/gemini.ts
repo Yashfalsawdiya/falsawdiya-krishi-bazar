@@ -37,7 +37,7 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
             2. At the very end of your response, provide a list of search keywords (active ingredients or pesticide categories) separated by commas that can be used to search for real products in a store.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-3-flash-preview",
       contents: {
         parts: [
           { text: prompt },
@@ -100,7 +100,7 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: `You are a helpful Agri-Expert for farmers. Provide advice based on current weather. Today is ${dateStr}.`,
@@ -110,7 +110,7 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
     } catch (e) {
       console.warn("Advice Search failed, fallback to knowledge...");
       response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: `You are a helpful Agri-Expert. Provide advice for ${dateStr} based on local knowledge.`
@@ -157,7 +157,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Indian agricultural scientist. Answer farmer questions in simple Hindi with bullet points and bold text using current search when needed.",
@@ -167,7 +167,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
     } catch (e) {
       console.warn("Chat Search failed, fallback to knowledge...");
       response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Indian agricultural scientist. Answer in Hindi based on your latest knowledge."

@@ -11,6 +11,7 @@ const Profile: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [quotaStatus, setQuotaStatus] = useState<'idle' | 'checking' | 'available' | 'exhausted'>('idle');
 
   useEffect(() => {
     if (userSettings) {
@@ -38,27 +39,70 @@ const Profile: React.FC = () => {
       return;
     }
     setTestStatus('testing');
+    setSaveMessage('');
     try {
       const genAI: any = new GoogleGenAI({ apiKey: apiKey.trim() });
-      // Using the same pattern as newsService.ts
-      const result = await genAI.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: [{ role: 'user', parts: [{ text: 'Hi' }] }]
+      
+      const result = await genAI.models.generateContent({ 
+        model: "gemini-3-flash-preview", 
+        contents: "test" 
       });
       
       if (result) {
         setTestStatus('success');
-        setSaveMessage('बधाई हो! आपकी API Key बिल्कुल सही काम कर रही है। (Working Properly)');
+        setSaveMessage('✅ Valid API Key');
       }
     } catch (error: any) {
       console.error("Key test failed:", error);
       setTestStatus('error');
-      setSaveMessage('त्रुटि: यह Key अमान्य है या काम नहीं कर रही। (Invalid Key)');
+      setSaveMessage('❌ Invalid API Key');
     } finally {
       setTimeout(() => {
         setTestStatus('idle');
         setSaveMessage('');
       }, 6000);
+    }
+  };
+
+  const checkQuota = async () => {
+    if (!apiKey) {
+      setSaveMessage('कृपया पहले Key डालें।');
+      return;
+    }
+    setQuotaStatus('checking');
+    setSaveMessage('');
+    try {
+      const genAI: any = new GoogleGenAI({ apiKey: apiKey.trim() });
+      
+      // Test with a real generation call
+      const result = await genAI.models.generateContent({ 
+        model: "gemini-3-flash-preview", 
+        contents: "hi" 
+      });
+      
+      if (result) {
+        setQuotaStatus('available');
+        setSaveMessage('🟢 आपकी Gemini API Key की आज की limit अभी उपलब्ध है।');
+      }
+    } catch (error: any) {
+      console.error("Quota check failed:", error);
+      // 429 is the status code for quota exhaustion
+      const errorMsg = error.message?.toLowerCase() || "";
+      if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('exhausted')) {
+        setQuotaStatus('exhausted');
+        setSaveMessage('🔴 आपकी Gemini API Key की आज की limit समाप्त हो चुकी है। कृपया कल पुनः प्रयास करें।');
+      } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+        setQuotaStatus('exhausted');
+        setSaveMessage('❌ Model not found. कृपया अपडेट की प्रतीक्षा करें।');
+      } else {
+        setQuotaStatus('exhausted');
+        setSaveMessage('❌ Quota की जानकारी नहीं मिल सकी। कृपया अपनी API Key चेक करें।');
+      }
+    } finally {
+      setTimeout(() => {
+        setQuotaStatus('idle');
+        setSaveMessage('');
+      }, 8000);
     }
   };
 
@@ -156,22 +200,41 @@ const Profile: React.FC = () => {
         <div className="space-y-1.5">
           <div className="flex justify-between items-end mb-1">
             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">अपनी Gemini API Key</label>
-            {apiKey && (
-              <button 
-                onClick={testApiKey}
-                disabled={testStatus === 'testing'}
-                className={cn(
-                  "text-[9px] font-black uppercase px-2 py-0.5 rounded border transition-colors flex items-center gap-1",
-                  testStatus === 'idle' && "text-blue-600 border-blue-200 bg-blue-50",
-                  testStatus === 'testing' && "text-gray-400 border-gray-200 bg-gray-50",
-                  testStatus === 'success' && "text-green-600 border-green-200 bg-green-50",
-                  testStatus === 'error' && "text-red-600 border-red-200 bg-red-50"
-                )}
-              >
-                {testStatus === 'testing' ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
-                Key चेक करें (Check Key)
-              </button>
-            )}
+            <div className="flex gap-2">
+              {apiKey && (
+                <>
+                  <button 
+                    onClick={testApiKey}
+                    disabled={testStatus === 'testing' || quotaStatus === 'checking'}
+                    className={cn(
+                      "text-[9px] font-black uppercase px-2 py-0.5 rounded border transition-colors flex items-center gap-1",
+                      testStatus === 'idle' && "text-blue-600 border-blue-200 bg-blue-50",
+                      testStatus === 'testing' && "text-gray-400 border-gray-200 bg-gray-50",
+                      testStatus === 'success' && "text-green-600 border-green-200 bg-green-50",
+                      testStatus === 'error' && "text-red-600 border-red-200 bg-red-50"
+                    )}
+                  >
+                    {testStatus === 'testing' ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : "🔑"}
+                    Key चेक करें
+                  </button>
+
+                  <button 
+                    onClick={checkQuota}
+                    disabled={testStatus === 'testing' || quotaStatus === 'checking'}
+                    className={cn(
+                      "text-[9px] font-black uppercase px-2 py-0.5 rounded border transition-colors flex items-center gap-1",
+                      quotaStatus === 'idle' && "text-purple-600 border-purple-200 bg-purple-50",
+                      quotaStatus === 'checking' && "text-gray-400 border-gray-200 bg-gray-50",
+                      quotaStatus === 'available' && "text-green-600 border-green-200 bg-green-50",
+                      quotaStatus === 'exhausted' && "text-red-600 border-red-200 bg-red-50"
+                    )}
+                  >
+                    {quotaStatus === 'checking' ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : "📊"}
+                    Quota चेक करें
+                  </button>
+                </>
+              )}
+            </div>
           </div>
           <div className="relative">
             <input 
