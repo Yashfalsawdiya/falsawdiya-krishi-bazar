@@ -164,8 +164,8 @@ const Admin: React.FC = () => {
         setEditingProduct(null);
       } else {
         await addProduct(productForm as Omit<Product, 'id'>);
-        setIsAdding(false);
       }
+      setIsAdding(false);
       setProductForm({ name: '', hindiName: '', category: categories[0]?.id || '', brand: '', price: 0, unit: '', description: '', image: { primary: '', fallback: '' }, crops: [] });
     } catch (error) {
       console.error("Error saving product:", error);
@@ -178,13 +178,21 @@ const Admin: React.FC = () => {
     e.preventDefault();
     setIsSaving(true);
     try {
+      // Normalize icon: if it's an object with both sources empty, convert to empty string
+      let normalizedIcon = categoryForm.icon;
+      if (typeof normalizedIcon !== 'string' && !normalizedIcon.primary && !normalizedIcon.fallback) {
+        normalizedIcon = '';
+      }
+
+      const finalCategoryData = { ...categoryForm, icon: normalizedIcon };
+
       if (editingCategory) {
-        await updateCategory({ ...editingCategory, ...categoryForm } as CategoryData);
+        await updateCategory({ ...editingCategory, ...finalCategoryData } as CategoryData);
         setEditingCategory(null);
       } else {
-        await addCategory(categoryForm);
-        setIsAddingCategory(false);
+        await addCategory(finalCategoryData as Omit<CategoryData, 'id'>);
       }
+      setIsAddingCategory(false);
       setCategoryForm({ name: '', icon: { primary: '', fallback: '' }, order: categories.length + 1 });
     } catch (error) {
       console.error("Error saving category:", error);
@@ -202,8 +210,8 @@ const Admin: React.FC = () => {
         setEditingAgriIssue(null);
       } else {
         await addAgriIssue(agriIssueForm);
-        setIsAddingAgriIssue(false);
       }
+      setIsAddingAgriIssue(false);
       setAgriIssueForm({ hindiName: '', englishName: '', type: 'pest', description: '', image: { primary: '', fallback: '' }, relatedProductIds: [] });
     } catch (error) {
       console.error("Error saving agri issue:", error);

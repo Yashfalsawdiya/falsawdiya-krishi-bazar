@@ -264,99 +264,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setProducts(cached);
     }
 
-    const fetch = async () => {
-      try {
-        let snapshot;
-        // Only fetch from server if sync is needed (once a day or if cache empty)
-        if (isSyncNeeded() || !cached) {
-          try {
-            snapshot = await getDocsFromServer(q);
-            markSyncDone(); 
-            const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-            setProducts(prods);
-            setCacheData('products', prods);
-          } catch (serverError) {
-            console.warn("Live sync failed, using cache:", serverError);
-            snapshot = await getDocsFromCache(q);
-            const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-            setProducts(prods);
-          }
-        } else {
-          // Already have fresh enough cache in localStorage/Firestore cache
-          try {
-            snapshot = await getDocsFromCache(q);
-            if (!snapshot.empty) {
-              const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-              setProducts(prods);
-              setCacheData('products', prods);
-            }
-          } catch (e) {
-            // Fallback to server if cache fetch fails
-            snapshot = await getDocsFromServer(q);
-            const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-            setProducts(prods);
-            setCacheData('products', prods);
-          }
-        }
-      } catch (error) {
-        const err = handleFirestoreError(error, OperationType.LIST, 'products');
-        if (err?.error.toLowerCase().includes('quota')) {
-          setIsQuotaExceeded(true);
-        }
+    return onSnapshot(q, (snapshot) => {
+      const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+      setProducts(prods);
+      setCacheData('products', prods);
+      setIsQuotaExceeded(false);
+    }, (error) => {
+      console.error("Products listener error:", error);
+      const err = handleFirestoreError(error, OperationType.LIST, 'products');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
       }
-    };
-
-    fetch();
-    return () => {};
+    });
   };
 
   const loadCategoryData = () => {
     const q = query(collection(db, 'categories'), orderBy('order'));
     
+    // Initial data from mock if empty, or from cache
     const cached = getCachedData<CategoryData>('categories');
-    if (cached && categories.length <= CATEGORIES.length) { // CATEGORIES is the mockData default
+    if (cached && cached.length > 0) {
       setCategories(cached);
     }
 
-    const fetch = async () => {
-      try {
-        let snapshot;
-        if (isSyncNeeded() || !cached) {
-          try {
-            snapshot = await getDocsFromServer(q);
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
-            setCategories(data);
-            setCacheData('categories', data);
-          } catch (e) {
-            snapshot = await getDocsFromCache(q);
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
-            setCategories(data);
-          }
-        } else {
-          try {
-            snapshot = await getDocsFromCache(q);
-            if (!snapshot.empty) {
-              const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
-              setCategories(data);
-              setCacheData('categories', data);
-            }
-          } catch (e) {
-            snapshot = await getDocsFromServer(q);
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
-            setCategories(data);
-            setCacheData('categories', data);
-          }
-        }
-      } catch (error) {
-        const err = handleFirestoreError(error, OperationType.LIST, 'categories');
-        if (err?.error.toLowerCase().includes('quota')) {
-          setIsQuotaExceeded(true);
-        }
+    return onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
+      // If Firestore is empty, we keep the mock categories as fallback (optional)
+      // but usually we want what's in the DB.
+      if (!snapshot.empty) {
+        setCategories(data);
+        setCacheData('categories', data);
       }
-    };
-
-    fetch();
-    return () => {};
+      setIsQuotaExceeded(false);
+    }, (error) => {
+      console.error("Categories listener error:", error);
+      const err = handleFirestoreError(error, OperationType.LIST, 'categories');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
+      }
+    });
   };
 
   const loadAgriIssues = () => {
@@ -367,45 +313,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setAgriIssues(cached);
     }
 
-    const fetch = async () => {
-      try {
-        let snapshot;
-        if (isSyncNeeded() || !cached) {
-          try {
-            snapshot = await getDocsFromServer(q);
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue));
-            setAgriIssues(data);
-            setCacheData('agriIssues', data);
-          } catch (e) {
-            snapshot = await getDocsFromCache(q);
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue));
-            setAgriIssues(data);
-          }
-        } else {
-          try {
-            snapshot = await getDocsFromCache(q);
-            if (!snapshot.empty) {
-              const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue));
-              setAgriIssues(data);
-              setCacheData('agriIssues', data);
-            }
-          } catch (e) {
-            snapshot = await getDocsFromServer(q);
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue));
-            setAgriIssues(data);
-            setCacheData('agriIssues', data);
-          }
-        }
-      } catch (error) {
-        const err = handleFirestoreError(error, OperationType.LIST, 'agriIssues');
-        if (err?.error.toLowerCase().includes('quota')) {
-          setIsQuotaExceeded(true);
-        }
+    return onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue));
+      setAgriIssues(data);
+      setCacheData('agriIssues', data);
+      setIsQuotaExceeded(false);
+    }, (error) => {
+      console.error("AgriIssues listener error:", error);
+      const err = handleFirestoreError(error, OperationType.LIST, 'agriIssues');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
       }
-    };
-
-    fetch();
-    return () => {};
+    });
   };
 
   // Dedicated effect for app content - important for branding

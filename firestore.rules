@@ -69,7 +69,11 @@ service cloud.firestore {
     }
 
     function isValidUrl(url) {
-      return url is string && (url.matches("^https://.*") || url.matches("^http://.*") || url.matches("^data:image/.*"));
+      return url is string && (url.size() == 0 || url.matches("^https://.*") || url.matches("^http://.*") || url.matches("^data:image/.*"));
+    }
+
+    function isValidImage(img) {
+      return img is string || (img is map && img.get('primary', '') is string && img.get('fallback', '') is string);
     }
 
     // Domain Validators
@@ -81,13 +85,13 @@ service cloud.firestore {
              data.price is number && data.price >= 0 &&
              data.unit is string && data.unit.size() > 0 &&
              (!('hidePrice' in data) || data.hidePrice is bool) &&
-             (!('image' in data) || isValidUrl(data.image)) &&
+             (!('image' in data) || isValidImage(data.image)) &&
              (!('description' in data) || (data.description is string && data.description.size() < 5000));
     }
 
     function isValidCategory(data) {
       return data.name is string && data.name.size() > 0 &&
-             data.icon is string && data.icon.size() > 0 &&
+             isValidImage(data.icon) &&
              data.order is number;
     }
 
@@ -95,7 +99,7 @@ service cloud.firestore {
       return data.hindiName is string && data.hindiName.size() > 0 &&
              data.englishName is string && data.englishName.size() > 0 &&
              data.type in ['pest', 'disease', 'deficiency'] &&
-             data.image is string &&
+             isValidImage(data.image) &&
              (!('description' in data) || data.description is string) &&
              (!('relatedProductIds' in data) || data.relatedProductIds is list);
     }

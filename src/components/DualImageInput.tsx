@@ -32,8 +32,15 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
       setPrimary('');
       setFallback('');
     } else if (typeof value === 'string') {
-      setPrimary(value);
-      setFallback('');
+      // If it's a base64 image or a URL
+      if (value.startsWith('data:image') || value.startsWith('http') || value.startsWith('https')) {
+        setPrimary(value);
+        setFallback('');
+      } else {
+        // It's likely an emoji or other string icon, not an image for the DualInput
+        setPrimary('');
+        setFallback('');
+      }
     } else {
       setPrimary(value.primary || '');
       setFallback(value.fallback || '');
