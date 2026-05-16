@@ -27,7 +27,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
 
   const CACHE_KEY = 'agri_schemes_cache';
   const CACHE_TIME_KEY = 'agri_schemes_cache_time';
-  const CACHE_DURATION = 4 * 60 * 60 * 1000; // 4 hours
+  const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
   const cachedData = localStorage.getItem(CACHE_KEY);
   const cachedTime = localStorage.getItem(CACHE_TIME_KEY);

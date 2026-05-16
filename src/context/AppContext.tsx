@@ -122,13 +122,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const now = new Date();
     const todayStr = now.toDateString();
     
-    // If we already synced today, no need
-    if (lastSyncStr === todayStr) return false;
+    // Admin always needs latest data
+    if (isAdmin) return true;
+
+    // If we haven't synced today
+    if (lastSyncStr !== todayStr) {
+      // If it's 10 AM or later, or if we have NO cached sync date at all
+      if (now.getHours() >= 10 || !lastSyncStr) {
+        return true;
+      }
+    }
     
-    // If it's before 10 AM, we use yesterday's cache (unless first time)
-    if (now.getHours() < 10 && lastSyncStr) return false;
-    
-    return true;
+    return false;
   };
 
   const markSyncDone = () => {
@@ -256,18 +261,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const loadProducts = () => {
-    const q = query(collection(db, 'products'), orderBy('hindiName'));
-    
     // First, seed from cache if available for ultra-fast load
     const cached = getCachedData<Product>('products');
     if (cached && products.length === 0) {
       setProducts(cached);
     }
 
+    if (!isSyncNeeded() && cached && cached.length > 0) {
+      console.log("Using cached products, skipping Firebase fetch until 10 AM.");
+      return undefined;
+    }
+
+    const q = query(collection(db, 'products'), orderBy('hindiName'));
     return onSnapshot(q, (snapshot) => {
       const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
       setProducts(prods);
       setCacheData('products', prods);
+      markSyncDone();
       setIsQuotaExceeded(false);
     }, (error) => {
       console.error("Products listener error:", error);
@@ -279,21 +289,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const loadCategoryData = () => {
-    const q = query(collection(db, 'categories'), orderBy('order'));
-    
     // Initial data from mock if empty, or from cache
     const cached = getCachedData<CategoryData>('categories');
     if (cached && cached.length > 0) {
       setCategories(cached);
     }
 
+    if (!isSyncNeeded() && cached && cached.length > 0) {
+      console.log("Using cached categories, skipping Firebase fetch until 10 AM.");
+      return undefined;
+    }
+
+    const q = query(collection(db, 'categories'), orderBy('order'));
     return onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
-      // If Firestore is empty, we keep the mock categories as fallback (optional)
-      // but usually we want what's in the DB.
       if (!snapshot.empty) {
         setCategories(data);
         setCacheData('categories', data);
+        markSyncDone();
       }
       setIsQuotaExceeded(false);
     }, (error) => {
@@ -306,17 +319,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const loadAgriIssues = () => {
-    const q = collection(db, 'agriIssues');
-    
     const cached = getCachedData<AgriIssue>('agriIssues');
     if (cached && agriIssues.length === 0) {
       setAgriIssues(cached);
     }
 
+    if (!isSyncNeeded() && cached && cached.length > 0) {
+      console.log("Using cached agriIssues, skipping Firebase fetch until 10 AM.");
+      return undefined;
+    }
+
+    const q = collection(db, 'agriIssues');
     return onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue));
       setAgriIssues(data);
       setCacheData('agriIssues', data);
+      markSyncDone();
       setIsQuotaExceeded(false);
     }, (error) => {
       console.error("AgriIssues listener error:", error);
@@ -329,9 +347,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Dedicated effect for app content - important for branding
   useEffect(() => {
+    // Always load branding from cache first
+    const cached = localStorage.getItem('agri_cache_app_content');
+    if (cached) {
+      setAppContent(JSON.parse(cached));
+    }
+
+    if (!isSyncNeeded() && cached) return;
+
     const unsubscribeContent = onSnapshot(doc(db, 'settings', 'content'), (snapshot) => {
       if (snapshot.exists()) {
-        setAppContent(snapshot.data() as AppContent);
+        const data = snapshot.data() as AppContent;
+        setAppContent(data);
+        localStorage.setItem('agri_cache_app_content', JSON.stringify(data));
+        markSyncDone();
       }
     }, (error) => {
       const err = handleFirestoreError(error, OperationType.GET, 'settings/content');
@@ -340,7 +369,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return () => unsubscribeContent();
-  }, []);
+  }, [isAdmin]);
 
   // Additional effect to listen for all users if admin
   useEffect(() => {

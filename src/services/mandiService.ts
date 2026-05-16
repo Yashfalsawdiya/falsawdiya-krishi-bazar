@@ -90,7 +90,7 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
   // 1. Check Cache First
   const CACHE_KEY = `mandi_bhav_${mandiName}_v2`; 
   const CACHE_TIME_KEY = `${CACHE_KEY}_timestamp`;
-  const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+  const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
   const cachedData = localStorage.getItem(CACHE_KEY);
   const cachedTime = localStorage.getItem(CACHE_TIME_KEY);

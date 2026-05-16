@@ -25,7 +25,7 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
 
   const CACHE_KEY = 'agri_news_cache_v2';
   const CACHE_TIME_KEY = 'agri_news_cache_time_v2';
-  const CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour
+  const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
   const cachedData = localStorage.getItem(CACHE_KEY);
   const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
