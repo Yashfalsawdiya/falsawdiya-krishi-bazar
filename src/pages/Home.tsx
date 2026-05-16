@@ -67,13 +67,15 @@ import SmartImage from '../components/SmartImage';
 import { Product, ImageSource } from '../types';
 
 const Home: React.FC = () => {
-  const { products, categories, appContent, user, userSettings, loadProducts, loading: appLoading } = useAppContext();
+  const { products, categories, appContent, user, userSettings, loadProducts, loadCategoryData, loading: appLoading } = useAppContext();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const unsubscribe = loadProducts();
+    const unsubProducts = loadProducts();
+    const unsubCategories = loadCategoryData();
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (unsubProducts) unsubProducts();
+      if (unsubCategories) unsubCategories();
     };
   }, []);
 

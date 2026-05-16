@@ -1,14 +1,6 @@
 import { Product, CropAdvice, CategoryData } from '../types';
 
-export const CATEGORIES: CategoryData[] = [
-  { id: 'seeds', name: 'बीज (Seeds)', icon: '🌱', order: 1 },
-  { id: 'fertilizers', name: 'खाद (Fertilizers)', icon: '🧪', order: 2 },
-  { id: 'pesticides', name: 'कीटनाशक (Pesticides)', icon: '🪲', order: 3 },
-  { id: 'fungicides', name: 'फफूंदनाशक (Fungicides)', icon: '🍄', order: 4 },
-  { id: 'herbicides', name: 'खरपतवारनाशक (Herbicides)', icon: '🌿', order: 5 },
-  { id: 'medicines', name: 'कृषि दवाइयाँ (Medicines)', icon: '💊', order: 6 },
-  { id: 'implements', name: 'कृषि यंत्र (Implements)', icon: '⚙️', order: 7 },
-];
+export const CATEGORIES: CategoryData[] = [];
 
 export const PRODUCTS: Product[] = [];
 

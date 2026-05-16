@@ -232,6 +232,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  // Global data loading effect
+  useEffect(() => {
+    const unsubProducts = loadProducts();
+    const unsubCategories = loadCategoryData();
+    const unsubHelplines = loadHelplines();
+    const unsubAgriIssues = loadAgriIssues();
+    
+    return () => {
+      if (unsubProducts) unsubProducts();
+      if (unsubCategories) unsubCategories();
+      if (unsubHelplines) unsubHelplines();
+      if (unsubAgriIssues) unsubAgriIssues();
+    };
+  }, [isAdmin]);
+
   // Cache helpers
   const getCachedData = <T,>(key: string): T[] | null => {
     try {

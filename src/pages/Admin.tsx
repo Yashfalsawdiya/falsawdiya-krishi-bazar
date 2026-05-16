@@ -1802,23 +1802,12 @@ const Admin: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">आइकन (Emoji/Icon)</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">आइकन (Icon)</label>
                   <DualImageInput 
                     label="श्रेणी आइकन (Category Icon)"
                     value={categoryForm.icon}
                     onChange={source => setCategoryForm({...categoryForm, icon: source})}
-                    description="इमोजी के लिए नीचे टेक्स्ट बॉक्स उपयोग करें, इमेज के लिए ऊपर अपलोड करें"
                   />
-                  <div className="mt-2">
-                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1 text-xs">इमोजी (Simple Emoji Mode)</label>
-                    <input 
-                      type="text" 
-                      value={typeof categoryForm.icon === 'string' ? categoryForm.icon : ''}
-                      onChange={e => setCategoryForm({...categoryForm, icon: e.target.value})}
-                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-3 outline-none transition-all font-medium text-xl"
-                      placeholder="जैसे: 🥕"
-                    />
-                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">क्रम (Order)</label>
