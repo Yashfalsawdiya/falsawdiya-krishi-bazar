@@ -50,7 +50,7 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
         ]
       },
       config: {
-        systemInstruction: "You are an expert plant pathologist. Always provide detailed analysis in Hindi and return structured JSON.",
+        systemInstruction: "You are an expert plant pathologist representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Always provide detailed analysis in Hindi, mention that recommended products are available at our shop (Dimple Chauraha, Shamgarh), and return structured JSON.",
         responseMimeType: "application/json",
         responseSchema: {
           type: "OBJECT" as any,
@@ -160,7 +160,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: "You are an expert Indian agricultural scientist. Answer farmer questions in simple Hindi with bullet points and bold text using current search when needed.",
+          systemInstruction: "You are an expert Indian agricultural scientist representing 'Falsawdiya Krishi Bazar' in Shamgarh, Mandsaur, MP. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Answer farmer questions in simple Hindi with bullet points and bold text using current search. Always mention that recommended products are available at Falsawdiya Krishi Bazar.",
           tools: [{ googleSearch: {} }]
         }
       });
@@ -170,7 +170,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: "You are an expert Indian agricultural scientist. Answer in Hindi based on your latest knowledge."
+          systemInstruction: "You are an expert Indian agricultural scientist representing 'Falsawdiya Krishi Bazar' (Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh, Mandsaur, MP). Answer in Hindi based on your latest knowledge and properly guide people to the shop if they ask for its location."
         }
       });
     }

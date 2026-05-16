@@ -1,12 +1,20 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Phone, ArrowLeft, PhoneCall, Headphones, Zap, ShieldCheck, Droplets, Landmark } from 'lucide-react';
+import { Phone, ArrowLeft, PhoneCall, Headphones, Zap, ShieldCheck, Droplets, Landmark, ShoppingBag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Helpline: React.FC = () => {
   const navigate = useNavigate();
 
   const categories = [
+    {
+      title: "हमारी दुकान (Our Shop)",
+      icon: ShoppingBag,
+      color: "bg-purple-100 text-purple-600",
+      numbers: [
+        { name: "फल्सावदिया कृषि बाज़ार", number: "8982338046", desc: "कृषि सलाह और सामान के लिए" }
+      ]
+    },
     {
       title: "कृषि सेवाएं",
       icon: Headphones,
