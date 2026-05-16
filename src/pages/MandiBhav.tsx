@@ -16,6 +16,8 @@ const MandiBhav: React.FC = () => {
 
   const mandis = [
     'शामगढ़ (Shamgarh)',
+    'गरोठ (Garoth)',
+    'सीतामऊ (Sitamau)',
     'मंदसौर (Mandsaur)',
     'नीमच (Neemuch)',
     'रतलाम (Ratlam)'
@@ -24,12 +26,6 @@ const MandiBhav: React.FC = () => {
   const loadData = async (mandi: string) => {
     if (appLoading) return;
 
-    if (!userSettings?.geminiApiKey) {
-      setErrorMessage(undefined);
-      setIsModalOpen(true);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     try {
       const result = await fetchMandiBhav(mandi, userSettings?.geminiApiKey);
@@ -37,6 +33,10 @@ const MandiBhav: React.FC = () => {
     } catch (error: any) {
       console.error(error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
+        // If it's a key error, the service might have already returned fallback if handled,
+        // but fetchMandiBhav throws if ai is null AND no cache/fallback?
+        // Actually my new fetchMandiBhav returns cache/fallback if ai is null.
+        // So this catch might not be hit for key_missing unless something else fails.
         setErrorMessage(error.message);
         setIsModalOpen(true);
       }

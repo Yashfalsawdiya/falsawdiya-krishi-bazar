@@ -28,7 +28,7 @@ const Header: React.FC = () => {
   };
 
   const branding = appContent?.branding || {
-    name: 'कृषि बाज़ार',
+    name: 'फल्सावदिया कृषि बाज़ार',
     tagline: 'किसान का भरोसा, हमारी पहचान',
     logo: ''
   };

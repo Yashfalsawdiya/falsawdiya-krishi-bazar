@@ -247,8 +247,18 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     fetchWeather(24.1864, 75.6328).then(setWeather).catch(console.error);
-    fetchMandiBhav('Shamgarh').then(setMandi).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    // We delay slightly to ensure userSettings are loaded
+    if (!appLoading) {
+      fetchMandiBhav('Shamgarh', userSettings?.geminiApiKey)
+        .then(setMandi)
+        .catch(err => {
+          console.error("Mandi load failed, but service should have returned fallback", err);
+        });
+    }
+  }, [appLoading, userSettings?.geminiApiKey]);
 
   const handleOpenChat = () => {
     if (appLoading) return;
@@ -499,21 +509,31 @@ const Home: React.FC = () => {
           <motion.div 
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-white rounded-2xl p-4 border border-gray-100 h-full flex flex-col justify-between shadow-sm"
+            className="bg-white rounded-2xl p-4 border border-gray-100 h-full flex flex-col justify-between shadow-sm relative group"
           >
             <div className="flex justify-between items-start">
               <TrendingUp className="w-8 h-8 text-[#2D5A27]" />
               <span className="text-[10px] font-bold text-gray-400 uppercase">मंडी भाव</span>
             </div>
             {mandi ? (
-              <div>
+              <div className="animate-in fade-in duration-500">
                 <p className="text-[10px] font-bold text-gray-500 truncate">{mandi.items[0]?.commodity}</p>
                 <h2 className="text-xl font-bold text-[#2D5A27] leading-none">₹{mandi.items[0]?.avgPrice}</h2>
-                <p className="text-[9px] text-gray-400 mt-1">शामगढ़ मंडी</p>
+                <p className="text-[9px] text-gray-400 mt-1">{mandi.mandiName} मंडी</p>
               </div>
             ) : (
-              <Loader2 className="w-5 h-5 animate-spin text-[#2D5A27] opacity-50" />
+              <div className="flex flex-col gap-1">
+                <div className="h-4 w-12 bg-gray-100 rounded animate-pulse" />
+                <div className="h-6 w-20 bg-gray-100 rounded animate-pulse mt-1" />
+                <div className="flex items-center gap-1 mt-2">
+                  <Loader2 className="w-3 h-3 animate-spin text-[#2D5A27] opacity-40" />
+                  <span className="text-[8px] text-gray-400">अपडेट हो रहा है...</span>
+                </div>
+              </div>
             )}
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <ArrowRight className="w-3 h-3 text-gray-300" />
+            </div>
           </motion.div>
         </Link>
       </div>

@@ -143,9 +143,12 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
     localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
 
     return weatherResult;
-  } catch (error) {
+  } catch (error: any) {
+    console.warn(`Primary weather fetch (Open-Meteo) failed: ${error?.message || String(error)}`);
+    
     // Attempt secondary fallback from wttr.in if primary fails
     try {
+      console.log("Attempting secondary weather fallback (wttr.in)...");
       const wttrUrl = `https://wttr.in/${lat},${lon}?format=j1`;
       const wttrRes = await fetch(wttrUrl);
       if (wttrRes.ok) {
@@ -162,17 +165,36 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
           forecast: d.weather.slice(1, 8).map((w: any) => ({
             day: new Date(w.date).toLocaleDateString('hi-IN', { weekday: 'long' }),
             temp: `${w.maxtempC}°C`,
-            condition: w.hourly?.[4]?.weatherDesc?.[0]?.value || 'साफ'
+            condition: w.hourly?.[4]?.lang_hi?.[0]?.value || w.hourly?.[4]?.weatherDesc?.[0]?.value || 'साफ'
           })),
           hourly: []
         };
         return wttrWeather;
       }
-    } catch (e) {
-      // Ignore wttr failures
+    } catch (e: any) {
+      console.warn(`Secondary weather fallback (wttr.in) failed: ${e?.message || String(e)}`);
     }
 
-    console.warn("Weather sync failed, using fallback/cached data.");
+    // Final attempt: Open-Meteo but with simpler parameters
+    try {
+      console.log("Final weather attempt (Open-Meteo simple)...");
+      const simpleUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+      const response = await fetch(simpleUrl);
+      if (response.ok) {
+        const data = await response.json();
+        const cur = data.current_weather;
+        const parsed: WeatherData = {
+          ...fallbackData,
+          temp: Math.round(cur.temperature),
+          windSpeed: Math.round(cur.windspeed),
+        };
+        return parsed;
+      }
+    } catch (e) {
+      // Ignore
+    }
+
+    console.warn("All weather fetches failed. Using fallback/cached data.");
     
     // If API fails, try to return expired cache if available
     if (cachedData) {

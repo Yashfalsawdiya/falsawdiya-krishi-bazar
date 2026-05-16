@@ -6,15 +6,18 @@ import { fetchWeather, WeatherData } from '../services/weatherService';
 const Weather: React.FC = () => {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [locationName, setLocationName] = useState('शामगढ़, मध्य प्रदेश');
 
   const loadWeather = async (lat: number = 24.1864, lon: number = 75.6328, force: boolean = false) => {
     setLoading(true);
+    setError(null);
     try {
       const data = await fetchWeather(lat, lon, force);
       setWeather(data);
-    } catch (error) {
-      console.error(error);
+    } catch (err: any) {
+      console.error("Weather Page Error:", err);
+      setError("मौसम की जानकारी प्राप्त करने में समस्या आई।");
     } finally {
       setLoading(false);
     }
