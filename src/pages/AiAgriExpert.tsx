@@ -6,6 +6,7 @@ import ApiKeyModal from '../components/ApiKeyModal';
 import { useAppContext } from '../context/AppContext';
 import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
 import { cn } from '../lib/utils';
+import { getFriendlyAiError } from '../utils/aiErrorHandler';
 
 // Audio constants
 const SAMPLE_RATE = 24000;
@@ -398,7 +399,8 @@ const AiAgriExpert: React.FC = () => {
           },
           onerror: (err) => {
             console.error("Live API Error:", err);
-            setError("कनेक्शन में समस्या आई। कृपया फिर से कोशिश करें।");
+            const friendlyError = getFriendlyAiError(err);
+            setError(friendlyError.message);
             setStatus('error');
             setTimeout(endCall, 3000);
           },
@@ -429,15 +431,16 @@ const AiAgriExpert: React.FC = () => {
 
     } catch (err: any) {
       console.error("Call initialization failed:", err);
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.name === 'SecurityError') {
-        setError("माइक एक्सेस की अनुमति ब्लॉक है। कृपया ब्राउज़र सेटिंग्स में जाकर 'Allow' करें।");
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError' || err.name === 'Requested device not found') {
-        setError("ज़रूरी डिवाइस (माइक्रोफोन या कैमरा) नहीं मिला।");
-      } else if (err.name === 'OverconstrainedError') {
-        setError("कैमरा सपोर्ट नहीं कर रहा है। कृपया कैमरा बंद करके कॉल करें।");
-      } else {
-        setError("कॉल शुरू करने में तकनीकी समस्या आई।");
+      const friendlyError = getFriendlyAiError(err);
+      
+      if (friendlyError.type === 'key_missing') {
+        setIsApiKeyModalOpen(true);
+        setIsCalling(false);
+        setStatus('idle');
+        return;
       }
+
+      setError(friendlyError.message);
       setStatus('error');
       setIsCalling(false);
     }

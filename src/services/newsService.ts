@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { getFriendlyAiError } from "../utils/aiErrorHandler";
 
 const getAI = (userApiKey?: string) => {
   const apiKey = userApiKey;
@@ -56,26 +57,52 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
       source: "मंडी रिपोर्ट",
       url: "https://enam.gov.in/",
       category: "Market"
+    },
+    {
+      title: "प्रधानमंत्री फसल बीमा योजना: रजिस्ट्रेशन की तारीख बढ़ी",
+      summary: "केंद्र सरकार ने खरीफ फसलों के लिए बीमा रजिस्ट्रेशन की समय सीमा बढ़ा दी है। किसान अपनी नज़दीकी बैंक या सीएससी केंद्र पर जाकर पंजीकरण करा सकते हैं।",
+      date: dateStr,
+      source: "कृषि जागरण",
+      url: "https://pmfby.gov.in/",
+      category: "Scheme"
+    },
+    {
+      title: "अगले 48 घंटों में मध्य प्रदेश के कई जिलों में बारिश की संभावना",
+      summary: "मौसम विभाग ने भोपाल, इंदौर और जबलपुर संभागों में हल्की से मध्यम बारिश का अलर्ट जारी किया है। किसानों को कटी हुई फसल सुरक्षित रखने की सलाह दी गई है।",
+      date: dateStr,
+      source: "IMD",
+      url: "https://mausam.imd.gov.in/",
+      category: "Weather"
+    },
+    {
+      title: "जैविक खेती अपनाने वाले किसानों को मिलेगी विशेष सब्सिडी",
+      summary: "मध्य प्रदेश सरकार ने जैविक खेती को बढ़ावा देने के लिए क्लस्टर आधारित खेती पर सब्सिडी देने का फैसला किया है।",
+      date: dateStr,
+      source: "Patrika News",
+      url: "https://www.patrika.com/",
+      category: "Innovation"
     }
   ];
 
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
-    const prompt = `Search for the latest and most important agricultural news for India and Madhya Pradesh as of today ${dateStr}.
-    Find news about:
-    1. Madhya Pradesh Agriculture (MP)
-    2. Indian Agriculture (India)
-    3. Farmer Schemes (Scheme)
-    4. Weather/Monsoon Updates (Weather)
-    5. Crop Updates/Sowing (Crop)
-    6. Mandi Prices (Market)
-    7. Agri Technology (Tech)
-    8. Innovations in Farming (Innovation)
+    const prompt = `आज ${dateStr} के लिए भारत और विशेष रूप से मध्य प्रदेश (Madhya Pradesh) के लिए नवीनतम और सबसे महत्वपूर्ण कृषि समाचार (Agricultural News) खोजें।
+    
+    निम्नलिखित विषयों पर कम से कम 15 अलग-अलग और वास्तविक (Real) समाचार आइटम प्रदान करें:
+    1. मध्य प्रदेश कृषि (MP Agriculture News, CM Kisan Kalyan Yojana, MP Mandi updates)
+    2. भारतीय कृषि (Indian Agriculture, PM-Kisan, central schemes)
+    3. सरकारी योजनायें (Fasal Bima, Subsidy updates)
+    4. मौसम और मानसून (Weather alerts for farmers, Monsoon progress)
+    5. फसल अपडेट (Sowing updates for Malwa/Nimar/Bundelkhand regions)
+    6. मंडी भाव (Latest Mandi prices for Wheat, Soyabean, Garlic, etc. in MP)
+    7. कृषि तकनीक और नवाचार (Agri-tech, Smart farming)
 
-    Provide at least 8 real and current news items. 
-    Translate summaries and titles to Hindi. 
-    Ensure the "url" is a valid link to a news source like Krishi Jagran, DD Kisan, Patrika, Dainik Bhaskar, or similar.`;
+    नियम:
+    - कुल 15 समाचार दें (15 items).
+    - सभी शीर्षक (Titles) और सारांश (Summaries) शुद्ध हिंदी में हों।
+    - "url" अनिवार्य रूप से एक वैध न्यूज़ लिंक होना चाहिए (जैसे Patrika, Dainik Bhaskar, Krishi Jagran, DD Kisan, IBC24, etc.)।
+    - समाचार आज या इस सप्ताह के होने चाहिए।`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -114,8 +141,9 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
     
     return fallbackData;
   } catch (error: any) {
-    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
-      throw error;
+    const friendlyError = getFriendlyAiError(error);
+    if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
+      throw friendlyError;
     }
     console.error("Error fetching news with search:", error);
     

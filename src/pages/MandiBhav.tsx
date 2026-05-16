@@ -34,7 +34,7 @@ const MandiBhav: React.FC = () => {
       setData(result);
     } catch (error: any) {
       console.error(error);
-      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
+      if (error.type === 'key_missing' || error.type === 'key_invalid') {
         setIsModalOpen(true);
       }
     } finally {

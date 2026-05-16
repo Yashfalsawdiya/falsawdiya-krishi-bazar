@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { getFriendlyAiError } from "../utils/aiErrorHandler";
 
 const getAI = (userApiKey?: string) => {
   const apiKey = userApiKey;
@@ -178,11 +179,12 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
 
     return data;
   } catch (error: any) {
-    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
-      throw error;
+    const friendlyError = getFriendlyAiError(error);
+    if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
+      throw friendlyError;
     }
     // If it's a quota error, don't log it as a full error to avoid cluttering logs
-    const isQuotaError = error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED");
+    const isQuotaError = friendlyError.type === 'quota';
     
     if (isQuotaError) {
       console.warn("Gemini API Quota Exceeded for Mandi Bhav. Using fallback data.");

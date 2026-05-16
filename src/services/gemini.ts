@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { getFriendlyAiError } from "../utils/aiErrorHandler";
 
 const getAI = (userApiKey?: string) => {
   const apiKey = userApiKey;
@@ -72,12 +73,13 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
       };
     }
   } catch (error: any) {
-    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
-      throw error;
+    const friendlyError = getFriendlyAiError(error);
+    if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
+      throw friendlyError;
     }
     console.error("Gemini Error:", error);
     return {
-      analysis: "क्षमा करें, बीमारी का पता लगाने में समस्या हुई।",
+      analysis: friendlyError.message,
       keywords: []
     };
   }
@@ -128,21 +130,19 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
 
     return adviceText;
   } catch (error: any) {
-    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
-      throw error;
+    const friendlyError = getFriendlyAiError(error);
+    if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
+      throw friendlyError;
     }
     console.error("Gemini Advice Error:", error);
     
     // Try to return cached advice if available
     const cachedAdvice = localStorage.getItem(CACHE_KEY);
     if (cachedAdvice) {
-      return cachedAdvice + "\n\n*(नोट: यह पहले से सहेजी गई सलाह है, क्योंकि अभी इंटरनेट या सर्वर उपलब्ध नहीं है)*";
+      return cachedAdvice + `\n\n*(नोट: ${friendlyError.message})*`;
     }
 
-    if (error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED")) {
-      return "वर्तमान में सलाह उपलब्ध नहीं है क्योंकि सेवा की सीमा (Quota) समाप्त हो गई है। कृपया बाद में प्रयास करें।";
-    }
-    return "वर्तमान में सलाह उपलब्ध नहीं है। कृपया बाद में प्रयास करें।";
+    return friendlyError.message;
   }
 }
 
@@ -176,13 +176,11 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
 
     return response.text;
   } catch (error: any) {
-    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
-      throw error;
+    const friendlyError = getFriendlyAiError(error);
+    if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
+      throw friendlyError;
     }
     console.error("Gemini Chat Error:", error);
-    if (error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED")) {
-      return "क्षमा करें, सेवा की सीमा (Quota) समाप्त हो गई है। कृपया बाद में प्रयास करें।";
-    }
-    return "क्षमा करें, आपके प्रश्न का उत्तर देने में समस्या हुई। कृपया पुनः प्रयास करें।";
+    return friendlyError.message;
   }
 }

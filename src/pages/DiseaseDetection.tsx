@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Camera, Upload, Loader2, AlertCircle, CheckCircle2, Image as ImageIcon, RefreshCw, Info, ShoppingCart, ArrowRight, X } from 'lucide-react';
 import { detectDisease, DiseaseAnalysis } from '../services/gemini';
 import { motion, AnimatePresence } from 'motion/react';
+import { getFriendlyAiError } from '../utils/aiErrorHandler';
 import SmartImage from '../components/SmartImage';
 import Markdown from 'react-markdown';
 import { useAppContext } from '../context/AppContext';
@@ -54,11 +55,13 @@ const DiseaseDetection: React.FC = () => {
       setAnalysisResult(analysis);
     } catch (error: any) {
       console.error("Analysis failed:", error);
-      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
+      const friendlyError = getFriendlyAiError(error);
+      
+      if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
         setIsModalOpen(true);
       } else {
         setAnalysisResult({ 
-          analysis: "क्षमा करें, जाँच करने में समस्या हुई। कृपया अपनी API Key चेक करें या बाद में प्रयास करें।",
+          analysis: friendlyError.message,
           keywords: [] 
         });
       }

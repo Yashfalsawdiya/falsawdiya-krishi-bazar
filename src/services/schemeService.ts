@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { getFriendlyAiError } from "../utils/aiErrorHandler";
 
 const getAI = (userApiKey?: string) => {
   const apiKey = userApiKey;
@@ -111,10 +112,11 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
 
     return data;
   } catch (error: any) {
-    if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
-      throw error;
+    const friendlyError = getFriendlyAiError(error);
+    if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
+      throw friendlyError;
     }
-    const isQuotaError = error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED");
+    const isQuotaError = friendlyError.type === 'quota';
     if (isQuotaError) {
       console.warn("Gemini API Quota Exceeded for Schemes. Using fallback.");
     } else {

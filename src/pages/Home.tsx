@@ -277,9 +277,11 @@ const Home: React.FC = () => {
       setChatResponse(response);
     } catch (error: any) {
       console.error("AI Question failed:", error);
-      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
+      if (error.type === 'key_missing' || error.type === 'key_invalid') {
         setIsModalOpen(true);
         setIsChatOpen(false);
+      } else {
+        setChatResponse(error.message || "त्रुटि हुई। कृपया पुनः प्रयास करें।");
       }
     } finally {
       setIsAiLoading(false);
@@ -302,8 +304,10 @@ const Home: React.FC = () => {
       setAiAdvice(advice);
     } catch (error: any) {
       console.error("AI Advice failed:", error);
-      if (error.message === 'USER_API_KEY_MISSING' || error.message === 'GEMINI_KEY_NOT_SET') {
+      if (error.type === 'key_missing' || error.type === 'key_invalid') {
         setIsModalOpen(true);
+      } else {
+        setAiAdvice(error.message || "सलाह उपलब्ध नहीं है।");
       }
     } finally {
       setIsAiLoading(false);
