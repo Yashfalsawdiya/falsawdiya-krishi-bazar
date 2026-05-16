@@ -64,53 +64,114 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
       benefits: ["कम प्रीमियम", "प्राकृतिक आपदाओं से सुरक्षा"],
       eligibility: "सभी किसान जो अधिसूचित फसलें उगाते हैं",
       howToApply: "बैंक या बीमा एजेंट के माध्यम से।"
+    },
+    {
+      title: "किसान मानधन योजना",
+      description: "60 वर्ष की आयु के बाद किसानों को 3000 रुपये मासिक पेंशन।",
+      benefits: ["वृद्धावस्था में आर्थिक सुरक्षा", "मासिक पेंशन 3000 रु"],
+      eligibility: "18-40 वर्ष की आयु के छोटे और सीमांत किसान",
+      howToApply: "CSC केंद्रों के माध्यम से पंजीकरण।"
+    },
+    {
+      title: "प्रधानमंत्री कृपि सिंचाई योजना (PMKSY)",
+      description: "खेतों में पानी पहुँचने की सुविधा को बढ़ावा देना और 'हर खेत को पानी' का लक्ष्य।",
+      benefits: ["ड्रिप और स्प्रिंकलर सिंचाई पर भारी सब्सिडी", "पानी की बचत"],
+      eligibility: "सभी श्रेणी के किसान जिनके पास सिंचाई का स्रोत हो",
+      howToApply: "कृषि विभाग के ऑनलाइन पोर्टल पर आवेदन।"
+    },
+    {
+      title: "डेयरी उद्यमी विकास योजना (DEDH)",
+      description: "डेयरी व्यवसाय शुरू करने के लिए नाबार्ड (NABARD) के माध्यम से सब्सिडी और ऋण।",
+      benefits: ["25% से 33% तक सब्सिडी", "आसान ऋण सुविधा"],
+      eligibility: "किसान, उद्यमी और स्वयं सहायता समूह",
+      howToApply: "अपने नज़दीकी बैंक या नाबार्ड कार्यालय से संपर्क करें।"
     }
   ];
 
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
-    const prompt = `You are an expert in Indian Government Agricultural Schemes.
-    Current Date: ${dateStr}.
-    Provide a comprehensive, accurate and LATEST list of the top 8-10 government schemes for farmers in India, with a focus on both Central Government and Madhya Pradesh State Government schemes.
+    const prompt = `आज ${dateStr} तक की जानकारी के अनुसार भारत (India) और मध्य प्रदेश (Madhya Pradesh) सरकार की नवीनतम और सबसे महत्वपूर्ण 10 कृषि योजनाओं (Government Schemes for Farmers) की सूची प्रदान करें।
     
-    Include diverse categories:
-    - Financial Aid (PM-Kisan, CM-Kisan)
-    - Infrastructure/Subsidies (Solar pumps under PM-KUSUM, Tractor/Drip Irrigation subsidies)
-    - Insurance (Fasal Bima)
-    - Equipment/Tools subsidies
-    - Crop-specific incentives
+    योजनाओं के प्रकार:
+    - वित्तीय सहायता (Financial Aid)
+    - उपकरण सब्सिडी (Subsidies for Solar Pumps, Tractors)
+    - फसल बीमा (Insurance)
+    - पशुपालन और डेयरी विकास
     
-    Return the data in a strict JSON format (Array of Objects) only:
-    [
-      {
-        "title": "Scheme Name in Hindi",
-        "description": "Clear and detailed description in Hindi",
-        "benefits": ["Benefit 1 in Hindi", "Benefit 2 in Hindi"],
-        "eligibility": "Who can apply (in Hindi)",
-        "howToApply": "Step-by-step application process (in Hindi)",
-        "link": "Official website link (URL string)",
-        "category": "Central/State",
-        "type": "Financial/Subsidy/Insurance/etc"
-      }
-    ]
-    Ensure all schemes are currently active and provide real, updated information. Do not return anything except the JSON code block.`;
+    नियम:
+    - डेटा केवल JSON ऐरे फॉर्मैट में हो।
+    - सभी जानकारी पूरी तरह शुद्ध हिंदी में हो।
+    - लिंक (link) में केवल आधिकारिक सरकारी पोर्टल की लिंक दें।
+    - 'benefits' एक स्ट्रिंग ऐरे होना चाहिए।`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt
-    });
+    let response;
+    try {
+      console.log("Fetching schemes with Grounding...");
+      response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: "You are an expert Government Scheme Consultant for Indian Farmers. Provide real and current schemes in JSON format.",
+          tools: [{ googleSearch: {} }],
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "ARRAY" as any,
+            items: {
+              type: "OBJECT" as any,
+              properties: {
+                title: { type: "STRING" },
+                description: { type: "STRING" },
+                benefits: { type: "ARRAY" as any, items: { type: "STRING" } },
+                eligibility: { type: "STRING" },
+                howToApply: { type: "STRING" },
+                link: { type: "STRING" },
+                category: { type: "STRING" },
+                type: { type: "STRING" }
+              },
+              required: ["title", "description", "benefits", "eligibility", "howToApply"]
+            }
+          }
+        }
+      });
+    } catch (searchError) {
+      console.warn("Scheme grounding failed, using standard generation...", searchError);
+      response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: "You are an expert Government Scheme Consultant for Indian Farmers. Provide 10 most important agri schemes in JSON format using your latest knowledge.",
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "ARRAY" as any,
+            items: {
+              type: "OBJECT" as any,
+              properties: {
+                title: { type: "STRING" },
+                description: { type: "STRING" },
+                benefits: { type: "ARRAY" as any, items: { type: "STRING" } },
+                eligibility: { type: "STRING" },
+                howToApply: { type: "STRING" },
+                link: { type: "STRING" },
+                category: { type: "STRING" },
+                type: { type: "STRING" }
+              },
+              required: ["title", "description", "benefits", "eligibility", "howToApply"]
+            }
+          }
+        }
+      });
+    }
 
-    const text = response.text;
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) throw new Error("Invalid response format from AI");
-    
-    const data = JSON.parse(jsonMatch[0]);
+    const data = JSON.parse(response.text);
 
-    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-    localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
+    if (Array.isArray(data) && data.length > 0) {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
+      return data;
+    }
 
-    return data;
+    return fallbackData;
   } catch (error: any) {
     const friendlyError = getFriendlyAiError(error);
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
@@ -120,7 +181,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     if (isQuotaError) {
       console.warn("Gemini API Quota Exceeded for Schemes. Using fallback.");
     } else {
-      console.error("Error fetching schemes:", error);
+      console.error("Critical error fetching schemes:", error);
     }
 
     if (cachedData) {

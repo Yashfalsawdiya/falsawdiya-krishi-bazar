@@ -14,6 +14,7 @@ const DiseaseDetection: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<DiseaseAnalysis | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -45,6 +46,7 @@ const DiseaseDetection: React.FC = () => {
     if (appLoading) return;
 
     if (!userSettings?.geminiApiKey) {
+      setErrorMessage(undefined);
       setIsModalOpen(true);
       return;
     }
@@ -58,6 +60,7 @@ const DiseaseDetection: React.FC = () => {
       const friendlyError = getFriendlyAiError(error);
       
       if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
+        setErrorMessage(friendlyError.message);
         setIsModalOpen(true);
       } else {
         setAnalysisResult({ 
@@ -77,7 +80,11 @@ const DiseaseDetection: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-10">
-      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <ApiKeyModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        message={errorMessage}
+      />
       <div className="text-center">
         <h2 className="text-xl font-bold text-[#4A3728]">बीमारी की सटीक जाँच (AI Scan)</h2>
         <p className="text-sm text-gray-500">फोटो चुनें और तुरंत समाधान पाएं</p>

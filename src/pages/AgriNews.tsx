@@ -12,12 +12,14 @@ const AgriNews: React.FC = () => {
   const [news, setNews] = useState<AgriNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
   const loadNews = async () => {
     // Wait for app state to load before judging key presence
     if (appLoading) return;
 
     if (!userSettings?.geminiApiKey) {
+      setErrorMessage(undefined);
       setIsModalOpen(true);
       setLoading(false);
       return;
@@ -29,6 +31,7 @@ const AgriNews: React.FC = () => {
     } catch (error: any) {
       console.error(error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
+        setErrorMessage(error.message);
         setIsModalOpen(true);
       }
     } finally {
@@ -72,7 +75,11 @@ const AgriNews: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-10">
-      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <ApiKeyModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        message={errorMessage}
+      />
       <div className="text-center">
         <h2 className="text-xl font-bold text-[#4A3728] flex items-center justify-center gap-2">
           <Newspaper className="w-6 h-6 text-[#2D5A27]" />

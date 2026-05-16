@@ -34,20 +34,10 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
             
             FORMATTING INSTRUCTIONS:
             1. Provide the analysis in CLEAR, SIMPLE HINDI with English terms in brackets.
-            2. At the very end of your response, provide a list of search keywords (active ingredients or pesticide categories) separated by commas that can be used to search for real products in a store.
-            
-            Return the result as a JSON object with two fields:
-            - 'analysis': The markdown string in Hindi.
-            - 'keywords': An array of strings (e.g. ["Imidacloprid", "Fungicide", "Insecticide", "Thrips"]).
-            
-            Example JSON Response:
-            {
-              "analysis": "markdown text here...",
-              "keywords": ["Imidacloprid", "Insecticide"]
-            }`;
+            2. At the very end of your response, provide a list of search keywords (active ingredients or pesticide categories) separated by commas that can be used to search for real products in a store.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash",
       contents: {
         parts: [
           { text: prompt },
@@ -58,26 +48,28 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
             }
           }
         ]
+      },
+      config: {
+        systemInstruction: "You are an expert plant pathologist. Always provide detailed analysis in Hindi and return structured JSON.",
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT" as any,
+          properties: {
+            analysis: { type: "STRING" },
+            keywords: { type: "ARRAY" as any, items: { type: "STRING" } }
+          },
+          required: ["analysis", "keywords"]
+        }
       }
     });
 
-    const text = response.text;
-    try {
-      const jsonStr = text.replace(/```json|```/g, "").trim();
-      return JSON.parse(jsonStr);
-    } catch (e) {
-      // Fallback if parsing fails
-      return {
-        analysis: text,
-        keywords: []
-      };
-    }
+    return JSON.parse(response.text);
   } catch (error: any) {
     const friendlyError = getFriendlyAiError(error);
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
       throw friendlyError;
     }
-    console.error("Gemini Error:", error);
+    console.error("Gemini Disease Detection Error:", error);
     return {
       analysis: friendlyError.message,
       keywords: []
@@ -97,30 +89,34 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
     const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
 
-    const prompt = `You are an expert Indian agricultural scientist. 
-    Current Context:
-    - Current Date: ${dateStr}
-    - Current Time: ${timeStr}
-    - Location: Shamgarh, Madhya Pradesh
-    - Season: ${season}
-    - Weather: ${weatherData.temp}°C, Humidity: ${weatherData.humidity}%, Rain: ${weatherData.rain}mm, Condition: ${weatherData.condition}
-    - Crop: ${cropName}
+    const prompt = `आप एक विशेषज्ञ भारतीय कृषि वैज्ञानिक हैं। 
+    आज की स्थिति (${dateStr}):
+    - फसल: ${cropName}
+    - मौसम: ${weatherData.temp}°C, आर्द्रता: ${weatherData.humidity}%, बारिश: ${weatherData.rain}mm, स्थिति: ${weatherData.condition}
+    - स्थान: शामगढ़, मध्य प्रदेश
     
-    Provide a daily agricultural bulletin for a farmer in Hindi for TODAY (${dateStr}). 
-    CRITICAL: Use the current date (${dateStr}) in your response. Do NOT use any other dates like '22 May'.
-    
-    Include:
-    1. Current status of the crop for this season.
-    2. Specific advice for today based on the weather (e.g., if it's hot, advise on irrigation; if rainy, advise on drainage or avoiding spray).
-    3. Recommended fertilizers or pesticides if applicable for this stage.
-    4. A 'Pro Tip' for better yield.
-    
-    Keep the language simple, encouraging, and farmer-friendly. Use bullet points.`;
+    आज के लिए किसानों को विस्तृत कृषि सलाह प्रदान करें। इसमें सिंचाई, उर्वरक और कीट प्रबंधन पर विशेष जोर हो।`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: { parts: [{ text: prompt }] }
-    });
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: `You are a helpful Agri-Expert for farmers. Provide advice based on current weather. Today is ${dateStr}.`,
+          tools: [{ googleSearch: {} }]
+        }
+      });
+    } catch (e) {
+      console.warn("Advice Search failed, fallback to knowledge...");
+      response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: `You are a helpful Agri-Expert. Provide advice for ${dateStr} based on local knowledge.`
+        }
+      });
+    }
 
     const adviceText = response.text;
     
@@ -153,26 +149,31 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
     const now = new Date();
     const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 
-    const prompt = `You are an expert Indian agricultural scientist and a helpful assistant for farmers.
-    Current Context:
-    - Date: ${dateStr}
-    - Location: Shamgarh, Madhya Pradesh
-    - Current Weather: ${weatherData?.temp || 'N/A'}°C, Condition: ${weatherData?.condition || 'N/A'}
-    
-    User Question: "${question}"
-    
-    Instructions:
-    1. Answer the farmer's question in simple, clear Hindi.
-    2. If the question is about farming, crops, pests, or weather, provide detailed and scientifically accurate advice.
-    3. If the question is not related to agriculture, politely remind the farmer that you are an agricultural assistant but try to be helpful if possible.
-    4. Use bullet points and bold text for readability.
-    5. Keep the tone respectful and encouraging.
-    6. If the user asks in another language, respond in Hindi but acknowledge their question.`;
+    const prompt = `सवाल: "${question}"
+    स्थान: शामगढ़, मध्य प्रदेश
+    मौसम: ${weatherData?.temp || 'N/A'}°C, ${weatherData?.condition || 'N/A'}
+    तारीख: ${dateStr}`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: { parts: [{ text: prompt }] }
-    });
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: "You are an expert Indian agricultural scientist. Answer farmer questions in simple Hindi with bullet points and bold text using current search when needed.",
+          tools: [{ googleSearch: {} }]
+        }
+      });
+    } catch (e) {
+      console.warn("Chat Search failed, fallback to knowledge...");
+      response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: "You are an expert Indian agricultural scientist. Answer in Hindi based on your latest knowledge."
+        }
+      });
+    }
 
     return response.text;
   } catch (error: any) {

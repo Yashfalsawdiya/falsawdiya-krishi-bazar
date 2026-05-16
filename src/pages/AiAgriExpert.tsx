@@ -17,6 +17,7 @@ const AiAgriExpert: React.FC = () => {
   const navigate = useNavigate();
   
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [apiKeyErrorMessage, setApiKeyErrorMessage] = useState<string | undefined>();
   const [isCalling, setIsCalling] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const isMutedRef = useRef(false);
@@ -276,6 +277,7 @@ const AiAgriExpert: React.FC = () => {
     if (appLoading) return;
 
     if (!userSettings?.geminiApiKey) {
+      setApiKeyErrorMessage(undefined);
       setIsApiKeyModalOpen(true);
       return;
     }
@@ -433,7 +435,8 @@ const AiAgriExpert: React.FC = () => {
       console.error("Call initialization failed:", err);
       const friendlyError = getFriendlyAiError(err);
       
-      if (friendlyError.type === 'key_missing') {
+      if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
+        setApiKeyErrorMessage(friendlyError.message);
         setIsApiKeyModalOpen(true);
         setIsCalling(false);
         setStatus('idle');
@@ -472,7 +475,11 @@ const AiAgriExpert: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-between p-6 pb-24">
-      <ApiKeyModal isOpen={isApiKeyModalOpen} onClose={() => setIsApiKeyModalOpen(false)} />
+      <ApiKeyModal 
+        isOpen={isApiKeyModalOpen} 
+        onClose={() => setIsApiKeyModalOpen(false)} 
+        message={apiKeyErrorMessage}
+      />
       {/* Header */}
       <div className="w-full flex items-center justify-between mb-8">
         <button 

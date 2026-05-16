@@ -7,9 +7,10 @@ import { useAppContext } from '../context/AppContext';
 interface ApiKeyModalProps {
   isOpen: boolean;
   onClose: () => void;
+  message?: string;
 }
 
-const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => {
+const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, message }) => {
   const { appContent } = useAppContext();
 
   return (
@@ -43,8 +44,8 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             <div className="p-6 space-y-4">
-              <p className="text-sm text-gray-600 text-center font-medium leading-relaxed">
-                "कृपया अपनी API Key जनरेट करके दर्ज करें, ताकि आप ऐप की सभी फ्री AI सुविधाओं का लाभ ले सकें।"
+              <p className="text-sm text-gray-600 text-center font-medium leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">
+                {message || "कृपया अपनी API Key जनरेट करके दर्ज करें, ताकि आप ऐप की सभी फ्री AI सुविधाओं का लाभ ले सकें।"}
               </p>
 
               <div className="space-y-2">

@@ -29,11 +29,12 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   if (
     errorString.includes('API_KEY_INVALID') || 
     errorString.includes('400') && errorString.includes('invalid') ||
-    errorString.includes('403') && errorString.includes('permission')
+    errorString.includes('403') && errorString.includes('permission') ||
+    errorString.includes('invalid_argument')
   ) {
     return {
       type: 'key_invalid',
-      message: '⚠️ आपकी Gemini API Key मान्य नहीं है। कृपया सही API Key दर्ज करें।',
+      message: '⚠️ कृपया अपनी API Key जांचें और सही Valid API Key दर्ज करें।',
       originalError: error
     };
   }

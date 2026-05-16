@@ -61,6 +61,7 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
     
     data.items = data.items.map(item => {
       const avg = parseInt(item.avgPrice) || 0;
+      // Always regenerate or ensure history exists client-side to keep AI response small
       if (!item.history || item.history.length === 0) {
         return {
           ...item,
@@ -76,7 +77,8 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
 
       // If history is too short, pad it
       if (item.history.length < 30) {
-        const pads = generateHistory(item.history[0].price, 30 - item.history.length);
+        const lastPrice = item.history[0]?.price || avg;
+        const pads = generateHistory(lastPrice, 30 - item.history.length);
         item.history = [...pads, ...item.history];
       }
 
@@ -86,7 +88,7 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
   };
 
   // 1. Check Cache First
-  const CACHE_KEY = `mandi_bhav_${mandiName}_v2`; // Bumped version to clear old cache
+  const CACHE_KEY = `mandi_bhav_${mandiName}_v2`; 
   const CACHE_TIME_KEY = `${CACHE_KEY}_timestamp`;
   const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
@@ -109,69 +111,76 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
     mandiName: mandiName,
     date: `${dateStr} ${timeStr}`,
     items: [
-      { 
-        commodity: "सोयाबीन", minPrice: "4200", maxPrice: "4850", avgPrice: "4550", unit: "क्विंटल",
-        history: generateHistory(4500, 30)
-      },
-      { 
-        commodity: "गेहूं", minPrice: "2350", maxPrice: "2850", avgPrice: "2600", unit: "क्विंटल",
-        history: generateHistory(2550, 30)
-      },
-      { 
-        commodity: "लहसुन", minPrice: "7500", maxPrice: "18000", avgPrice: "12500", unit: "क्विंटल",
-        history: generateHistory(12000, 30)
-      },
-      { 
-        commodity: "प्याज", minPrice: "800", maxPrice: "2400", avgPrice: "1600", unit: "क्विंटल",
-        history: generateHistory(1500, 30)
-      }
-    ]
+      { commodity: "सोयाबीन", minPrice: "4200", maxPrice: "4850", avgPrice: "4550", unit: "क्विंटल" },
+      { commodity: "गेहूं", minPrice: "2350", maxPrice: "2850", avgPrice: "2600", unit: "क्विंटल" },
+      { commodity: "लहसुन", minPrice: "7500", maxPrice: "18000", avgPrice: "12500", unit: "क्विंटल" },
+      { commodity: "प्याज", minPrice: "800", maxPrice: "2400", avgPrice: "1600", unit: "क्विंटल" },
+      { commodity: "सरसों", minPrice: "5000", maxPrice: "5800", avgPrice: "5400", unit: "क्विंटल" }
+    ].map(item => ({ ...item, history: generateHistory(parseInt(item.avgPrice), 30) }))
   };
 
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
     
-    const prompt = `You are an expert agricultural market analyst for Madhya Pradesh, India.
-    Provide market prices (Mandi Bhav) for agricultural commodities in ${mandiName}, MP for TODAY, ${dateStr}. 
+    const prompt = `आज ${dateStr} के लिए मध्य प्रदेश की ${mandiName} मंडी के नवीनतम मंडी भाव (Market Prices) प्रदान करें। 
+    सोयाबीन, गेहूं, लहसुन, प्याज, सरसों, चना, मक्का आदि मुख्य फसलों के भाव शामिल करें।
     
-    IMPORTANT: For each commodity, also provide a mock historical price trend for the LAST 30 DAYS to show price fluctuations. 
-    The history should have exactly 30 data points representing consecutive days leading up to today.
-    Ensure "price" in history is a Number (integer), not a String.
-    
-    Return the data in this strict JSON format:
-    {
-      "mandiName": "${mandiName}",
-      "date": "${dateStr} ${timeStr}",
-      "items": [
-        { 
-          "commodity": "सोयाबीन", 
-          "minPrice": "4200", 
-          "maxPrice": "4800", 
-          "avgPrice": "4500", 
-          "unit": "क्विंटल",
-          "history": [
-            { "date": "01 Apr", "price": 4400 },
-            ... 30 points
-            { "date": "आज", "price": 4500 }
-          ]
+    नियम:
+    - डेटा केवल JSON फॉर्मैट में हो।
+    - सभी नाम हिंदी में हों।
+    - इतिहास (history) देने की ज़रूरत नहीं है, वो अपने आप जनरेट हो जायेगा।`;
+
+    const schema = {
+      type: "OBJECT" as any,
+      properties: {
+        mandiName: { type: "STRING" },
+        date: { type: "STRING" },
+        items: {
+          type: "ARRAY" as any,
+          items: {
+            type: "OBJECT" as any,
+            properties: {
+              commodity: { type: "STRING" },
+              minPrice: { type: "STRING" },
+              maxPrice: { type: "STRING" },
+              avgPrice: { type: "STRING" },
+              unit: { type: "STRING" }
+            },
+            required: ["commodity", "minPrice", "maxPrice", "avgPrice", "unit"]
+          }
         }
-      ]
+      },
+      required: ["mandiName", "date", "items"]
+    };
+
+    let response;
+    try {
+      console.log(`Fetching Mandi Bhav for ${mandiName} with Search...`);
+      response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: "You are an expert Mandi Bhav Reporter for Madhya Pradesh. Always return accurate JSON data.",
+          tools: [{ googleSearch: {} }],
+          responseMimeType: "application/json",
+          responseSchema: schema
+        }
+      });
+    } catch (searchError) {
+      console.warn("Mandi Search failed, using status knowledge...", searchError);
+      response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: "You are an expert Mandi Bhav Reporter. Provide estimated Mandi Bhav for given location in JSON.",
+          responseMimeType: "application/json",
+          responseSchema: schema
+        }
+      });
     }
-    
-    Include: Soybean, Wheat, Garlic, Onion, Mustard, Gram, Maize, etc.
-    Use Hindi names for commodities.
-    Only return JSON. Use realistic current and historical market estimates for ${mandiName}.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: { parts: [{ text: prompt }] }
-    });
-
-    const text = response.text;
-    const jsonStr = text.replace(/```json|```/g, "").trim();
-    const rawData = JSON.parse(jsonStr);
-    const data = sanitizeMandiData(rawData);
+    const data = sanitizeMandiData(JSON.parse(response.text));
 
     // Save to Cache
     localStorage.setItem(CACHE_KEY, JSON.stringify(data));
@@ -183,13 +192,12 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
       throw friendlyError;
     }
-    // If it's a quota error, don't log it as a full error to avoid cluttering logs
     const isQuotaError = friendlyError.type === 'quota';
     
     if (isQuotaError) {
-      console.warn("Gemini API Quota Exceeded for Mandi Bhav. Using fallback data.");
+      console.warn("Gemini API Quota Exceeded for Mandi Bhav. Using fallback.");
     } else {
-      console.error("Error fetching Mandi Bhav:", error);
+      console.error("Critical error fetching Mandi Bhav:", error);
     }
 
     // If we have any cached data at all (even if expired), use it as a better fallback than static data

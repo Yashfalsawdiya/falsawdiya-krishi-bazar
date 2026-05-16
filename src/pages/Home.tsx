@@ -84,6 +84,7 @@ const Home: React.FC = () => {
   const [aiAdvice, setAiAdvice] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [apiKeyErrorMessage, setApiKeyErrorMessage] = useState<string | undefined>();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [userQuestion, setUserQuestion] = useState('');
   const [lastQuestion, setLastQuestion] = useState<string | null>(null);
@@ -252,6 +253,7 @@ const Home: React.FC = () => {
     if (appLoading) return;
 
     if (!userSettings?.geminiApiKey) {
+      setApiKeyErrorMessage(undefined);
       setIsModalOpen(true);
       return;
     }
@@ -278,6 +280,7 @@ const Home: React.FC = () => {
     } catch (error: any) {
       console.error("AI Question failed:", error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
+        setApiKeyErrorMessage(error.message);
         setIsModalOpen(true);
         setIsChatOpen(false);
       } else {
@@ -292,6 +295,7 @@ const Home: React.FC = () => {
     if (appLoading) return;
 
     if (!userSettings?.geminiApiKey) {
+      setApiKeyErrorMessage(undefined);
       setIsModalOpen(true);
       return;
     }
@@ -305,6 +309,7 @@ const Home: React.FC = () => {
     } catch (error: any) {
       console.error("AI Advice failed:", error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
+        setApiKeyErrorMessage(error.message);
         setIsModalOpen(true);
       } else {
         setAiAdvice(error.message || "सलाह उपलब्ध नहीं है।");
@@ -336,7 +341,11 @@ const Home: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <ApiKeyModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        message={apiKeyErrorMessage}
+      />
       <div className="flex items-center justify-between px-1">
         <p className="text-xs font-bold text-gray-500 flex items-center gap-1">
           <Calendar className="w-3 h-3" /> {currentDate}

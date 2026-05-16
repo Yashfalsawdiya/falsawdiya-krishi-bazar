@@ -11,11 +11,13 @@ const Schemes: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
   const loadSchemes = async (force: boolean = false) => {
     if (appLoading) return;
 
     if (!userSettings?.geminiApiKey) {
+      setErrorMessage(undefined);
       setIsModalOpen(true);
       setLoading(false);
       return;
@@ -27,6 +29,7 @@ const Schemes: React.FC = () => {
     } catch (error: any) {
       console.error(error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
+        setErrorMessage(error.message);
         setIsModalOpen(true);
       }
     } finally {
@@ -42,7 +45,11 @@ const Schemes: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-10">
-      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <ApiKeyModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        message={errorMessage}
+      />
       <div className="text-center">
         <h2 className="text-xl font-bold text-[#4A3728] flex items-center justify-center gap-2">
           <Landmark className="w-6 h-6 text-[#2D5A27]" />
