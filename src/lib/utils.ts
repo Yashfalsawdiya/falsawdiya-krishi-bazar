@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { ImageSource } from "../types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -14,7 +15,7 @@ export function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export async function compressImage(base64: string, maxWidth = 2048, quality = 0.9): Promise<string> {
+export async function compressImage(base64: string, maxWidth = 600, quality = 0.7): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = base64;
@@ -23,6 +24,8 @@ export async function compressImage(base64: string, maxWidth = 2048, quality = 0
       let width = img.width;
       let height = img.height;
 
+      // Smart compression for Low-size Preview (Optimized)
+      // Default to 600px for previews to ensure fast loading and low storage quota
       if (width > maxWidth) {
         height = (maxWidth / width) * height;
         width = maxWidth;
@@ -37,19 +40,16 @@ export async function compressImage(base64: string, maxWidth = 2048, quality = 0
         return;
       }
 
-      // Clear canvas to ensure transparency is preserved
       ctx.clearRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
       
-      // Use webp if possible as it supports transparency and compression
-      // Fallback to png if input was png to preserve transparency, else jpeg
       const isPng = base64.startsWith('data:image/png');
       const format = isPng ? 'image/png' : 'image/jpeg';
       
-      // Try webp first for best results with transparency
       try {
         const webp = canvas.toDataURL('image/webp', quality);
         if (webp.startsWith('data:image/webp')) {
+          // If webp is drastically smaller/larger, we could check here
           resolve(webp);
           return;
         }
@@ -92,7 +92,18 @@ export function getDirectImageURL(url: string | undefined): string {
  * Returns a high-resolution version of an image URL by stripping common compression/resizing parameters
  * For Google Drive, the direct URL is already high-quality.
  */
-export function getHighResImageURL(url: string | undefined): string {
-  if (!url || typeof url !== 'string' || url.trim() === '') return '';
-  return getDirectImageURL(url);
+export function getHighResImageURL(image: string | ImageSource | undefined): string {
+  if (!image) return '';
+  
+  if (typeof image === 'string') {
+    return getDirectImageURL(image);
+  }
+
+  // PRORITIZE FALLBACK (URL) for High Resolution view as requested
+  if (image.fallback) {
+    return getDirectImageURL(image.fallback);
+  }
+
+  // Return primary if no fallback URL exists
+  return getDirectImageURL(image.primary);
 }

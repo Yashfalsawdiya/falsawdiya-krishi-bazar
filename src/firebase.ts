@@ -1,6 +1,12 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { initializeFirestore, doc, getDocFromServer, enableIndexedDbPersistence } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  doc, 
+  getDocFromServer, 
+  persistentLocalCache, 
+  persistentMultipleTabManager 
+} from 'firebase/firestore';
 
 // Try to load from JSON file, fallback to environment variables for Vercel/Production
 let firebaseConfig: any;
@@ -39,25 +45,19 @@ const dbId = (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreData
 console.log("Final Firestore Database ID:", dbId);
 
 // CRITICAL: Use initializeFirestore with experimentalForceLongPolling: true 
-// to fix connectivity issues (code=unavailable) in proxy/sandboxed environments.
+// and useFetchStreams: false to fix connectivity issues (code=unavailable) 
+// in proxy/sandboxed environments.
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
   experimentalAutoDetectLongPolling: false,
+  useFetchStreams: false,
   ignoreUndefinedProperties: true,
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
 } as any, dbId);
 
-// Enable persistence for offline mode and data saving
-try {
-  enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn("Firestore persistence failed: Multiple tabs open.");
-    } else if (err.code === 'unimplemented') {
-      console.warn("Firestore persistence failed: Browser does not support it.");
-    }
-  });
-} catch (err) {
-  console.error("Firestore persistence setup error:", err);
-}
+// Persistence is now handled by persistentLocalCache in the initialization settings.
 
 export const auth = getAuth(app);
 

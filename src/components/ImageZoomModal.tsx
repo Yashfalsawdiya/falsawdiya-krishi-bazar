@@ -32,9 +32,7 @@ const ImageZoomModal: React.FC<ImageZoomModalProps> = ({ isOpen, onClose, imageS
   };
 
   // Convert to string and get high res URL
-  const highResSrc = typeof imageSrc === 'string' 
-    ? getHighResImageURL(imageSrc) 
-    : getHighResImageURL(imageSrc.primary || imageSrc.fallback || '');
+  const highResSrc = getHighResImageURL(imageSrc);
 
   return (
     <AnimatePresence>

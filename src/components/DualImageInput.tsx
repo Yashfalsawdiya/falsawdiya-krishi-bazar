@@ -131,7 +131,7 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
             <div className="w-5 h-5 rounded-full bg-[#2D5A27]/10 flex items-center justify-center">
               <Upload className="w-3 h-3 text-[#2D5A27]" />
             </div>
-            <span className="text-[10px] font-bold text-[#4A3728] uppercase tracking-wide">गैलरी से चुनें (Pick from Gallery)</span>
+            <span className="text-[10px] font-bold text-[#4A3728] uppercase tracking-wide">नार्मल व्यू - (PREVIEW - Optimized)</span>
           </div>
           
           <div className={cn(
@@ -155,7 +155,7 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
                   </button>
                 </div>
                 <div className="absolute bottom-2 left-2 px-2.5 py-1 bg-[#2D5A27] text-white text-[8px] font-bold rounded-lg flex items-center gap-1.5 shadow-sm">
-                  <CheckCircle2 className="w-2.5 h-2.5" /> UPLOADED
+                  <CheckCircle2 className="w-2.5 h-2.5" /> Optimized
                 </div>
               </>
             ) : (
@@ -164,8 +164,8 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
                   {uploading ? <Loader2 className="w-5 h-5 text-[#2D5A27] animate-spin" /> : <ImageIcon className="w-5 h-5 text-gray-300" />}
                 </div>
                 <div className="text-center">
-                  <span className="text-[10px] font-bold text-[#2D5A27] block">गैलरी से चुनें</span>
-                  <span className="text-[8px] text-gray-400">High Quality Photos</span>
+                  <span className="text-[10px] font-bold text-[#2D5A27] block">गैलरी से लोड करें</span>
+                  <span className="text-[8px] text-gray-400">Low-size Preview</span>
                 </div>
                 <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handlePrimaryUpload} />
               </>
@@ -179,7 +179,7 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
             <div className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center">
               <LinkIcon className="w-3 h-3 text-blue-500" />
             </div>
-            <span className="text-[10px] font-bold text-[#4A3728] uppercase tracking-wide">Google Drive Image URL</span>
+            <span className="text-[10px] font-bold text-[#4A3728] uppercase tracking-wide">फुल स्क्रीन - (HIGH-QUALITY URL)</span>
           </div>
 
           <div className="space-y-2">

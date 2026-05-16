@@ -1,8 +1,9 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ShoppingBag, Building2, Tag, Info, Wheat } from 'lucide-react';
+import { X, ShoppingBag, Building2, Tag, Info, Wheat, Maximize2 } from 'lucide-react';
 import { Product } from '../types';
 import SmartImage from './SmartImage';
+import ImageZoomModal from './ImageZoomModal';
 
 interface ProductDetailModalProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface ProductDetailModalProps {
 }
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose, product, onBuy }) => {
+  const [isZoomOpen, setIsZoomOpen] = React.useState(false);
+
   if (!product) return null;
 
   return (
@@ -32,13 +35,16 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
             className="relative bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
           >
             {/* Header Image */}
-            <div className="relative h-64 sm:h-80 flex-shrink-0 overflow-hidden">
+            <div className="relative h-64 sm:h-80 flex-shrink-0 overflow-hidden group cursor-zoom-in" onClick={() => setIsZoomOpen(true)}>
               <SmartImage 
                 src={product.image} 
                 alt={product.hindiName}
-                className="w-full h-full"
+                className="w-full h-full transition-transform duration-700 group-hover:scale-110"
                 objectFit="cover"
               />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                <Maximize2 className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+              </div>
               <button 
                 onClick={onClose}
                 className="absolute top-4 right-4 bg-black/40 hover:bg-black/60 text-white p-2 rounded-full backdrop-blur-sm transition-colors"
@@ -137,6 +143,13 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 <ShoppingBag className="w-5 h-5" /> अभी खरीदें (Buy)
               </button>
             </div>
+
+            <ImageZoomModal 
+              isOpen={isZoomOpen}
+              onClose={() => setIsZoomOpen(false)}
+              imageSrc={product.image}
+              altText={product.hindiName}
+            />
           </motion.div>
         </div>
       )}
