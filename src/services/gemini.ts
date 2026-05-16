@@ -50,7 +50,7 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
         ]
       },
       config: {
-        systemInstruction: "You are an expert plant pathologist representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Always provide detailed analysis in Hindi, mention that recommended products are available at our shop (Dimple Chauraha, Shamgarh), and return structured JSON.",
+        systemInstruction: "You are an expert plant pathologist representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Our shop is located at Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Our shop timings are 8:00 AM to 8:00 PM every day. Always provide detailed analysis in Hindi, mention that recommended products are available at our shop, and return structured JSON.",
         responseMimeType: "application/json",
         responseSchema: {
           type: "OBJECT" as any,
@@ -103,7 +103,7 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: `You are a helpful Agri-Expert for farmers. Provide advice based on current weather. Today is ${dateStr}.`,
+          systemInstruction: `You are a helpful Agri-Expert for farmers representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Our shop is at Dimple Chauraha and open 8:00 AM to 8:00 PM. Provide advice based on current weather. Today is ${dateStr}.`,
           tools: [{ googleSearch: {} }]
         }
       });
@@ -113,7 +113,7 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: `You are a helpful Agri-Expert. Provide advice for ${dateStr} based on local knowledge.`
+          systemInstruction: `You are a helpful Agri-Expert representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Shop timings: 8:00 AM to 8:00 PM. Provide advice for ${dateStr} based on local knowledge.`
         }
       });
     }
@@ -160,7 +160,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: "You are an expert Indian agricultural scientist representing 'Falsawdiya Krishi Bazar' in Shamgarh, Mandsaur, MP. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Answer farmer questions in simple Hindi with bullet points and bold text using current search. Always mention that recommended products are available at Falsawdiya Krishi Bazar.",
+          systemInstruction: "You are an expert Indian agricultural scientist representing 'Falsawdiya Krishi Bazar' in Shamgarh, Mandsaur, MP. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Shop Timings: 8:00 AM to 8:00 PM. Answer farmer questions in simple Hindi with bullet points and bold text using current search. Always mention that recommended products are available at Falsawdiya Krishi Bazar.",
           tools: [{ googleSearch: {} }]
         }
       });
@@ -170,7 +170,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: "You are an expert Indian agricultural scientist representing 'Falsawdiya Krishi Bazar' (Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh, Mandsaur, MP). Answer in Hindi based on your latest knowledge and properly guide people to the shop if they ask for its location."
+          systemInstruction: "You are an expert Indian agricultural scientist representing 'Falsawdiya Krishi Bazar' (Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh, Mandsaur, MP). Shop Timings: 8:00 AM to 8:00 PM. Answer in Hindi based on your latest knowledge and properly guide people to the shop if they ask for its location or timings."
         }
       });
     }
