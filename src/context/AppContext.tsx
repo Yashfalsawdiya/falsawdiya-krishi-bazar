@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord } from '../types';
+import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline } from '../types';
 import { PRODUCTS, CROP_ADVICE, CATEGORIES } from '../data/mockData';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { 
@@ -75,6 +75,7 @@ interface AppContextType {
   products: Product[];
   categories: CategoryData[];
   agriIssues: AgriIssue[];
+  helplines: Helpline[];
   appContent: AppContent | null;
   user: FirebaseUser | null;
   isAdmin: boolean;
@@ -85,6 +86,7 @@ interface AppContextType {
   loadProducts: () => Unsubscribe | undefined;
   loadCategoryData: () => Unsubscribe | undefined;
   loadAgriIssues: () => Unsubscribe | undefined;
+  loadHelplines: () => Unsubscribe | undefined;
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
@@ -95,6 +97,9 @@ interface AppContextType {
   addAgriIssue: (issue: Omit<AgriIssue, 'id'>) => Promise<void>;
   updateAgriIssue: (issue: AgriIssue) => Promise<void>;
   deleteAgriIssue: (id: string) => Promise<void>;
+  addHelpline: (helpline: Omit<Helpline, 'id'>) => Promise<void>;
+  updateHelpline: (helpline: Helpline) => Promise<void>;
+  deleteHelpline: (id: string) => Promise<void>;
   updateAppContent: (content: AppContent) => Promise<void>;
   updateUserSettings: (settings: UserSettings) => Promise<void>;
   updateUserStatus: (uid: string, isBlocked: boolean) => Promise<void>;
@@ -108,6 +113,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryData[]>(CATEGORIES);
   const [agriIssues, setAgriIssues] = useState<AgriIssue[]>([]);
+  const [helplines, setHelplines] = useState<Helpline[]>([]);
   const [appContent, setAppContent] = useState<AppContent | null>(null);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -345,6 +351,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const loadHelplines = () => {
+    const cached = getCachedData<Helpline>('helplines');
+    if (cached && helplines.length === 0) {
+      setHelplines(cached);
+    }
+
+    const q = query(collection(db, 'helplines'), orderBy('order'));
+    return onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Helpline));
+      setHelplines(data);
+      setCacheData('helplines', data);
+      setIsQuotaExceeded(false);
+    }, (error) => {
+      console.error("Helplines listener error:", error);
+      const err = handleFirestoreError(error, OperationType.LIST, 'helplines');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
+      }
+    });
+  };
+
   // Dedicated effect for app content - important for branding
   useEffect(() => {
     // Always load branding from cache first
@@ -534,6 +561,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const addHelpline = async (helpline: Omit<Helpline, 'id'>) => {
+    try {
+      await addDoc(collection(db, 'helplines'), helpline);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'helplines');
+    }
+  };
+
+  const updateHelpline = async (helpline: Helpline) => {
+    try {
+      const { id, ...data } = helpline;
+      await setDoc(doc(db, 'helplines', id), data, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `helplines/${helpline.id}`);
+    }
+  };
+
+  const deleteHelpline = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'helplines', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `helplines/${id}`);
+    }
+  };
+
   const updateAppContent = async (content: AppContent) => {
     try {
       await setDoc(doc(db, 'settings', 'content'), content);
@@ -582,6 +634,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       products, 
       categories,
       agriIssues,
+      helplines,
       appContent,
       user, 
       isAdmin, 
@@ -592,6 +645,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       loadProducts,
       loadCategoryData,
       loadAgriIssues,
+      loadHelplines,
       addProduct, 
       updateProduct, 
       deleteProduct,
@@ -602,6 +656,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addAgriIssue,
       updateAgriIssue,
       deleteAgriIssue,
+      addHelpline,
+      updateHelpline,
+      deleteHelpline,
       updateAppContent,
       updateUserSettings,
       updateUserStatus,

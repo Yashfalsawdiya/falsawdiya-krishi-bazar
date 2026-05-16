@@ -1,55 +1,58 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Phone, ArrowLeft, PhoneCall, Headphones, Zap, ShieldCheck, Droplets, Landmark, ShoppingBag } from 'lucide-react';
+import { Phone, ArrowLeft, PhoneCall, Headphones, Zap, ShieldCheck, Droplets, Landmark, ShoppingBag, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAppContext } from '../context/AppContext';
+import { cn } from '../lib/utils';
 
 const Helpline: React.FC = () => {
   const navigate = useNavigate();
+  const { helplines, loadHelplines } = useAppContext();
 
-  const categories = [
-    {
-      title: "हमारी दुकान (Our Shop)",
-      icon: ShoppingBag,
-      color: "bg-purple-100 text-purple-600",
-      numbers: [
-        { 
-          name: "फल्सावदिया कृषि बाज़ार", 
-          number: "8982338046", 
-          desc: "पता: डिंपल चौराहा, शामगढ़ | समय: सुबह 9:00 - शाम 7:00" 
-        }
-      ]
-    },
-    {
-      title: "कृषि सेवाएं",
-      icon: Headphones,
-      color: "bg-green-100 text-green-600",
-      numbers: [
-        { name: "किसान कॉल सेंटर (KCC)", number: "1800-180-1551", desc: "कृषि सलाह के लिए" },
-        { name: "कृषि विभाग (म.प्र.)", number: "1551", desc: "सरकारी योजनाओं के लिए" },
-        { name: "मंडी कंट्रोल रूम", number: "0755-2550111", desc: "मंडी संबंधी सहायता" }
-      ]
-    },
-    {
-      title: "विभाग और आपूर्ति",
-      icon: Landmark,
-      color: "bg-blue-100 text-blue-600",
-      numbers: [
-        { name: "बिजली विभाग (ग्रामीण)", number: "1912", desc: "बिजली कटौती या शिकायत" },
-        { name: "सिंचाई विभाग हेल्पलाइन", number: "181", desc: "नहर या पानी की समस्या" },
-        { name: "बीज निगम म.प्र.", number: "0755-2551652", desc: "बीज उपलब्धता जानकारी" }
-      ]
-    },
-    {
-      title: "बीमा और सुरक्षा",
-      icon: ShieldCheck,
-      color: "bg-orange-100 text-orange-600",
-      numbers: [
-        { name: "फसल बीमा कंपनी", number: "1800-209-5959", desc: "क्लेम संबंधी जानकारी" },
-        { name: "पशु चिकित्सा हेल्पलाइन", number: "1962", desc: "बीमार पशुओं के लिए मदद" },
-        { name: "राजस्व विभाग (पटवारी)", number: "181", desc: "ज़मीन संबंधी शिकायतों के लिए" }
-      ]
-    }
-  ];
+  useEffect(() => {
+    const unsub = loadHelplines();
+    return () => {
+      if (unsub) unsub();
+    };
+  }, []);
+
+  // Grouping helplines by category
+  const groupedHelplines = useMemo(() => {
+    const groups: Record<string, typeof helplines> = {};
+    
+    // Sort helplines by order
+    const sortedHelplines = [...helplines].sort((a, b) => a.order - b.order);
+
+    sortedHelplines.forEach(hp => {
+      if (!groups[hp.category]) {
+        groups[hp.category] = [];
+      }
+      groups[hp.category].push(hp);
+    });
+
+    return groups;
+  }, [helplines]);
+
+  const getCategoryIcon = (category: string) => {
+    const cat = category.toLowerCase();
+    if (cat.includes('दुकान')) return ShoppingBag;
+    if (cat.includes('कृषि')) return Headphones;
+    if (cat.includes('बिजली')) return Zap;
+    if (cat.includes('बीमा')) return ShieldCheck;
+    if (cat.includes('सिंचाई')) return Droplets;
+    if (cat.includes('मंडी') || cat.includes('बैंक')) return Landmark;
+    return Phone;
+  };
+
+  const getCategoryColor = (category: string) => {
+    const cat = category.toLowerCase();
+    if (cat.includes('दुकान')) return "bg-purple-100 text-purple-600";
+    if (cat.includes('कृषि')) return "bg-green-100 text-green-600";
+    if (cat.includes('बिजली')) return "bg-yellow-100 text-yellow-600";
+    if (cat.includes('बीमा')) return "bg-orange-100 text-orange-600";
+    if (cat.includes('सिंचाई')) return "bg-blue-100 text-blue-600";
+    return "bg-gray-100 text-gray-600";
+  };
 
   return (
     <div className="space-y-6 pb-20">
@@ -69,38 +72,46 @@ const Helpline: React.FC = () => {
       </div>
 
       <div className="space-y-8">
-        {categories.map((cat, idx) => (
-          <div key={idx} className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-xl ${cat.color}`}>
-                <cat.icon className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-gray-700">{cat.title}</h4>
-            </div>
-            
-            <div className="grid gap-3">
-              {cat.numbers.map((num, i) => (
-                <motion.button
-                  key={i}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => window.location.href = `tel:${num.number.replace(/-/g, '')}`}
-                  className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group"
-                >
-                  <div className="text-left">
-                    <p className="font-bold text-gray-800">{num.name}</p>
-                    <p className="text-[10px] text-gray-400 font-medium">{num.desc}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-black text-[#2D5A27] font-mono">{num.number}</span>
-                    <div className="bg-green-50 p-2 rounded-full group-hover:bg-[#2D5A27] group-hover:text-white transition-colors">
-                      <Phone className="w-4 h-4 text-green-600 group-hover:text-white" />
-                    </div>
-                  </div>
-                </motion.button>
-              ))}
-            </div>
+        {Object.keys(groupedHelplines).length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-100">
+            <p className="text-sm text-gray-400">जल्द ही नंबर अपडेट किए जाएंगे...</p>
           </div>
-        ))}
+        ) : (
+          Object.keys(groupedHelplines).map((category, idx) => (
+            <div key={idx} className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-xl ${getCategoryColor(category)}`}>
+                  {React.createElement(getCategoryIcon(category), { className: "w-5 h-5" })}
+                </div>
+                <h4 className="font-bold text-gray-700">{category}</h4>
+              </div>
+              
+              <div className="grid gap-3">
+                {groupedHelplines[category].map((hp, i) => (
+                  <motion.button
+                    key={hp.id}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => window.location.href = `tel:${hp.number.replace(/[^0-9]/g, '')}`}
+                    className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group transition-all"
+                  >
+                    <div className="text-left flex-1 min-w-0 pr-4">
+                      <p className="font-bold text-gray-800 flex items-center gap-2 truncate">
+                        {hp.name}
+                      </p>
+                      {hp.description && <p className="text-[10px] text-gray-400 font-medium truncate">{hp.description}</p>}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-black text-[#2D5A27] font-mono whitespace-nowrap">{hp.number}</span>
+                      <div className="bg-green-50 p-2 rounded-full group-hover:bg-[#2D5A27] group-hover:text-white transition-colors shrink-0">
+                        <Phone className="w-4 h-4 text-green-600 group-hover:text-white" />
+                      </div>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <div className="bg-yellow-50 border-2 border-yellow-200 rounded-3xl p-6 text-center">

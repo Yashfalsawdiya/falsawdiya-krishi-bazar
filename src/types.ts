@@ -64,6 +64,15 @@ export interface AgriIssue {
   relatedProductIds: string[];
 }
 
+export interface Helpline {
+  id: string;
+  name: string;
+  number: string;
+  category: string;
+  description?: string;
+  order: number;
+}
+
 export interface UserRecord {
   uid: string;
   email: string;

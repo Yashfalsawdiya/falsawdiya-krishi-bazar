@@ -166,6 +166,19 @@
         "relatedProductIds": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["hindiName", "englishName", "type", "image"]
+    },
+    "Helpline": {
+      "title": "Helpline",
+      "description": "Helpline numbers for farmers.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "number": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["name", "number", "category"]
     }
   },
   "firestore": {
@@ -192,6 +205,10 @@
     "/agriIssues/{issueId}": {
       "schema": "AgriIssue",
       "description": "Collection of pests, diseases, and nutrient deficiencies."
+    },
+    "/helplines/{helplineId}": {
+      "schema": "Helpline",
+      "description": "Collection of helpline numbers."
     }
   }
 }

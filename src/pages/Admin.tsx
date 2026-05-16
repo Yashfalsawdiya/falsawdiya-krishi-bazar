@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { CategoryData, Product, AgriIssue } from '../types';
+import { CategoryData, Product, AgriIssue, Helpline } from '../types';
 // import { CATEGORIES } from '../data/mockData'; // No longer needed
 import { 
   Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
@@ -20,10 +20,11 @@ const Admin: React.FC = () => {
     products, addProduct, updateProduct, deleteProduct,
     categories, addCategory, updateCategory, deleteCategory,
     agriIssues, addAgriIssue, updateAgriIssue, deleteAgriIssue,
+    helplines, addHelpline, updateHelpline, deleteHelpline,
     appContent, updateAppContent,
     user, isAdmin, login, logout, loading,
     allUsers, updateUserStatus,
-    loadProducts, loadCategoryData, loadAgriIssues
+    loadProducts, loadCategoryData, loadAgriIssues, loadHelplines
   } = useAppContext();
 
   React.useEffect(() => {
@@ -31,15 +32,17 @@ const Admin: React.FC = () => {
       const unsubProducts = loadProducts();
       const unsubCats = loadCategoryData();
       const unsubIssues = loadAgriIssues();
+      const unsubHelplines = loadHelplines();
       return () => {
         if (unsubProducts) unsubProducts();
         if (unsubCats) unsubCats();
         if (unsubIssues) unsubIssues();
+        if (unsubHelplines) unsubHelplines();
       };
     }
   }, [isAdmin]);
   
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'content' | 'users'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users'>('products');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -52,6 +55,10 @@ const Admin: React.FC = () => {
   const [isAddingAgriIssue, setIsAddingAgriIssue] = useState(false);
   const [editingAgriIssue, setEditingAgriIssue] = useState<AgriIssue | null>(null);
   const [agriIssueToDelete, setAgriIssueToDelete] = useState<AgriIssue | null>(null);
+
+  const [isAddingHelpline, setIsAddingHelpline] = useState(false);
+  const [editingHelpline, setEditingHelpline] = useState<Helpline | null>(null);
+  const [helplineToDelete, setHelplineToDelete] = useState<Helpline | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -81,6 +88,14 @@ const Admin: React.FC = () => {
     description: '',
     image: { primary: '', fallback: '' },
     relatedProductIds: []
+  });
+
+  const [helplineForm, setHelplineForm] = useState<Omit<Helpline, 'id'>>({
+    name: '',
+    number: '',
+    category: '',
+    description: '',
+    order: 0
   });
 
   const [contentForm, setContentForm] = useState<AppContent | null>(null);
@@ -215,6 +230,54 @@ const Admin: React.FC = () => {
       setAgriIssueForm({ hindiName: '', englishName: '', type: 'pest', description: '', image: { primary: '', fallback: '' }, relatedProductIds: [] });
     } catch (error) {
       console.error("Error saving agri issue:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleHelplineSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      if (editingHelpline) {
+        await updateHelpline({ ...editingHelpline, ...helplineForm } as Helpline);
+        setEditingHelpline(null);
+      } else {
+        await addHelpline(helplineForm);
+      }
+      setIsAddingHelpline(false);
+      setHelplineForm({ name: '', number: '', category: '', description: '', order: helplines.length + 1 });
+    } catch (error) {
+      console.error("Error saving helpline:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const seedInitialHelplines = async () => {
+    const initialHelplines: Omit<Helpline, 'id'>[] = [
+      { name: "फल्सावदिया कृषि बाज़ार", number: "8982338046", category: "हमारी दुकान", description: "पता: डिंपल चौराहा, शामगढ़ | समय: सुबह 9:00 - शाम 7:00", order: 1 },
+      { name: "पशु चिकित्सा हेल्पलाइन", number: "1962", category: "पशुपालन विभाग", description: "बीमार पशुओं के लिए त्वरित मदद", order: 2 },
+      { name: "बिजली विभाग (ग्रामीण)", number: "1912", category: "बिजली विभाग", description: "बिजली कटौती या फाल्ट की शिकायत", order: 3 },
+      { name: "किसान कॉल सेंटर (KCC)", number: "1800-180-1551", category: "कृषि सेवाएं", description: "कृषि संबंधी किसी भी सलाह के लिए", order: 4 },
+      { name: "मौसम विभाग हेल्पलाइन", number: "18001801717", category: "मौसम विभाग", description: "मौसम की जानकारी के लिए", order: 5 },
+      { name: "फसल बीमा हेल्पलाइन", number: "18002095959", category: "फसल बीमा सहायता", description: "क्लेम और पॉलिसी की जानकारी", order: 6 },
+      { name: "सिंचाई विभाग हेल्पलाइन", number: "181", category: "सिंचाई विभाग", description: "नहर या पानी की समस्या के लिए", order: 7 },
+      { name: "मंडी हेल्पलाइन", number: "07552550111", category: "मंडी हेल्पलाइन", description: "मंडी भाव और अन्य जानकारी", order: 8 },
+      { name: "एम्बुलेंस", number: "108", category: "आपातकालीन सेवाएँ", description: "स्वास्थ्य आपातकाल के लिए", order: 9 },
+      { name: "पुलिस सहायता", number: "100", category: "आपातकालीन सेवाएँ", description: "किसी भी कानूनी मदद के लिए", order: 10 },
+      { name: "महिला हेल्पलाइन", number: "1091", category: "महिला हेल्पलाइन", description: "महिलाओं की सुरक्षा के लिए", order: 11 },
+      { name: "बैंक / KCC सहायता", number: "1800112211", category: "बैंक / केसीसी सहायता", description: "किसान क्रेडिट कार्ड जानकारी", order: 12 }
+    ];
+
+    setIsSaving(true);
+    try {
+      for (const h of initialHelplines) {
+        await addHelpline(h);
+      }
+      alert('शुरुआती हेल्पलाइन नंबर जोड़ दिए गए हैं!');
+    } catch (e) {
+      console.error(e);
     } finally {
       setIsSaving(false);
     }
@@ -502,6 +565,15 @@ const Admin: React.FC = () => {
           <Bug className="w-4 h-4" /> कीड़े/रोग (Encyclopedia)
         </button>
         <button 
+          onClick={() => setActiveTab('helplines')}
+          className={cn(
+            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'helplines' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <Phone className="w-4 h-4" /> हेल्पलाइन (Helplines)
+        </button>
+        <button 
           onClick={() => setActiveTab('content')}
           className={cn(
             "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
@@ -710,6 +782,86 @@ const Admin: React.FC = () => {
                     </button>
                     <button 
                       onClick={() => setAgriIssueToDelete(issue)}
+                      className="p-2.5 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </div>
+        </>
+      ) : activeTab === 'helplines' ? (
+        <>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-gray-500 text-sm uppercase tracking-wider">
+              हेल्पलाइन डायरेक्टरी ({helplines.length})
+            </h3>
+            <div className="flex gap-2">
+              {helplines.length === 0 && (
+                <button 
+                  onClick={seedInitialHelplines}
+                  className="bg-blue-600 text-white py-2 px-4 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold active:scale-95 transition-transform"
+                >
+                  <Plus className="w-4 h-4" /> शुरूआती नंबर जोड़ें
+                </button>
+              )}
+              <button 
+                onClick={() => {
+                  setIsAddingHelpline(true);
+                  setEditingHelpline(null);
+                  setHelplineForm({ name: '', number: '', category: '', description: '', order: helplines.length + 1 });
+                }}
+                className="bg-[#2D5A27] text-white py-2 px-4 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold active:scale-95 transition-transform"
+              >
+                <Plus className="w-4 h-4" /> नया जोड़ें
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {helplines.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-100">
+                <p className="text-sm text-gray-400">कोई हेल्पलाइन नहीं मिली।</p>
+              </div>
+            ) : (
+              helplines.map((hp) => (
+                <motion.div 
+                  layout
+                  key={hp.id}
+                  className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group transition-all"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-inner bg-gray-100 text-gray-600">
+                      <Phone className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800">
+                        {hp.name}
+                      </h4>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
+                        {hp.category} • {hp.number} • क्रम: {hp.order}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        setEditingHelpline(hp);
+                        setHelplineForm(hp);
+                        setIsAddingHelpline(true);
+                      }}
+                      className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (confirm(`क्या आप वाकई "${hp.name}" को हटाना चाहते हैं?`)) {
+                          deleteHelpline(hp.id);
+                        }
+                      }}
                       className="p-2.5 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1904,6 +2056,102 @@ const Admin: React.FC = () => {
                 >
                   {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
                   श्रेणी सुरक्षित करें
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {(isAddingHelpline || editingHelpline) && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-[110] flex items-end sm:items-center justify-center p-4 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ y: 100 }}
+              animate={{ y: 0 }}
+              exit={{ y: 100 }}
+              className="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold text-[#4A3728]">{editingHelpline ? 'हेल्पलाइन सुधारें' : 'नई हेल्पलाइन'}</h3>
+                  <p className="text-xs text-gray-400 font-medium">किसानों के लिए जरूरी नंबर</p>
+                </div>
+                <button onClick={() => { setIsAddingHelpline(false); setEditingHelpline(null); }} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={handleHelplineSubmit} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">नाम (Name)</label>
+                  <input 
+                    required
+                    type="text" 
+                    value={helplineForm.name}
+                    onChange={e => setHelplineForm({...helplineForm, name: e.target.value})}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                    placeholder="जैसे: किसान कॉल सेंटर"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">नंबर (Number)</label>
+                  <input 
+                    required
+                    type="text" 
+                    value={helplineForm.number}
+                    onChange={e => setHelplineForm({...helplineForm, number: e.target.value})}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium font-mono"
+                    placeholder="जैसे: 1551"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">कैटेगरी (Category)</label>
+                  <input 
+                    required
+                    type="text" 
+                    value={helplineForm.category}
+                    onChange={e => setHelplineForm({...helplineForm, category: e.target.value})}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                    placeholder="जैसे: कृषि विभाग"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">विवरण (Short Description)</label>
+                  <input 
+                    type="text" 
+                    value={helplineForm.description}
+                    onChange={e => setHelplineForm({...helplineForm, description: e.target.value})}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                    placeholder="जैसे: सरकारी योजनाओं की जानकारी के लिए"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">क्रम (Priority Order)</label>
+                  <input 
+                    type="number" 
+                    value={helplineForm.order}
+                    onChange={e => setHelplineForm({...helplineForm, order: parseInt(e.target.value) || 0})}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  />
+                </div>
+
+                <button 
+                  type="submit" 
+                  disabled={isSaving}
+                  className="w-full bg-[#2D5A27] text-white py-5 rounded-[1.5rem] font-bold flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all disabled:opacity-50 mt-4"
+                >
+                  {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+                  हेल्पलाइन सुरक्षित करें
                 </button>
               </form>
             </motion.div>

@@ -93,12 +93,12 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
     const response = await fetch(url);
     if (!response.ok) {
       if (response.status === 429) {
-        console.warn("Weather API Rate Limit Exceeded. Using fallback.");
+        console.warn("Weather API Rate Limit Exceeded.");
       }
       throw new Error(`Weather API responded with status: ${response.status}`);
     }
     const data = await response.json();
-
+    
     const days = ['रविवार', 'सोमवार', 'मंगलवार', 'बुधवार', 'गुरुवार', 'शुक्रवार', 'शनिवार'];
     
     // Slice 1 to 8 to get exactly 7 days of forecast starting from tomorrow
@@ -144,7 +144,35 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
 
     return weatherResult;
   } catch (error) {
-    console.error("Error fetching weather:", error);
+    // Attempt secondary fallback from wttr.in if primary fails
+    try {
+      const wttrUrl = `https://wttr.in/${lat},${lon}?format=j1`;
+      const wttrRes = await fetch(wttrUrl);
+      if (wttrRes.ok) {
+        const d = await wttrRes.json();
+        const current = d.current_condition[0];
+        const wttrWeather: WeatherData = {
+          temp: parseInt(current.temp_C),
+          condition: current.lang_hi?.[0]?.value || current.weatherDesc[0].value,
+          humidity: parseInt(current.humidity),
+          windSpeed: parseInt(current.windspeedKmph),
+          rain: parseFloat(current.precipMM),
+          maxTemp: parseInt(d.weather[0].maxtempC),
+          minTemp: parseInt(d.weather[0].mintempC),
+          forecast: d.weather.slice(1, 8).map((w: any) => ({
+            day: new Date(w.date).toLocaleDateString('hi-IN', { weekday: 'long' }),
+            temp: `${w.maxtempC}°C`,
+            condition: w.hourly?.[4]?.weatherDesc?.[0]?.value || 'साफ'
+          })),
+          hourly: []
+        };
+        return wttrWeather;
+      }
+    } catch (e) {
+      // Ignore wttr failures
+    }
+
+    console.warn("Weather sync failed, using fallback/cached data.");
     
     // If API fails, try to return expired cache if available
     if (cachedData) {
