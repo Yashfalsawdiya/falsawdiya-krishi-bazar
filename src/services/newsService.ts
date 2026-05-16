@@ -167,9 +167,9 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
-    const prompt = `आज ${dateStr} के लिए भारत और विशेष रूप से मध्य प्रदेश (Madhya Pradesh) के लिए नवीनतम और सबसे महत्वपूर्ण कृषि समाचार (Agricultural News) खोजें।
+    const prompt = `आज ${dateStr} के लिए भारत और विशेष रूप से मध्य प्रदेश (Madhya Pradesh) के लिए नवीनतम और सबसे महत्वपूर्ण 20 कृषि समाचार (Agricultural News) खोजें।
     
-    निम्नलिखित विषयों पर कम से कम 15 अलग-अलग और वास्तविक (Real) समाचार आइटम प्रदान करें:
+    निम्नलिखित विषयों पर कम से कम 20 अलग-अलग और वास्तविक (Real) समाचार आइटम प्रदान करें:
     1. मध्य प्रदेश कृषि (MP Agriculture News, CM Kisan Kalyan Yojana, MP Mandi updates)
     2. भारतीय कृषि (Indian Agriculture, PM-Kisan, central schemes)
     3. सरकारी योजनायें (Fasal Bima, Subsidy updates)
@@ -177,11 +177,12 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
     5. फसल अपडेट (Sowing updates for Malwa/Nimar/Bundelkhand regions)
     6. मंडी भाव (Latest Mandi prices for Wheat, Soyabean, Garlic, etc. in MP)
     7. कृषि तकनीक और नवाचार (Agri-tech, Smart farming)
+    8. पशुपालन और डेयरी (Dairy and Livestock news)
 
     नियम:
-    - कुल 15 समाचार दें (15 items).
-    - सभी शीर्षक (Titles) और सारांश (Summaries) शुद्ध हिंदी में हों।
-    - "url" अनिवार्य रूप से एक वैध न्यूज़ लिंक होना चाहिए (जैसे Patrika, Dainik Bhaskar, Krishi Jagran, DD Kisan, IBC24, etc.)।
+    - कुल 20 समाचार दें (20 items).
+    - सभी शीर्षक (Titles) और सारांश (Summaries) बहुत ही विस्तृत, पेशेवर और किसान-अनुकूल (Farmer-friendly) हिंदी में हों।
+    - "url" अनिवार्य रूप से एक वैध न्यूज़ लिंक होना चाहिए।
     - समाचार आज या इस सप्ताह के होने चाहिए।`;
 
     let response;
@@ -191,7 +192,7 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
         model: "gemini-2.0-flash",
         contents: prompt,
         config: {
-          systemInstruction: "You are a specialized Agricultural News reporter for Indian farmers. Always provide real, current news updates in a JSON array format.",
+          systemInstruction: "You are a specialized Agricultural News reporter for Indian farmers. Always provide real, current, and detailed news updates in a JSON array format.",
           tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           responseSchema: {
@@ -220,7 +221,7 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
         model: "gemini-2.0-flash",
         contents: prompt,
         config: {
-          systemInstruction: "You are a specialized Agricultural News reporter for Indian farmers. Provide 15 most important agri news items as of today. Use your latest knowledge if search is unavailable.",
+          systemInstruction: "You are a specialized Agricultural News reporter for Indian farmers. Provide 20 most important agri news items as of today. Use your latest knowledge if search is unavailable.",
           responseMimeType: "application/json",
           responseSchema: {
             type: "ARRAY" as any,

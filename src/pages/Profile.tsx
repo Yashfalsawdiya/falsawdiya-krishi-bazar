@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { motion } from 'motion/react';
-import { User, Key, ExternalLink, Save, LogOut, LogIn, ChevronRight, Info, Youtube, RefreshCw } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { User, Key, ExternalLink, Save, LogOut, LogIn, ChevronRight, Info, Youtube, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { GoogleGenAI } from "@google/genai";
+import { cn } from '../lib/utils';
 
 const Profile: React.FC = () => {
   const { user, userSettings, updateUserSettings, login, logout, loading, appContent } = useAppContext();
   const [apiKey, setApiKey] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     if (userSettings) {
@@ -26,6 +29,36 @@ const Profile: React.FC = () => {
       setSaveMessage('त्रुटि: सुरक्षित नहीं हो सका');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const testApiKey = async () => {
+    if (!apiKey) {
+      setSaveMessage('कृपया पहले Key डालें।');
+      return;
+    }
+    setTestStatus('testing');
+    try {
+      const genAI: any = new GoogleGenAI({ apiKey: apiKey.trim() });
+      // Using the same pattern as newsService.ts
+      const result = await genAI.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: [{ role: 'user', parts: [{ text: 'Hi' }] }]
+      });
+      
+      if (result) {
+        setTestStatus('success');
+        setSaveMessage('बधाई हो! आपकी API Key बिल्कुल सही काम कर रही है। (Working Properly)');
+      }
+    } catch (error: any) {
+      console.error("Key test failed:", error);
+      setTestStatus('error');
+      setSaveMessage('त्रुटि: यह Key अमान्य है या काम नहीं कर रही। (Invalid Key)');
+    } finally {
+      setTimeout(() => {
+        setTestStatus('idle');
+        setSaveMessage('');
+      }, 6000);
     }
   };
 
@@ -121,7 +154,25 @@ const Profile: React.FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">अपनी Gemini API Key यहाँ डालें</label>
+          <div className="flex justify-between items-end mb-1">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">अपनी Gemini API Key</label>
+            {apiKey && (
+              <button 
+                onClick={testApiKey}
+                disabled={testStatus === 'testing'}
+                className={cn(
+                  "text-[9px] font-black uppercase px-2 py-0.5 rounded border transition-colors flex items-center gap-1",
+                  testStatus === 'idle' && "text-blue-600 border-blue-200 bg-blue-50",
+                  testStatus === 'testing' && "text-gray-400 border-gray-200 bg-gray-50",
+                  testStatus === 'success' && "text-green-600 border-green-200 bg-green-50",
+                  testStatus === 'error' && "text-red-600 border-red-200 bg-red-50"
+                )}
+              >
+                {testStatus === 'testing' ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
+                Key चेक करें (Check Key)
+              </button>
+            )}
+          </div>
           <div className="relative">
             <input 
               type="password" 
@@ -130,7 +181,15 @@ const Profile: React.FC = () => {
               className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 pr-12 outline-none transition-all font-mono text-sm"
               placeholder="AIzaSy..."
             />
-            <Key className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center">
+              {testStatus === 'success' ? (
+                <CheckCircle2 className="w-5 h-5 text-green-500" />
+              ) : testStatus === 'error' ? (
+                <AlertCircle className="w-5 h-5 text-red-500" />
+              ) : (
+                <Key className="w-5 h-5 text-gray-300" />
+              )}
+            </div>
           </div>
         </div>
 

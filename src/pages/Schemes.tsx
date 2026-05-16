@@ -87,21 +87,31 @@ const Schemes: React.FC = () => {
                 <div className="w-10 h-10 bg-[#2D5A27]/10 rounded-xl flex items-center justify-center shrink-0">
                   <Landmark className="w-5 h-5 text-[#2D5A27]" />
                 </div>
-                <div className="overflow-hidden">
-                  <div className="flex flex-wrap gap-1 mb-0.5">
-                    {scheme.category && (
-                      <span className="text-[8px] font-bold px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
-                        {scheme.category}
+                <div className="overflow-hidden flex-1">
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {scheme.governmentLevel && (
+                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${
+                        scheme.governmentLevel.toLowerCase().includes('central') 
+                          ? 'bg-blue-50 text-blue-600 border-blue-100' 
+                          : 'bg-orange-50 text-orange-600 border-orange-100'
+                      }`}>
+                        {scheme.governmentLevel.toLowerCase().includes('central') ? 'केंद्र सरकार' : 'राज्य सरकार'}
                       </span>
                     )}
-                    {scheme.type && (
-                      <span className="text-[8px] font-bold px-1.5 py-0.5 bg-orange-50 text-orange-600 rounded-full border border-orange-100">
-                        {scheme.type}
+                    {scheme.sector && (
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 bg-green-50 text-green-600 rounded-full border border-green-100">
+                        {scheme.sector}
                       </span>
                     )}
                   </div>
-                  <h3 className="font-bold text-gray-800 text-xs leading-tight mb-0.5">{scheme.title}</h3>
-                  <p className="text-[10px] text-gray-500 line-clamp-1">{scheme.description}</p>
+                  <h3 className="font-bold text-gray-800 text-xs leading-tight mb-1">{scheme.title}</h3>
+                  <p className="text-[10px] text-gray-500 line-clamp-2">{scheme.description}</p>
+                  
+                  {scheme.subsidyDetails && (
+                    <div className="mt-2 text-[9px] font-medium text-[#2D5A27] bg-[#2D5A27]/5 px-2 py-0.5 rounded-md inline-block">
+                      सहायता: {scheme.subsidyDetails}
+                    </div>
+                  )}
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-300 shrink-0 ml-2" />
@@ -114,71 +124,121 @@ const Schemes: React.FC = () => {
       {selectedScheme && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-3xl w-full max-w-sm max-h-[80vh] overflow-y-auto"
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
           >
-            <div className="p-6 space-y-4">
-              <div className="flex justify-between items-start">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-bold text-[#2D5A27] leading-tight">{selectedScheme.title}</h3>
-                  <div className="flex gap-2">
-                    {selectedScheme.category && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100 uppercase tracking-wide">
-                        {selectedScheme.category}
-                      </span>
-                    )}
-                    {selectedScheme.type && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full border border-orange-100 uppercase tracking-wide">
-                        {selectedScheme.type}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button onClick={() => setSelectedScheme(null)} className="p-1 -mr-2 text-gray-400 hover:text-gray-600 transition-colors">
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
+            {/* Modal Header */}
+            <div className="p-6 pb-4 border-b border-gray-100 relative shrink-0">
+              <button 
+                onClick={() => setSelectedScheme(null)} 
+                className="absolute right-4 top-4 p-2 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-full transition-colors"
+                id="close-scheme-modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
               
-              <div className="space-y-4">
-                <section>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase mb-1">विवरण (Description)</h4>
-                  <p className="text-sm text-gray-600 leading-relaxed">{selectedScheme.description}</p>
-                </section>
-
-                <section>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase mb-1">लाभ (Benefits)</h4>
-                  <ul className="space-y-1">
-                    {selectedScheme.benefits.map((benefit, i) => (
-                      <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
-                        <span className="w-1.5 h-1.5 bg-[#2D5A27] rounded-full mt-1.5 shrink-0" />
-                        {benefit}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-
-                <section>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase mb-1">पात्रता (Eligibility)</h4>
-                  <p className="text-sm text-gray-600">{selectedScheme.eligibility}</p>
-                </section>
-
-                <section>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase mb-1">आवेदन कैसे करें (How to Apply)</h4>
-                  <p className="text-sm text-gray-600">{selectedScheme.howToApply}</p>
-                </section>
-
-                {selectedScheme.link && (
-                  <a 
-                    href={selectedScheme.link} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-3 bg-[#2D5A27] text-white rounded-xl font-bold text-sm"
-                  >
-                    आधिकारिक वेबसाइट <ExternalLink className="w-4 h-4" />
-                  </a>
-                )}
+              <div className="space-y-3 pr-8">
+                <div className="flex flex-wrap gap-2">
+                  <span className={`text-[10px] font-bold px-3 py-1 rounded-full border uppercase tracking-wider ${
+                    selectedScheme.governmentLevel?.toLowerCase().includes('central') 
+                      ? 'bg-blue-50 text-blue-600 border-blue-100' 
+                      : 'bg-orange-50 text-orange-600 border-orange-100'
+                  }`}>
+                    {selectedScheme.governmentLevel?.toLowerCase().includes('central') ? 'भारत सरकार (Central)' : 'राज्य सरकार (State)'}
+                  </span>
+                  <span className="text-[10px] font-bold px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-100 uppercase tracking-wider">
+                    {selectedScheme.sector}
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold text-[#2D5A27] leading-tight mt-1">{selectedScheme.title}</h3>
               </div>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="p-6 pt-4 space-y-6 overflow-y-auto custom-scrollbar">
+              <section className="space-y-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-1.5 h-4 bg-[#2D5A27] rounded-full" />
+                  <h4 className="text-sm font-bold text-gray-800">उद्देश्य (Objective)</h4>
+                </div>
+                <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">
+                  {selectedScheme.objective || selectedScheme.description}
+                </p>
+              </section>
+
+              <div className="grid grid-cols-1 gap-6">
+                <section className="space-y-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-1.5 h-4 bg-blue-500 rounded-full" />
+                    <h4 className="text-sm font-bold text-gray-800">लाभ एवं सहायता (Benefits & Subsidy)</h4>
+                  </div>
+                  <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3">
+                    <p className="text-sm font-bold text-blue-700 underline decoration-blue-200 underline-offset-4">
+                      {selectedScheme.subsidyDetails}
+                    </p>
+                    <ul className="space-y-2">
+                      {selectedScheme.benefits.map((benefit, i) => (
+                        <li key={i} className="text-sm text-gray-700 flex items-start gap-2 italic">
+                          <span className="text-blue-500 font-bold">•</span>
+                          {benefit}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </section>
+
+                <section className="space-y-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-1.5 h-4 bg-orange-500 rounded-full" />
+                    <h4 className="text-sm font-bold text-gray-800">पात्रता (Eligibility)</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 bg-orange-50/30 p-3 rounded-xl border border-orange-100">
+                    {selectedScheme.eligibility}
+                  </p>
+                </section>
+
+                {selectedScheme.requiredDocuments && selectedScheme.requiredDocuments.length > 0 && (
+                  <section className="space-y-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-1.5 h-4 bg-purple-500 rounded-full" />
+                      <h4 className="text-sm font-bold text-gray-800">आवश्यक दस्तावेज (Required Documents)</h4>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedScheme.requiredDocuments.map((doc, i) => (
+                        <span key={i} className="text-[11px] bg-purple-50 text-purple-700 px-3 py-1 rounded-lg border border-purple-100 font-medium italic">
+                          {doc}
+                        </span>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                <section className="space-y-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-1.5 h-4 bg-teal-500 rounded-full" />
+                    <h4 className="text-sm font-bold text-gray-800">आवेदन प्रक्रिया (How to Apply)</h4>
+                  </div>
+                  <div className="text-sm text-gray-600 bg-teal-50/30 p-3 rounded-xl border border-teal-100 leading-relaxed italic">
+                    {selectedScheme.howToApply}
+                  </div>
+                </section>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 pt-2 shrink-0">
+              {selectedScheme.link && (
+                <a 
+                  href={selectedScheme.link} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-3 w-full py-4 bg-[#2D5A27] text-white rounded-2xl font-bold text-base shadow-lg shadow-[#2D5A27]/20 active:scale-[0.98] transition-transform"
+                  id="scheme-apply-link"
+                >
+                  आधिकारिक वेबसाइट पर जाएँ <ExternalLink className="w-5 h-5" />
+                </a>
+              )}
             </div>
           </motion.div>
         </div>

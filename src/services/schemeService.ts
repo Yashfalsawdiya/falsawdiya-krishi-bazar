@@ -13,8 +13,13 @@ const getAI = (userApiKey?: string) => {
 export interface Scheme {
   title: string;
   description: string;
+  objective: string;
   benefits: string[];
+  subsidyDetails: string;
+  sector: string;
+  governmentLevel: 'Central' | 'State' | string;
   eligibility: string;
+  requiredDocuments: string[];
   howToApply: string;
   link?: string;
   category?: string;
@@ -27,7 +32,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
 
   const CACHE_KEY = 'agri_schemes_cache';
   const CACHE_TIME_KEY = 'agri_schemes_cache_time';
-  const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+  const CACHE_DURATION = 10 * 1000; // 10 seconds for real-time update as requested by user ("Google से real-time में fetch हों")
 
   const cachedData = localStorage.getItem(CACHE_KEY);
   const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
@@ -47,72 +52,62 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     {
       title: "पीएम-किसान सम्मान निधि (PM-Kisan)",
       description: "किसानों को प्रति वर्ष 6000 रुपये की आर्थिक सहायता दी जाती है।",
+      objective: "सीमांत और छोटे किसानों को आय सहायता प्रदान करना।",
       benefits: ["2000 रुपये की 3 किस्तें", "सीधे बैंक खाते में पैसा"],
+      subsidyDetails: "100% केंद्र सरकार द्वारा वित्त पोषित",
+      sector: "वित्तीय सहायता (Direct Benefit Transfer)",
+      governmentLevel: "Central",
       eligibility: "सभी भूमिधारक किसान परिवार",
+      requiredDocuments: ["आधार कार्ड", "खतौनी/राजस्व दस्तावेज", "बैंक खाता विवरण"],
       howToApply: "पीएम-किसान पोर्टल या CSC केंद्र के माध्यम से पंजीकरण करें।"
     },
     {
       title: "मुख्यमंत्री किसान कल्याण योजना (MP CM-Kisan)",
       description: "मध्य प्रदेश सरकार द्वारा पीएम-किसान के लाभार्थियों को अतिरिक्त आर्थिक सहायता।",
+      objective: "राज्य के किसानों की आर्थिक स्थिति में सुधार करना।",
       benefits: ["4000 रुपये अतिरिक्त आर्थिक सहायता", "पीएम-किसान के साथ जुड़ाव"],
+      subsidyDetails: "राज्य सरकार द्वारा अतिरिक्त भुगतान",
+      sector: "वित्तीय सहायता",
+      governmentLevel: "State (MP)",
       eligibility: "पीएम-किसान योजना के पात्र किसान",
+      requiredDocuments: ["पीएम-किसान आईडी", "बैंक विवरण"],
       howToApply: "पीएम-किसान की पात्रता के आधार पर स्वतः लाभ।"
-    },
-    {
-      title: "प्रधानमंत्री फसल बीमा योजना (PMFBY)",
-      description: "फसल के नुकसान होने पर किसानों को बीमा कवर प्रदान किया जाता है।",
-      benefits: ["कम प्रीमियम", "प्राकृतिक आपदाओं से सुरक्षा"],
-      eligibility: "सभी किसान जो अधिसूचित फसलें उगाते हैं",
-      howToApply: "बैंक या बीमा एजेंट के माध्यम से।"
-    },
-    {
-      title: "किसान मानधन योजना",
-      description: "60 वर्ष की आयु के बाद किसानों को 3000 रुपये मासिक पेंशन।",
-      benefits: ["वृद्धावस्था में आर्थिक सुरक्षा", "मासिक पेंशन 3000 रु"],
-      eligibility: "18-40 वर्ष की आयु के छोटे और सीमांत किसान",
-      howToApply: "CSC केंद्रों के माध्यम से पंजीकरण।"
-    },
-    {
-      title: "प्रधानमंत्री कृपि सिंचाई योजना (PMKSY)",
-      description: "खेतों में पानी पहुँचने की सुविधा को बढ़ावा देना और 'हर खेत को पानी' का लक्ष्य।",
-      benefits: ["ड्रिप और स्प्रिंकलर सिंचाई पर भारी सब्सिडी", "पानी की बचत"],
-      eligibility: "सभी श्रेणी के किसान जिनके पास सिंचाई का स्रोत हो",
-      howToApply: "कृषि विभाग के ऑनलाइन पोर्टल पर आवेदन।"
-    },
-    {
-      title: "डेयरी उद्यमी विकास योजना (DEDH)",
-      description: "डेयरी व्यवसाय शुरू करने के लिए नाबार्ड (NABARD) के माध्यम से सब्सिडी और ऋण।",
-      benefits: ["25% से 33% तक सब्सिडी", "आसान ऋण सुविधा"],
-      eligibility: "किसान, उद्यमी और स्वयं सहायता समूह",
-      howToApply: "अपने नज़दीकी बैंक या नाबार्ड कार्यालय से संपर्क करें।"
     }
   ];
 
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
-    const prompt = `आज ${dateStr} तक की जानकारी के अनुसार भारत (India) और मध्य प्रदेश (Madhya Pradesh) सरकार की नवीनतम और सबसे महत्वपूर्ण 10 कृषि योजनाओं (Government Schemes for Farmers) की सूची प्रदान करें।
     
-    योजनाओं के प्रकार:
-    - वित्तीय सहायता (Financial Aid)
-    - उपकरण सब्सिडी (Subsidies for Solar Pumps, Tractors)
-    - फसल बीमा (Insurance)
-    - पशुपालन और डेयरी विकास
+    const prompt = `आज ${dateStr} तक की जानकारी के अनुसार भारत (Central Govt) और मध्य प्रदेश (MP State Govt) की नवीनतम और सबसे महत्वपूर्ण 20 कृषि योजनाओं (Government Schemes for Farmers) की बहुत ही विस्तृत और प्रोफेशनल सूची प्रदान करें।
+    
+    प्रत्येक योजना में निम्नलिखित जानकारी शामिल होनी चाहिए (Strictly JSON format):
+    - title: योजना का पूरा नाम
+    - governmentLevel: 'Central' या 'State'
+    - description: संक्षिप्त विवरण
+    - objective: योजना का मुख्य उद्देश्य (विस्तार से)
+    - benefits: किसान को मिलने वाले लाभ (Array of strings)
+    - subsidyDetails: सब्सिडी या वित्तीय सहायता का विवरण (जैसे 50% सब्सिडी, ट्रैक्टर पर 1 लाख छूट आदि)
+    - sector: संबंधित क्षेत्र (जैस Infrastructure, Irrigation, Solar, Tractor, Insurance, Fertilizer, Dairy आदि)
+    - eligibility: कौन आवेदन कर सकता है (पात्रता)
+    - requiredDocuments: आवश्यक दस्तावेज (Array of strings)
+    - howToApply: आवेदन कैसे करें
+    - link: आधिकारिक सरकारी वेबसाइट लिंक
     
     नियम:
     - डेटा केवल JSON ऐरे फॉर्मैट में हो।
     - सभी जानकारी पूरी तरह शुद्ध हिंदी में हो।
-    - लिंक (link) में केवल आधिकारिक सरकारी पोर्टल की लिंक दें।
-    - 'benefits' एक स्ट्रिंग ऐरे होना चाहिए।`;
+    - 'benefits' और 'requiredDocuments' स्ट्रिंग ऐरे (Array) होने चाहिए।
+    - जितनी ज्यादा हो सके केंद्र और राज्य दोनों की योजनाओं को कवर करें।`;
 
     let response;
     try {
-      console.log("Fetching schemes with Grounding...");
+      console.log("Fetching detailed schemes with Grounding...");
       response = await ai.models.generateContent({
         model: "gemini-2.0-flash",
         contents: prompt,
         config: {
-          systemInstruction: "You are an expert Government Scheme Consultant for Indian Farmers. Provide real and current schemes in JSON format.",
+          systemInstruction: "You are an expert Government Scheme Consultant for Indian Farmers. Provide professional, detailed, and current schemes in a structured JSON format. Categorize them as Central or State government schemes.",
           tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           responseSchema: {
@@ -121,15 +116,18 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
               type: "OBJECT" as any,
               properties: {
                 title: { type: "STRING" },
+                governmentLevel: { type: "STRING" },
                 description: { type: "STRING" },
+                objective: { type: "STRING" },
                 benefits: { type: "ARRAY" as any, items: { type: "STRING" } },
+                subsidyDetails: { type: "STRING" },
+                sector: { type: "STRING" },
                 eligibility: { type: "STRING" },
+                requiredDocuments: { type: "ARRAY" as any, items: { type: "STRING" } },
                 howToApply: { type: "STRING" },
-                link: { type: "STRING" },
-                category: { type: "STRING" },
-                type: { type: "STRING" }
+                link: { type: "STRING" }
               },
-              required: ["title", "description", "benefits", "eligibility", "howToApply"]
+              required: ["title", "governmentLevel", "description", "objective", "benefits", "subsidyDetails", "sector", "eligibility", "requiredDocuments", "howToApply"]
             }
           }
         }
@@ -140,7 +138,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
         model: "gemini-2.0-flash",
         contents: prompt,
         config: {
-          systemInstruction: "You are an expert Government Scheme Consultant for Indian Farmers. Provide 10 most important agri schemes in JSON format using your latest knowledge.",
+          systemInstruction: "You are an expert Government Scheme Consultant. Provide 20 most important agri schemes in JSON format using latest knowledge.",
           responseMimeType: "application/json",
           responseSchema: {
             type: "ARRAY" as any,
@@ -148,15 +146,18 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
               type: "OBJECT" as any,
               properties: {
                 title: { type: "STRING" },
+                governmentLevel: { type: "STRING" },
                 description: { type: "STRING" },
+                objective: { type: "STRING" },
                 benefits: { type: "ARRAY" as any, items: { type: "STRING" } },
+                subsidyDetails: { type: "STRING" },
+                sector: { type: "STRING" },
                 eligibility: { type: "STRING" },
+                requiredDocuments: { type: "ARRAY" as any, items: { type: "STRING" } },
                 howToApply: { type: "STRING" },
-                link: { type: "STRING" },
-                category: { type: "STRING" },
-                type: { type: "STRING" }
+                link: { type: "STRING" }
               },
-              required: ["title", "description", "benefits", "eligibility", "howToApply"]
+              required: ["title", "governmentLevel", "description", "objective", "benefits", "subsidyDetails", "sector", "eligibility", "requiredDocuments", "howToApply"]
             }
           }
         }
