@@ -78,7 +78,6 @@ interface AppContextType {
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
-  clearAllProducts: () => Promise<void>;
   addCategory: (category: Omit<CategoryData, 'id'>) => Promise<void>;
   updateCategory: (category: CategoryData) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
@@ -515,39 +514,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const clearAllProducts = async () => {
-    if (!isAdmin) {
-      console.warn("Only admins can clear all products.");
-      return;
-    }
-    
-    try {
-      const q = collection(db, 'products');
-      const snapshot = await getDocs(q);
-      const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, 'products', d.id)));
-      await Promise.all(deletePromises);
-      setProducts([]);
-      localStorage.removeItem('last_agri_sync_date'); // Clear sync flag to force refresh
-      console.log("All products deleted from Firestore.");
-    } catch (error) {
-      console.error("Error clearing products:", error);
-    }
-  };
-
-  // One-time cleanup effect for Admins requested by user
-  useEffect(() => {
-    const performCleanup = async () => {
-      const cleanupDone = localStorage.getItem('products_cleanup_v1');
-      if (isAdmin && !cleanupDone) {
-        console.log("Performing requested products cleanup...");
-        await clearAllProducts();
-        localStorage.setItem('products_cleanup_v1', 'true');
-        alert("सभी पुराने प्रोडक्ट्स डिलीट कर दिए गए हैं। (All old products have been deleted as requested)");
-      }
-    };
-    performCleanup();
-  }, [isAdmin]);
-
   const addCategory = async (category: Omit<CategoryData, 'id'>) => {
     try {
       await addDoc(collection(db, 'categories'), category);
@@ -686,7 +652,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addProduct, 
       updateProduct, 
       deleteProduct,
-      clearAllProducts,
       addCategory,
       updateCategory,
       deleteCategory,
