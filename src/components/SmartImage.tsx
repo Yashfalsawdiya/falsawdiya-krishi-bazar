@@ -10,6 +10,7 @@ interface SmartImageProps {
   fallbackSrc?: string;
   objectFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
   onClick?: (e: React.MouseEvent) => void;
+  priority?: boolean;
 }
 
 const SmartImage: React.FC<SmartImageProps> = ({ 
@@ -18,7 +19,8 @@ const SmartImage: React.FC<SmartImageProps> = ({
   className, 
   fallbackSrc = '',
   objectFit = 'cover',
-  onClick
+  onClick,
+  priority = false
 }) => {
   const [currentSrc, setCurrentSrc] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
@@ -87,7 +89,8 @@ const SmartImage: React.FC<SmartImageProps> = ({
           onLoad={() => setIsLoaded(true)}
           onError={handleError}
           referrerPolicy="no-referrer"
-          loading="lazy"
+          loading={priority ? "eager" : "lazy"}
+          {...(priority ? { fetchPriority: "high" } : {})}
         />
       )}
       

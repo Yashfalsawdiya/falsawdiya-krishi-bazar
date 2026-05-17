@@ -268,6 +268,7 @@ const Home: React.FC = () => {
                   alt={banner.title} 
                   className="absolute inset-0 w-full h-full"
                   objectFit="cover"
+                  priority={idx === 0}
                 />
               {appContent?.showBannerText !== false && (
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-6 text-white">

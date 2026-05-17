@@ -63,6 +63,7 @@ const Layout: React.FC = () => {
               alt="Logo" 
               className="w-full h-full" 
               objectFit="contain" 
+              priority
             />
           </div>
           <h1 className="text-3xl font-black text-[#4A3728] mb-2">{branding.name}</h1>

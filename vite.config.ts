@@ -57,7 +57,7 @@ export default defineConfig(({mode}) => {
         },
         workbox: {
           cleanupOutdatedCaches: true,
-          globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,json}'],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -65,7 +65,7 @@ export default defineConfig(({mode}) => {
               options: {
                 cacheName: 'google-fonts-cache',
                 expiration: {
-                  maxEntries: 10,
+                  maxEntries: 20,
                   maxAgeSeconds: 60 * 60 * 24 * 365
                 },
                 cacheableResponse: {
@@ -79,8 +79,22 @@ export default defineConfig(({mode}) => {
               options: {
                 cacheName: 'firebase-images-cache',
                 expiration: {
-                  maxEntries: 100,
-                  maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                  maxEntries: 200,
+                  maxAgeSeconds: 60 * 60 * 24 * 90 // 90 days
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            },
+            {
+              urlPattern: /^https:\/\/(?:lh3\.googleusercontent\.com|drive\.google\.com)\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'google-drive-images-cache',
+                expiration: {
+                  maxEntries: 200,
+                  maxAgeSeconds: 60 * 60 * 24 * 90 // 90 days
                 },
                 cacheableResponse: {
                   statuses: [0, 200]
@@ -91,9 +105,10 @@ export default defineConfig(({mode}) => {
               urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
               handler: 'StaleWhileRevalidate',
               options: {
-                cacheName: 'images-cache',
+                cacheName: 'general-images-cache',
                 expiration: {
-                  maxEntries: 50
+                  maxEntries: 100,
+                  maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
                 }
               }
             }

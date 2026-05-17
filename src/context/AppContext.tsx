@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline } from '../types';
 import { PRODUCTS, CROP_ADVICE, CATEGORIES } from '../data/mockData';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
+import { cn, getDirectImageURL, getHighResImageURL } from '../lib/utils';
 import { 
   collection, 
   onSnapshot, 
@@ -260,6 +261,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return null;
   };
 
+  const prefetchImage = (url: string | ImageSource | undefined) => {
+    if (!url) return;
+    const directUrl = typeof url === 'string' ? getDirectImageURL(url) : getDirectImageURL(url.primary || url.fallback || '');
+    if (!directUrl || directUrl.startsWith('data:')) return; // Already "cached" if base64
+
+    // Simple fetch to trigger Service Worker caching
+    fetch(directUrl, { mode: 'no-cors' }).catch(() => {
+      // Background fetch failed, standard image loading will retry
+    });
+  };
+
+  const prefetchContentImages = useCallback((content: AppContent | null) => {
+    if (!content) return;
+    
+    // Prefetch essential UI assets
+    prefetchImage(content.branding.logo);
+    prefetchImage(content.branding.pwaIcon);
+    prefetchImage(content.branding.androidIcon);
+    prefetchImage(content.branding.splashLogo);
+    
+    content.banners.forEach(b => prefetchImage(b.image));
+    content.videos.forEach(v => prefetchImage(v.thumbnail));
+    content.partners.forEach(p => prefetchImage(p.logo));
+  }, []);
+
   const setCacheData = <T,>(key: string, data: T[]) => {
     try {
       localStorage.setItem(`agri_cache_${key}`, JSON.stringify(data));
@@ -285,6 +311,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
       setProducts(prods);
       setCacheData('products', prods);
+      
+      // Prefetch images for top 10 products
+      prods.slice(0, 10).forEach(p => prefetchImage(p.image));
+      
       markSyncDone();
       setIsQuotaExceeded(false);
     }, (error) => {
@@ -314,6 +344,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!snapshot.empty) {
         setCategories(data);
         setCacheData('categories', data);
+        
+        // Prefetch all category icons
+        data.forEach(c => prefetchImage(c.icon));
+        
         markSyncDone();
       }
       setIsQuotaExceeded(false);
@@ -389,6 +423,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const data = snapshot.data() as AppContent;
         setAppContent(data);
         localStorage.setItem('agri_cache_app_content', JSON.stringify(data));
+        prefetchContentImages(data);
         markSyncDone();
       }
     }, (error) => {

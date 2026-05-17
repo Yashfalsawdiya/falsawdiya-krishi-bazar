@@ -65,6 +65,7 @@ const Header: React.FC = () => {
                   alt="Logo" 
                   className="w-full h-full" 
                   objectFit="contain" 
+                  priority
                 />
               </Link>
             </motion.div>
@@ -181,6 +182,7 @@ const Header: React.FC = () => {
                       alt="Logo" 
                       className="w-full h-full" 
                       objectFit="contain" 
+                      priority
                     />
                   </motion.div>
                   <button onClick={() => setIsMenuOpen(false)} className="p-2 hover:bg-white/10 rounded-full">
