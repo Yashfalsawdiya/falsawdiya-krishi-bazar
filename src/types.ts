@@ -25,6 +25,8 @@ export interface Product {
   description: string;
   crops: string[];
   variants?: { id: string; quantity: string; price: number }[];
+  isFeatured?: boolean;
+  featuredOrder?: number;
   dosage?: {
     show: boolean;
     value: string;

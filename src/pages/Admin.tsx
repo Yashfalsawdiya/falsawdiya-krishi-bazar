@@ -5,7 +5,7 @@ import { CategoryData, Product, AgriIssue, Helpline } from '../types';
 import { 
   Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
-  Youtube as YoutubeIcon, Layout, Phone, Key,
+  Youtube as YoutubeIcon, Layout, Phone, Key, Star, ArrowUp, ArrowDown,
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -42,7 +42,7 @@ const Admin: React.FC = () => {
     }
   }, [isAdmin]);
   
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users'>('content');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users' | 'featured'>('content');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -75,6 +75,8 @@ const Admin: React.FC = () => {
     image: { primary: '', fallback: '' },
     crops: [],
     variants: [],
+    isFeatured: false,
+    featuredOrder: 0,
     dosage: { show: false, value: '' }
   });
 
@@ -183,6 +185,8 @@ const Admin: React.FC = () => {
         image: { primary: '', fallback: '' }, 
         crops: [],
         variants: [],
+        isFeatured: false,
+        featuredOrder: products.filter(p => p.isFeatured).length + 1,
         dosage: { show: false, value: '' }
       });
     } catch (error) {
@@ -586,6 +590,15 @@ const Admin: React.FC = () => {
           <Phone className="w-4 h-4" /> हेल्पलाइन (Helplines)
         </button>
         <button 
+          onClick={() => setActiveTab('featured')}
+          className={cn(
+            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'featured' ? "bg-amber-500 text-white shadow-md shadow-amber-100" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <Star className="w-4 h-4" /> विशेष उत्पाद (Featured)
+        </button>
+        <button 
           onClick={() => setActiveTab('users')}
           className={cn(
             "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
@@ -618,6 +631,8 @@ const Admin: React.FC = () => {
                   image: { primary: '', fallback: '' }, 
                   crops: [],
                   variants: [],
+                  isFeatured: false,
+                  featuredOrder: products.filter(p => p.isFeatured).length + 1,
                   dosage: { show: false, value: '' }
                 });
               }}
@@ -654,6 +669,11 @@ const Admin: React.FC = () => {
                         {product.customId && (
                           <span className="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100 font-black">
                             ID: {product.customId}
+                          </span>
+                        )}
+                        {product.isFeatured && (
+                          <span className="text-[8px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black flex items-center gap-0.5 shadow-sm shadow-amber-100">
+                            <Star className="w-2 h-2 fill-current" /> विशेष
                           </span>
                         )}
                       </div>
@@ -898,6 +918,121 @@ const Admin: React.FC = () => {
             )}
           </div>
         </>
+      ) : activeTab === 'featured' ? (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-[#4A3728] text-lg">होम स्क्रीन प्रोडक्ट मैनेजमेंट</h3>
+              <p className="text-xs text-gray-400 font-medium tracking-tight">Home screen पर दिखने वाले विशेष उत्पाद तय करें</p>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-100 p-4 rounded-[2rem] flex items-start gap-4">
+            <div className="w-10 h-10 bg-amber-500 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-sm shadow-amber-200">
+              <Star className="w-5 h-5 fill-current" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-amber-900">Featured Products कैसे काम करता है?</h4>
+              <p className="text-[11px] text-amber-800/80 leading-relaxed font-medium">
+                यहाँ लिस्ट में वो उत्पाद हैं जिन्हें आपने "Featured" मार्क किया है। Home Page पर ये इसी "क्रम (Order)" में दिखाई देंगे। आप ऊपर/नीचे एरो बटन से इनकी स्थिति बदल सकते हैं।
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {products.filter(p => p.isFeatured).length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100">
+                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ShoppingBag className="w-8 h-8 text-gray-300" />
+                </div>
+                <p className="text-sm text-gray-400 font-bold">कोई Featured प्रोडक्ट नहीं मिला।</p>
+                <p className="text-xs text-gray-300 mt-1 font-medium">उत्पाद टैब में जाकर किसी प्रोडक्ट को "Featured" बनाएं।</p>
+              </div>
+            ) : (
+              products
+                .filter(p => p.isFeatured)
+                .sort((a, b) => (a.featuredOrder || 0) - (b.featuredOrder || 0))
+                .map((product, idx, array) => (
+                  <motion.div 
+                    layout
+                    key={`${product.id}-feat`} 
+                    className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <div className="absolute -top-1.5 -left-1.5 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-[10px] font-black text-white border-2 border-white shadow-sm z-10">
+                          {idx + 1}
+                        </div>
+                        <SmartImage src={product.image} alt={product.name} className="w-16 h-16 rounded-2xl shadow-sm" objectFit="cover" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-gray-800">{product.hindiName}</h4>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100 font-black">
+                            ID: {product.customId || product.id.substring(0, 5)}
+                          </span>
+                          <span className="text-[9px] bg-gray-50 text-gray-400 px-1.5 py-0.5 rounded border border-gray-100 font-bold uppercase">
+                            क्रम: {product.featuredOrder}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex flex-col gap-1">
+                        <button 
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={async () => {
+                            if (idx === 0) return;
+                            const prevProd = array[idx - 1];
+                            const currentProd = product;
+                            const tempOrder = prevProd.featuredOrder || 0;
+                            await updateProduct({ ...prevProd, featuredOrder: currentProd.featuredOrder });
+                            await updateProduct({ ...currentProd, featuredOrder: tempOrder });
+                          }}
+                          className={cn(
+                            "p-2 rounded-xl transition-all active:scale-95",
+                            idx === 0 ? "text-gray-200 cursor-not-allowed" : "text-amber-500 bg-amber-50 hover:bg-amber-100"
+                          )}
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                        </button>
+                        <button 
+                          type="button"
+                          disabled={idx === array.length - 1}
+                          onClick={async () => {
+                            if (idx === array.length - 1) return;
+                            const nextProd = array[idx + 1];
+                            const currentProd = product;
+                            const tempOrder = nextProd.featuredOrder || 0;
+                            await updateProduct({ ...nextProd, featuredOrder: currentProd.featuredOrder });
+                            await updateProduct({ ...currentProd, featuredOrder: tempOrder });
+                          }}
+                          className={cn(
+                            "p-2 rounded-xl transition-all active:scale-95",
+                            idx === array.length - 1 ? "text-gray-200 cursor-not-allowed" : "text-amber-500 bg-amber-50 hover:bg-amber-100"
+                          )}
+                        >
+                          <ArrowDown className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={async () => {
+                          if (confirm(`क्या आप वाकई "${product.hindiName}" को Featured से हटाना चाहते हैं?`)) {
+                            await updateProduct({ ...product, isFeatured: false });
+                          }
+                        }}
+                        className="p-3 text-red-500 bg-red-50 rounded-2xl hover:bg-red-100 transition-colors flex items-center justify-center"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ))
+            )}
+          </div>
+        </div>
       ) : activeTab === 'users' ? (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
@@ -1547,6 +1682,8 @@ const Admin: React.FC = () => {
                     image: { primary: '', fallback: '' }, 
                     crops: [],
                     variants: [],
+                    isFeatured: false,
+                    featuredOrder: products.filter(p => p.isFeatured).length + 1,
                     dosage: { show: false, value: '' }
                   });
                 }} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
@@ -1635,6 +1772,32 @@ const Admin: React.FC = () => {
                     >
                       <Ban className="w-3 h-3" /> Out of Stock (खत्म)
                     </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5 flex flex-col items-start">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">मुख्य स्क्रीन पर? (Featured?)</label>
+                    <button 
+                      type="button"
+                      onClick={() => setProductForm({...productForm, isFeatured: !productForm.isFeatured})}
+                      className={cn(
+                        "w-full py-3.5 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 text-xs",
+                        productForm.isFeatured ? "bg-amber-500 text-white shadow-lg shadow-amber-100" : "bg-gray-100 text-gray-400"
+                      )}
+                    >
+                      {productForm.isFeatured ? 'हाँ (Featured)' : 'नहीं'}
+                    </button>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">क्रम (Order)</label>
+                    <input 
+                      type="number" 
+                      value={productForm.featuredOrder}
+                      onChange={e => setProductForm({...productForm, featuredOrder: parseInt(e.target.value) || 0})}
+                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-3.5 outline-none transition-all font-medium text-sm"
+                      placeholder="जैसे: 1"
+                    />
                   </div>
                 </div>
 
