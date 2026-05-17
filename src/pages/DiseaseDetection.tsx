@@ -9,7 +9,7 @@ import { useAppContext } from '../context/AppContext';
 import ApiKeyModal from '../components/ApiKeyModal';
 
 const DiseaseDetection: React.FC = () => {
-  const { appContent, userSettings, products, loading: appLoading } = useAppContext();
+  const { appContent, userSettings, products, categories, loading: appLoading } = useAppContext();
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<DiseaseAnalysis | null>(null);
@@ -17,6 +17,12 @@ const DiseaseDetection: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
+
+  const getCategoryName = (catId: string) => {
+    if (!categories) return catId;
+    const cat = categories.find(c => c.id === catId);
+    return cat ? cat.name : catId;
+  };
 
   useEffect(() => {
     if (selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0) {
@@ -268,7 +274,7 @@ const DiseaseDetection: React.FC = () => {
                         </h4>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-[9px] bg-[#2D5A27] text-white px-2 py-0.5 rounded-full font-black uppercase tracking-tighter shadow-sm">
-                            {product.brand || product.category}
+                            {product.brand || getCategoryName(product.category)}
                           </span>
                           <span className="text-[10px] text-gray-400 font-bold">
                             📦 {product.unit || 'Pack'}

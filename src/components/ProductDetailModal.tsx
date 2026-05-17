@@ -4,6 +4,7 @@ import { X, ShoppingBag, Building2, Tag, Info, Wheat, Maximize2, Droplets } from
 import { Product } from '../types';
 import SmartImage from './SmartImage';
 import ImageZoomModal from './ImageZoomModal';
+import { useAppContext } from '../context/AppContext';
 import { cn } from '../lib/utils';
 
 interface ProductDetailModalProps {
@@ -14,8 +15,15 @@ interface ProductDetailModalProps {
 }
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose, product, onBuy }) => {
+  const { categories } = useAppContext();
   const [isZoomOpen, setIsZoomOpen] = React.useState(false);
   const [selectedVariant, setSelectedVariant] = React.useState<{id: string; quantity: string; price: number} | null>(null);
+
+  const categoryName = React.useMemo(() => {
+    if (!product || !categories) return '';
+    const cat = categories.find(c => c.id === product.category);
+    return cat ? cat.name : product.category;
+  }, [product, categories]);
 
   React.useEffect(() => {
     if (product && product.variants && product.variants.length > 0) {
@@ -66,12 +74,22 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
               </button>
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 text-white text-center sm:text-left">
                 <div className="flex flex-wrap items-center gap-3 mb-2 justify-center sm:justify-start">
-                  <span className="bg-[#EAB308] text-[#2D5A27] text-[10px] sm:text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                    {product.category}
-                  </span>
-                  <div className="flex items-center gap-1.5 text-xs text-white/90">
+                  {product.customId ? (
+                    <span className="bg-[#EAB308] text-[#2D5A27] text-[10px] sm:text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                      {product.customId}
+                    </span>
+                  ) : (
+                    <span className="bg-[#EAB308] text-[#2D5A27] text-[10px] sm:text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                      ITEM-{product.id.substring(0, 4).toUpperCase()}
+                    </span>
+                  )}
+                  <div className="flex items-center gap-1.5 text-xs text-white/90 font-bold">
                     <Building2 className="w-3.5 h-3.5 text-[#EAB308]" />
                     {product.brand}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-white/70 font-bold">
+                    <Tag className="w-3.5 h-3.5 text-white/50" />
+                    {categoryName}
                   </div>
                   <div className={cn(
                     "flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md",
@@ -96,9 +114,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                     उपलब्ध मात्रा चुनें (Select Quantity)
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {product.variants.map((v) => (
+                    {product.variants.map((v, i) => (
                       <button
-                        key={v.id}
+                        key={`${v.id}-${i}`}
                         type="button"
                         onClick={() => setSelectedVariant(v)}
                         className={cn(

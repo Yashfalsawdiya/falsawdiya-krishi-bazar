@@ -90,7 +90,7 @@ const Encyclopedia: React.FC = () => {
         ) : (
           filteredIssues.map((issue, idx) => (
             <motion.div
-              key={issue.id}
+              key={`${issue.id}-${idx}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}

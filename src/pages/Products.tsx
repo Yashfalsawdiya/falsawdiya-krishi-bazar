@@ -139,9 +139,16 @@ const Products: React.FC = () => {
                 </div>
                 <div className="flex-1 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center gap-1 text-[10px] text-[#2D5A27] font-bold mb-1">
-                      <Building2 className="w-3 h-3" />
-                      {product.brand}
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1 text-[10px] text-[#2D5A27] font-bold">
+                        <Building2 className="w-3 h-3" />
+                        {product.brand}
+                      </div>
+                      {product.customId && (
+                        <span className="text-[8px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 uppercase tracking-tighter">
+                          {product.customId}
+                        </span>
+                      )}
                     </div>
                     <h3 className="font-bold text-gray-800 leading-tight group-hover:text-[#2D5A27] transition-colors">{product.hindiName}</h3>
                     <p className="text-[10px] text-gray-500 mb-1">{displayUnit || (product.hidePrice ? 'कीमत उपलब्ध नहीं' : '')}</p>

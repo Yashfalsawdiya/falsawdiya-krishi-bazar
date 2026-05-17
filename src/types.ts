@@ -12,6 +12,7 @@ export interface CategoryData {
 
 export interface Product {
   id: string;
+  customId?: string;
   name: string;
   hindiName: string;
   category: string;

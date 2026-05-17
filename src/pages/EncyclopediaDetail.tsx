@@ -207,7 +207,7 @@ const EncyclopediaDetail: React.FC = () => {
             ) : (
               relatedProducts.map((product, idx) => (
                 <motion.div
-                  key={product.id}
+                  key={`${product.id}-${idx}`}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: idx * 0.1 }}

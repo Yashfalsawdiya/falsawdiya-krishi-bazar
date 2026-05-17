@@ -63,6 +63,7 @@ const Admin: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   const [productForm, setProductForm] = useState<Partial<Product>>({
+    customId: '',
     name: '',
     hindiName: '',
     category: '',
@@ -646,16 +647,26 @@ const Admin: React.FC = () => {
                     </div>
                     <div>
                       <h4 className="font-bold text-gray-800">{product.hindiName}</h4>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
-                        {product.brand}
-                      </p>
+                      <div className="flex gap-2 items-center">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
+                          {product.brand}
+                        </p>
+                        {product.customId && (
+                          <span className="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100 font-black">
+                            ID: {product.customId}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <button 
                       onClick={() => {
                         setEditingProduct(product);
-                        setProductForm(product);
+                        setProductForm({
+                          ...product,
+                          customId: product.customId || ''
+                        });
                       }}
                       className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
                     >
@@ -1524,6 +1535,7 @@ const Admin: React.FC = () => {
                   setIsAdding(false); 
                   setEditingProduct(null); 
                   setProductForm({ 
+                    customId: '',
                     name: '', 
                     hindiName: '', 
                     category: categories[0]?.id || '', 
@@ -1543,6 +1555,41 @@ const Admin: React.FC = () => {
               </div>
 
               <form onSubmit={handleProductSubmit} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">उत्पाद ID (Product SKU - जैसे: PEST-01)</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={productForm.customId}
+                      onChange={e => setProductForm({...productForm, customId: e.target.value})}
+                      className="flex-1 bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium uppercase"
+                      placeholder="जैसे: FERT-01"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cat = categories.find(c => c.id === productForm.category);
+                        const catName = (cat?.name || '').toLowerCase();
+                        let prefix = 'PROD';
+                        if (catName.includes('कीट') || catName.includes('pest') || catName.includes('insect')) prefix = 'PEST';
+                        else if (catName.includes('फफूँद') || catName.includes('fung')) prefix = 'FUNG';
+                        else if (catName.includes('खाद') || catName.includes('fert') || catName.includes('उर्वरक')) prefix = 'FERT';
+                        else if (catName.includes('बीज') || catName.includes('seed')) prefix = 'SEED';
+                        else if (catName.includes('खरपतवार') || catName.includes('herb')) prefix = 'HERB';
+                        
+                        // Count existing products with this prefix to suggest next number
+                        const samePrefixProds = products.filter(p => p.customId?.startsWith(prefix));
+                        const nextNum = samePrefixProds.length + 1;
+                        const suggestedId = `${prefix}-${nextNum.toString().padStart(2, '0')}`;
+                        setProductForm({...productForm, customId: suggestedId});
+                      }}
+                      className="px-4 bg-gray-100 text-[#2D5A27] rounded-2xl text-[10px] font-black uppercase whitespace-nowrap hover:bg-gray-200 transition-colors"
+                    >
+                      Auto ID
+                    </button>
+                  </div>
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">कंपनी (Brand Name)</label>
                   <input 
@@ -1828,11 +1875,11 @@ const Admin: React.FC = () => {
                         />
                       </div>
                       <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                        {products.map(product => {
+                        {products.map((product, idx) => {
                           const isSelected = agriIssueForm.relatedProductIds.includes(product.id);
                           return (
                             <div 
-                              key={product.id}
+                              key={`${product.id}-${idx}`}
                               onClick={() => {
                                 const newIds = isSelected 
                                   ? agriIssueForm.relatedProductIds.filter(id => id !== product.id)

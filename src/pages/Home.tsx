@@ -493,6 +493,11 @@ const Home: React.FC = () => {
                 </div>
                 <div className="p-3 flex-1 flex flex-col justify-between">
                   <div>
+                    {product.customId && (
+                      <span className="text-[8px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 uppercase tracking-tighter mb-1 inline-block">
+                        {product.customId}
+                      </span>
+                    )}
                     <h4 
                       className="text-xs font-bold text-gray-800 line-clamp-1 group-hover:text-[#2D5A27] transition-colors"
                     >
