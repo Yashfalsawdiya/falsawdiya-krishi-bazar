@@ -275,7 +275,7 @@ const Profile: React.FC = () => {
           <button 
             onClick={() => {
               if (confirm('क्या आप ऐप की पुरानी कैश (Cache) साफ करके रिफ्रेश करना चाहते हैं? इससे पुराने ग्लिचेस ठीक हो जाएंगे।')) {
-                // Clear Service Workers
+                // 1. Clear Service Workers
                 if ('serviceWorker' in navigator) {
                   navigator.serviceWorker.getRegistrations().then(registrations => {
                     for (const registration of registrations) {
@@ -283,7 +283,8 @@ const Profile: React.FC = () => {
                     }
                   });
                 }
-                // Clear Cache Storage
+
+                // 2. Clear Cache Storage (Images, Assets)
                 if ('caches' in window) {
                   caches.keys().then(names => {
                     for (const name of names) {
@@ -291,11 +292,32 @@ const Profile: React.FC = () => {
                     }
                   });
                 }
-                // Clear Web Storage
+
+                // 3. Clear Web Storage (Settings, Tokens)
                 localStorage.clear();
                 sessionStorage.clear();
-                // Perform a hard-like reload
-                window.location.href = window.location.origin + '?clear_cache=' + new Date().getTime();
+
+                // 4. Clear IndexedDB (Firebase, Offline Data)
+                // This is crucial for fixing Firestore/Data issues
+                if (window.indexedDB && window.indexedDB.databases) {
+                  window.indexedDB.databases().then(databases => {
+                    for (const db of databases) {
+                      if (db.name) window.indexedDB.deleteDatabase(db.name);
+                    }
+                  });
+                }
+
+                // 5. Clear Cookies
+                const cookies = document.cookie.split(";");
+                for (let i = 0; i < cookies.length; i++) {
+                  const cookie = cookies[i];
+                  const eqPos = cookie.indexOf("=");
+                  const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+                  document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+                }
+
+                // 6. Perform a clean-state redirect
+                window.location.replace(window.location.origin + '?reset=' + new Date().getTime());
               }
             }}
             className="w-full py-4 text-orange-600 text-[10px] font-bold flex items-center justify-center gap-2 bg-orange-50 rounded-xl border border-orange-100 active:scale-95 transition-transform shadow-sm"
