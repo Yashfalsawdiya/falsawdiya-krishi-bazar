@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Camera, Upload, Loader2, AlertCircle, CheckCircle2, Image as ImageIcon, RefreshCw, Info, ShoppingCart, ArrowRight, X } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Camera, Upload, Loader2, AlertCircle, CheckCircle2, Image as ImageIcon, RefreshCw, Info, ShoppingCart, ArrowRight, X, Tag, Wheat, Droplets } from 'lucide-react';
 import { detectDisease, DiseaseAnalysis } from '../services/gemini';
 import { motion, AnimatePresence } from 'motion/react';
 import { getFriendlyAiError } from '../utils/aiErrorHandler';
@@ -16,6 +16,18 @@ const DiseaseDetection: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedVariant, setSelectedVariant] = useState<any>(null);
+
+  useEffect(() => {
+    if (selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0) {
+      setSelectedVariant(selectedProduct.variants[0]);
+    } else {
+      setSelectedVariant(null);
+    }
+  }, [selectedProduct]);
+
+  const displayPrice = selectedVariant ? selectedVariant.price : (selectedProduct?.price || 0);
+  const displayUnit = selectedVariant ? selectedVariant.quantity : (selectedProduct?.unit || 'Pack');
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -262,11 +274,19 @@ const DiseaseDetection: React.FC = () => {
                             📦 {product.unit || 'Pack'}
                           </span>
                         </div>
-                    {product.hidePrice || !product.price ? (
-                      <p className="text-[10px] font-bold text-gray-400 uppercase bg-gray-50 px-2 py-1 rounded-lg mt-1">कीमत उपलब्ध नहीं</p>
-                    ) : (
-                      <p className="text-lg font-black text-orange-600 mt-1">₹{product.price}</p>
-                    )}
+                    <div className="flex flex-col mt-1">
+                      {product.variants && product.variants.length > 0 ? (
+                        <span className="text-[10px] font-bold text-[#EAB308] bg-[#2D5A27]/5 px-2 py-1 rounded-lg border border-[#EAB308]/20 flex items-center gap-1 w-fit">
+                          <Tag className="w-3 h-3" /> मात्रा चुनें (Select Quantity)
+                        </span>
+                      ) : (
+                        product.hidePrice || !product.price ? (
+                          <p className="text-[10px] font-bold text-gray-400 uppercase bg-gray-50 px-2 py-1 rounded-lg w-fit">कीमत उपलब्ध नहीं</p>
+                        ) : (
+                          <p className="text-lg font-black text-orange-600">₹{product.price}</p>
+                        )
+                      )}
+                    </div>
                       </div>
                       <ArrowRight className="w-5 h-5 text-gray-300" />
                     </button>
@@ -310,15 +330,40 @@ const DiseaseDetection: React.FC = () => {
                   <p className="text-[#2D5A27] text-[10px] font-black uppercase tracking-wider mb-0.5">{selectedProduct.brand || 'Local Brand'}</p>
                   <h3 className="text-lg font-black text-gray-900 leading-tight mb-1">{selectedProduct.hindiName || selectedProduct.name}</h3>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-white border border-gray-100 text-gray-600 px-2 py-0.5 rounded-lg text-[10px] font-bold">मात्रा: {selectedProduct.unit || 'N/A'}</span>
+                    <span className="bg-white border border-gray-100 text-gray-600 px-2 py-0.5 rounded-lg text-[10px] font-bold">मात्रा: {displayUnit}</span>
                   </div>
-                  {selectedProduct.hidePrice || !selectedProduct.price ? (
+                  {selectedProduct.hidePrice || !displayPrice ? (
                     <p className="text-sm font-bold text-gray-400 bg-gray-50 px-3 py-1.5 rounded-xl inline-block mt-1">कीमत उपलब्ध नहीं</p>
                   ) : (
-                    <p className="text-2xl font-black text-[#2D5A27]">₹{selectedProduct.price}</p>
+                    <p className="text-2xl font-black text-[#2D5A27]">₹{displayPrice}</p>
                   )}
                 </div>
               </div>
+
+              {/* Variants Selection */}
+              {selectedProduct.variants && selectedProduct.variants.length > 0 && (
+                <div className="mb-6 space-y-3">
+                  <h4 className="text-xs font-black text-[#2D5A27] uppercase tracking-widest flex items-center gap-2">
+                    <Tag className="w-4 h-4" />
+                    मात्रा चुनें (Select Quantity)
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProduct.variants.map((v: any) => (
+                      <button
+                        key={v.id}
+                        onClick={() => setSelectedVariant(v)}
+                        className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all border-2 ${
+                          selectedVariant?.id === v.id
+                            ? "bg-[#2D5A27] border-[#2D5A27] text-white shadow-md active:scale-95"
+                            : "bg-gray-50 border-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {v.quantity}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="bg-gray-50 rounded-3xl p-5 mb-6 border border-gray-100">
                 <h4 className="text-xs font-black text-[#2D5A27] uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -329,7 +374,7 @@ const DiseaseDetection: React.FC = () => {
                 <div className="space-y-3 mb-5">
                   <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
                     <span className="text-gray-500 text-sm font-medium">🏢 कंपनी (Brand):</span>
-                    <span className="text-gray-900 font-black text-sm">{selectedProduct.brand || 'Branded'}</span>
+                    <span className="text-gray-900 font-black text-sm">{selectedProduct.brand}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
                     <span className="text-gray-500 text-sm font-medium">💊 दवाई (Full Name):</span>
@@ -339,14 +384,14 @@ const DiseaseDetection: React.FC = () => {
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
                     <span className="text-gray-500 text-sm font-medium">📦 मात्रा (Quantity):</span>
-                    <span className="text-gray-900 font-black text-sm">{selectedProduct.unit || 'प्रति पैक'}</span>
+                    <span className="text-gray-900 font-black text-sm">{displayUnit}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
                     <span className="text-gray-500 text-sm font-medium">💰 कीमत (Price):</span>
-                    {selectedProduct.hidePrice || !selectedProduct.price ? (
+                    {selectedProduct.hidePrice || !displayPrice ? (
                       <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-lg">कीमत उपलब्ध नहीं</span>
                     ) : (
-                      <span className="text-[#2D5A27] font-black text-lg">₹{selectedProduct.price}</span>
+                      <span className="text-[#2D5A27] font-black text-lg">₹{displayPrice}</span>
                     )}
                   </div>
                   <div className="py-2">
@@ -376,10 +421,10 @@ const DiseaseDetection: React.FC = () => {
                   href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
                     `नमस्ते फल्सावदिया कृषि बाज़ार,\n\n` +
                     `*फ़सल डॉक्टर जाँच रिपोर्ट के अनुसार मुझे यह उत्पाद चाहिए:*\n\n` +
-                    `🏢 *कंपनी:* ${selectedProduct.brand || 'उपलब्ध ब्रांड'}\n` +
-                    `💊 *दवाई:* ${selectedProduct.name || selectedProduct.hindiName}\n` +
-                    `📦 *मात्रा:* ${selectedProduct.unit || 'पैकेट'}\n` +
-                    `💰 *कीमत:* ₹${selectedProduct.price}\n\n` +
+                    `🏢 *कंपनी:* ${selectedProduct.brand}\n` +
+                    `💊 *दवाई:* ${selectedProduct.hindiName || selectedProduct.name}\n` +
+                    `📦 *मात्रा:* ${displayUnit}\n` +
+                    `💰 *कीमत:* ₹${displayPrice}\n\n` +
                     `कृपया उपलब्धता की जानकारी दें, ताकि मैं आपकी दुकान पर आकर इसे खरीद सकूँ।\n` +
                     `धन्यवाद!`
                   )}`}

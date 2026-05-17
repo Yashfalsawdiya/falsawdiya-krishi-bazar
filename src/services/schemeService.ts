@@ -107,7 +107,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: "You are an expert Government Scheme Consultant for Indian Farmers representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Provide professional, detailed, and current schemes in a structured JSON format.",
+          systemInstruction: "You are an expert Government Scheme Consultant for Indian Farmers representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar). Provide professional, detailed, and current schemes in a structured JSON format.",
           tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           responseSchema: {
@@ -138,7 +138,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: "You are an expert Government Scheme Consultant representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Provide 20 most important agri schemes in JSON format using latest knowledge.",
+          systemInstruction: "You are an expert Government Scheme Consultant representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar). Provide 20 most important agri schemes in JSON format using latest knowledge.",
           responseMimeType: "application/json",
           responseSchema: {
             type: "ARRAY" as any,

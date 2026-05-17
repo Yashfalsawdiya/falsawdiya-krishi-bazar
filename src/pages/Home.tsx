@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
-import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, X as CloseIcon } from 'lucide-react';
+import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
@@ -501,13 +501,19 @@ const Home: React.FC = () => {
                     <p className="text-[10px] text-gray-500 mb-2">{displayUnit || (product.hidePrice ? 'किमत उपल्ध नहीं' : '')}</p>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-bold text-[#2D5A27]">
-                      {product.hidePrice || !displayPrice ? (
-                        <span className="text-[10px] text-gray-400 font-medium">कीमत उपलब्ध नहीं</span>
-                      ) : (
-                        `₹${displayPrice}`
-                      )}
-                    </span>
+                    {product.variants && product.variants.length > 0 ? (
+                      <span className="text-[10px] font-bold text-[#EAB308] bg-[#2D5A27]/5 px-2 py-1 rounded-lg border border-[#EAB308]/20 flex items-center gap-1">
+                        <Tag className="w-3 h-3" /> मात्रा चुनें
+                      </span>
+                    ) : (
+                      <span className="text-sm font-bold text-[#2D5A27]">
+                        {product.hidePrice || !displayPrice ? (
+                          <span className="text-[10px] text-gray-400 font-medium">कीमत उपलब्ध नहीं</span>
+                        ) : (
+                          `₹${displayPrice}`
+                        )}
+                      </span>
+                    )}
                     <button 
                       disabled={!isInStock}
                       onClick={(e) => {

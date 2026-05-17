@@ -202,7 +202,7 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: "You are an expert Mandi Bhav Reporter for Madhya Pradesh representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar). KRISHI BAZAAR. Instructions: Search for the latest mandi prices specifically for the given location using reliable sources like 'Mandi Pulse', 'e-Mandi', or official MP gov data. Focus on accuracy for Mandsaur district mandis (शामगढ़, गरोठ, सीतामऊ). Always return accurate JSON data. STRICT RULE: Use ONLY 'फल्सावदिया कृषि बाज़ार' for the shop name. Do NOT use 'फालसावदिया' (with aa matra after pha).",
+          systemInstruction: "You are an expert Mandi Bhav Reporter for Madhya Pradesh representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar). Instructions: Search for the latest mandi prices specifically for the given location using reliable sources like 'Mandi Pulse', 'e-Mandi', or official MP gov data. Focus on accuracy for Mandsaur district mandis (शामगढ़, गरोठ, सीतामऊ). Always return accurate JSON data. STRICT RULE: Use ONLY 'फल्सावदिया कृषि बाज़ार' for the shop name. Do NOT use 'फालसावदिया' (no extra aa matra after pha).",
           tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           responseSchema: schema

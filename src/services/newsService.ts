@@ -192,7 +192,7 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: "You are a specialized Agricultural News reporter for Indian farmers representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Always provide real, current, and detailed news updates in a JSON array format.",
+          systemInstruction: "You are a specialized Agricultural News reporter for Indian farmers representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar). Always provide real, current, and detailed news updates in a JSON array format.",
           tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           responseSchema: {
@@ -221,7 +221,7 @@ export const fetchAgriNews = async (userApiKey?: string): Promise<AgriNewsItem[]
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
-          systemInstruction: "You are a specialized Agricultural News reporter for Indian farmers representing 'Falsawdiya Krishi Bazar' (Shamgarh, MP). Provide 20 most important agri news items as of today. Use your latest knowledge if search is unavailable.",
+          systemInstruction: "You are a specialized Agricultural News reporter for Indian farmers representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar). Provide 20 most important agri news items as of today. Use your latest knowledge if search is unavailable.",
           responseMimeType: "application/json",
           responseSchema: {
             type: "ARRAY" as any,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { ShoppingBag, Building2 } from 'lucide-react';
+import { ShoppingBag, Building2, Tag } from 'lucide-react';
 import { motion } from 'motion/react';
 import SmartImage from '../components/SmartImage';
 import { cn } from '../lib/utils';
@@ -152,13 +152,19 @@ const Products: React.FC = () => {
                     )}
                   </div>
                   <div className="flex items-center justify-between mt-2">
-                    {product.hidePrice || !displayPrice ? (
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 px-2 py-1 rounded-lg">कीमत उपलब्ध नहीं</span>
+                    {product.variants && product.variants.length > 0 ? (
+                      <span className="text-[10px] font-bold text-[#EAB308] bg-[#2D5A27]/5 px-3 py-1.5 rounded-xl border border-[#EAB308]/20 flex items-center gap-1.5 shadow-sm">
+                        <Tag className="w-3.5 h-3.5" /> मात्रा चुनें (Select Quantity)
+                      </span>
                     ) : (
-                      <div className="flex flex-col">
-                        <span className="text-lg font-bold text-[#2D5A27]">₹{displayPrice}</span>
-                        {!isInStock && <span className="text-[8px] font-bold text-red-500 uppercase tracking-widest">स्टॉक में नहीं</span>}
-                      </div>
+                      product.hidePrice || !displayPrice ? (
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 px-2 py-1 rounded-lg">कीमत उपलब्ध नहीं</span>
+                      ) : (
+                        <div className="flex flex-col">
+                          <span className="text-lg font-bold text-[#2D5A27]">₹{displayPrice}</span>
+                          {!isInStock && <span className="text-[8px] font-bold text-red-500 uppercase tracking-widest">स्टॉक में नहीं</span>}
+                        </div>
+                      )
                     )}
                     <div className="flex gap-2">
                       <button 
