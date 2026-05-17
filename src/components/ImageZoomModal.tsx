@@ -73,16 +73,18 @@ const ImageZoomModal: React.FC<ImageZoomModalProps> = ({ isOpen, onClose, imageS
             )}
             <QuickPinchZoom onUpdate={onUpdate} containerProps={{ style: { width: '100%', height: '100%' } }}>
               <div ref={imgRef} className="w-full h-full flex items-center justify-center">
-                <img
-                  src={highResSrc}
-                  alt={altText}
-                  className={cn(
-                    "max-w-full max-h-full shadow-2xl rounded-sm transition-all duration-500",
-                    loading ? "opacity-0 scale-95 blur-xl" : "opacity-100 scale-100 blur-0"
-                  )}
-                  onLoad={() => setLoading(false)}
-                  referrerPolicy="no-referrer"
-                />
+                {highResSrc && highResSrc !== "" && (
+                  <img
+                    src={highResSrc}
+                    alt={altText}
+                    className={cn(
+                      "max-w-full max-h-full shadow-2xl rounded-sm transition-all duration-500",
+                      loading ? "opacity-0 scale-95 blur-xl" : "opacity-100 scale-100 blur-0"
+                    )}
+                    onLoad={() => setLoading(false)}
+                    referrerPolicy="no-referrer"
+                  />
+                )}
               </div>
             </QuickPinchZoom>
           </div>

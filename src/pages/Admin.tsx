@@ -67,12 +67,14 @@ const Admin: React.FC = () => {
     hindiName: '',
     category: '',
     brand: '',
-    price: 0,
-    hidePrice: false,
+    price: undefined,
     unit: '',
+    inStock: true,
     description: '',
     image: { primary: '', fallback: '' },
-    crops: []
+    crops: [],
+    variants: [],
+    dosage: { show: false, value: '' }
   });
 
   const [categoryForm, setCategoryForm] = useState<Omit<CategoryData, 'id'>>({
@@ -168,7 +170,20 @@ const Admin: React.FC = () => {
         await addProduct(productForm as Omit<Product, 'id'>);
       }
       setIsAdding(false);
-      setProductForm({ name: '', hindiName: '', category: categories[0]?.id || '', brand: '', price: 0, unit: '', description: '', image: { primary: '', fallback: '' }, crops: [] });
+      setProductForm({ 
+        name: '', 
+        hindiName: '', 
+        category: categories[0]?.id || '', 
+        brand: '', 
+        price: undefined, 
+        unit: '', 
+        inStock: true,
+        description: '', 
+        image: { primary: '', fallback: '' }, 
+        crops: [],
+        variants: [],
+        dosage: { show: false, value: '' }
+      });
     } catch (error) {
       console.error("Error saving product:", error);
     } finally {
@@ -590,7 +605,20 @@ const Admin: React.FC = () => {
               onClick={() => {
                 setIsAdding(true);
                 setEditingProduct(null);
-                setProductForm({ name: '', hindiName: '', category: categories[0]?.id || '', brand: '', price: 0, unit: '', description: '', image: { primary: '', fallback: '' }, crops: [] });
+                setProductForm({ 
+                  name: '', 
+                  hindiName: '', 
+                  category: categories[0]?.id || '', 
+                  brand: '', 
+                  price: undefined, 
+                  unit: '', 
+                  inStock: true,
+                  description: '', 
+                  image: { primary: '', fallback: '' }, 
+                  crops: [],
+                  variants: [],
+                  dosage: { show: false, value: '' }
+                });
               }}
               className="bg-[#2D5A27] text-white py-2 px-4 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold active:scale-95 transition-transform"
             >
@@ -619,7 +647,7 @@ const Admin: React.FC = () => {
                     <div>
                       <h4 className="font-bold text-gray-800">{product.hindiName}</h4>
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
-                        {product.brand} • {product.hidePrice ? 'कीमत छुपी हुई' : `₹${product.price}/${product.unit}`}
+                        {product.brand}
                       </p>
                     </div>
                   </div>
@@ -1492,7 +1520,24 @@ const Admin: React.FC = () => {
                   <h3 className="text-xl font-bold text-[#4A3728]">{editingProduct ? 'उत्पाद सुधारें' : 'नया उत्पाद'}</h3>
                   <p className="text-xs text-gray-400 font-medium">कृपया सभी जानकारी ध्यान से भरें</p>
                 </div>
-                <button onClick={() => { setIsAdding(false); setEditingProduct(null); }} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
+                <button onClick={() => { 
+                  setIsAdding(false); 
+                  setEditingProduct(null); 
+                  setProductForm({ 
+                    name: '', 
+                    hindiName: '', 
+                    category: categories[0]?.id || '', 
+                    brand: '', 
+                    price: undefined, 
+                    unit: '', 
+                    inStock: true,
+                    description: '', 
+                    image: { primary: '', fallback: '' }, 
+                    crops: [],
+                    variants: [],
+                    dosage: { show: false, value: '' }
+                  });
+                }} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
@@ -1521,54 +1566,95 @@ const Admin: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">कीमत सेटिंग (Price Setting)</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">स्टॉक स्थिति (Stock Status)</label>
                   <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
                     <button
                       type="button"
-                      onClick={() => setProductForm({...productForm, hidePrice: false})}
+                      onClick={() => setProductForm({...productForm, inStock: true})}
                       className={cn(
-                        "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase transition-all",
-                        !productForm.hidePrice ? "bg-white text-[#2D5A27] shadow-sm" : "text-gray-400"
+                        "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-1.5",
+                        productForm.inStock !== false ? "bg-white text-[#2D5A27] shadow-sm" : "text-gray-400"
                       )}
                     >
-                      Price (दिखाएँ)
+                      <CheckCircle className="w-3 h-3" /> Available (उपलब्ध)
                     </button>
                     <button
                       type="button"
-                      onClick={() => setProductForm({...productForm, hidePrice: true})}
+                      onClick={() => setProductForm({...productForm, inStock: false})}
                       className={cn(
-                        "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase transition-all",
-                        productForm.hidePrice ? "bg-white text-red-600 shadow-sm" : "text-gray-400"
+                        "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-1.5",
+                        productForm.inStock === false ? "bg-white text-red-600 shadow-sm" : "text-gray-400"
                       )}
                     >
-                      Not Mentioned (छुपाएँ)
+                      <Ban className="w-3 h-3" /> Out of Stock (खत्म)
                     </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className={cn("space-y-1.5 transition-opacity", productForm.hidePrice && "opacity-50 pointer-events-none")}>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">कीमत (Price)</label>
-                    <input 
-                      required={!productForm.hidePrice}
-                      type="number" 
-                      value={productForm.price}
-                      onChange={e => setProductForm({...productForm, price: Number(e.target.value)})}
-                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
-                    />
+                {/* Variants Section */}
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">मात्रा और मूल्य (Variants)</label>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const newVariants = [...(productForm.variants || [])];
+                        newVariants.push({ id: Math.random().toString(36).substring(7), quantity: '', price: 0 });
+                        setProductForm({ ...productForm, variants: newVariants });
+                      }}
+                      className="text-[#2D5A27] bg-[#2D5A27]/10 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Quantity जोड़ें
+                    </button>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">इकाई (Unit)</label>
-                    <input 
-                      required
-                      type="text" 
-                      value={productForm.unit}
-                      onChange={e => setProductForm({...productForm, unit: e.target.value})}
-                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
-                      placeholder="जैसे: 45kg Bag"
-                    />
-                  </div>
+                  
+                  {productForm.variants && productForm.variants.length > 0 && (
+                    <div className="space-y-3">
+                      {productForm.variants.map((variant, idx) => (
+                        <div key={variant.id} className="grid grid-cols-[1fr_1fr_auto] gap-3 items-end p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Quantity</label>
+                            <input 
+                              type="text" 
+                              value={variant.quantity}
+                              onChange={e => {
+                                const v = [...(productForm.variants || [])];
+                                v[idx].quantity = e.target.value;
+                                setProductForm({ ...productForm, variants: v });
+                              }}
+                              className="w-full bg-white border border-gray-200 rounded-xl p-2.5 text-xs font-medium"
+                              placeholder="जैसे: 50 ML"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Price</label>
+                            <input 
+                              type="number" 
+                              value={variant.price}
+                              onChange={e => {
+                                const v = [...(productForm.variants || [])];
+                                v[idx].price = Number(e.target.value);
+                                setProductForm({ ...productForm, variants: v });
+                              }}
+                              className="w-full bg-white border border-gray-200 rounded-xl p-2.5 text-xs font-medium"
+                            />
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              const v = (productForm.variants || []).filter(item => item.id !== variant.id);
+                              setProductForm({ ...productForm, variants: v });
+                            }}
+                            className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">श्रेणी (Category)</label>
                   <select 
@@ -1594,6 +1680,38 @@ const Admin: React.FC = () => {
                     className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium h-24 resize-none"
                   />
                 </div>
+
+                {/* Dosage Section */}
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Dosage / Usage (खुराक और उपयोग)</label>
+                    <button 
+                      type="button"
+                      onClick={() => setProductForm({...productForm, dosage: { show: !productForm.dosage?.show, value: productForm.dosage?.value || '' }})}
+                      className={cn(
+                        "w-10 h-5 rounded-full relative transition-colors duration-200",
+                        productForm.dosage?.show ? "bg-[#2D5A27]" : "bg-gray-300"
+                      )}
+                    >
+                      <div className={cn(
+                        "absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all duration-200",
+                        productForm.dosage?.show ? "left-5.5" : "left-0.5"
+                      )} />
+                    </button>
+                  </div>
+                  
+                  {productForm.dosage?.show && (
+                    <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
+                      <textarea 
+                        value={productForm.dosage?.value || ''}
+                        onChange={e => setProductForm({...productForm, dosage: { show: true, value: e.target.value }})}
+                        className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium h-24 resize-none"
+                        placeholder="डोज और उपयोग की विधि यहाँ लिखें..."
+                      />
+                    </div>
+                  )}
+                </div>
+
                 <button 
                   type="submit" 
                   disabled={isSaving}

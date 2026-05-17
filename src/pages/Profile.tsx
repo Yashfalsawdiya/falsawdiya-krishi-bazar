@@ -147,6 +147,7 @@ const Profile: React.FC = () => {
               src={user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'User')}`} 
               alt="Profile" 
               className="w-full h-full object-cover" 
+              referrerPolicy="no-referrer"
             />
           ) : (
             <User className="w-8 h-8 text-gray-300" />

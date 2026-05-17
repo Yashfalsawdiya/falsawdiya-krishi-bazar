@@ -43,7 +43,7 @@ const OrderModal: React.FC<OrderModalProps> = ({ isOpen, onClose, onConfirm, pro
                 <div className="flex justify-between items-center mt-3 pt-3 border-t border-[#4A3728]/10">
                   <p className="text-sm font-bold text-gray-600">कुल राशि (Total):</p>
                   <p className="text-xl font-bold text-[#2D5A27]">
-                    {hidePrice ? 'उपलब्ध नहीं' : `₹${price}`}
+                    {hidePrice || !price ? 'कीमत उपलब्ध नहीं' : `₹${price}`}
                   </p>
                 </div>
               </div>

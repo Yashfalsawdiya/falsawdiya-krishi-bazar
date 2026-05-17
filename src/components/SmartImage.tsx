@@ -73,7 +73,7 @@ const SmartImage: React.FC<SmartImageProps> = ({
       className={cn("relative overflow-hidden", className)}
       onClick={onClick}
     >
-      {currentSrc && (
+      {currentSrc && currentSrc !== "" && (
         <img
           src={currentSrc}
           alt={alt}
@@ -103,7 +103,7 @@ const SmartImage: React.FC<SmartImageProps> = ({
         </div>
       )}
       
-      {!currentSrc && !hasError && (
+      {(!currentSrc || currentSrc === "") && !hasError && (
         <div className="absolute inset-0 flex items-center justify-center">
           <ImageIcon className="w-1/2 h-1/2 text-gray-200 animate-pulse" />
         </div>

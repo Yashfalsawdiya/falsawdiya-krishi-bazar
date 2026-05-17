@@ -1,9 +1,10 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ShoppingBag, Building2, Tag, Info, Wheat, Maximize2 } from 'lucide-react';
+import { X, ShoppingBag, Building2, Tag, Info, Wheat, Maximize2, Droplets } from 'lucide-react';
 import { Product } from '../types';
 import SmartImage from './SmartImage';
 import ImageZoomModal from './ImageZoomModal';
+import { cn } from '../lib/utils';
 
 interface ProductDetailModalProps {
   isOpen: boolean;
@@ -14,8 +15,20 @@ interface ProductDetailModalProps {
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose, product, onBuy }) => {
   const [isZoomOpen, setIsZoomOpen] = React.useState(false);
+  const [selectedVariant, setSelectedVariant] = React.useState<{id: string; quantity: string; price: number} | null>(null);
+
+  React.useEffect(() => {
+    if (product && product.variants && product.variants.length > 0) {
+      setSelectedVariant(product.variants[0]);
+    } else {
+      setSelectedVariant(null);
+    }
+  }, [product]);
 
   if (!product) return null;
+
+  const displayPrice = selectedVariant ? selectedVariant.price : product.price;
+  const displayUnit = selectedVariant ? selectedVariant.quantity : product.unit;
 
   return (
     <AnimatePresence>
@@ -60,6 +73,13 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                     <Building2 className="w-3.5 h-3.5 text-[#EAB308]" />
                     {product.brand}
                   </div>
+                  <div className={cn(
+                    "flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md",
+                    product.inStock !== false ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-red-500/20 text-red-400 border border-red-500/30"
+                  )}>
+                    <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", product.inStock !== false ? "bg-green-400" : "bg-red-400")} />
+                    {product.inStock !== false ? 'In Stock' : 'Out of Stock'}
+                  </div>
                 </div>
                 <h3 className="text-2xl sm:text-3xl font-bold leading-tight">{product.hindiName}</h3>
                 <p className="text-sm text-white/80 mt-1">{product.name}</p>
@@ -68,25 +88,71 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
 
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Variants Section */}
+              {product.variants && product.variants.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-bold text-[#4A3728]">
+                    <Tag className="w-4 h-4 text-[#2D5A27]" />
+                    उपलब्ध मात्रा चुनें (Select Quantity)
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {product.variants.map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => setSelectedVariant(v)}
+                        className={cn(
+                          "px-4 py-3 rounded-2xl text-xs font-bold transition-all border-2",
+                          selectedVariant?.id === v.id
+                            ? "bg-[#2D5A27] border-[#2D5A27] text-white shadow-md shadow-[#2D5A27]/20 scale-105"
+                            : "bg-gray-50 border-gray-100 text-gray-500 hover:border-gray-200"
+                        )}
+                      >
+                        {v.quantity}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Price and Unit Section */}
-              <div className="flex items-center justify-between bg-[#F5F2ED] p-4 rounded-2xl border border-[#4A3728]/10">
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs text-[#4A3728]/60 font-bold uppercase mb-1">
-                    <Tag className="w-3.5 h-3.5" /> कीमत (Price)
+              {(displayPrice || product.hidePrice) ? (
+                <div className="flex items-center justify-between bg-[#F5F2ED] p-4 rounded-2xl border border-[#4A3728]/10">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs text-[#4A3728]/60 font-bold uppercase mb-1">
+                      <Tag className="w-3.5 h-3.5" /> कीमत (Price)
+                    </div>
+                    {product.hidePrice || !displayPrice ? (
+                      <span className="text-sm font-bold text-gray-400">कीमत उपलब्ध नहीं</span>
+                    ) : (
+                      <div className="flex items-baseline gap-1 animate-in fade-in zoom-in-95 duration-300" key={displayPrice}>
+                        <span className="text-2xl font-bold text-[#2D5A27]">₹{displayPrice}</span>
+                        {displayUnit && (
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest ml-1">
+                            / {displayUnit}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {product.hidePrice ? (
-                    <span className="text-sm font-bold text-gray-400">उपलब्ध नहीं</span>
-                  ) : (
-                    <span className="text-2xl font-bold text-[#2D5A27]">₹{product.price}</span>
-                  )}
-                </div>
-                <div className="text-right">
-                  <div className="flex items-center gap-1.5 text-xs text-[#4A3728]/60 font-bold uppercase mb-1 justify-end">
-                    इकाई (Unit)
+                  <div className="text-right">
+                    <div className="flex items-center gap-1.5 text-xs text-[#4A3728]/60 font-bold uppercase mb-1 justify-end">
+                      स्थिति (Status)
+                    </div>
+                    <span className={cn(
+                      "text-xs font-bold px-3 py-1 rounded-lg",
+                      product.inStock !== false ? "bg-[#2D5A27]/10 text-[#2D5A27]" : "bg-red-50 text-red-600"
+                    )}>
+                      {product.inStock !== false ? '🟢 उपलब्ध' : '🔴 स्टॉक में नहीं'}
+                    </span>
                   </div>
-                  <span className="text-lg font-bold text-[#4A3728]">{product.unit || 'N/A'}</span>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-gray-50 p-4 rounded-2xl border border-dashed border-gray-200 text-center">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">कीमत और उपलब्धता</p>
+                  <p className="text-sm font-bold text-[#4A3728]">कीमत उपलब्ध नहीं है</p>
+                </div>
+              )}
 
               {/* Crops Section */}
               {product.crops && product.crops.length > 0 && (
@@ -116,6 +182,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 </div>
               </div>
 
+              {/* Dosage Section */}
+              {product.dosage?.show && product.dosage.value && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-bold text-[#4A3728]">
+                    <Droplets className="w-4 h-4 text-[#2D5A27]" />
+                    खुराक (Dosage / Usage)
+                  </div>
+                  <div className="bg-[#E7F3E1] rounded-2xl border border-[#2D5A27]/10 p-4 leading-relaxed text-[#2D5A27] text-sm whitespace-pre-wrap font-medium">
+                    {product.dosage.value}
+                  </div>
+                </div>
+              )}
+
               {/* Disclaimer */}
               <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4">
                 <p className="text-xs text-orange-800 leading-relaxed">
@@ -134,13 +213,26 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 बंद करें
               </button>
               <button
+                disabled={product.inStock === false}
                 onClick={() => {
                   onClose();
-                  onBuy(product);
+                  // Passing the selected variant's info in a clone for the order message
+                  const productWithSelection = {
+                    ...product,
+                    price: displayPrice || 0,
+                    unit: displayUnit || ''
+                  };
+                  onBuy(productWithSelection);
                 }}
-                className="flex-[2] py-4 bg-[#2D5A27] text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#2D5A27]/20 active:scale-95 transition-transform"
+                className={cn(
+                  "flex-[2] py-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all text-white",
+                  product.inStock !== false 
+                    ? "bg-[#2D5A27] shadow-[#2D5A27]/20" 
+                    : "bg-gray-300 shadow-none cursor-not-allowed"
+                )}
               >
-                <ShoppingBag className="w-5 h-5" /> अभी खरीदें (Buy)
+                <ShoppingBag className="w-5 h-5" /> 
+                {product.inStock !== false ? 'अभी खरीदें (Buy)' : 'आउट ऑफ स्टॉक'}
               </button>
             </div>
 

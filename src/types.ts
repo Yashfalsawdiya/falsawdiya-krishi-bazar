@@ -16,12 +16,18 @@ export interface Product {
   hindiName: string;
   category: string;
   brand: string;
-  price: number;
+  price?: number;
   hidePrice?: boolean;
-  unit: string;
+  unit?: string;
+  inStock?: boolean;
   image: string | ImageSource;
   description: string;
   crops: string[];
+  variants?: { id: string; quantity: string; price: number }[];
+  dosage?: {
+    show: boolean;
+    value: string;
+  };
 }
 
 export interface CropAdvice {

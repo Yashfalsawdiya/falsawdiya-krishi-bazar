@@ -10,6 +10,7 @@ import { fetchMandiBhav, MandiData } from '../services/mandiService';
 import { getDynamicAdvice, askAiQuestion } from '../services/gemini';
 import ApiKeyModal from '../components/ApiKeyModal';
 import { AnimatePresence } from 'motion/react';
+import { cn } from '../lib/utils';
 
 const BANNERS = [
   {
@@ -452,55 +453,87 @@ const Home: React.FC = () => {
           </Link>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
-          {products.slice(0, 5).map((product, idx) => (
-            <motion.div 
-              key={`${product.id}-${idx}`} 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              onClick={() => {
-                setSelectedProduct(product);
-                setShowDetail(true);
-              }}
-              className="min-w-[160px] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden snap-start flex flex-col cursor-pointer group"
-            >
-              <div 
-                className="relative h-32 overflow-hidden cursor-zoom-in"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setZoomImage({ src: product.image, alt: product.hindiName });
+          {products.slice(0, 5).map((product, idx) => {
+            const displayPrice = product.variants && product.variants.length > 0 ? product.variants[0].price : product.price;
+            const displayUnit = product.variants && product.variants.length > 0 ? product.variants[0].quantity : product.unit;
+            const isInStock = product.inStock !== false;
+
+            return (
+              <motion.div 
+                key={`${product.id}-${idx}`} 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={() => {
+                  setSelectedProduct(product);
+                  setShowDetail(true);
                 }}
+                className={cn(
+                  "min-w-[160px] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden snap-start flex flex-col cursor-pointer group",
+                  !isInStock && "opacity-75 grayscale-[0.5]"
+                )}
               >
-                <SmartImage 
-                  src={product.image} 
-                  alt={product.name} 
-                  className="w-full h-full transition-transform group-hover:scale-110" 
-                  objectFit="cover"
-                />
-              </div>
-              <div className="p-3 flex-1 flex flex-col justify-between">
-                <div>
-                  <h4 
-                    className="text-xs font-bold text-gray-800 line-clamp-1 group-hover:text-[#2D5A27] transition-colors"
-                  >
-                    {product.hindiName}
-                  </h4>
-                  <p className="text-[10px] text-gray-500 mb-2">{product.unit}</p>
+                <div 
+                  className="relative h-32 overflow-hidden cursor-zoom-in"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setZoomImage({ src: product.image, alt: product.hindiName });
+                  }}
+                >
+                  <SmartImage 
+                    src={product.image} 
+                    alt={product.name} 
+                    className="w-full h-full transition-transform group-hover:scale-110" 
+                    objectFit="cover"
+                  />
+                  {!isInStock && (
+                    <div className="absolute top-2 right-2 bg-red-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-lg z-10">
+                      Out of Stock
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-bold text-[#2D5A27]">₹{product.price}</span>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleBuyClick(product);
-                    }}
-                    className="bg-[#EAB308] p-2 rounded-lg shadow-sm active:scale-90 transition-transform"
-                  >
-                    <ShoppingBag className="w-3.5 h-3.5 text-[#2D5A27]" />
-                  </button>
+                <div className="p-3 flex-1 flex flex-col justify-between">
+                  <div>
+                    <h4 
+                      className="text-xs font-bold text-gray-800 line-clamp-1 group-hover:text-[#2D5A27] transition-colors"
+                    >
+                      {product.hindiName}
+                    </h4>
+                    <p className="text-[10px] text-gray-500 mb-2">{displayUnit || (product.hidePrice ? 'किमत उपल्ध नहीं' : '')}</p>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold text-[#2D5A27]">
+                      {product.hidePrice || !displayPrice ? (
+                        <span className="text-[10px] text-gray-400 font-medium">कीमत उपलब्ध नहीं</span>
+                      ) : (
+                        `₹${displayPrice}`
+                      )}
+                    </span>
+                    <button 
+                      disabled={!isInStock}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // For the Buy button on card, if it has variants, we use the first one
+                        const pWithPrice = {
+                          ...product,
+                          price: displayPrice || 0,
+                          unit: displayUnit || ''
+                        };
+                        handleBuyClick(pWithPrice as Product);
+                      }}
+                      className={cn(
+                        "p-2 rounded-lg shadow-sm transition-all",
+                        isInStock 
+                          ? "bg-[#EAB308] active:scale-90" 
+                          : "bg-gray-200 cursor-not-allowed"
+                      )}
+                    >
+                      <ShoppingBag className={cn("w-3.5 h-3.5", isInStock ? "text-[#2D5A27]" : "text-gray-400")} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
       </section>
 

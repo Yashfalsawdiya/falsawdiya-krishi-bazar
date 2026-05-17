@@ -160,7 +160,11 @@ const EncyclopediaDetail: React.FC = () => {
                     />
                     {product.price > 0 && !product.hidePrice && (
                       <div className="absolute -bottom-2 -left-1 px-3 py-1 bg-[#F59E0B] text-white rounded-full text-[10px] font-black shadow-lg">
-                        ₹{product.price}
+                        {product.hidePrice || !product.price ? (
+                          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider bg-gray-50 px-2 py-1 rounded-lg">कीमत उपलब्ध नहीं</span>
+                        ) : (
+                          `₹${product.price}`
+                        )}
                       </div>
                     )}
                   </div>

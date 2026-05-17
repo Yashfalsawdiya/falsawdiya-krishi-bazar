@@ -91,9 +91,9 @@ const DiseaseDetection: React.FC = () => {
       </div>
 
       <div className="relative aspect-square w-full max-w-[320px] mx-auto bg-white rounded-3xl border-4 border-dashed border-[#2D5A27]/20 flex flex-col items-center justify-center overflow-hidden shadow-xl transition-all">
-        {image ? (
+        {image && image !== "" ? (
           <div className="relative w-full h-full group">
-            <img src={image} alt="Crop" className="w-full h-full object-cover" />
+            <img src={image} alt="Crop" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             <button 
               onClick={reset}
               className="absolute top-3 right-3 bg-black/50 text-white p-2 rounded-full backdrop-blur-sm active:scale-90 transition-transform"
@@ -262,7 +262,11 @@ const DiseaseDetection: React.FC = () => {
                             📦 {product.unit || 'Pack'}
                           </span>
                         </div>
-                        <p className="text-lg font-black text-orange-600 mt-1">₹{product.price}</p>
+                    {product.hidePrice || !product.price ? (
+                      <p className="text-[10px] font-bold text-gray-400 uppercase bg-gray-50 px-2 py-1 rounded-lg mt-1">कीमत उपलब्ध नहीं</p>
+                    ) : (
+                      <p className="text-lg font-black text-orange-600 mt-1">₹{product.price}</p>
+                    )}
                       </div>
                       <ArrowRight className="w-5 h-5 text-gray-300" />
                     </button>
@@ -295,18 +299,12 @@ const DiseaseDetection: React.FC = () => {
               
               <div className="flex gap-4 mb-6">
                 <div className="w-24 h-24 rounded-3xl overflow-hidden flex-shrink-0 shadow-md bg-gray-50">
-                  {selectedProduct.image ? (
-                    <img 
-                      src={selectedProduct.image} 
-                      alt={selectedProduct.name} 
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <ImageIcon className="w-8 h-8 text-gray-300" />
-                    </div>
-                  )}
+                  <SmartImage 
+                    src={selectedProduct.image} 
+                    alt={selectedProduct.hindiName || selectedProduct.name} 
+                    className="w-full h-full" 
+                    objectFit="cover"
+                  />
                 </div>
                 <div className="flex-1">
                   <p className="text-[#2D5A27] text-[10px] font-black uppercase tracking-wider mb-0.5">{selectedProduct.brand || 'Local Brand'}</p>
@@ -314,7 +312,11 @@ const DiseaseDetection: React.FC = () => {
                   <div className="flex items-center gap-2 mb-2">
                     <span className="bg-white border border-gray-100 text-gray-600 px-2 py-0.5 rounded-lg text-[10px] font-bold">मात्रा: {selectedProduct.unit || 'N/A'}</span>
                   </div>
-                  <p className="text-2xl font-black text-[#2D5A27]">₹{selectedProduct.price}</p>
+                  {selectedProduct.hidePrice || !selectedProduct.price ? (
+                    <p className="text-sm font-bold text-gray-400 bg-gray-50 px-3 py-1.5 rounded-xl inline-block mt-1">कीमत उपलब्ध नहीं</p>
+                  ) : (
+                    <p className="text-2xl font-black text-[#2D5A27]">₹{selectedProduct.price}</p>
+                  )}
                 </div>
               </div>
 
@@ -341,7 +343,11 @@ const DiseaseDetection: React.FC = () => {
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
                     <span className="text-gray-500 text-sm font-medium">💰 कीमत (Price):</span>
-                    <span className="text-[#2D5A27] font-black text-lg">₹{selectedProduct.price}</span>
+                    {selectedProduct.hidePrice || !selectedProduct.price ? (
+                      <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-lg">कीमत उपलब्ध नहीं</span>
+                    ) : (
+                      <span className="text-[#2D5A27] font-black text-lg">₹{selectedProduct.price}</span>
+                    )}
                   </div>
                   <div className="py-2">
                     <span className="text-gray-500 text-sm font-medium block mb-1">🌱 उपयोग (Best For):</span>

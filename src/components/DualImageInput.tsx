@@ -138,9 +138,14 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
             "relative h-32 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-2 overflow-hidden",
             primary ? "border-[#2D5A27] bg-white" : "border-gray-200 bg-gray-50 hover:bg-white"
           )}>
-            {primary ? (
+            {primary && primary !== "" ? (
               <>
-                <img src={primary} alt="Primary" className="w-full h-full object-contain p-2" />
+                <img 
+                  src={primary} 
+                  alt="Primary" 
+                  className="w-full h-full object-contain p-2" 
+                  referrerPolicy="no-referrer"
+                />
                 <div className="absolute top-2 right-2 flex gap-1.5">
                   <label className="p-2 bg-[#2D5A27] text-white rounded-xl shadow-lg cursor-pointer active:scale-95 transition-transform">
                     <Upload className="w-3.5 h-3.5" />
@@ -221,12 +226,13 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
               "h-20 rounded-2xl border-2 border-dashed border-gray-100 bg-white flex items-center justify-center overflow-hidden transition-all",
               fallback ? "opacity-100 scale-100" : "opacity-40 scale-95"
             )}>
-              {fallback ? (
+              {fallback && getDirectImageURL(fallback) !== "" ? (
                 <img 
                   src={getDirectImageURL(fallback)} 
                   alt="URL Preview" 
                   className="w-full h-full object-contain p-2"
                   onError={() => setUrlStatus('invalid')}
+                  referrerPolicy="no-referrer"
                 />
               ) : (
                 <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">URL Preview</span>
@@ -248,11 +254,12 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
           <div className="flex gap-4 items-center justify-center">
             <div className="space-y-1 text-center">
               <div className="w-24 h-24 rounded-2xl border border-gray-200 overflow-hidden shadow-sm flex items-center justify-center bg-gray-50">
-                {(primary || fallback) ? (
+                {(primary || (fallback && getDirectImageURL(fallback) !== "")) ? (
                   <img 
                     src={primary || getDirectImageURL(fallback)} 
                     alt="Logic Preview"
                     className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
                   />
                 ) : (
                   <ImageIcon className="w-6 h-6 text-gray-200" />

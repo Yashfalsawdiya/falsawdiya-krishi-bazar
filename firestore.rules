@@ -82,11 +82,15 @@ service cloud.firestore {
       return data.hindiName is string && data.hindiName.size() > 0 && data.hindiName.size() < 200 &&
              data.brand is string && data.brand.size() > 0 &&
              data.category is string && data.category.size() > 0 &&
-             data.price is number && data.price >= 0 &&
-             data.unit is string && data.unit.size() > 0 &&
+             (!('price' in data) || data.price is number) &&
+             (!('unit' in data) || data.unit is string) &&
              (!('hidePrice' in data) || data.hidePrice is bool) &&
+             (!('inStock' in data) || data.inStock is bool) &&
              (!('image' in data) || isValidImage(data.image)) &&
-             (!('description' in data) || (data.description is string && data.description.size() < 5000));
+             (!('description' in data) || (data.description is string && data.description.size() < 5000)) &&
+             (!('crops' in data) || data.crops is list) &&
+             (!('variants' in data) || data.variants is list) &&
+             (!('dosage' in data) || (data.dosage is map && data.dosage.get('show', false) is bool && data.dosage.get('value', '') is string));
     }
 
     function isValidCategory(data) {

@@ -7,14 +7,34 @@
       "properties": {
         "name": { "type": "string" },
         "hindiName": { "type": "string" },
-        "category": { "type": "string", "enum": ["seeds", "fertilizers", "pesticides", "fungicides", "herbicides", "medicines", "implements"] },
+        "category": { "type": "string" },
+        "brand": { "type": "string" },
         "price": { "type": "number" },
         "unit": { "type": "string" },
-        "image": { "type": "string" },
+        "image": { "oneOf": [{ "type": "string" }, { "$ref": "ImageSource" }] },
         "description": { "type": "string" },
-        "crops": { "type": "array", "items": { "type": "string" } }
+        "crops": { "type": "array", "items": { "type": "string" } },
+        "variants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "quantity": { "type": "string" },
+              "price": { "type": "number" }
+            }
+          }
+        },
+        "dosage": {
+          "type": "object",
+          "properties": {
+            "show": { "type": "boolean" },
+            "value": { "type": "string" }
+          }
+        },
+        "inStock": { "type": "boolean" }
       },
-      "required": ["hindiName", "category", "price", "unit"]
+      "required": ["hindiName", "category", "brand"]
     },
     "CropAdvice": {
       "title": "CropAdvice",
