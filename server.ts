@@ -11,9 +11,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Firebase Config
-let firebaseConfig: any;
+let firebaseConfig: any = {};
 try {
-  const configPath = path.resolve(__dirname, 'firebase-applet-config.json');
+  const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
   if (fs.existsSync(configPath)) {
     firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
   } else {
@@ -30,19 +30,32 @@ try {
   console.error("Failed to load firebase config on server:", e);
 }
 
-const firebaseApp = initializeApp(firebaseConfig);
-const dbId = firebaseConfig.firestoreDatabaseId || (firebaseConfig.databaseId !== "" ? firebaseConfig.databaseId : '(default)');
-const db = getFirestore(firebaseApp, dbId);
+// Initializing Firebase safely
+const hasConfig = firebaseConfig && firebaseConfig.projectId;
+const firebaseApp = hasConfig ? initializeApp(firebaseConfig) : null;
+const dbId = firebaseConfig?.firestoreDatabaseId || (firebaseConfig?.databaseId && firebaseConfig.databaseId !== "" ? firebaseConfig.databaseId : '(default)');
+const db = firebaseApp ? getFirestore(firebaseApp, dbId) : null;
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Simple health check
+  app.get('/api/health', (req, res) => {
+    res.json({ 
+      status: 'ok', 
+      firebase: !!firebaseApp,
+      mode: process.env.NODE_ENV,
+      dbId: dbId
+    });
+  });
 
   // Cache for processed icons
   const iconCache = new Map<string, Buffer>();
 
   // Helper to fetch branding
   const getBranding = async () => {
+    if (!db) return null;
     try {
       const snap = await getDoc(doc(db, 'settings', 'content'));
       if (snap.exists()) {
@@ -144,7 +157,7 @@ async function startServer() {
       if (iconUrl.startsWith('http')) {
         image = await Jimp.read(iconUrl);
       } else {
-        const localPath = path.join(__dirname, 'public', iconUrl.startsWith('/') ? iconUrl.substring(1) : iconUrl);
+        const localPath = path.join(process.cwd(), 'public', iconUrl.startsWith('/') ? iconUrl.substring(1) : iconUrl);
         if (fs.existsSync(localPath)) {
           image = await Jimp.read(localPath);
         } else {
