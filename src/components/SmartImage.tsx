@@ -102,19 +102,6 @@ const SmartImage: React.FC<SmartImageProps> = ({
           onDragStart={(e) => e.preventDefault()}
         />
       )}
-
-      {/* Watermark for Non-Admins */}
-      {!isAdmin && isLoaded && !hasError && (
-        <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center opacity-[0.07] select-none overflow-hidden mix-blend-multiply">
-          <div className="grid grid-cols-2 gap-8 rotate-[-25deg] scale-125">
-            {[...Array(6)].map((_, i) => (
-              <span key={i} className="text-[10px] font-black uppercase text-black whitespace-nowrap">
-                फल्सावदिया कृषि बाज़ार
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
       
       {hasError && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center">

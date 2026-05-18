@@ -98,16 +98,7 @@ const ImageZoomModal: React.FC<ImageZoomModalProps> = ({ isOpen, onClose, imageS
               <div 
                 className="absolute inset-0 z-30 cursor-default select-none touch-none pointer-events-none"
                 onContextMenu={(e) => e.preventDefault()}
-              >
-                {/* Fixed Watermark overlay */}
-                <div className="absolute inset-0 flex flex-wrap items-center justify-center content-center gap-12 rotate-[-15deg] opacity-[0.05] p-20">
-                  {[...Array(20)].map((_, i) => (
-                    <span key={i} className="text-xl font-black uppercase text-white whitespace-nowrap">
-                      फल्सावदिया कृषि बाज़ार
-                    </span>
-                  ))}
-                </div>
-              </div>
+              />
             )}
           </div>
 
