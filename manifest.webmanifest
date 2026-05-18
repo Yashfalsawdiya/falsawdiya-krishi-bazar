@@ -3,13 +3,13 @@
   "short_name": "कृषि बाज़ार",
   "description": "मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी",
   "start_url": "/",
-  "id": "/index.html",
+  "id": "com.krishibazaar.falsawdiya.pwa.v1",
   "display": "standalone",
-  "background_color": "#F5F2ED",
+  "background_color": "#FFFFFF",
   "theme_color": "#2D5A27",
   "dir": "ltr",
   "lang": "hi-IN",
-  "categories": ["agriculture", "business"],
+  "categories": ["agriculture", "business", "news", "shopping"],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -34,6 +34,21 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "मंडी भाव",
+      "url": "/mandi",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow"
     }
   ]
 }
