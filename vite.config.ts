@@ -18,16 +18,17 @@ export default defineConfig(({mode}) => {
           short_name: 'कृषि बाज़ार',
           description: 'मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी',
           theme_color: '#2D5A27',
-          background_color: '#FFFFFF',
+          background_color: '#F5F2ED',
           display: 'standalone',
-          display_override: ['standalone', 'window-controls-overlay', 'minimal-ui'],
+          display_override: ['window-controls-overlay', 'standalone'],
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
-          id: 'com.krishibazaar.falsawdiya.pwa.v1',
+          id: '/index.html',
           dir: 'ltr',
           lang: 'hi-IN',
-          categories: ['agriculture', 'business', 'news', 'shopping'],
+          categories: ['agriculture', 'business', 'news'],
+          prefer_related_applications: false,
           icons: [
             {
               src: '/icon-192.png',
@@ -56,23 +57,14 @@ export default defineConfig(({mode}) => {
           ],
           shortcuts: [
             {
-              name: 'मंडी भाव',
-              url: '/mandi',
-              icons: [{ src: '/icon-192.png', sizes: '192x192' }]
-            },
-            {
               name: 'बाज़ार',
               url: '/products',
               icons: [{ src: '/icon-192.png', sizes: '192x192' }]
-            }
-          ],
-          screenshots: [
+            },
             {
-              src: '/icon-512.png',
-              sizes: '512x512',
-              type: 'image/png',
-              form_factor: 'narrow',
-              label: 'Home Screen'
+              name: 'मंडी भाव',
+              url: '/mandi',
+              icons: [{ src: '/icon-192.png', sizes: '192x192' }]
             }
           ]
         },

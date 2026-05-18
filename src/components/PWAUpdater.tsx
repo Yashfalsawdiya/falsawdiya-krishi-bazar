@@ -15,6 +15,7 @@ const PWAUpdater: React.FC = () => {
     const name = branding?.name || 'फल्सावदिया कृषि बाज़ार';
     const shortName = 'कृषि बाज़ार';
     
+    // Extract string URL from potentially complex branding icons
     const getIconUrl = (source: string | ImageSource | undefined) => {
       if (!source) return '/icon-512.png';
       if (typeof source === 'string') return source;
@@ -23,6 +24,7 @@ const PWAUpdater: React.FC = () => {
 
     const iconUrl = getIconUrl(branding?.pwaIcon);
 
+    // 3. Process Maskable Icon with Canvas to ensure padding (Safety Zone)
     const createProcessedIcon = (src: string, size: number, isMaskable: boolean): Promise<string> => {
       return new Promise((resolve) => {
         const img = new Image();
@@ -37,20 +39,20 @@ const PWAUpdater: React.FC = () => {
             return;
           }
 
-          // Force White background for Android Adaptive Icons to look clean
-          ctx.fillStyle = '#FFFFFF';
+          // Fill background (Adaptive background)
+          ctx.fillStyle = '#FFFFFF'; // White background for the icon container
           ctx.fillRect(0, 0, size, size);
 
           if (isMaskable) {
-            // Android Maskable/Adaptive Safe Zone is within center 80% circle
-            // To be really safe and avoid "zoomed" look, we use even more padding
-            const padding = size * 0.25; // 25% padding on each side = 50% logo size in middle
+            // Add substantial padding for maskable icons (Safe Zone)
+            // Logos should be within center 80% (10% padding on each side)
+            // But for a better "centered" look on Android, 15-20% is safer.
+            const padding = size * 0.2; 
             const drawSize = size - (padding * 2);
-            // Center the logo perfectly
             ctx.drawImage(img, padding, padding, drawSize, drawSize);
           } else {
-            // Standard centered icon with 10% breathing room
-            const padding = size * 0.1;
+            // For 'any' purpose, fill a bit more but still keep some breathing room
+            const padding = size * 0.05;
             const drawSize = size - (padding * 2);
             ctx.drawImage(img, padding, padding, drawSize, drawSize);
           }
@@ -90,34 +92,22 @@ const PWAUpdater: React.FC = () => {
       appleIcon.href = maskableIcon192; 
 
       const manifest = {
-        id: 'com.krishibazaar.app.falsawdiya.v3', // Incremented version to force update
+        id: 'com.krishibazaar.app.falsawdiya.v1',
         name: name,
         short_name: shortName,
         description: appContent.branding?.tagline || 'मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी',
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        display_override: ['standalone', 'window-controls-overlay', 'minimal-ui'],
+        display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
         background_color: '#FFFFFF',
         theme_color: '#2D5A27',
         orientation: 'portrait',
         dir: 'ltr',
         lang: 'hi-IN',
-        categories: ['agriculture', 'business', 'news', 'shopping', 'social'],
+        categories: ['agriculture', 'business', 'news', 'shopping'],
         prefer_related_applications: false,
         icons: [
-          {
-            src: anyIcon192,
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: maskableIcon192,
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'maskable'
-          },
           {
             src: anyIcon512,
             sizes: '512x512',
@@ -129,36 +119,32 @@ const PWAUpdater: React.FC = () => {
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
+          },
+          {
+            src: anyIcon192,
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: maskableIcon192,
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ],
         shortcuts: [
           {
             name: 'मंडी भाव',
-            short_name: 'मंडी',
             url: '/mandi',
+            description: 'ताज़ा मंडी भाव देखें',
             icons: [{ src: anyIcon192, sizes: '192x192' }]
           },
           {
             name: 'उत्पाद',
-            short_name: 'दुकान',
             url: '/products',
+            description: 'दवाइयाँ और बीज खरीदें',
             icons: [{ src: anyIcon192, sizes: '192x192' }]
-          }
-        ],
-        screenshots: [
-          {
-            src: anyIcon512,
-            sizes: '512x512',
-            type: 'image/png',
-            form_factor: 'narrow',
-            label: 'Home Screen'
-          },
-          {
-            src: anyIcon512,
-            sizes: '512x512',
-            type: 'image/png',
-            form_factor: 'wide',
-            label: 'Dashboard'
           }
         ]
       };
