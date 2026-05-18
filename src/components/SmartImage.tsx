@@ -22,32 +22,27 @@ const SmartImage: React.FC<SmartImageProps> = ({
   onClick,
   priority = false
 }) => {
-  const [currentSrc, setCurrentSrc] = useState<string | null>(null);
+  // Sync calculation to avoid blank first frame
+  const resolveSrc = (source: string | ImageSource | undefined): string => {
+    if (!source) return getDirectImageURL(fallbackSrc);
+    if (typeof source === 'string') return getDirectImageURL(source);
+    return getDirectImageURL(source.primary || source.fallback || fallbackSrc);
+  };
+
+  const initialSrc = resolveSrc(src);
+  const [currentSrc, setCurrentSrc] = useState<string>(initialSrc);
   const [hasError, setHasError] = useState(false);
   const [isPrimaryFailed, setIsPrimaryFailed] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Update if props change
   useEffect(() => {
-    setHasError(false);
-    setIsPrimaryFailed(false);
-    setIsLoaded(false);
-    
-    if (!src) {
-      setCurrentSrc(getDirectImageURL(fallbackSrc));
-      return;
-    }
-
-    if (typeof src === 'string') {
-      setCurrentSrc(getDirectImageURL(src));
-    } else {
-      // It's an ImageSource object
-      if (src.primary) {
-        setCurrentSrc(getDirectImageURL(src.primary));
-      } else if (src.fallback) {
-        setCurrentSrc(getDirectImageURL(src.fallback));
-      } else {
-        setCurrentSrc(getDirectImageURL(fallbackSrc));
-      }
+    const newSrc = resolveSrc(src);
+    if (newSrc !== currentSrc) {
+      setCurrentSrc(newSrc);
+      setHasError(false);
+      setIsPrimaryFailed(false);
+      setIsLoaded(false);
     }
   }, [src, fallbackSrc]);
 

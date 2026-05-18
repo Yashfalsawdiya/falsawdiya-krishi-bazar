@@ -79,7 +79,7 @@ export default defineConfig(({mode}) => {
               options: {
                 cacheName: 'firebase-images-cache',
                 expiration: {
-                  maxEntries: 500,
+                  maxEntries: 1000,
                   maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
                 },
                 cacheableResponse: {
@@ -88,12 +88,12 @@ export default defineConfig(({mode}) => {
               }
             },
             {
-              urlPattern: /^https:\/\/(?:lh3\.googleusercontent\.com|drive\.google\.com)\/.*/i,
+              urlPattern: /^https:\/\/(?:.*\.googleusercontent\.com|drive\.google\.com|.*\.ggpht\.com)\/.*/i,
               handler: 'CacheFirst',
               options: {
                 cacheName: 'google-drive-images-cache',
                 expiration: {
-                  maxEntries: 500,
+                  maxEntries: 1000,
                   maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
                 },
                 cacheableResponse: {

@@ -270,33 +270,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return null;
   };
 
-  const prefetchImage = (url: string | ImageSource | undefined) => {
+  const prefetchImage = (url: string | ImageSource | undefined, isPriority: boolean = false) => {
+    if (!url) return;
+    
+    // 1. Fill the browser's internal image cache (Memory Cache)
     preCacheImage(url);
     
-    // Also use fetch for service worker caching if available
-    if (!url) return;
+    // 2. Trigger Service Worker caching (Disk/SW Cache)
     const directUrl = typeof url === 'string' ? getDirectImageURL(url) : getDirectImageURL(url.primary || url.fallback || '');
     if (!directUrl || directUrl.startsWith('data:')) return;
     
-    fetch(directUrl, { mode: 'no-cors', priority: 'low' }).catch(() => {});
+    // We use fetch with 'no-cors' to fill the SW cache. 
+    // Status 0 (opaque) responses are explicitly allowed in vite.config.ts
+    fetch(directUrl, { 
+      mode: 'no-cors', 
+      priority: isPriority ? 'high' : 'low',
+      credentials: 'omit' 
+    }).catch(() => {});
   };
 
   const prefetchContentImages = useCallback((content: AppContent | null) => {
     if (!content) return;
     
-    prefetchImage(content.branding.logo);
-    prefetchImage(content.branding.pwaIcon);
-    prefetchImage(content.branding.androidIcon);
-    prefetchImage(content.branding.splashLogo);
+    // High Priority Branding
+    prefetchImage(content.branding.logo, true);
+    prefetchImage(content.branding.pwaIcon, true);
+    prefetchImage(content.branding.androidIcon, true);
+    prefetchImage(content.branding.splashLogo, true);
     
+    // Content Banners
     if (content.banners) {
-      content.banners.forEach(b => prefetchImage(b.image));
+      content.banners.forEach(b => prefetchImage(b.image, true));
     }
     
+    // Partner Logos
     if (content.partners) {
       content.partners.forEach(p => prefetchImage(p.logo));
     }
 
+    // Video Thumbnails
     if (content.videos) {
       content.videos.forEach(v => prefetchImage(v.thumbnail));
     }
@@ -328,10 +340,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setProducts(prods);
       setCacheData('products', prods);
       
-      // Prefetch images for featured and first 15 products
+      // Prefetch images for all products to ensure offline availability
+      // But prioritize featured ones
       const featured = prods.filter(p => p.isFeatured);
-      const others = prods.filter(p => !p.isFeatured).slice(0, 15);
-      [...featured, ...others].forEach(p => prefetchImage(p.image));
+      const others = prods.filter(p => !p.isFeatured);
+      
+      featured.forEach(p => prefetchImage(p.image, true));
+      others.forEach(p => prefetchImage(p.image));
       
       markSyncDone();
       setIsQuotaExceeded(false);
