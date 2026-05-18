@@ -92,11 +92,11 @@ const PWAUpdater: React.FC = () => {
       appleIcon.href = maskableIcon192; 
 
       const manifest = {
-        id: 'com.krishibazaar.app.falsawdiya.v1',
+        id: 'com.krishibazaar.app.falsawdiya.pwa.v2',
         name: name,
         short_name: shortName,
         description: appContent.branding?.tagline || 'मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी',
-        start_url: '/',
+        start_url: '/?source=pwa_install',
         scope: '/',
         display: 'standalone',
         display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
@@ -105,7 +105,7 @@ const PWAUpdater: React.FC = () => {
         orientation: 'portrait',
         dir: 'ltr',
         lang: 'hi-IN',
-        categories: ['agriculture', 'business', 'news', 'shopping'],
+        categories: ['agriculture', 'business', 'news', 'shopping', 'social'],
         prefer_related_applications: false,
         icons: [
           {
@@ -136,15 +136,33 @@ const PWAUpdater: React.FC = () => {
         shortcuts: [
           {
             name: 'मंडी भाव',
+            short_name: 'मंडी',
             url: '/mandi',
             description: 'ताज़ा मंडी भाव देखें',
             icons: [{ src: anyIcon192, sizes: '192x192' }]
           },
           {
             name: 'उत्पाद',
+            short_name: 'दुकान',
             url: '/products',
             description: 'दवाइयाँ और बीज खरीदें',
             icons: [{ src: anyIcon192, sizes: '192x192' }]
+          }
+        ],
+        screenshots: [
+          {
+            src: anyIcon512,
+            sizes: '512x512',
+            type: 'image/png',
+            form_factor: 'wide',
+            label: 'कृषि बाज़ार होम स्क्रीन'
+          },
+          {
+            src: anyIcon512,
+            sizes: '512x512',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'कृषि बाज़ार मोबाइल ऐप'
           }
         ]
       };
