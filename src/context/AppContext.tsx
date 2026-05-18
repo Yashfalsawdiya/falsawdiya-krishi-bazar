@@ -96,6 +96,16 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+// Helper to pre-cache images for offline and instant loading
+const preCacheImage = (src: any) => {
+  if (!src) return;
+  const url = typeof src === 'string' ? getDirectImageURL(src) : getDirectImageURL(src.primary || src.fallback);
+  if (!url) return;
+  
+  const img = new Image();
+  img.src = url;
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryData[]>(CATEGORIES);
@@ -261,28 +271,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const prefetchImage = (url: string | ImageSource | undefined) => {
+    preCacheImage(url);
+    
+    // Also use fetch for service worker caching if available
     if (!url) return;
     const directUrl = typeof url === 'string' ? getDirectImageURL(url) : getDirectImageURL(url.primary || url.fallback || '');
-    if (!directUrl || directUrl.startsWith('data:')) return; // Already "cached" if base64
-
-    // Simple fetch to trigger Service Worker caching
-    fetch(directUrl, { mode: 'no-cors' }).catch(() => {
-      // Background fetch failed, standard image loading will retry
-    });
+    if (!directUrl || directUrl.startsWith('data:')) return;
+    
+    fetch(directUrl, { mode: 'no-cors', priority: 'low' }).catch(() => {});
   };
 
   const prefetchContentImages = useCallback((content: AppContent | null) => {
     if (!content) return;
     
-    // Prefetch essential UI assets
     prefetchImage(content.branding.logo);
     prefetchImage(content.branding.pwaIcon);
     prefetchImage(content.branding.androidIcon);
     prefetchImage(content.branding.splashLogo);
     
-    content.banners.forEach(b => prefetchImage(b.image));
-    content.videos.forEach(v => prefetchImage(v.thumbnail));
-    content.partners.forEach(p => prefetchImage(p.logo));
+    if (content.banners) {
+      content.banners.forEach(b => prefetchImage(b.image));
+    }
+    
+    if (content.partners) {
+      content.partners.forEach(p => prefetchImage(p.logo));
+    }
+
+    if (content.videos) {
+      content.videos.forEach(v => prefetchImage(v.thumbnail));
+    }
   }, []);
 
   const setCacheData = <T,>(key: string, data: T[]) => {
@@ -311,8 +328,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setProducts(prods);
       setCacheData('products', prods);
       
-      // Prefetch images for top 10 products
-      prods.slice(0, 10).forEach(p => prefetchImage(p.image));
+      // Prefetch images for featured and first 15 products
+      const featured = prods.filter(p => p.isFeatured);
+      const others = prods.filter(p => !p.isFeatured).slice(0, 15);
+      [...featured, ...others].forEach(p => prefetchImage(p.image));
       
       markSyncDone();
       setIsQuotaExceeded(false);

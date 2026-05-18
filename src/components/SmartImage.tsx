@@ -78,8 +78,9 @@ const SmartImage: React.FC<SmartImageProps> = ({
           src={currentSrc}
           alt={alt}
           className={cn(
-            "w-full h-full transition-opacity duration-300",
+            "w-full h-full transition-opacity duration-200",
             hasError ? "opacity-40 grayscale" : (isLoaded ? "opacity-100" : "opacity-0"),
+            "bg-gray-50", // Light background while loading
             objectFit === 'cover' && "object-cover",
             objectFit === 'contain' && "object-contain",
             objectFit === 'fill' && "object-fill",

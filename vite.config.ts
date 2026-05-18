@@ -79,8 +79,8 @@ export default defineConfig(({mode}) => {
               options: {
                 cacheName: 'firebase-images-cache',
                 expiration: {
-                  maxEntries: 200,
-                  maxAgeSeconds: 60 * 60 * 24 * 90 // 90 days
+                  maxEntries: 500,
+                  maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
                 },
                 cacheableResponse: {
                   statuses: [0, 200]
@@ -93,8 +93,22 @@ export default defineConfig(({mode}) => {
               options: {
                 cacheName: 'google-drive-images-cache',
                 expiration: {
+                  maxEntries: 500,
+                  maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            },
+            {
+              urlPattern: /^https:\/\/(?:img\.youtube\.com|i\.ytimg\.com)\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'youtube-thumbnails-cache',
+                expiration: {
                   maxEntries: 200,
-                  maxAgeSeconds: 60 * 60 * 24 * 90 // 90 days
+                  maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
                 },
                 cacheableResponse: {
                   statuses: [0, 200]
@@ -103,12 +117,15 @@ export default defineConfig(({mode}) => {
             },
             {
               urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
-              handler: 'StaleWhileRevalidate',
+              handler: 'CacheFirst',
               options: {
                 cacheName: 'general-images-cache',
                 expiration: {
-                  maxEntries: 100,
-                  maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                  maxEntries: 300,
+                  maxAgeSeconds: 60 * 60 * 24 * 60 // 60 days
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
                 }
               }
             }

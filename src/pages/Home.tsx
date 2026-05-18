@@ -439,7 +439,7 @@ const Home: React.FC = () => {
                 {typeof cat.icon === 'string' ? (
                   cat.icon
                 ) : (
-                  <SmartImage src={cat.icon} alt={cat.name} className="w-full h-full" objectFit="contain" />
+                  <SmartImage src={cat.icon} alt={cat.name} className="w-full h-full" objectFit="contain" priority={index < 4} />
                 )}
               </div>
               <span className="text-[11px] font-bold text-[#2D5A27] leading-tight">{cat.name}</span>
