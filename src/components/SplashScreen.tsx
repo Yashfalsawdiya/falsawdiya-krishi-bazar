@@ -40,7 +40,7 @@ const SplashScreen: React.FC = () => {
             className="w-40 h-40 relative"
           >
             <div className="absolute inset-0 bg-[#2D5A27]/5 rounded-[3rem] blur-3xl animate-pulse" />
-            <div className="relative w-full h-full bg-white rounded-[2.5rem] shadow-xl p-6 border border-gray-100 flex items-center justify-center overflow-hidden">
+            <div className="relative w-full h-full bg-transparent rounded-[2.5rem] shadow-xl p-6 border border-gray-100 flex items-center justify-center overflow-hidden">
                <SmartImage 
                  src={branding.splashLogo || branding.logo} 
                  fallbackSrc="/icon-512.png"
@@ -48,6 +48,8 @@ const SplashScreen: React.FC = () => {
                  className="w-full h-full"
                  objectFit="contain"
                />
+               {/* Subtle texture to give logo depth on transparent background */}
+               <div className="absolute inset-0 bg-white/40 -z-10" />
             </div>
           </motion.div>
 
