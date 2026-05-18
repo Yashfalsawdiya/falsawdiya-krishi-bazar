@@ -16,7 +16,7 @@ const Profile: React.FC = () => {
 
   useEffect(() => {
     if (userSettings) {
-      setApiKey(userSettings.geminiApiKey);
+      setApiKey(userSettings.geminiApiKey || '');
     }
   }, [userSettings]);
 

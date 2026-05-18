@@ -1697,7 +1697,7 @@ const Admin: React.FC = () => {
                   <div className="flex gap-2">
                     <input 
                       type="text" 
-                      value={productForm.customId}
+                      value={productForm.customId || ''}
                       onChange={e => setProductForm({...productForm, customId: e.target.value})}
                       className="flex-1 bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium uppercase"
                       placeholder="जैसे: FERT-01"
@@ -1732,7 +1732,7 @@ const Admin: React.FC = () => {
                   <input 
                     required
                     type="text" 
-                    value={productForm.brand}
+                    value={productForm.brand || ''}
                     onChange={e => setProductForm({...productForm, brand: e.target.value})}
                     className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                     placeholder="जैसे: Bayer, Syngenta"
@@ -1743,7 +1743,7 @@ const Admin: React.FC = () => {
                   <input 
                     required
                     type="text" 
-                    value={productForm.hindiName}
+                    value={productForm.hindiName || ''}
                     onChange={e => setProductForm({...productForm, hindiName: e.target.value})}
                     className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                     placeholder="जैसे: यूरिया खाद"
@@ -1793,7 +1793,7 @@ const Admin: React.FC = () => {
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">क्रम (Order)</label>
                     <input 
                       type="number" 
-                      value={productForm.featuredOrder}
+                      value={productForm.featuredOrder || 0}
                       onChange={e => setProductForm({...productForm, featuredOrder: parseInt(e.target.value) || 0})}
                       className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-3.5 outline-none transition-all font-medium text-sm"
                       placeholder="जैसे: 1"
@@ -1826,7 +1826,7 @@ const Admin: React.FC = () => {
                             <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Quantity</label>
                             <input 
                               type="text" 
-                              value={variant.quantity}
+                              value={variant.quantity || ''}
                               onChange={e => {
                                 const v = [...(productForm.variants || [])];
                                 v[idx].quantity = e.target.value;
@@ -1840,7 +1840,7 @@ const Admin: React.FC = () => {
                             <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Price</label>
                             <input 
                               type="number" 
-                              value={variant.price}
+                              value={variant.price || 0}
                               onChange={e => {
                                 const v = [...(productForm.variants || [])];
                                 v[idx].price = Number(e.target.value);
@@ -1885,7 +1885,7 @@ const Admin: React.FC = () => {
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">विवरण (Description)</label>
                   <textarea 
-                    value={productForm.description}
+                    value={productForm.description || ''}
                     onChange={e => setProductForm({...productForm, description: e.target.value})}
                     className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium h-24 resize-none"
                   />
@@ -1968,7 +1968,7 @@ const Admin: React.FC = () => {
                     <input 
                       required
                       type="text" 
-                      value={agriIssueForm.hindiName}
+                      value={agriIssueForm.hindiName || ''}
                       onChange={e => setAgriIssueForm({...agriIssueForm, hindiName: e.target.value})}
                       className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                       placeholder="जैसे: माहू (Aphids)"
@@ -1979,7 +1979,7 @@ const Admin: React.FC = () => {
                     <input 
                       required
                       type="text" 
-                      value={agriIssueForm.englishName}
+                      value={agriIssueForm.englishName || ''}
                       onChange={e => setAgriIssueForm({...agriIssueForm, englishName: e.target.value})}
                       className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                       placeholder="जैसे: Aphids"
@@ -2016,7 +2016,7 @@ const Admin: React.FC = () => {
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">संक्षिप्त विवरण (Short Description)</label>
                     <textarea 
-                      value={agriIssueForm.description}
+                      value={agriIssueForm.description || ''}
                       onChange={e => setAgriIssueForm({...agriIssueForm, description: e.target.value})}
                       className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium h-24 resize-none"
                     />
@@ -2123,7 +2123,7 @@ const Admin: React.FC = () => {
                   <input 
                     required
                     type="text" 
-                    value={categoryForm.name}
+                    value={categoryForm.name || ''}
                     onChange={e => setCategoryForm({...categoryForm, name: e.target.value})}
                     className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                     placeholder="जैसे: कंद फसलें"
@@ -2142,7 +2142,7 @@ const Admin: React.FC = () => {
                   <input 
                     required
                     type="number" 
-                    value={categoryForm.order}
+                    value={categoryForm.order || 0}
                     onChange={e => setCategoryForm({...categoryForm, order: Number(e.target.value)})}
                     className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                   />
@@ -2192,7 +2192,7 @@ const Admin: React.FC = () => {
                   <input 
                     required
                     type="text" 
-                    value={helplineForm.name}
+                    value={helplineForm.name || ''}
                     onChange={e => setHelplineForm({...helplineForm, name: e.target.value})}
                     className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                     placeholder="जैसे: किसान कॉल सेंटर"
@@ -2204,7 +2204,7 @@ const Admin: React.FC = () => {
                   <input 
                     required
                     type="text" 
-                    value={helplineForm.number}
+                    value={helplineForm.number || ''}
                     onChange={e => setHelplineForm({...helplineForm, number: e.target.value})}
                     className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium font-mono"
                     placeholder="जैसे: 1551"
@@ -2216,7 +2216,7 @@ const Admin: React.FC = () => {
                   <input 
                     required
                     type="text" 
-                    value={helplineForm.category}
+                    value={helplineForm.category || ''}
                     onChange={e => setHelplineForm({...helplineForm, category: e.target.value})}
                     className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                     placeholder="जैसे: कृषि विभाग"
@@ -2227,7 +2227,7 @@ const Admin: React.FC = () => {
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">विवरण (Short Description)</label>
                   <input 
                     type="text" 
-                    value={helplineForm.description}
+                    value={helplineForm.description || ''}
                     onChange={e => setHelplineForm({...helplineForm, description: e.target.value})}
                     className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                     placeholder="जैसे: सरकारी योजनाओं की जानकारी के लिए"
@@ -2238,7 +2238,7 @@ const Admin: React.FC = () => {
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">क्रम (Priority Order)</label>
                   <input 
                     type="number" 
-                    value={helplineForm.order}
+                    value={helplineForm.order || 0}
                     onChange={e => setHelplineForm({...helplineForm, order: parseInt(e.target.value) || 0})}
                     className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                   />
