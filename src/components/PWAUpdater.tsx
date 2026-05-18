@@ -56,7 +56,7 @@ const PWAUpdater: React.FC = () => {
       }
     };
 
-    updateManifest();
+    updateManifest().catch(err => console.error("Manifest update failed:", err));
 
     return () => {};
   }, [appContent]);

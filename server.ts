@@ -31,10 +31,20 @@ try {
 }
 
 // Initializing Firebase safely
-const hasConfig = firebaseConfig && firebaseConfig.projectId;
-const firebaseApp = hasConfig ? initializeApp(firebaseConfig) : null;
-const dbId = firebaseConfig?.firestoreDatabaseId || (firebaseConfig?.databaseId && firebaseConfig.databaseId !== "" ? firebaseConfig.databaseId : '(default)');
-const db = firebaseApp ? getFirestore(firebaseApp, dbId) : null;
+let firebaseApp: any = null;
+let db: any = null;
+let dbId = '(default)';
+
+try {
+  const hasConfig = firebaseConfig && firebaseConfig.projectId;
+  if (hasConfig) {
+    firebaseApp = initializeApp(firebaseConfig);
+    dbId = firebaseConfig.firestoreDatabaseId || (firebaseConfig.databaseId && firebaseConfig.databaseId !== "" ? firebaseConfig.databaseId : '(default)');
+    db = getFirestore(firebaseApp, dbId);
+  }
+} catch (e) {
+  console.error("Firebase initialization failed on server:", e);
+}
 
 async function startServer() {
   const app = express();
@@ -172,24 +182,24 @@ async function startServer() {
       }
 
       // Resize and process
-      image.resize({ width: size, height: size });
+      await image.resize({ width: size, height: size });
 
       if (purpose === 'maskable') {
         // Create a larger canvas for white padding
         const padding = Math.floor(size * 0.2); // 20% padding
         const innerSize = size - (padding * 2);
         
-        const background = new Jimp({ width: size, height: size, color: 0xFFFFFFFF }); // White background
-        image.resize({ width: innerSize, height: innerSize });
-        background.composite(image, padding, padding);
+        const background = await new Jimp({ width: size, height: size, color: 0xFFFFFFFF }); // White background
+        await image.resize({ width: innerSize, height: innerSize });
+        await background.composite(image, padding, padding);
         image = background;
       } else {
         // Subtle padding for 'any' to ensure it's not touching edges
         const padding = Math.floor(size * 0.05); 
         const innerSize = size - (padding * 2);
-        const background = new Jimp({ width: size, height: size, color: 0xFFFFFFFF });
-        image.resize({ width: innerSize, height: innerSize });
-        background.composite(image, padding, padding);
+        const background = await new Jimp({ width: size, height: size, color: 0xFFFFFFFF });
+        await image.resize({ width: innerSize, height: innerSize });
+        await background.composite(image, padding, padding);
         image = background;
       }
 

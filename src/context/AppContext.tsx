@@ -174,48 +174,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           // Setup real-time listener for user profile
           unsubscribeUserDoc = onSnapshot(doc(db, 'users', firebaseUser.uid), async (snapshot) => {
-            if (snapshot.exists()) {
-              const userData = snapshot.data();
-              
-              if (userData.isBlocked === true) {
-                console.warn("User account blocked reactive check.");
-                await signOut(auth);
-                setUser(null);
-                setLoading(false);
-                alert("आपका अकाउंट ब्लॉक है। (Account Blocked)");
-                return;
+            try {
+              if (snapshot.exists()) {
+                const userData = snapshot.data();
+                
+                if (userData.isBlocked === true) {
+                  console.warn("User account blocked reactive check.");
+                  await signOut(auth);
+                  setUser(null);
+                  setLoading(false);
+                  alert("आपका अकाउंट ब्लॉक है। (Account Blocked)");
+                  return;
+                }
+
+                const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
+                // Check admin status against content or static list
+                const contentSnap = await getDoc(doc(db, 'settings', 'content'));
+                const contentData = contentSnap.exists() ? contentSnap.data() as AppContent : null;
+                const backupAdmins = contentData?.adminEmails || [];
+                const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
+
+                setIsAdmin(userData.role === 'admin' || isAdminEmail);
+                setUserSettings({ geminiApiKey: userData.geminiApiKey || '' });
+              } else {
+                // Create default doc if missing
+                const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
+                const contentSnap = await getDoc(doc(db, 'settings', 'content'));
+                const contentData = contentSnap.exists() ? contentSnap.data() as AppContent : null;
+                const backupAdmins = contentData?.adminEmails || [];
+                const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
+
+                const defaultSettings = {
+                  uid: firebaseUser.uid,
+                  email: firebaseUser.email,
+                  displayName: firebaseUser.displayName || '',
+                  role: isAdminEmail ? 'admin' : 'user',
+                  isBlocked: false,
+                  geminiApiKey: ''
+                };
+                await setDoc(doc(db, 'users', firebaseUser.uid), defaultSettings);
+                setIsAdmin(isAdminEmail);
+                setUserSettings({ geminiApiKey: '' });
               }
-
-              const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
-              // Check admin status against content or static list
-              const contentSnap = await getDoc(doc(db, 'settings', 'content'));
-              const contentData = contentSnap.exists() ? contentSnap.data() as AppContent : null;
-              const backupAdmins = contentData?.adminEmails || [];
-              const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
-
-              setIsAdmin(userData.role === 'admin' || isAdminEmail);
-              setUserSettings({ geminiApiKey: userData.geminiApiKey || '' });
-            } else {
-              // Create default doc if missing
-              const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
-              const contentSnap = await getDoc(doc(db, 'settings', 'content'));
-              const contentData = contentSnap.exists() ? contentSnap.data() as AppContent : null;
-              const backupAdmins = contentData?.adminEmails || [];
-              const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
-
-              const defaultSettings = {
-                uid: firebaseUser.uid,
-                email: firebaseUser.email,
-                displayName: firebaseUser.displayName || '',
-                role: isAdminEmail ? 'admin' : 'user',
-                isBlocked: false,
-                geminiApiKey: ''
-              };
-              await setDoc(doc(db, 'users', firebaseUser.uid), defaultSettings);
-              setIsAdmin(isAdminEmail);
-              setUserSettings({ geminiApiKey: '' });
+              setLoading(false);
+            } catch (snapError) {
+              console.error("Error in user snapshot listener:", snapError);
+              setLoading(false);
             }
-            setLoading(false);
           }, (error) => {
             console.error("User doc listener error:", error);
             const err = handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
