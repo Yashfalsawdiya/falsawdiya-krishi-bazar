@@ -189,7 +189,7 @@ async function startServer() {
         const padding = Math.floor(size * 0.2); // 20% padding
         const innerSize = size - (padding * 2);
         
-        const background = await new Jimp({ width: size, height: size, color: 0xFFFFFFFF }); // White background
+        const background = new Jimp({ width: size, height: size, color: 0xFFFFFFFF }); // White background
         await image.resize({ width: innerSize, height: innerSize });
         await background.composite(image, padding, padding);
         image = background;
@@ -197,7 +197,7 @@ async function startServer() {
         // Subtle padding for 'any' to ensure it's not touching edges
         const padding = Math.floor(size * 0.05); 
         const innerSize = size - (padding * 2);
-        const background = await new Jimp({ width: size, height: size, color: 0xFFFFFFFF });
+        const background = new Jimp({ width: size, height: size, color: 0xFFFFFFFF });
         await image.resize({ width: innerSize, height: innerSize });
         await background.composite(image, padding, padding);
         image = background;
@@ -235,6 +235,14 @@ async function startServer() {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
 
 startServer().catch(err => {
   console.error("CRITICAL: Failed to start server:", err);
