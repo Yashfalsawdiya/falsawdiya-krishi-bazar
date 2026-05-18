@@ -1,10 +1,11 @@
 import React, { useRef, useState, useEffect } from 'react';
 import QuickPinchZoom, { make3dTransformValue } from 'react-quick-pinch-zoom';
-import { X, ZoomIn, ZoomOut, Maximize, Loader2 } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, Maximize, Loader2, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { ImageSource } from '../types';
 import { getHighResImageURL, cn } from '../lib/utils';
+import { useAppContext } from '../context/AppContext';
 
 interface ImageZoomModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface ImageZoomModalProps {
 const ImageZoomModal: React.FC<ImageZoomModalProps> = ({ isOpen, onClose, imageSrc, altText }) => {
   const imgRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
+  const { isAdmin } = useAppContext();
 
   // Reset loading when image changes
   useEffect(() => {
@@ -83,10 +85,30 @@ const ImageZoomModal: React.FC<ImageZoomModalProps> = ({ isOpen, onClose, imageS
                     )}
                     onLoad={() => setLoading(false)}
                     referrerPolicy="no-referrer"
+                    onContextMenu={(e) => !isAdmin && e.preventDefault()}
+                    onDragStart={(e) => !isAdmin && e.preventDefault()}
+                    draggable={isAdmin}
                   />
                 )}
               </div>
             </QuickPinchZoom>
+
+            {/* Protective Overlay for Non-Admins in Fullscreen */}
+            {!isAdmin && !loading && highResSrc && (
+              <div 
+                className="absolute inset-0 z-30 cursor-default select-none touch-none pointer-events-none"
+                onContextMenu={(e) => e.preventDefault()}
+              >
+                {/* Fixed Watermark overlay */}
+                <div className="absolute inset-0 flex flex-wrap items-center justify-center content-center gap-12 rotate-[-15deg] opacity-[0.05] p-20">
+                  {[...Array(20)].map((_, i) => (
+                    <span key={i} className="text-xl font-black uppercase text-white whitespace-nowrap">
+                      फल्सावदिया कृषि बाज़ार
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer Instruction */}

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User, Key, ExternalLink, Save, LogOut, LogIn, ChevronRight, Info, Youtube, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { cn } from '../lib/utils';
+import SmartImage from '../components/SmartImage';
 
 const Profile: React.FC = () => {
   const { user, userSettings, updateUserSettings, login, logout, loading, appContent } = useAppContext();
@@ -143,11 +144,11 @@ const Profile: React.FC = () => {
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-4">
         <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-[#2D5A27]/20 flex items-center justify-center bg-gray-50">
           {(user.photoURL || user.displayName) ? (
-            <img 
+            <SmartImage 
               src={user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'User')}`} 
               alt="Profile" 
-              className="w-full h-full object-cover" 
-              referrerPolicy="no-referrer"
+              className="w-full h-full" 
+              objectFit="cover"
             />
           ) : (
             <User className="w-8 h-8 text-gray-300" />
