@@ -69,66 +69,71 @@ async function startServer() {
 
   // 1. Dynamic Manifest Route
   app.get('/manifest.json', async (req, res) => {
-    const branding = await getBranding();
-    const name = branding?.name || 'फल्सावदिया कृषि बाज़ार';
-    const shortName = 'कृषि बाज़ार';
-    
-    const manifest = {
-      id: 'com.krishibazaar.app.falsawdiya.v1',
-      name: name,
-      short_name: shortName,
-      description: branding?.tagline || 'मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी',
-      start_url: '/',
-      scope: '/',
-      display: 'standalone',
-      background_color: '#FFFFFF',
-      theme_color: '#2D5A27',
-      orientation: 'portrait',
-      dir: 'ltr',
-      lang: 'hi-IN',
-      categories: ['agriculture', 'business', 'news', 'shopping'],
-      prefer_related_applications: false,
-      icons: [
-        {
-          src: '/api/icon?purpose=any&size=512',
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'any'
-        },
-        {
-          src: '/api/icon?purpose=maskable&size=512',
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'maskable'
-        },
-        {
-          src: '/api/icon?purpose=any&size=192',
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'any'
-        },
-        {
-          src: '/api/icon?purpose=maskable&size=192',
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'maskable'
-        }
-      ],
-      shortcuts: [
-        {
-          name: 'मंडी भाव',
-          url: '/mandi',
-          icons: [{ src: '/api/icon?purpose=any&size=192', sizes: '192x192' }]
-        },
-        {
-          name: 'उत्पाद',
-          url: '/products',
-          icons: [{ src: '/api/icon?purpose=any&size=192', sizes: '192x192' }]
-        }
-      ]
-    };
+    try {
+      const branding = await getBranding();
+      const name = branding?.name || 'फल्सावदिया कृषि बाज़ार';
+      const shortName = branding?.shortName || 'कृषि बाज़ार';
+      
+      const manifest = {
+        id: 'com.krishibazaar.app.falsawdiya.v1',
+        name: name,
+        short_name: shortName,
+        description: branding?.tagline || 'मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        background_color: '#FFFFFF',
+        theme_color: '#2D5A27',
+        orientation: 'portrait',
+        dir: 'ltr',
+        lang: 'hi-IN',
+        categories: ['agriculture', 'business', 'news', 'shopping'],
+        prefer_related_applications: false,
+        icons: [
+          {
+            src: '/api/icon?purpose=any&size=512',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/api/icon?purpose=maskable&size=512',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          },
+          {
+            src: '/api/icon?purpose=any&size=192',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/api/icon?purpose=maskable&size=192',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
+          }
+        ],
+        shortcuts: [
+          {
+            name: 'मंडी भाव',
+            url: '/mandi',
+            icons: [{ src: '/api/icon?purpose=any&size=192', sizes: '192x192' }]
+          },
+          {
+            name: 'उत्पाद',
+            url: '/products',
+            icons: [{ src: '/api/icon?purpose=any&size=192', sizes: '192x192' }]
+          }
+        ]
+      };
 
-    res.json(manifest);
+      res.json(manifest);
+    } catch (e) {
+      console.error("Error generating manifest:", e);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   // 2. Dynamic Icon Route with Processing
@@ -221,4 +226,7 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("CRITICAL: Failed to start server:", err);
+  process.exit(1);
+});
