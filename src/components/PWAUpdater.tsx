@@ -24,89 +24,153 @@ const PWAUpdater: React.FC = () => {
 
     const iconUrl = getIconUrl(branding?.pwaIcon);
 
-    // 1. Update Title and Favicons
-    document.title = name;
-    
-    let favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
-    if (!favicon) {
-      favicon = document.createElement('link');
-      favicon.rel = 'icon';
-      document.head.appendChild(favicon);
-    }
-    favicon.href = iconUrl;
+    // 3. Process Maskable Icon with Canvas to ensure padding (Safety Zone)
+    const createProcessedIcon = (src: string, size: number, isMaskable: boolean): Promise<string> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(src);
+            return;
+          }
 
-    let appleIcon = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement;
-    if (!appleIcon) {
-      appleIcon = document.createElement('link');
-      appleIcon.rel = 'apple-touch-icon';
-      document.head.appendChild(appleIcon);
-    }
-    appleIcon.href = iconUrl;
+          // Fill background (Adaptive background)
+          ctx.fillStyle = '#FFFFFF'; // White background for the icon container
+          ctx.fillRect(0, 0, size, size);
 
-    // 2. Dynamic Manifest
-    const manifest = {
-      id: 'com.krishibazaar.app.v1',
-      name: name,
-      short_name: shortName,
-      description: appContent.branding?.tagline || 'मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी',
-      start_url: '/',
-      scope: '/',
-      display: 'standalone',
-      background_color: '#F5F2ED',
-      theme_color: '#2D5A27',
-      orientation: 'portrait',
-      dir: 'ltr',
-      lang: 'hi',
-      categories: ['agriculture', 'business', 'news'],
-      prefer_related_applications: false,
-      icons: [
-        {
-          src: iconUrl,
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'any'
-        },
-        {
-          src: iconUrl,
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'maskable'
-        },
-        {
-          src: iconUrl,
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'any'
-        },
-        {
-          src: iconUrl,
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'maskable'
-        }
-      ]
+          if (isMaskable) {
+            // Add substantial padding for maskable icons (Safe Zone)
+            // Logos should be within center 80% (10% padding on each side)
+            // But for a better "centered" look on Android, 15-20% is safer.
+            const padding = size * 0.2; 
+            const drawSize = size - (padding * 2);
+            ctx.drawImage(img, padding, padding, drawSize, drawSize);
+          } else {
+            // For 'any' purpose, fill a bit more but still keep some breathing room
+            const padding = size * 0.05;
+            const drawSize = size - (padding * 2);
+            ctx.drawImage(img, padding, padding, drawSize, drawSize);
+          }
+
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => resolve(src);
+        img.src = src;
+      });
     };
 
-    const stringManifest = JSON.stringify(manifest);
-    const blob = new Blob([stringManifest], { type: 'application/json' });
-    const manifestURL = URL.createObjectURL(blob);
+    let currentManifestURL: string | null = null;
 
-    let manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
-    if (!manifestLink) {
-      manifestLink = document.createElement('link');
-      manifestLink.rel = 'manifest';
-      document.head.appendChild(manifestLink);
-    }
-    
-    // Revoke old blob URL if it exists to avoid memory leak
-    const oldUrl = manifestLink.getAttribute('data-blob-url');
-    if (oldUrl) URL.revokeObjectURL(oldUrl);
-    
-    manifestLink.href = manifestURL;
-    manifestLink.setAttribute('data-blob-url', manifestURL);
+    const updateManifest = async () => {
+      const maskableIcon512 = await createProcessedIcon(iconUrl, 512, true);
+      const anyIcon512 = await createProcessedIcon(iconUrl, 512, false);
+      const maskableIcon192 = await createProcessedIcon(iconUrl, 192, true);
+      const anyIcon192 = await createProcessedIcon(iconUrl, 192, false);
+
+      // 1. Update Title and Favicons
+      document.title = name;
+      
+      let favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
+      if (!favicon) {
+        favicon = document.createElement('link');
+        favicon.rel = 'icon';
+        document.head.appendChild(favicon);
+      }
+      favicon.href = anyIcon192; 
+
+      let appleIcon = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement;
+      if (!appleIcon) {
+        appleIcon = document.createElement('link');
+        appleIcon.rel = 'apple-touch-icon';
+        document.head.appendChild(appleIcon);
+      }
+      appleIcon.href = maskableIcon192; 
+
+      const manifest = {
+        id: 'com.krishibazaar.app.falsawdiya.v1',
+        name: name,
+        short_name: shortName,
+        description: appContent.branding?.tagline || 'मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
+        background_color: '#FFFFFF',
+        theme_color: '#2D5A27',
+        orientation: 'portrait',
+        dir: 'ltr',
+        lang: 'hi-IN',
+        categories: ['agriculture', 'business', 'news', 'shopping'],
+        prefer_related_applications: false,
+        icons: [
+          {
+            src: anyIcon512,
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: maskableIcon512,
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          },
+          {
+            src: anyIcon192,
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: maskableIcon192,
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
+          }
+        ],
+        shortcuts: [
+          {
+            name: 'मंडी भाव',
+            url: '/mandi',
+            description: 'ताज़ा मंडी भाव देखें',
+            icons: [{ src: anyIcon192, sizes: '192x192' }]
+          },
+          {
+            name: 'उत्पाद',
+            url: '/products',
+            description: 'दवाइयाँ और बीज खरीदें',
+            icons: [{ src: anyIcon192, sizes: '192x192' }]
+          }
+        ]
+      };
+
+      const stringManifest = JSON.stringify(manifest);
+      const blob = new Blob([stringManifest], { type: 'application/json' });
+      currentManifestURL = URL.createObjectURL(blob);
+
+      let manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
+      if (!manifestLink) {
+        manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        document.head.appendChild(manifestLink);
+      }
+      
+      const oldUrl = manifestLink.getAttribute('data-blob-url');
+      if (oldUrl) URL.revokeObjectURL(oldUrl);
+      
+      manifestLink.href = currentManifestURL;
+      manifestLink.setAttribute('data-blob-url', currentManifestURL);
+    };
+
+    updateManifest();
 
     return () => {
-      URL.revokeObjectURL(manifestURL);
+      if (currentManifestURL) URL.revokeObjectURL(currentManifestURL);
     };
   }, [appContent]);
 

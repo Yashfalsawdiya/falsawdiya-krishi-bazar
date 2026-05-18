@@ -20,13 +20,14 @@ export default defineConfig(({mode}) => {
           theme_color: '#2D5A27',
           background_color: '#F5F2ED',
           display: 'standalone',
+          display_override: ['window-controls-overlay', 'standalone'],
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
           id: '/index.html',
           dir: 'ltr',
           lang: 'hi-IN',
-          categories: ['agriculture', 'business'],
+          categories: ['agriculture', 'business', 'news'],
           prefer_related_applications: false,
           icons: [
             {
@@ -52,6 +53,18 @@ export default defineConfig(({mode}) => {
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'
+            }
+          ],
+          shortcuts: [
+            {
+              name: 'बाज़ार',
+              url: '/products',
+              icons: [{ src: '/icon-192.png', sizes: '192x192' }]
+            },
+            {
+              name: 'मंडी भाव',
+              url: '/mandi',
+              icons: [{ src: '/icon-192.png', sizes: '192x192' }]
             }
           ]
         },
