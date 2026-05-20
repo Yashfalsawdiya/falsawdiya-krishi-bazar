@@ -89,7 +89,7 @@ const Helpline: React.FC = () => {
               <div className="grid gap-3">
                 {groupedHelplines[category].map((hp, i) => (
                   <motion.button
-                    key={hp.id}
+                    key={`${hp.id}-${i}`}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => window.location.href = `tel:${hp.number.replace(/[^0-9]/g, '')}`}
                     className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group transition-all"

@@ -990,10 +990,10 @@ const Admin: React.FC = () => {
                 <p className="text-sm text-gray-400">कोई हेल्पलाइन नहीं मिली।</p>
               </div>
             ) : (
-              helplines.map((hp) => (
+              helplines.map((hp, idx) => (
                 <motion.div 
                   layout
-                  key={hp.id}
+                  key={`${hp.id}-${idx}`}
                   className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group transition-all"
                 >
                   <div className="flex items-center gap-4">
@@ -1433,7 +1433,7 @@ const Admin: React.FC = () => {
               </div>
             </div>
             {contentForm?.banners.map((banner, idx) => (
-              <div key={banner.id} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+              <div key={`${banner.id}-${idx}`} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">बैनर #{idx + 1}</span>
                 </div>
@@ -1485,7 +1485,7 @@ const Admin: React.FC = () => {
               यूट्यूब वीडियो (YouTube Videos)
             </h3>
             {contentForm?.videos.map((video, idx) => (
-              <div key={video.id} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+              <div key={`${video.id}-${idx}`} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">वीडियो #{idx + 1}</span>
                 </div>
@@ -1553,7 +1553,7 @@ const Admin: React.FC = () => {
             </div>
             <div className="grid grid-cols-1 gap-4">
               {contentForm?.partners?.map((partner, idx) => (
-                <div key={partner.id} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4 relative group">
+                <div key={`${partner.id}-${idx}`} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4 relative group">
                   <button 
                     type="button"
                     onClick={() => {
