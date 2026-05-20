@@ -37,17 +37,28 @@ const Products: React.FC = () => {
     }
   }, [searchParams]);
 
-  const filteredProducts = products.filter(p => {
-    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
-    const searchQuery = searchParams.get('search')?.toLowerCase() || '';
-    const matchesSearch = !searchQuery || 
-      p.name.toLowerCase().includes(searchQuery) || 
-      p.hindiName.toLowerCase().includes(searchQuery) || 
-      p.brand.toLowerCase().includes(searchQuery) ||
-      p.description?.toLowerCase().includes(searchQuery);
-    
-    return matchesCategory && matchesSearch;
-  });
+  const filteredProducts = products
+    .filter(p => {
+      const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
+      const searchQuery = searchParams.get('search')?.toLowerCase() || '';
+      const matchesSearch = !searchQuery || 
+        p.name.toLowerCase().includes(searchQuery) || 
+        p.hindiName.toLowerCase().includes(searchQuery) || 
+        p.brand.toLowerCase().includes(searchQuery) ||
+        p.description?.toLowerCase().includes(searchQuery);
+      
+      return matchesCategory && matchesSearch;
+    })
+    .sort((a, b) => {
+      const idA = a.customId || '';
+      const idB = b.customId || '';
+      if (!idA && !idB) {
+        return (a.hindiName || '').localeCompare(b.hindiName || '', 'hi');
+      }
+      if (!idA) return 1;
+      if (!idB) return -1;
+      return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+    });
 
   const handleBuyClick = (product: Product) => {
     setSelectedProduct(product);
