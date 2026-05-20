@@ -44,6 +44,8 @@ const Admin: React.FC = () => {
   
   const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users' | 'featured'>('content');
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
+  const [productSearchQuery, setProductSearchQuery] = useState<string>('');
   const [isAdding, setIsAdding] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -611,9 +613,25 @@ const Admin: React.FC = () => {
 
       {activeTab === 'products' ? (
         <>
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-gray-500 text-sm uppercase tracking-wider">
-              उत्पादों की सूची ({products.length})
+          {/* Header Action Row */}
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-bold text-gray-500 text-sm uppercase tracking-wider flex items-center gap-1.5">
+              {productSearchQuery || productCategoryFilter !== 'all' ? (
+                <>खोजे गए उत्पाद ({products.filter(p => {
+                  const matchesCategory = productCategoryFilter === 'all' || p.category === productCategoryFilter;
+                  const query = productSearchQuery.trim().toLowerCase();
+                  if (!query) return matchesCategory;
+                  return matchesCategory && (
+                    p.hindiName?.toLowerCase().includes(query) ||
+                    p.name?.toLowerCase().includes(query) ||
+                    p.brand?.toLowerCase().includes(query) ||
+                    p.customId?.toLowerCase().includes(query) ||
+                    p.id?.toLowerCase().includes(query)
+                  );
+                }).length} / {products.length})</>
+              ) : (
+                <>उत्पादों की सूची ({products.length})</>
+              )}
             </h3>
             <button 
               onClick={() => {
@@ -642,65 +660,165 @@ const Admin: React.FC = () => {
             </button>
           </div>
 
+          {/* Search and Filters Block */}
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col gap-4">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input 
+                type="text"
+                value={productSearchQuery}
+                onChange={e => setProductSearchQuery(e.target.value)}
+                placeholder="उत्पाद का नाम, ब्रांड या उत्पाद ID से खोजें..."
+                className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl py-3 pl-12 pr-10 outline-none transition-all font-medium text-sm text-gray-800"
+              />
+              {productSearchQuery && (
+                <button 
+                  onClick={() => setProductSearchQuery('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Category horizontal filters */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest ml-1">
+                श्रेणी के अनुसार फ़िल्टर करें (Filter by Category)
+              </label>
+              <div className="flex gap-2 overflow-x-auto pb-1.5 -mx-1 px-1 scrollbar-none">
+                <button
+                  onClick={() => setProductCategoryFilter('all')}
+                  className={cn(
+                    "px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all border",
+                    productCategoryFilter === 'all' 
+                      ? "bg-[#2D5A27] text-white border-transparent shadow-sm" 
+                      : "bg-gray-50 text-gray-600 border-transparent hover:bg-gray-100"
+                  )}
+                >
+                  सभी श्रेणियां (All)
+                </button>
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setProductCategoryFilter(cat.id)}
+                    className={cn(
+                      "px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all border",
+                      productCategoryFilter === cat.id 
+                        ? "bg-[#2D5A27] text-white border-transparent shadow-sm" 
+                        : "bg-gray-50 text-gray-600 border-transparent hover:bg-gray-100"
+                    )}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* List Content */}
-          <div className="space-y-3">
+          <div className="space-y-3 mt-1">
             {products.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-100">
                 <p className="text-sm text-gray-400">कोई उत्पाद नहीं मिला।</p>
               </div>
+            ) : products.filter(p => {
+              const matchesCategory = productCategoryFilter === 'all' || p.category === productCategoryFilter;
+              const query = productSearchQuery.trim().toLowerCase();
+              if (!query) return matchesCategory;
+              return matchesCategory && (
+                p.hindiName?.toLowerCase().includes(query) ||
+                p.name?.toLowerCase().includes(query) ||
+                p.brand?.toLowerCase().includes(query) ||
+                p.customId?.toLowerCase().includes(query) ||
+                p.id?.toLowerCase().includes(query)
+              );
+            }).length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-100">
+                <p className="text-sm text-gray-400">खोजे गए मापदंडों के अनुसार कोई उत्पाद नहीं मिला।</p>
+              </div>
             ) : (
-              products.map((product, idx) => (
-                <motion.div 
-                  layout
-                  key={`${product.id}-${idx}`} 
-                  className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <SmartImage src={product.image} alt="" className="w-14 h-14 rounded-xl shadow-sm" objectFit="cover" />
-                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#2D5A27] rounded-full border-2 border-white" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-gray-800">{product.hindiName}</h4>
-                      <div className="flex gap-2 items-center">
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
-                          {product.brand}
-                        </p>
-                        {product.customId && (
-                          <span className="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100 font-black">
-                            ID: {product.customId}
-                          </span>
-                        )}
-                        {product.isFeatured && (
-                          <span className="text-[8px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black flex items-center gap-0.5 shadow-sm shadow-amber-100">
-                            <Star className="w-2 h-2 fill-current" /> विशेष
-                          </span>
-                        )}
+              products
+                .filter(p => {
+                  const matchesCategory = productCategoryFilter === 'all' || p.category === productCategoryFilter;
+                  const query = productSearchQuery.trim().toLowerCase();
+                  if (!query) return matchesCategory;
+                  return matchesCategory && (
+                    p.hindiName?.toLowerCase().includes(query) ||
+                    p.name?.toLowerCase().includes(query) ||
+                    p.brand?.toLowerCase().includes(query) ||
+                    p.customId?.toLowerCase().includes(query) ||
+                    p.id?.toLowerCase().includes(query)
+                  );
+                })
+                .sort((a, b) => {
+                  const idA = a.customId || '';
+                  const idB = b.customId || '';
+                  if (!idA && !idB) {
+                    return (a.hindiName || '').localeCompare(b.hindiName || '', 'hi');
+                  }
+                  if (!idA) return 1;
+                  if (!idB) return -1;
+                  return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+                })
+                .map((product, idx) => (
+                  <motion.div 
+                    layout
+                    key={`${product.id}-${idx}`} 
+                    className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <SmartImage src={product.image} alt="" className="w-14 h-14 rounded-xl shadow-sm" objectFit="cover" />
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#2D5A27] rounded-full border-2 border-white" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-gray-800">{product.hindiName}</h4>
+                        <div className="flex flex-wrap gap-1.5 items-center mt-0.5">
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
+                            {product.brand}
+                          </p>
+                          {product.customId && (
+                            <span className="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100 font-black">
+                              ID: {product.customId}
+                            </span>
+                          )}
+                          {product.category && (
+                            <span className="text-[9px] bg-green-50 text-[#2D5A27] px-1.5 py-0.5 rounded border border-green-100 font-bold">
+                              {categories.find(c => c.id === product.category)?.name || product.category}
+                            </span>
+                          )}
+                          {product.isFeatured && (
+                            <span className="text-[8px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black flex items-center gap-0.5 shadow-sm shadow-amber-100">
+                              <Star className="w-2 h-2 fill-current" /> विशेष
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => {
-                        setEditingProduct(product);
-                        setProductForm({
-                          ...product,
-                          customId: product.customId || ''
-                        });
-                      }}
-                      className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={() => setProductToDelete(product)}
-                      className="p-2.5 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </motion.div>
-              ))
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => {
+                          setEditingProduct(product);
+                          setProductForm({
+                            ...product,
+                            customId: product.customId || ''
+                          });
+                        }}
+                        className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => setProductToDelete(product)}
+                        className="p-2.5 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ))
             )}
           </div>
         </>
