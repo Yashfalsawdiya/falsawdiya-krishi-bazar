@@ -152,16 +152,7 @@ const AgriNews: React.FC = () => {
                   </div>
                 </div>
                 
-                {item.url && (
-                  <a 
-                    href={item.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 bg-[#2D5A27]/5 text-[#2D5A27] rounded-xl text-[10px] font-black uppercase tracking-tight hover:bg-[#2D5A27] hover:text-white transition-all active:scale-95"
-                  >
-                    पूरी खबर <ExternalLink className="w-3 h-3" />
-                  </a>
-                )}
+                {/* 'पूरी खबर' button has been removed */}
               </div>
             </motion.div>
           ))}
