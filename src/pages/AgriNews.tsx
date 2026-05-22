@@ -107,7 +107,7 @@ const AgriNews: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-6">
           {news.length === 0 && !loading && (
             <div className="text-center py-10 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
               <p className="text-sm text-gray-500 font-bold">फिलहाल कोई नई खबर नहीं मिली।</p>

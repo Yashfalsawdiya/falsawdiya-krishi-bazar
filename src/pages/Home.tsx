@@ -425,7 +425,7 @@ const Home: React.FC = () => {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-bold text-[#4A3728]">श्रेणियाँ (Categories)</h3>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-3 md:gap-4 lg:gap-6">
           {categories.map((cat, index) => (
             <motion.div
               key={cat.id}
@@ -456,7 +456,7 @@ const Home: React.FC = () => {
             सभी देखें <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
-        <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
+        <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x md:grid md:grid-cols-3 lg:grid-cols-4 md:gap-6 md:overflow-visible md:-mx-0 md:px-0">
           {featuredProducts.length === 0 ? (
             <div className="w-full py-8 text-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-100 flex flex-col items-center gap-2">
               <ShoppingBag className="w-8 h-8 text-gray-200" />
