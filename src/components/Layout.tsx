@@ -180,10 +180,10 @@ const Layout: React.FC = () => {
       </div>
 
       {/* 🖥️ DESKTOP LEFT SIDEBAR - Hidden on Mobile */}
-      <aside className="hidden md:flex flex-col w-80 bg-[#1B3B18] text-white h-screen shrink-0 border-r border-[#244E20] z-20">
+      <aside className="hidden md:flex flex-col md:w-64 lg:w-80 bg-white text-gray-700 h-screen shrink-0 border-r border-gray-100 z-20 shadow-sm">
         {/* Sidebar Header: Branding logo and Name */}
-        <div className="p-6 border-b border-[#244E20] flex items-center gap-3">
-          <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center p-1.5 shrink-0 shadow-md">
+        <div className="p-6 border-b border-gray-100 flex items-center gap-3 bg-gray-50/50">
+          <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center p-1.5 shrink-0 shadow-sm border border-gray-100">
             <SmartImage 
               src={branding.logo} 
               fallbackSrc="/icon-192.png" 
@@ -193,8 +193,8 @@ const Layout: React.FC = () => {
             />
           </div>
           <div>
-            <h1 className="text-base font-bold leading-tight tracking-tight text-white">{branding.name}</h1>
-            <p className="text-[10px] text-[#EAB308] font-semibold">{branding.tagline}</p>
+            <h1 className="text-base font-black leading-tight tracking-tight text-[#2D5A27]">{branding.name}</h1>
+            <p className="text-[10px] text-amber-600 font-bold">{branding.tagline}</p>
           </div>
         </div>
 
@@ -209,13 +209,13 @@ const Layout: React.FC = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
                     isActive 
-                      ? 'bg-[#2D5A27] text-white shadow-sm font-black' 
-                      : 'text-green-100 hover:bg-white/5'
+                      ? 'bg-[#2D5A27]/8 text-[#2D5A27] shadow-sm font-black' 
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-950'
                   }`}
                 >
-                  <Icon className={`w-4.5 h-4.5 ${isActive ? 'text-[#EAB308]' : 'text-green-200'}`} />
+                  <Icon className={`w-4.5 h-4.5 shrink-0 ${isActive ? 'text-[#2D5A27]' : 'text-gray-400'}`} />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -224,7 +224,7 @@ const Layout: React.FC = () => {
 
           {/* Group 2: कृषि गाइड और टूल */}
           <div className="space-y-1">
-            <p className="text-[10px] text-green-300/60 font-black uppercase tracking-widest pl-3 mb-2">कृषि गाइड और टूल</p>
+            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest pl-4 mb-2">कृषि गाइड और टूल</p>
             {guideNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -232,13 +232,13 @@ const Layout: React.FC = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
                     isActive 
-                      ? 'bg-[#2D5A27] text-white shadow-sm font-black' 
-                      : 'text-green-100 hover:bg-white/5'
+                      ? 'bg-[#2D5A27]/8 text-[#2D5A27] shadow-sm font-black' 
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-950'
                   }`}
                 >
-                  <Icon className={`w-4.5 h-4.5 ${isActive ? 'text-[#EAB308]' : 'text-green-200'}`} />
+                  <Icon className={`w-4.5 h-4.5 shrink-0 ${isActive ? 'text-[#2D5A27]' : 'text-gray-400'}`} />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -247,7 +247,7 @@ const Layout: React.FC = () => {
 
           {/* Group 3: सपोर्ट और विशेषज्ञ */}
           <div className="space-y-1">
-            <p className="text-[10px] text-green-300/60 font-black uppercase tracking-widest pl-3 mb-2">सपोर्ट और विशेषज्ञ</p>
+            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest pl-4 mb-2">सपोर्ट और विशेषज्ञ</p>
             {supportNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -255,13 +255,13 @@ const Layout: React.FC = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
                     isActive 
-                      ? 'bg-[#2D5A27] text-white shadow-sm font-black' 
-                      : 'text-green-100 hover:bg-white/5'
+                      ? 'bg-[#2D5A27]/8 text-[#2D5A27] shadow-sm font-black' 
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-950'
                   }`}
                 >
-                  <Icon className={`w-4.5 h-4.5 ${isActive ? 'text-[#EAB308]' : 'text-green-200'}`} />
+                  <Icon className={`w-4.5 h-4.5 shrink-0 ${isActive ? 'text-[#2D5A27]' : 'text-gray-400'}`} />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -270,7 +270,7 @@ const Layout: React.FC = () => {
 
           {/* Group 4: खाता */}
           <div className="space-y-1">
-            <p className="text-[10px] text-green-300/60 font-black uppercase tracking-widest pl-3 mb-2">खाता</p>
+            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest pl-4 mb-2">खाता</p>
             {accountNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -278,13 +278,13 @@ const Layout: React.FC = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
                     isActive 
-                      ? 'bg-[#2D5A27] text-white shadow-sm font-black' 
-                      : 'text-green-100 hover:bg-white/5'
+                      ? 'bg-[#2D5A27]/8 text-[#2D5A27] shadow-sm font-black' 
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-950'
                   }`}
                 >
-                  <Icon className={`w-4.5 h-4.5 ${isActive ? 'text-[#EAB308]' : 'text-green-200'}`} />
+                  <Icon className={`w-4.5 h-4.5 shrink-0 ${isActive ? 'text-[#2D5A27]' : 'text-gray-400'}`} />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -294,49 +294,49 @@ const Layout: React.FC = () => {
           {/* Admin panel if user is admin */}
           {isAdmin && (
             <div className="space-y-1 pt-2">
-              <p className="text-[10px] text-rose-300 font-extrabold uppercase tracking-widest pl-3 mb-2">प्रशासक (ADMIN)</p>
+              <p className="text-[10px] text-rose-500 font-black uppercase tracking-widest pl-4 mb-2">प्रशासक (ADMIN)</p>
               <Link
                 to="/admin"
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
                   location.pathname === '/admin' 
-                    ? 'bg-[#2D5A27] text-white shadow-sm font-black' 
-                    : 'text-green-100 hover:bg-white/5'
+                    ? 'bg-rose-50 text-rose-700 shadow-sm font-black' 
+                    : 'text-gray-600 hover:bg-rose-50/50 hover:text-rose-700'
                 }`}
               >
-                <Shield className="w-4.5 h-4.5 text-rose-300" />
-                <span className="text-rose-100">एडमिन पैनल (Admin)</span>
+                <Shield className="w-4.5 h-4.5 shrink-0 text-rose-500" />
+                <span className={location.pathname === '/admin' ? 'text-rose-700' : 'text-gray-600'}>एडमिन पैनल (Admin)</span>
               </Link>
             </div>
           )}
         </div>
 
         {/* Sidebar Footer User Profile Row */}
-        <div className="p-4 border-t border-[#244E20] bg-[#142C12] flex items-center justify-between gap-2 shrink-0">
+        <div className="p-4 border-t border-gray-100 flex items-center justify-between gap-2 shrink-0 bg-gray-50">
           <div className="flex items-center gap-3 min-w-0">
             {user?.photoURL ? (
               <img 
                 src={user.photoURL} 
                 alt="Avatar" 
-                className="w-10 h-10 rounded-full border border-green-300/30 object-cover" 
+                className="w-10 h-10 rounded-full border border-gray-200 object-cover" 
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center border border-green-300/20 font-bold text-sm">
+              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center border border-gray-200 font-black text-sm text-[#2D5A27]">
                 {user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'K'}
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-sm font-bold text-white truncate leading-none mb-1">
+              <p className="text-sm font-bold text-gray-800 truncate leading-none mb-1">
                 {user?.displayName || 'किसान भाई'}
               </p>
-              <p className="text-[10px] text-green-300/70 truncate">
+              <p className="text-[10px] text-gray-400 truncate">
                 {user?.email || ''}
               </p>
             </div>
           </div>
           <button 
             onClick={logout}
-            className="p-2 hover:bg-white/10 rounded-lg text-green-300 hover:text-white transition-colors cursor-pointer"
+            className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-rose-600 transition-colors cursor-pointer"
             title="लॉगआउट"
           >
             <LogOut className="w-4.5 h-4.5" />
