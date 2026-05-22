@@ -545,7 +545,7 @@ const Admin: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto no-scrollbar">
+      <div className="flex gap-2 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto md:overflow-visible md:flex-wrap no-scrollbar">
         <button 
           onClick={() => setActiveTab('content')}
           className={cn(
@@ -718,7 +718,7 @@ const Admin: React.FC = () => {
           </div>
 
           {/* List Content */}
-          <div className="space-y-3 mt-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3 mt-1">
             {products.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-100">
                 <p className="text-sm text-gray-400">कोई उत्पाद नहीं मिला।</p>
