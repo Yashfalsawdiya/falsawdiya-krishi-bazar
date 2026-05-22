@@ -302,20 +302,14 @@ const AiAgriExpert: React.FC = () => {
         });
       } catch (innerErr) {
         console.warn("Retrying media with relaxed constraints", innerErr);
-        // If fails, try fallback to any video, or if that fails, grab audio only
-        try {
-          if (isCameraOn) {
-            stream = await navigator.mediaDevices.getUserMedia({ 
-              audio: true, 
-              video: true 
-            });
-          } else {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          }
-        } catch (thirdErr) {
-          console.warn("Fallback to audio-only due to missing/blocked camera", thirdErr);
+        // If fails, try just audio first, or fallback to any video
+        if (isCameraOn) {
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: true, 
+            video: true 
+          });
+        } else {
           stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          setIsCameraOn(false); // Disable camera indicator in UI
         }
       }
 
