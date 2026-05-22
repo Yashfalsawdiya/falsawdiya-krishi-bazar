@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { 
   initializeFirestore, 
+  getFirestore,
   doc, 
   getDocFromServer, 
   persistentLocalCache, 
@@ -44,18 +45,33 @@ const dbId = (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreData
 
 console.log("Final Firestore Database ID:", dbId);
 
-// CRITICAL: Use initializeFirestore with experimentalForceLongPolling: true 
-// and useFetchStreams: false to fix connectivity issues (code=unavailable) 
-// in proxy/sandboxed environments.
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-  experimentalAutoDetectLongPolling: false,
-  useFetchStreams: false,
+// CRITICAL: Initialize Firestore using auto-detecting long polling and auto-fallback 
+// for cache configuration to prevent failure inside sandboxed iframes.
+let dbInstance: any;
+const firestoreSettings: any = {
+  experimentalAutoDetectLongPolling: true,
   ignoreUndefinedProperties: true,
-  localCache: persistentLocalCache({
+};
+
+try {
+  firestoreSettings.localCache = persistentLocalCache({
     tabManager: persistentMultipleTabManager()
-  })
-} as any, dbId);
+  });
+  dbInstance = initializeFirestore(app, firestoreSettings, dbId);
+} catch (cacheError) {
+  console.warn("Firestore persistent cache failed to initialize, falling back to basic/memory cache:", cacheError);
+  try {
+    dbInstance = initializeFirestore(app, {
+      experimentalAutoDetectLongPolling: true,
+      ignoreUndefinedProperties: true
+    }, dbId);
+  } catch (initError) {
+    console.error("Firestore initializeFirestore failed, falling back to getFirestore:", initError);
+    dbInstance = getFirestore(app, dbId);
+  }
+}
+
+export const db = dbInstance;
 
 // Persistence is now handled by persistentLocalCache in the initialization settings.
 

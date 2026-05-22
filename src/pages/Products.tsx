@@ -84,7 +84,7 @@ const Products: React.FC = () => {
       <h2 className="text-xl font-bold text-[#4A3728]">कृषि बाजार (Market)</h2>
       
       {/* Category Filter */}
-      <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:-mx-0 md:px-0 md:flex-wrap">
+      <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
         <button
           onClick={() => setSelectedCategory('all')}
           className={cn(
@@ -109,7 +109,7 @@ const Products: React.FC = () => {
       </div>
 
       {/* Product List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 gap-4">
         {filteredProducts.length > 0 ? (
           filteredProducts.map((product, idx) => {
             const displayPrice = product.variants && product.variants.length > 0 ? product.variants[0].price : product.price;
