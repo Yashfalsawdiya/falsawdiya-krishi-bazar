@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Search, Menu, Sprout, X, Landmark, Phone, Newspaper, User, Calculator, PhoneCall, Calendar, Bug, TrendingUp } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -9,18 +9,8 @@ const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLogoEnlarged, setIsLogoEnlarged] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isInstallable, setIsInstallable] = useState(!!(window as any).deferredPrompt);
   const navigate = useNavigate();
   const { appContent, isAdmin } = useAppContext();
-
-  useEffect(() => {
-    const handlePromptChange = () => {
-      setIsInstallable(!!(window as any).deferredPrompt);
-    };
-    window.addEventListener('pwa-prompt-changed', handlePromptChange);
-    handlePromptChange();
-    return () => window.removeEventListener('pwa-prompt-changed', handlePromptChange);
-  }, []);
 
   const handleLogoClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -202,37 +192,6 @@ const Header: React.FC = () => {
                 <h2 className="text-xl font-bold">नमस्ते, किसान भाई!</h2>
                 <p className="text-xs text-white/70 mt-1">फल्सावदिया कृषि बाज़ार में आपका स्वागत है</p>
               </div>
-
-              {isInstallable && (
-                <div className="mx-4 mt-4 p-3.5 bg-gradient-to-br from-[#2D5A27] to-[#4CAF50] rounded-2xl text-white shadow-lg flex items-center justify-between border border-white/20">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center p-1 shadow-md">
-                      <SmartImage 
-                        src={branding.logo} 
-                        fallbackSrc="/icon-192.png" 
-                        alt="App Logo" 
-                        className="w-full h-full" 
-                        objectFit="contain" 
-                      />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black tracking-tight text-yellow-300">सरकारी मंडी ऐप डाउनलोड करें</h4>
-                      <p className="text-[10px] text-white/90 leading-tight">बिना स्पेस, सुरक्षित और तेज़</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      if ((window as any).triggerPwaInstall) {
-                        (window as any).triggerPwaInstall();
-                      }
-                    }}
-                    className="px-3.5 py-1.5 bg-yellow-400 hover:bg-yellow-500 text-gray-950 font-black text-xs rounded-xl shadow-md transition-all active:scale-95"
-                  >
-                    इंस्टॉल करें
-                  </button>
-                </div>
-              )}
 
               <div className="flex-1 overflow-y-auto p-4">
                 <div className="space-y-2">

@@ -2,7 +2,6 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { 
   initializeFirestore, 
-  getFirestore,
   doc, 
   getDocFromServer, 
   persistentLocalCache, 
@@ -45,33 +44,18 @@ const dbId = (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreData
 
 console.log("Final Firestore Database ID:", dbId);
 
-// CRITICAL: Initialize Firestore using auto-detecting long polling and auto-fallback 
-// for cache configuration to prevent failure inside sandboxed iframes.
-let dbInstance: any;
-const firestoreSettings: any = {
-  experimentalAutoDetectLongPolling: true,
+// CRITICAL: Use initializeFirestore with experimentalForceLongPolling: true 
+// and useFetchStreams: false to fix connectivity issues (code=unavailable) 
+// in proxy/sandboxed environments.
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  experimentalAutoDetectLongPolling: false,
+  useFetchStreams: false,
   ignoreUndefinedProperties: true,
-};
-
-try {
-  firestoreSettings.localCache = persistentLocalCache({
+  localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager()
-  });
-  dbInstance = initializeFirestore(app, firestoreSettings, dbId);
-} catch (cacheError) {
-  console.warn("Firestore persistent cache failed to initialize, falling back to basic/memory cache:", cacheError);
-  try {
-    dbInstance = initializeFirestore(app, {
-      experimentalAutoDetectLongPolling: true,
-      ignoreUndefinedProperties: true
-    }, dbId);
-  } catch (initError) {
-    console.error("Firestore initializeFirestore failed, falling back to getFirestore:", initError);
-    dbInstance = getFirestore(app, dbId);
-  }
-}
-
-export const db = dbInstance;
+  })
+} as any, dbId);
 
 // Persistence is now handled by persistentLocalCache in the initialization settings.
 
@@ -85,7 +69,8 @@ setPersistence(auth, browserLocalPersistence).catch(err => {
 async function testConnection() {
   console.log("Testing Firestore connection...");
   try {
-    // Attempt a silent fetch. If we are offline or sandboxed, catch gracefully.
+    // CRITICAL: Call getFromServer to test the connection to Firestore.
+    // We use a specific doc path that doesn't necessarily need to exist
     await getDocFromServer(doc(db, '_connection_test_', 'check'));
     console.log("Firestore connection test: SUCCESS (Server reached)");
   } catch (error) {
@@ -93,11 +78,14 @@ async function testConnection() {
     const isQuotaError = errorMessage.toLowerCase().includes('quota') || errorMessage.includes('429');
     
     if (isQuotaError) {
-      console.log("Firestore Status: Server reached (Quota Active)");
-    } else if (errorMessage.toLowerCase().includes('offline') || errorMessage.toLowerCase().includes('unavailable') || errorMessage.toLowerCase().includes('could not reach')) {
-      console.log("Firestore Status: Offline-first persistence mode is fully active. Application is responsive and safe to run offline!");
+      console.warn("Firestore connection test: PARTIAL SUCCESS (Server reached but Quota Exceeded)");
+      console.warn("The app will operate in OFFLINE/CACHE-ONLY mode until quota resets.");
     } else {
-      console.log("Firestore Status: Local-first cache active. Dynamic offline sync running.");
+      console.error("Firestore connection test: FAILED");
+      console.error("Error Message:", errorMessage);
+      if (errorMessage.includes('the client is offline')) {
+        console.error("The client is reporting offline mode. This may be due to environment constraints.");
+      }
     }
   }
 }

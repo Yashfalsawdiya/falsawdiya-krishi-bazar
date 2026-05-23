@@ -16,8 +16,7 @@ const SplashScreen: React.FC = () => {
     name: 'फल्सावदिया कृषि बाज़ार',
     tagline: 'किसान का भरोसा, हमारी पहचान',
     logo: '',
-    splashLogo: '',
-    splashBgColor: '#F5F2ED'
+    splashLogo: ''
   };
 
   return (
@@ -27,8 +26,7 @@ const SplashScreen: React.FC = () => {
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5 }}
-          style={{ backgroundColor: branding.splashBgColor || '#F5F2ED' }}
-          className="fixed inset-0 z-[1000] flex flex-col items-center justify-center p-8 max-w-md mx-auto"
+          className="fixed inset-0 z-[1000] bg-white flex flex-col items-center justify-center p-8 max-w-md mx-auto"
         >
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
