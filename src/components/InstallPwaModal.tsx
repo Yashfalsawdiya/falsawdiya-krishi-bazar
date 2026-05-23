@@ -104,28 +104,28 @@ const InstallPwaModal: React.FC = () => {
             </button>
 
             <div className="w-20 h-20 bg-[#2D5A27]/10 rounded-[28px] flex items-center justify-center mx-auto mb-6">
-              <Smartphone className="w-10 h-10 text-[#2D5A27]" />
+              <Download className="w-10 h-10 text-[#2D5A27]" />
             </div>
 
             <h3 className="text-xl font-black text-[#4A3728] mb-2">
-              मोबाइल ऐप इंस्टॉल करें
+              ऐप इंस्टॉल करें (Install App)
             </h3>
             <p className="text-sm text-gray-500 mb-8 leading-relaxed">
-              बेहतर अनुभव और सीधी पहुंच के लिए {appContent?.branding?.name || 'कृषि बाज़ार'} को अपने फोन पर इंस्टॉल करें।
+              बेहतर अनुभव, सीधी पहुंच और बिना इंटरनेट जानकारी के लिए **{appContent?.branding?.name || 'फल्सावदिया कृषि बाज़ार'}** को अपने मोबाइल या कंप्यूटर (Desktop) पर इंस्टॉल करें।
             </p>
 
             <div className="space-y-4 text-left bg-gray-50 p-4 rounded-2xl mb-8">
               <div className="flex items-start gap-3">
                 <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-gray-600">बिना ब्राउज़र के तेज़ी से उपयोग करें</p>
+                <p className="text-xs text-gray-600">मोबाइल और कंप्यूटर (Desktop/Mobile) दोनों के लिए उपलब्ध</p>
               </div>
               <div className="flex items-start gap-3">
                 <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-gray-600">ताज़ा मंडी भाव के नोटिफिकेशन पाएं</p>
+                <p className="text-xs text-gray-600">ऐप बाज़ार और ऐप ड्रॉवर में सीधी पहुँच</p>
               </div>
               <div className="flex items-start gap-3">
                 <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-gray-600">ऑफ़लाइन होने पर भी जानकारी देखें</p>
+                <p className="text-xs text-gray-600">ऑफ़लाइन होने पर भी मंडी भाव और समाचार लोड होंगे</p>
               </div>
             </div>
 
