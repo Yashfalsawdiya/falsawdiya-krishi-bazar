@@ -23,7 +23,8 @@ const InstallPwaModal: React.FC = () => {
       e.preventDefault();
       // Stash the event so it can be triggered later.
       setDeferredPrompt(e);
-      // Update UI notify the user they can install the PWA
+      (window as any).deferredPrompt = e;
+      window.dispatchEvent(new Event('pwa-prompt-changed'));
       
       // Delay surfacing the prompt to give user time to engage with content
       const timer = setTimeout(() => {
@@ -36,6 +37,8 @@ const InstallPwaModal: React.FC = () => {
     const handleAppInstalled = () => {
       // Clear the deferredPrompt so it can be garbage collected
       setDeferredPrompt(null);
+      (window as any).deferredPrompt = null;
+      window.dispatchEvent(new Event('pwa-prompt-changed'));
       setIsVisible(false);
       setIsInstalled(true);
       console.log('PWA was installed');
@@ -44,24 +47,33 @@ const InstallPwaModal: React.FC = () => {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
+    // Provide globally accessible trigger
+    (window as any).triggerPwaInstall = () => {
+      setIsVisible(true);
+    };
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
+      delete (window as any).triggerPwaInstall;
     };
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    const promptEvent = deferredPrompt || (window as any).deferredPrompt;
+    if (!promptEvent) return;
 
     // Show the install prompt
-    deferredPrompt.prompt();
+    promptEvent.prompt();
 
     // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
+    const { outcome } = await promptEvent.userChoice;
     console.log(`User response to the install prompt: ${outcome}`);
 
     // We've used the prompt, and can't use it again, throw it away
     setDeferredPrompt(null);
+    (window as any).deferredPrompt = null;
+    window.dispatchEvent(new Event('pwa-prompt-changed'));
     setIsVisible(false);
   };
 
