@@ -30,6 +30,7 @@ export interface AppContent {
     pwaIcon?: string | ImageSource;
     androidIcon?: string | ImageSource;
     splashLogo?: string | ImageSource;
+    splashBgColor?: string;
   };
   loginText?: string;
   adminEmails?: string[];

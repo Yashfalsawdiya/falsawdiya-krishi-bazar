@@ -1302,6 +1302,30 @@ const Admin: React.FC = () => {
                 }}
               />
               <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">स्प्लैश स्क्रीन बैकग्राउंड कलर (Splash Screen Background Color)</label>
+                <div className="flex items-center gap-3">
+                  <input 
+                    type="color"
+                    value={contentForm?.branding?.splashBgColor || '#F5F2ED'}
+                    onChange={e => {
+                      if (!contentForm) return;
+                      setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), splashBgColor: e.target.value}});
+                    }}
+                    className="w-12 h-12 rounded-xl cursor-pointer border-2 border-gray-100 p-0 overflow-hidden bg-transparent shrink-0"
+                  />
+                  <input 
+                    type="text"
+                    value={contentForm?.branding?.splashBgColor || '#F5F2ED'}
+                    onChange={e => {
+                      if (!contentForm) return;
+                      setContentForm({...contentForm, branding: {...(contentForm.branding || {name: '', tagline: '', logo: ''}), splashBgColor: e.target.value}});
+                    }}
+                    className="flex-1 bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-3 outline-none transition-all font-mono font-medium text-sm"
+                    placeholder="#F5F2ED"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">लॉगिन स्क्रीन टेक्स्ट (Login Screen Text)</label>
                 <textarea 
                   value={contentForm?.loginText || ''}
