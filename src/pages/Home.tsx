@@ -828,9 +828,7 @@ const Home: React.FC = () => {
         isOpen={isOrderModalOpen}
         onClose={() => setIsOrderModalOpen(false)}
         onConfirm={confirmOrder}
-        productName={selectedProduct?.hindiName || ''}
-        price={selectedProduct?.price || 0}
-        hidePrice={selectedProduct?.hidePrice}
+        product={selectedProduct}
       />
 
       <ImageZoomModal

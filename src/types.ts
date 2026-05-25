@@ -90,3 +90,11 @@ export interface UserRecord {
   isBlocked?: boolean;
   geminiApiKey?: string;
 }
+
+export interface CartItem {
+  id: string;
+  product: Product;
+  quantity: number;
+  price: number;
+  unit: string;
+}

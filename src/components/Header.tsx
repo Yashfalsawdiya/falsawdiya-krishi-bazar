@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Search, Menu, Sprout, X, Landmark, Phone, Newspaper, User, Calculator, PhoneCall, Calendar, Bug, TrendingUp } from 'lucide-react';
+import { Search, Menu, Sprout, X, Landmark, Phone, Newspaper, User, Calculator, PhoneCall, Calendar, Bug, TrendingUp, ShoppingCart } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
+import { useCart } from '../context/CartContext';
 import SmartImage from './SmartImage';
 
 const Header: React.FC = () => {
@@ -11,6 +12,7 @@ const Header: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
   const { appContent, isAdmin } = useAppContext();
+  const { cartCount } = useCart();
 
   const handleLogoClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -75,6 +77,14 @@ const Header: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <Link to="/cart" className="p-1 hover:bg-white/10 rounded-full transition-colors relative" title="Cart Page">
+              <ShoppingCart className="w-6 h-6" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-black w-4.5 h-4.5 flex items-center justify-center rounded-full border border-[#2D5A27]">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
             <Link to="/profile" className="p-1 hover:bg-white/10 rounded-full transition-colors">
               <User className="w-6 h-6" />
             </Link>

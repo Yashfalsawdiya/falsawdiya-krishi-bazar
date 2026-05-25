@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { ShoppingBag, Building2, Tag } from 'lucide-react';
+import { useCart } from '../context/CartContext';
+import { ShoppingBag, Building2, Tag, Plus, ShoppingCart } from 'lucide-react';
 import { motion } from 'motion/react';
 import SmartImage from '../components/SmartImage';
 import { cn } from '../lib/utils';
@@ -12,12 +13,14 @@ import { Product, ImageSource } from '../types';
 
 const Products: React.FC = () => {
   const { products, categories, appContent, loadProducts, loadCategoryData } = useAppContext();
+  const { addToCart } = useCart();
   const [searchParams] = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [zoomImage, setZoomImage] = useState<{ src: string | ImageSource; alt: string } | null>(null);
+  const [addedProductId, setAddedProductId] = useState<string | null>(null);
 
   const whatsappNumber = appContent?.contactInfo.whatsapp || '918982338046';
 
@@ -162,29 +165,34 @@ const Products: React.FC = () => {
                       )}
                     </div>
                     <h3 className="font-bold text-gray-800 leading-tight group-hover:text-[#2D5A27] transition-colors">{product.hindiName}</h3>
-                    <p className="text-[10px] text-gray-500 mb-1">{displayUnit || (product.hidePrice ? 'कीमत उपलब्ध नहीं' : '')}</p>
                     {product.description && (
                       <p className="text-[11px] text-gray-600 line-clamp-2 leading-snug mt-1 italic">
                         {product.description}
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center justify-between mt-2">
-                    {product.variants && product.variants.length > 0 ? (
-                      <span className="text-[10px] font-bold text-[#EAB308] bg-[#2D5A27]/5 px-3 py-1.5 rounded-xl border border-[#EAB308]/20 flex items-center gap-1.5 shadow-sm">
-                        <Tag className="w-3.5 h-3.5" /> मात्रा चुनें (Select Quantity)
-                      </span>
-                    ) : (
-                      product.hidePrice || !displayPrice ? (
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 px-2 py-1 rounded-lg">कीमत उपलब्ध नहीं</span>
-                      ) : (
-                        <div className="flex flex-col">
-                          <span className="text-lg font-bold text-[#2D5A27]">₹{displayPrice}</span>
-                          {!isInStock && <span className="text-[8px] font-bold text-red-500 uppercase tracking-widest">स्टॉक में नहीं</span>}
-                        </div>
-                      )
-                    )}
-                    <div className="flex gap-2">
+                  <div className="flex items-center justify-end mt-3">
+                    <div className="flex gap-1.5 flex-wrap">
+                      <button 
+                        disabled={!isInStock}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addToCart(product, product.variants?.[0]);
+                          setAddedProductId(product.id);
+                          setTimeout(() => setAddedProductId(null), 1200);
+                        }}
+                        className={cn(
+                          "px-2.5 py-1.5 rounded-full text-[10px] font-bold shadow-sm flex items-center gap-1 active:scale-95 transition-all outline-none",
+                          !isInStock
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                            : addedProductId === product.id
+                              ? "bg-green-600 text-white"
+                              : "bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90"
+                        )}
+                      >
+                        <Plus className="w-3 h-3" />
+                        {addedProductId === product.id ? 'Added ✓' : 'Add To Cart'}
+                      </button>
                       <button 
                         disabled={!isInStock}
                         onClick={(e) => {
@@ -197,13 +205,13 @@ const Products: React.FC = () => {
                           handleBuyClick(pWithPrice as Product);
                         }}
                         className={cn(
-                          "px-4 py-1.5 rounded-full text-xs font-bold shadow-sm flex items-center gap-1 active:scale-95 transition-all",
+                          "px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm flex items-center gap-1 active:scale-95 transition-all outline-none",
                           isInStock 
                             ? "bg-[#EAB308] text-[#2D5A27]" 
                             : "bg-gray-200 text-gray-400 cursor-not-allowed"
                         )}
                       >
-                        <ShoppingBag className="w-3.5 h-3.5" /> {isInStock ? 'खरीदें' : 'खत्म'}
+                        <ShoppingBag className="w-3 h-3" /> {isInStock ? 'खरीदें' : 'खत्म'}
                       </button>
                     </div>
                   </div>
@@ -231,9 +239,7 @@ const Products: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onConfirm={confirmOrder}
-        productName={selectedProduct?.hindiName || ''}
-        price={selectedProduct?.price || 0}
-        hidePrice={selectedProduct?.hidePrice}
+        product={selectedProduct}
       />
 
       <ImageZoomModal

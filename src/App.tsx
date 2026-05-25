@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
+import { CartProvider } from './context/CartContext';
 import Layout from './components/Layout';
 import SplashScreen from './components/SplashScreen';
 import PWAUpdater from './components/PWAUpdater';
@@ -24,6 +25,7 @@ const EncyclopediaDetail = lazy(() => import('./pages/EncyclopediaDetail'));
 const AiAgriExpert = lazy(() => import('./pages/AiAgriExpert'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Profile = lazy(() => import('./pages/Profile'));
+const CartPage = lazy(() => import('./pages/CartPage'));
 
 const PageLoader = () => (
   <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -43,33 +45,36 @@ const PageLoader = () => (
 export default function App() {
   return (
     <AppProvider>
-      <SplashScreen />
-      <PWAUpdater />
-      <InstallPwaModal />
-      <BrowserRouter>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Home />} />
-              <Route path="products" element={<Products />} />
-              <Route path="mandi" element={<MandiBhav />} />
-              <Route path="disease" element={<DiseaseDetection />} />
-              <Route path="weather" element={<Weather />} />
-              <Route path="schemes" element={<Schemes />} />
-              <Route path="news" element={<AgriNews />} />
-              <Route path="soil-testing" element={<SoilTesting />} />
-              <Route path="calculator" element={<AgriCalculator />} />
-              <Route path="helpline" element={<Helpline />} />
-              <Route path="calendar" element={<CropCalendar />} />
-              <Route path="encyclopedia" element={<Encyclopedia />} />
-              <Route path="encyclopedia/:id" element={<EncyclopediaDetail />} />
-              <Route path="ai-call" element={<AiAgriExpert />} />
-              <Route path="admin" element={<Admin />} />
-              <Route path="profile" element={<Profile />} />
-            </Route>
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
+      <CartProvider>
+        <SplashScreen />
+        <PWAUpdater />
+        <InstallPwaModal />
+        <BrowserRouter>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Home />} />
+                <Route path="products" element={<Products />} />
+                <Route path="mandi" element={<MandiBhav />} />
+                <Route path="disease" element={<DiseaseDetection />} />
+                <Route path="weather" element={<Weather />} />
+                <Route path="schemes" element={<Schemes />} />
+                <Route path="news" element={<AgriNews />} />
+                <Route path="soil-testing" element={<SoilTesting />} />
+                <Route path="calculator" element={<AgriCalculator />} />
+                <Route path="helpline" element={<Helpline />} />
+                <Route path="calendar" element={<CropCalendar />} />
+                <Route path="encyclopedia" element={<Encyclopedia />} />
+                <Route path="encyclopedia/:id" element={<EncyclopediaDetail />} />
+                <Route path="ai-call" element={<AiAgriExpert />} />
+                <Route path="admin" element={<Admin />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="cart" element={<CartPage />} />
+              </Route>
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </CartProvider>
     </AppProvider>
   );
 }
