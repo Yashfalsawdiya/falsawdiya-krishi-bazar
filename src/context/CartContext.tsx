@@ -6,6 +6,7 @@ interface CartContextType {
   addToCart: (product: Product, variant?: { id: string; quantity: string; price: number }) => void;
   removeFromCart: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, quantity: number) => void;
+  updateVariant: (cartItemId: string, newVariant: { id: string; quantity: string; price: number }) => void;
   clearCart: () => void;
   cartCount: number;
   cartTotal: number;
@@ -14,19 +15,15 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-
-  // Load cart from localStorage on mount
-  useEffect(() => {
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
       const stored = localStorage.getItem('falsawdiya_cart');
-      if (stored) {
-        setCartItems(JSON.parse(stored));
-      }
+      return stored ? JSON.parse(stored) : [];
     } catch (e) {
-      console.error('Failed to parse cart items from localStorage', e);
+      console.error('Failed to parse cart items from localStorage on init', e);
+      return [];
     }
-  }, []);
+  });
 
   // Save cart to localStorage when changed
   useEffect(() => {
@@ -80,6 +77,42 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   };
 
+  const updateVariant = (cartItemId: string, newVariant: { id: string; quantity: string; price: number }) => {
+    setCartItems((prevItems) => {
+      const currentItem = prevItems.find((item) => item.id === cartItemId);
+      if (!currentItem) return prevItems;
+
+      const newCartItemId = `${currentItem.product.id}-${newVariant.id}`;
+
+      // If we are changing to a variant that already exists in the cart, merge them!
+      if (newCartItemId !== cartItemId) {
+        const existingIndex = prevItems.findIndex((item) => item.id === newCartItemId);
+        if (existingIndex > -1) {
+          const updated = prevItems.map((item, idx) => {
+            if (idx === existingIndex) {
+              return { ...item, quantity: item.quantity + currentItem.quantity };
+            }
+            return item;
+          });
+          return updated.filter((item) => item.id !== cartItemId);
+        }
+      }
+
+      // Otherwise, just update the id, unit (quantity description), and price of the current item
+      return prevItems.map((item) => {
+        if (item.id === cartItemId) {
+          return {
+            ...item,
+            id: newCartItemId,
+            price: newVariant.price,
+            unit: newVariant.quantity,
+          };
+        }
+        return item;
+      });
+    });
+  };
+
   const clearCart = () => {
     setCartItems([]);
   };
@@ -94,6 +127,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addToCart,
         removeFromCart,
         updateQuantity,
+        updateVariant,
         clearCart,
         cartCount,
         cartTotal,

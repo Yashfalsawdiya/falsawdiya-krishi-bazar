@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ShoppingBag, Building2, Tag, Info, Wheat, Maximize2, Droplets, Plus } from 'lucide-react';
+import { X, ShoppingBag, Building2, Tag, Info, Wheat, Maximize2, Droplets, Plus, Minus } from 'lucide-react';
 import { Product } from '../types';
 import SmartImage from './SmartImage';
 import ImageZoomModal from './ImageZoomModal';
@@ -13,14 +13,41 @@ interface ProductDetailModalProps {
   onClose: () => void;
   product: Product | null;
   onBuy: (product: Product) => void;
+  cartItemId?: string;
+  onCartItemIdChange?: (newId: string) => void;
 }
 
-const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose, product, onBuy }) => {
+const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  product, 
+  onBuy,
+  cartItemId,
+  onCartItemIdChange
+}) => {
   const { categories } = useAppContext();
-  const { addToCart } = useCart();
+  const { addToCart, cartItems, updateQuantity, updateVariant } = useCart();
   const [isZoomOpen, setIsZoomOpen] = React.useState(false);
   const [selectedVariant, setSelectedVariant] = React.useState<{id: string; quantity: string; price: number} | null>(null);
   const [isAdded, setIsAdded] = React.useState(false);
+
+  const currentCartItem = React.useMemo(() => {
+    if (!product) return null;
+    const unitToMatch = selectedVariant ? selectedVariant.quantity : (product.unit || '1 unit');
+    return cartItems.find(item => item.product.id === product.id && item.unit === unitToMatch);
+  }, [product, selectedVariant, cartItems]);
+
+  const handleVariantClick = (v: { id: string; quantity: string; price: number }) => {
+    setSelectedVariant(v);
+    if (cartItemId && onCartItemIdChange) {
+      const item = cartItems.find(i => i.id === cartItemId);
+      if (item) {
+        updateVariant(cartItemId, v);
+        const newCartItemId = `${item.product.id}-${v.id}`;
+        onCartItemIdChange(newCartItemId);
+      }
+    }
+  };
 
   const categoryName = React.useMemo(() => {
     if (!product || !categories) return '';
@@ -29,12 +56,23 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
   }, [product, categories]);
 
   React.useEffect(() => {
+    if (product && cartItemId) {
+      const item = cartItems.find(i => i.id === cartItemId);
+      if (item) {
+        const variant = product.variants?.find(v => v.quantity === item.unit);
+        if (variant) {
+          setSelectedVariant(variant);
+          return;
+        }
+      }
+    }
+    
     if (product && product.variants && product.variants.length > 0) {
       setSelectedVariant(product.variants[0]);
     } else {
       setSelectedVariant(null);
     }
-  }, [product]);
+  }, [product, cartItemId]);
 
   if (!product) return null;
 
@@ -121,7 +159,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                       <button
                         key={`${v.id}-${i}`}
                         type="button"
-                        onClick={() => setSelectedVariant(v)}
+                        onClick={() => handleVariantClick(v)}
                         className={cn(
                           "px-4 py-3 rounded-2xl text-xs font-bold transition-all border-2",
                           selectedVariant?.id === v.id
@@ -172,6 +210,37 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 <div className="bg-gray-50 p-4 rounded-2xl border border-dashed border-gray-200 text-center">
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">कीमत और उपलब्धता</p>
                   <p className="text-sm font-bold text-[#4A3728]">कीमत उपलब्ध नहीं है</p>
+                </div>
+              )}
+
+              {/* Cart Qty Editor within the modal content list */}
+              {currentCartItem && (
+                <div className="bg-[#E7F3E1] p-4 rounded-2xl border-2 border-[#2D5A27]/20 flex items-center justify-between">
+                  <div>
+                    <h5 className="text-xs font-black text-[#2D5A27] uppercase tracking-wider mb-0.5">यह मात्रा कार्ट में है (In Your Cart)</h5>
+                    <p className="text-[10px] text-[#2D5A27]/70 font-semibold">आप यहाँ से भी मात्रा बदल सकते हैं</p>
+                  </div>
+                  <div className="flex items-center border border-[#2D5A27]/30 rounded-xl p-0.5 shadow-inner bg-white">
+                    <button
+                      type="button"
+                      onClick={() => updateQuantity(currentCartItem.id, currentCartItem.quantity - 1)}
+                      className="p-1.5 hover:bg-gray-50 text-[#2D5A27] rounded active:scale-95 transition-transform"
+                      title="Decrease quantity"
+                    >
+                      <Minus className="w-4 h-4 font-bold" />
+                    </button>
+                    <span className="px-4 text-xs font-black text-gray-800 antialiased leading-none min-w-[20px] text-center">
+                      {currentCartItem.quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => updateQuantity(currentCartItem.id, currentCartItem.quantity + 1)}
+                      className="p-1.5 hover:bg-gray-50 text-[#2D5A27] rounded active:scale-95 transition-transform"
+                      title="Increase quantity"
+                    >
+                      <Plus className="w-4 h-4 font-bold" />
+                    </button>
+                  </div>
                 </div>
               )}
 

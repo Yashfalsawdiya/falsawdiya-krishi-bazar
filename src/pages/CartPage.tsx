@@ -6,12 +6,25 @@ import { Minus, Plus, Trash2, ArrowLeft, ShoppingCart, MessageSquare } from 'luc
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
 import CartOrderModal from '../components/CartOrderModal';
+import ProductDetailModal from '../components/ProductDetailModal';
 
 const CartPage: React.FC = () => {
-  const { cartItems, updateQuantity, removeFromCart, cartTotal, cartCount, clearCart } = useCart();
+  const { 
+    cartItems, 
+    updateQuantity, 
+    removeFromCart, 
+    updateVariant, 
+    cartTotal, 
+    cartCount, 
+    clearCart 
+  } = useCart();
   const { appContent } = useAppContext();
   const navigate = useNavigate();
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [activeCartItemId, setActiveCartItemId] = useState<string | null>(null);
+
+  const activeCartItem = cartItems.find((item) => item.id === activeCartItemId);
+  const activeProduct = activeCartItem ? activeCartItem.product : null;
 
   const whatsappNumber = appContent?.contactInfo.whatsapp || '918982338046';
 
@@ -26,7 +39,6 @@ const CartPage: React.FC = () => {
 
   const handleConfirmOrder = () => {
     setIsConfirmOpen(false);
-    clearCart();
   };
 
   return (
@@ -91,7 +103,8 @@ const CartPage: React.FC = () => {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, transition: { duration: 0.15 } }}
-                    className="bg-white rounded-2xl p-3 border border-gray-100 shadow-sm flex gap-3 relative"
+                    className="bg-white rounded-2xl p-3 border border-gray-100 shadow-sm flex gap-3 relative cursor-pointer hover:border-[#2D5A27]/20 hover:shadow-md transition-all animate-in fade-in duration-300"
+                    onClick={() => setActiveCartItemId(item.id)}
                   >
                     {/* Product Image */}
                     <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 relative border border-gray-100 bg-gray-50">
@@ -111,9 +124,30 @@ const CartPage: React.FC = () => {
                           <span className="text-[9px] text-[#2D5A27] font-bold uppercase tracking-wider bg-[#2D5A27]/5 px-2 py-0.5 rounded-md border border-[#2D5A27]/10">
                             {item.product.brand}
                           </span>
-                          <span className="text-[10px] text-amber-700 font-black bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 shadow-sm flex items-center justify-center">
-                            मात्रा (Variant): {item.unit}
-                          </span>
+                          {item.product.variants && item.product.variants.length > 0 ? (
+                            <select
+                              value={item.product.variants.find(v => v.quantity === item.unit)?.id || ''}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                const nextVariant = item.product.variants?.find(v => v.id === e.target.value);
+                                if (nextVariant) {
+                                  updateVariant(item.id, nextVariant);
+                                }
+                              }}
+                              className="text-[10px] text-amber-800 font-extrabold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 shadow-sm cursor-pointer outline-none focus:ring-1 focus:ring-amber-300"
+                            >
+                              {item.product.variants.map((v) => (
+                                <option key={v.id} value={v.id} className="font-semibold text-gray-700 bg-white">
+                                  मात्रा (Variant): {v.quantity} (₹{v.price})
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-[10px] text-amber-700 font-black bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 shadow-sm flex items-center justify-center">
+                              मात्रा (Variant): {item.unit}
+                            </span>
+                          )}
                           {item.product.customId && (
                             <span className="text-[8px] font-bold text-amber-600 bg-amber-50 px-1 border border-amber-100 rounded">
                               {item.product.customId}
@@ -134,11 +168,14 @@ const CartPage: React.FC = () => {
                       </div>
 
                       {/* Controls Row */}
-                      <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-50">
+                      <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-50" onClick={(e) => e.stopPropagation()}>
                         {/* Quantity controls */}
-                        <div className="flex items-center border border-gray-200 rounded-lg p-0.5 shadow-inner bg-gray-50">
+                        <div className="flex items-center border border-gray-200 rounded-lg p-0.5 shadow-inner bg-gray-50" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateQuantity(item.id, item.quantity - 1);
+                            }}
                             className="p-1 hover:bg-gray-200 text-gray-500 rounded active:scale-95 transition-transform"
                             title="Decrease quantity"
                           >
@@ -148,7 +185,10 @@ const CartPage: React.FC = () => {
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateQuantity(item.id, item.quantity + 1);
+                            }}
                             className="p-1 hover:bg-gray-200 text-gray-500 rounded active:scale-95 transition-transform"
                             title="Increase quantity"
                           >
@@ -170,7 +210,10 @@ const CartPage: React.FC = () => {
 
                     {/* Trash Button */}
                     <button
-                      onClick={() => removeFromCart(item.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeFromCart(item.id);
+                      }}
                       className="absolute top-2 right-2 p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors active:scale-90"
                       title="Remove product"
                     >
@@ -218,6 +261,16 @@ const CartPage: React.FC = () => {
         cartTotal={cartTotal}
         cartCount={cartCount}
         orderSource="Cart"
+      />
+
+      {/* Product Detailed Popup */}
+      <ProductDetailModal
+        isOpen={activeCartItemId !== null}
+        onClose={() => setActiveCartItemId(null)}
+        product={activeProduct}
+        onBuy={() => {}}
+        cartItemId={activeCartItemId || undefined}
+        onCartItemIdChange={(newId) => setActiveCartItemId(newId)}
       />
     </div>
   );
