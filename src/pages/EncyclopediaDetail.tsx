@@ -8,6 +8,7 @@ import { ImageSource, Product } from '../types';
 import { cn } from '../lib/utils';
 import ImageZoomModal from '../components/ImageZoomModal';
 import ProductDetailModal from '../components/ProductDetailModal';
+import OrderModal from '../components/OrderModal';
 
 const EncyclopediaDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +16,7 @@ const EncyclopediaDetail: React.FC = () => {
   const navigate = useNavigate();
   const [zoomImage, setZoomImage] = React.useState<string | ImageSource | null>(null);
   const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(null);
+  const [orderModalProduct, setOrderModalProduct] = React.useState<Product | null>(null);
 
   React.useEffect(() => {
     const unsubIssues = loadAgriIssues();
@@ -112,18 +114,7 @@ const EncyclopediaDetail: React.FC = () => {
   }
 
   const handleWhatsAppOrder = (product: Product) => {
-    const whatsappNumber = appContent?.contactInfo?.whatsapp || '918982338046';
-    const message = `नमस्ते फल्सावदिया कृषि बाज़ार,\n\n` +
-                    `*मुझे कीट/रोग निर्देशिका (Encyclopedia) से यह उत्पाद चाहिए:*\n\n` +
-                    `🏢 *कंपनी:* ${product.brand}\n` +
-                    `💊 *उत्पाद:* ${product.hindiName || product.name}\n` +
-                    `📦 *मात्रा:* ${product.unit}\n` +
-                    `💰 *कीमत:* ₹${product.price}\n\n` +
-                    `कृपया उपलब्धता की जानकारी दें। धन्यवाद!`;
-    
-    // Use window.open for better compatibility with external links
-    const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
+    setOrderModalProduct(product);
   };
 
   return (
@@ -298,6 +289,16 @@ const EncyclopediaDetail: React.FC = () => {
           onClose={() => setSelectedProduct(null)}
           product={selectedProduct}
           onBuy={(p) => handleWhatsAppOrder(p)}
+        />
+        <OrderModal 
+          isOpen={!!orderModalProduct}
+          onClose={() => setOrderModalProduct(null)}
+          onConfirm={() => {
+            setOrderModalProduct(null);
+            setSelectedProduct(null);
+          }}
+          product={orderModalProduct}
+          orderSource="Encyclopedia"
         />
       </AnimatePresence>
     </div>

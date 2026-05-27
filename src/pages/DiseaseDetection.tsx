@@ -6,10 +6,14 @@ import { getFriendlyAiError } from '../utils/aiErrorHandler';
 import SmartImage from '../components/SmartImage';
 import Markdown from 'react-markdown';
 import { useAppContext } from '../context/AppContext';
+import { useCart } from '../context/CartContext';
 import ApiKeyModal from '../components/ApiKeyModal';
+import OrderModal from '../components/OrderModal';
 
 const DiseaseDetection: React.FC = () => {
   const { appContent, userSettings, products, categories, loading: appLoading } = useAppContext();
+  const { addToCart } = useCart();
+  const [addedProductId, setAddedProductId] = useState<string | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<DiseaseAnalysis | null>(null);
@@ -17,6 +21,7 @@ const DiseaseDetection: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 
   const getCategoryName = (catId: string) => {
     if (!categories) return catId;
@@ -255,47 +260,54 @@ const DiseaseDetection: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-1 gap-3">
                   {matchedProducts.map((product, idx) => (
-                    <button 
+                    <div 
                       key={`${product.id}-${idx}`}
                       onClick={() => setSelectedProduct(product)}
-                      className="w-full text-left bg-white rounded-3xl p-4 shadow-sm border border-gray-100 flex items-center gap-4 active:scale-[0.98] transition-all"
+                      className="w-full text-left bg-white rounded-3xl p-4 shadow-sm border border-gray-100 flex items-center justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer relative group"
                     >
-                      <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-50 flex-shrink-0">
-                        <SmartImage 
-                          src={product.image} 
-                          alt={product.name} 
-                          className="w-full h-full" 
-                          objectFit="cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-gray-900 text-base leading-tight mb-1">
-                          {product.hindiName || product.name}
-                        </h4>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[9px] bg-[#2D5A27] text-white px-2 py-0.5 rounded-full font-black uppercase tracking-tighter shadow-sm">
-                            {product.brand || getCategoryName(product.category)}
-                          </span>
-                          <span className="text-[10px] text-gray-400 font-bold">
-                            📦 {product.unit || 'Pack'}
-                          </span>
+                      <div className="flex items-center gap-4 min-w-0 flex-1">
+                        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-50 flex-shrink-0">
+                          <SmartImage 
+                            src={product.image} 
+                            alt={product.name} 
+                            className="w-full h-full" 
+                            objectFit="cover"
+                          />
                         </div>
-                    <div className="flex flex-col mt-1">
-                      {product.variants && product.variants.length > 0 ? (
-                        <span className="text-[10px] font-bold text-[#EAB308] bg-[#2D5A27]/5 px-2 py-1 rounded-lg border border-[#EAB308]/20 flex items-center gap-1 w-fit">
-                          <Tag className="w-3 h-3" /> मात्रा चुनें (Select Quantity)
-                        </span>
-                      ) : (
-                        product.hidePrice || !product.price ? (
-                          <p className="text-[10px] font-bold text-gray-400 uppercase bg-gray-50 px-2 py-1 rounded-lg w-fit">कीमत उपलब्ध नहीं</p>
-                        ) : (
-                          <p className="text-lg font-black text-orange-600">₹{product.price}</p>
-                        )
-                      )}
-                    </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-gray-900 text-base leading-tight mb-1">
+                            {product.hindiName || product.name}
+                          </h4>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[9px] bg-[#2D5A27] text-white px-2 py-0.5 rounded-full font-black uppercase tracking-tighter shadow-sm">
+                              {product.brand || getCategoryName(product.category)}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-bold">
+                              📦 {product.unit || 'Pack'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToCart(product, product.variants?.[0]);
+                                setAddedProductId(product.id);
+                                setTimeout(() => setAddedProductId(null), 1200);
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shadow-sm flex items-center gap-1.5 active:scale-95 transition-all outline-none ${
+                                addedProductId === product.id 
+                                  ? "bg-green-600 text-white" 
+                                  : "bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90"
+                              }`}
+                            >
+                              <ShoppingCart className="w-3.5 h-3.5" />
+                              {addedProductId === product.id ? 'Added ✓' : 'Add To Cart'}
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <ArrowRight className="w-5 h-5 text-gray-300" />
-                    </button>
+                      <ArrowRight className="w-5 h-5 text-gray-300 shrink-0 group-hover:translate-x-1 transition-transform" />
+                    </div>
                   ))}
                 </div>
               </motion.div>
@@ -354,9 +366,9 @@ const DiseaseDetection: React.FC = () => {
                     मात्रा चुनें (Select Quantity)
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {selectedProduct.variants.map((v: any) => (
+                    {selectedProduct.variants.map((v: any, vIdx: number) => (
                       <button
-                        key={v.id}
+                        key={`${v.id || 'variant'}-${vIdx}`}
                         onClick={() => setSelectedVariant(v)}
                         className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all border-2 ${
                           selectedVariant?.id === v.id
@@ -416,35 +428,62 @@ const DiseaseDetection: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-3">
+              <div className="space-y-3">
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => {
+                      if (!selectedProduct) return;
+                      const mappedProduct = {
+                        ...selectedProduct,
+                        price: displayPrice,
+                        unit: displayUnit
+                      };
+                      addToCart(mappedProduct, selectedVariant || undefined);
+                      setAddedProductId(selectedProduct.id);
+                      setTimeout(() => setAddedProductId(null), 1200);
+                    }}
+                    className={`flex-1 ${
+                      addedProductId === selectedProduct.id 
+                        ? "bg-green-600 text-white shadow-lg shadow-green-100" 
+                        : "bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90 shadow-lg shadow-green-50"
+                    } py-4 rounded-2xl font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all text-xs outline-none`}
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    {addedProductId === selectedProduct.id ? 'Added ✓' : 'Add To Cart'}
+                  </button>
+                  <button 
+                    onClick={() => setIsOrderModalOpen(true)}
+                    className="flex-1 bg-[#25D366] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-green-100 active:scale-95 transition-all text-xs outline-none"
+                  >
+                    WhatsApp पर ऑर्डर करें
+                  </button>
+                </div>
                 <button 
                   onClick={() => setSelectedProduct(null)}
-                  className="flex-1 bg-gray-100 text-gray-500 py-4 rounded-2xl font-black active:scale-95 transition-all"
+                  className="w-full bg-gray-100 text-gray-500 py-3 rounded-2xl font-semibold active:scale-95 transition-all text-xs outline-none"
                 >
-                  बंद करें
+                  बंद करें (Close)
                 </button>
-                <a 
-                  href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
-                    `नमस्ते फल्सावदिया कृषि बाज़ार,\n\n` +
-                    `*फ़सल डॉक्टर जाँच रिपोर्ट के अनुसार मुझे यह उत्पाद चाहिए:*\n\n` +
-                    `🏢 *कंपनी:* ${selectedProduct.brand}\n` +
-                    `💊 *दवाई:* ${selectedProduct.hindiName || selectedProduct.name}\n` +
-                    `📦 *मात्रा:* ${displayUnit}\n` +
-                    `💰 *कीमत:* ₹${displayPrice}\n\n` +
-                    `कृपया उपलब्धता की जानकारी दें, ताकि मैं आपकी दुकान पर आकर इसे खरीद सकूँ।\n` +
-                    `धन्यवाद!`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-[2] bg-[#25D366] text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-lg shadow-green-200 active:scale-95 transition-all text-xs"
-                >
-                  WhatsApp पर ऑर्डर करें
-                </a>
               </div>
             </motion.div>
           </>
         )}
       </AnimatePresence>
+
+      <OrderModal 
+        isOpen={isOrderModalOpen}
+        onClose={() => setIsOrderModalOpen(false)}
+        onConfirm={() => {
+          setIsOrderModalOpen(false);
+          setSelectedProduct(null);
+        }}
+        product={selectedProduct ? {
+          ...selectedProduct,
+          price: displayPrice,
+          unit: displayUnit
+        } : null}
+        orderSource="Disease Detection"
+      />
     </div>
   );
 };

@@ -69,16 +69,6 @@ const Products: React.FC = () => {
   };
 
   const confirmOrder = () => {
-    if (!selectedProduct) return;
-    
-    const message = `*नया ऑर्डर (New Order)*\n\n` +
-      `*उत्पाद:* ${selectedProduct.hindiName}\n` +
-      `*कंपनी:* ${selectedProduct.brand}\n` +
-      (selectedProduct.hidePrice ? '' : `*कीमत:* ₹${selectedProduct.price}\n`) +
-      `*यूनिट:* ${selectedProduct.unit}\n\n` +
-      `नमस्ते फल्सावदिया कृषि बाज़ार, मुझे यह प्रोडक्ट खरीदना है। कृपया इसकी उपलब्धता बताएं।`;
-      
-    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank');
     setIsModalOpen(false);
   };
 
@@ -240,6 +230,7 @@ const Products: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onConfirm={confirmOrder}
         product={selectedProduct}
+        orderSource="Store"
       />
 
       <ImageZoomModal

@@ -6,7 +6,8 @@ import {
   Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
   Youtube as YoutubeIcon, Layout, Phone, Key, Star, ArrowUp, ArrowDown,
-  ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle
+  ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle,
+  Truck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
@@ -42,7 +43,7 @@ const Admin: React.FC = () => {
     }
   }, [isAdmin]);
   
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users' | 'featured'>('content');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users' | 'featured' | 'delivery'>('content');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
   const [productSearchQuery, setProductSearchQuery] = useState<string>('');
@@ -608,6 +609,15 @@ const Admin: React.FC = () => {
           )}
         >
           <Users className="w-4 h-4" /> यूज़र्स (Users)
+        </button>
+        <button 
+          onClick={() => setActiveTab('delivery')}
+          className={cn(
+            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'delivery' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <Truck className="w-4 h-4" /> डिलीवरी प्रबंधन (Delivery)
         </button>
       </div>
 
@@ -1236,6 +1246,141 @@ const Admin: React.FC = () => {
             )}
           </div>
         </div>
+      ) : activeTab === 'delivery' ? (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-[#4A3728] text-lg flex items-center gap-2">
+              <Truck className="w-5 h-5 text-[#2D5A27]" />
+              डिलीवरी प्रबंधन (Delivery Management)
+            </h3>
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-6">
+            <div className="bg-[#FAF9F5] rounded-2xl p-4 border border-[#4A3728]/5">
+              <p className="text-xs text-[#4A3728]/80 font-medium leading-relaxed">
+                ℹ️ यहाँ से आप पूरे ऐप की ऑर्डर और डिलीवरी सिस्टम को प्रबंधित कर सकते हैं। आप डिलीवरी सेवा को चालू/बंद कर सकते हैं और व्हाट्सएप ऑर्डर प्राप्तकर्ता का मोबाइल नंबर बदल सकते हैं।
+              </p>
+            </div>
+
+            {/* Delivery Service Toggle */}
+            <div className="space-y-3 pb-6 border-b border-gray-100">
+              <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                <div>
+                  <h4 className="text-sm font-bold text-gray-800">डिलीवरी सेवा स्थिति (Delivery Service Status)</h4>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {contentForm?.isDeliveryActive !== false 
+                      ? "डिलीवरी चालू है - ग्राहक आसानी से व्हाट्सएप पर ऑर्डर कर सकते हैं।" 
+                      : "डिलीवरी बंद है - ग्राहकों को 'डिलीवरी बंद है' का सुंदर पॉपअप दिखाई देगा और ऑर्डर बंद रहेगा।"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!contentForm) return;
+                    const nextVal = contentForm.isDeliveryActive === false ? true : false;
+                    setContentForm({
+                      ...contentForm,
+                      isDeliveryActive: nextVal,
+                      deliveryServiceEnabled: nextVal
+                    });
+                  }}
+                  className={cn(
+                    "relative inline-flex h-7.5 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                    contentForm?.isDeliveryActive !== false ? "bg-[#2D5A27]" : "bg-gray-300"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block h-6.5 w-6.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                      contentForm?.isDeliveryActive !== false ? "translate-x-6.5" : "translate-x-0"
+                    )}
+                  />
+                </button>
+              </div>
+
+              {/* Status Badge */}
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xs font-semibold text-gray-500">वर्तमान स्थिति (Current Status):</span>
+                {contentForm?.isDeliveryActive !== false ? (
+                  <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-[10px] font-bold uppercase tracking-wider border border-green-200 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-green-600 rounded-full animate-ping" />
+                    डिलीवरी चालू (Delivery ON)
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-[10px] font-bold uppercase tracking-wider border border-amber-200 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-amber-600 rounded-full" />
+                    डिलीवरी बंद (Delivery OFF)
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Order Receive WhatsApp Number Form */}
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
+                  व्हाट्सएप ऑर्डर प्राप्तकर्ता नंबर (Order Receive WhatsApp Number) *
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="text-gray-400 font-bold text-xs.5">+</span>
+                  </div>
+                  <input 
+                    type="text" 
+                    placeholder="उदाँ: 918982338046"
+                    value={contentForm?.contactInfo?.whatsapp || ''}
+                    onChange={e => {
+                      if (!contentForm) return;
+                      const sanitizedPhone = e.target.value.replace(/\D/g, '');
+                      setContentForm({
+                        ...contentForm,
+                        contactInfo: {
+                          ...(contentForm.contactInfo || { whatsapp: '', address: '' }),
+                          whatsapp: sanitizedPhone
+                        }
+                      });
+                    }}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl py-4 pl-8 pr-4 outline-none transition-all font-semibold text-sm"
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400 ml-1 leading-relaxed">
+                  ⚠️ कृपया देश कोड के साथ 12 अंकों का पूरा नंबर डालें (जैसे भारत के लिए 918982338046)। इसमें कोई स्पेस, '+' या विशेष वर्ण न रखें।
+                </p>
+              </div>
+            </div>
+
+            {/* Actions Panel */}
+            <div className="pt-4 flex gap-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!contentForm) return;
+                  setIsSaving(true);
+                  try {
+                    await updateAppContent(contentForm);
+                    alert('डिलीवरी सेटिंग्स सुरक्षित कर दी गई हैं! (Delivery settings saved successfully!)');
+                  } catch (err) {
+                    console.error(err);
+                  } finally {
+                    setIsSaving(false);
+                  }
+                }}
+                disabled={isSaving}
+                className="flex-1 bg-[#2D5A27] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all text-sm.5 shadow-md shadow-[#2D5A27]/20 disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> सुरक्षित किया जा रहा है...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" /> सेटिंग्स सुरक्षित करें (Save Settings)
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : (
         <form onSubmit={handleContentSubmit} className="space-y-8">
           {/* Branding Settings */}
@@ -1715,6 +1860,69 @@ const Admin: React.FC = () => {
                   placeholder="जैसे: https://www.youtube.com/watch?v=..."
                 />
                 <p className="text-[10px] text-gray-400 ml-1">यह लिंक 'प्रोफाइल' और 'API Key पॉपअप' में दिखाई देगा।</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Delivery & Order Management */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+              <Truck className="w-5 h-5 text-[#2D5A27]" />
+              डिलीवरी और ऑर्डर सेटिंग्स (Delivery & Order Control)
+            </h3>
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-6">
+              <div className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl border border-gray-105">
+                <div className="pr-4">
+                  <h4 className="text-xs font-bold text-gray-800">डिलिवरी सेवा चालू/बंद करें (Delivery Service Status)</h4>
+                  <p className="text-[10px] text-gray-400 mt-1">चालू होने पर ऑर्डर सीधे WhatsApp पर जाएंगे। बंद होने पर ग्राहकों को विनम्र सूचना पॉपअप दिखेगा।</p>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (!contentForm) return;
+                    setContentForm({...contentForm, isDeliveryActive: contentForm.isDeliveryActive !== false ? false : true});
+                  }}
+                  className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    contentForm?.isDeliveryActive !== false ? "bg-[#2D5A27]" : "bg-gray-300"
+                  }`}
+                >
+                  <span 
+                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      contentForm?.isDeliveryActive !== false ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">वर्तमान स्थिति:</span>
+                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                  contentForm?.isDeliveryActive !== false 
+                    ? "bg-green-50 text-green-700 border border-green-200" 
+                    : "bg-amber-50 text-amber-750 border border-amber-200"
+                }`}>
+                  {contentForm?.isDeliveryActive !== false ? "● डिलीवरी चालू (Delivery ON)" : "○ डिलीवरी अस्थायी रूप से बंद (Delivery OFF)"}
+                </span>
+              </div>
+
+              <div className="space-y-2.5 pt-4 border-t border-gray-100">
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">ऑर्डर प्राप्त करने वाला WhatsApp नंबर (बिना + के)</label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#2D5A27]">
+                    <Phone className="w-4 h-4" />
+                  </span>
+                  <input 
+                    type="text" 
+                    value={contentForm?.contactInfo?.whatsapp || ''}
+                    onChange={e => {
+                      if (!contentForm) return;
+                      setContentForm({...contentForm, contactInfo: {...contentForm.contactInfo, whatsapp: e.target.value.replace(/\D/g, '')}});
+                    }}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 pl-10 outline-none transition-all font-semibold text-gray-800"
+                    placeholder="जैसे: 918982338046"
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400 ml-1">यहाँ डाला गया नंबर ही ऐप का मुख्य ऑर्डर रिसीवर नंबर होगा। जब आप चाहें इसे बदलकर डिलीवरी स्टाफ/लड़के का नंबर सेट कर सकते हैं।</p>
               </div>
             </div>
           </div>

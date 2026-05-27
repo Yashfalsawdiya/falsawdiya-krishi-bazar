@@ -26,23 +26,7 @@ const CartPage: React.FC = () => {
 
   const handleConfirmOrder = () => {
     setIsConfirmOpen(false);
-
-    // Compile message
-    let message = `नमस्ते फल्सावदिया कृषि बाज़ार, मुझे निम्नलिखित उत्पाद चाहिए:\n\n`;
-
-    cartItems.forEach((item, index) => {
-      const displayQty = item.quantity > 1 ? `${item.unit} x ${item.quantity}` : `${item.unit}`;
-      const lineTotal = item.price * item.quantity;
-      
-      message += `${index + 1}. ${item.product.name} - ${item.product.brand}\n`;
-      message += `Quantity: ${displayQty}\n`;
-      message += `Price: ₹${lineTotal}\n\n`;
-    });
-
-    message += `Total Amount: ₹${cartTotal}`;
-
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
+    clearCart();
   };
 
   return (
@@ -233,6 +217,7 @@ const CartPage: React.FC = () => {
         cartItems={cartItems}
         cartTotal={cartTotal}
         cartCount={cartCount}
+        orderSource="Cart"
       />
     </div>
   );

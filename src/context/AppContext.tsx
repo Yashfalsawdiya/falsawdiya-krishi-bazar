@@ -53,6 +53,8 @@ export interface AppContent {
     address: string;
   };
   apiKeyGuideVideoUrl?: string;
+  deliveryServiceEnabled?: boolean;
+  isDeliveryActive?: boolean;
 }
 
 export interface UserSettings {
