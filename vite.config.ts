@@ -12,7 +12,6 @@ export default defineConfig(({mode}) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        manifestFilename: 'manifest.json',
         includeAssets: [],
         manifest: {
           name: 'फल्सावदिया कृषि बाज़ार',
