@@ -53,7 +53,8 @@ export const formatWhatsAppOrderMessage = (
   items: OrderProductInfo[],
   details: CustomerDetails,
   totalAmount: number,
-  orderSource = "Store"
+  orderSource = "Store",
+  deliveryCharges?: number
 ): string => {
   // Header with dynamically computed source
   let message = `*नया ऑर्डर (New Order From ${orderSource})*\n\n`;
@@ -89,10 +90,18 @@ export const formatWhatsAppOrderMessage = (
 
   message += `━━━━━━━━━━━━━━━\n\n`;
 
-  // Total amount (Only for Cart orders as requested)
-  if (orderSource === "Cart" || orderSource === "Cart Order") {
-    message += `*कुल राशि (Total Amount): ₹${totalAmount}*\n\n`;
+  // Total amount and delivery charges breakdown
+  if (deliveryCharges !== undefined && deliveryCharges >= 0) {
+    message += `उत्पाद कुल (Products Total): ₹${totalAmount}\n`;
+    message += `डिलीवरी शुल्क (Delivery Charges): ₹${deliveryCharges}\n\n`;
+    message += `*कुल राशि (Final Total): ₹${totalAmount + deliveryCharges}*\n\n`;
     message += `━━━━━━━━━━━━━━━\n\n`;
+  } else {
+    // Total amount (Only for Cart orders or when source implies billing)
+    if (orderSource === "Cart" || orderSource === "Cart Order") {
+      message += `*कुल राशि (Total Amount): ₹${totalAmount}*\n\n`;
+      message += `━━━━━━━━━━━━━━━\n\n`;
+    }
   }
 
   // Verification & Thank you

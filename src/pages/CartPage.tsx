@@ -234,10 +234,28 @@ const CartPage: React.FC = () => {
                 <span>कुल मात्रा (Total Units)</span>
                 <span>{cartCount}</span>
               </div>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-sm font-bold text-[#4A3728]">कुल देय राशि (Gross Amount)</span>
-                <span className="text-xl font-black text-[#2D5A27]">₹{cartTotal}</span>
-              </div>
+              
+              {appContent?.isDeliveryChargesEnabled && appContent?.deliveryChargesAmount !== undefined ? (
+                <>
+                  <div className="flex items-center justify-between text-xs text-gray-650 font-semibold">
+                    <span>उत्पाद मूल्य (Products Total)</span>
+                    <span className="font-bold">₹{cartTotal}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-gray-650 font-semibold border-b border-gray-200/50 pb-2">
+                    <span>डिलीवरी शुल्क (Delivery Charges)</span>
+                    <span className="font-bold text-amber-700">+ ₹{appContent.deliveryChargesAmount}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-sm font-bold text-[#4A3728]">कुल देय राशि (Final Total)</span>
+                    <span className="text-xl font-black text-[#2D5A27]">₹{cartTotal + appContent.deliveryChargesAmount}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-sm font-bold text-[#4A3728]">कुल देय राशि (Gross Amount)</span>
+                  <span className="text-xl font-black text-[#2D5A27]">₹{cartTotal}</span>
+                </div>
+              )}
             </div>
 
             {/* Checkout via WhatsApp Floating / Sticky Button */}

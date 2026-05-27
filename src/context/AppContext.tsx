@@ -55,6 +55,8 @@ export interface AppContent {
   apiKeyGuideVideoUrl?: string;
   deliveryServiceEnabled?: boolean;
   isDeliveryActive?: boolean;
+  isDeliveryChargesEnabled?: boolean;
+  deliveryChargesAmount?: number;
 }
 
 export interface UserSettings {

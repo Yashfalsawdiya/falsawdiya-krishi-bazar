@@ -99,7 +99,10 @@ const CartOrderModal: React.FC<CartOrderModalProps> = ({
 
     // Format & send the premium multi-product WhatsApp order message
     const items = mapCartItemsToOrderProducts(cartItems);
-    const message = formatWhatsAppOrderMessage(items, details, cartTotal, orderSource || "Cart Order");
+    const deliveryCharges = (appContent?.isDeliveryChargesEnabled && appContent?.deliveryChargesAmount !== undefined)
+      ? appContent.deliveryChargesAmount
+      : undefined;
+    const message = formatWhatsAppOrderMessage(items, details, cartTotal, orderSource || "Cart Order", deliveryCharges);
 
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank');
     onConfirm();
@@ -183,18 +186,36 @@ const CartOrderModal: React.FC<CartOrderModalProps> = ({
 
                 {/* Summary Section */}
                 <div className="bg-[#F5F2ED] rounded-xl p-3 border border-[#4A3728]/10 space-y-1 shadow-sm text-xs shrink-0">
-                  <div className="flex justify-between text-gray-500 font-semibold">
+                  <div className="flex justify-between text-gray-400 font-semibold text-[10px]">
                     <span>कुल उत्पाद (Total Unique Items):</span>
                     <span>{cartItems.length}</span>
                   </div>
-                  <div className="flex justify-between text-gray-500 font-semibold border-b border-gray-200/50 pb-1">
+                  <div className="flex justify-between text-gray-400 font-semibold text-[10px] pb-1 border-b border-gray-200/40">
                     <span>कुल मात्रा (Total Units):</span>
                     <span>{cartCount}</span>
                   </div>
-                  <div className="flex justify-between items-center pt-1.5">
-                    <span className="text-sm font-bold text-[#4A3728]">कुल देय राशि (Gross Amount):</span>
-                    <span className="text-base font-black text-[#2D5A27]">₹{cartTotal}</span>
-                  </div>
+                  
+                  {appContent?.isDeliveryChargesEnabled && appContent?.deliveryChargesAmount !== undefined ? (
+                    <>
+                      <div className="flex justify-between text-gray-550 font-semibold pt-1">
+                        <span>उत्पाद मूल्य (Products Total):</span>
+                        <span className="text-gray-700">₹{cartTotal}</span>
+                      </div>
+                      <div className="flex justify-between text-gray-550 font-semibold pb-1.5 border-b border-gray-200/30">
+                        <span>डिलीवरी शुल्क (Delivery Charges):</span>
+                        <span className="text-amber-700">+ ₹{appContent.deliveryChargesAmount}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1.5 animate-in fade-in duration-250">
+                        <span className="text-sm font-black text-[#4A3728]">कुल देय राशि (Final Total):</span>
+                        <span className="text-base font-black text-[#2D5A27]">₹{cartTotal + appContent.deliveryChargesAmount}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between items-center pt-1.5">
+                      <span className="text-sm font-bold text-[#4A3728]">कुल देय राशि (Gross Amount):</span>
+                      <span className="text-base font-black text-[#2D5A27]">₹{cartTotal}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Delivery details form */}

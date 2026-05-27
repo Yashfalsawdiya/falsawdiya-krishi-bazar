@@ -98,7 +98,10 @@ const OrderModal: React.FC<OrderModalProps> = ({ isOpen, onClose, onConfirm, pro
 
     // Format & send the premium WhatsApp order message
     const items = mapSingleProductToOrderProducts(product, 1, displayUnit, displayPrice);
-    const message = formatWhatsAppOrderMessage(items, details, displayPrice, orderSource || "Store Page");
+    const deliveryCharges = (appContent?.isDeliveryChargesEnabled && appContent?.deliveryChargesAmount !== undefined)
+      ? appContent.deliveryChargesAmount
+      : undefined;
+    const message = formatWhatsAppOrderMessage(items, details, displayPrice, orderSource || "Store Page", deliveryCharges);
 
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank');
     onConfirm();
@@ -191,19 +194,37 @@ const OrderModal: React.FC<OrderModalProps> = ({ isOpen, onClose, onConfirm, pro
                 </div>
 
                 {/* Pricing section */}
-                <div className="bg-[#F5F2ED] rounded-xl p-3 border border-[#4A3728]/10 space-y-1 text-xs shrink-0">
-                  <div className="flex justify-between text-gray-500 font-semibold">
-                    <span>इकाई मूल्य (Per Unit Price):</span>
-                    <span className="text-gray-700">
-                      {product.hidePrice || !displayPrice ? 'कीमत उपलब्ध नहीं' : `₹${displayPrice}`}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center border-t border-gray-200/50 pt-1.5">
-                    <span className="text-sm font-bold text-[#4A3728]">कुल राशि (Total Amount):</span>
-                    <span className="text-base font-black text-[#2D5A27]">
-                      {product.hidePrice || !displayPrice ? 'कीमत उपलब्ध नहीं' : `₹${displayPrice}`}
-                    </span>
-                  </div>
+                <div className="bg-[#F5F2ED] rounded-xl p-3 border border-[#4A3728]/10 space-y-1.5 text-xs shrink-0">
+                  {product.hidePrice || !displayPrice ? (
+                    <div className="flex justify-between items-center py-1">
+                      <span className="text-sm font-bold text-[#4A3728]">कुल राशि (Total Amount):</span>
+                      <span className="text-base font-black text-[#2D5A27]">कीमत उपलब्ध नहीं</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between text-gray-500 font-semibold">
+                        <span>उत्पाद मूल्य (Products Total):</span>
+                        <span className="text-gray-700 font-bold">₹{displayPrice}</span>
+                      </div>
+                      {appContent?.isDeliveryChargesEnabled && appContent?.deliveryChargesAmount !== undefined ? (
+                        <>
+                          <div className="flex justify-between text-gray-500 font-semibold">
+                            <span>डिलीवरी शुल्क (Delivery Charges):</span>
+                            <span className="text-amber-700 font-bold">+ ₹{appContent.deliveryChargesAmount}</span>
+                          </div>
+                          <div className="flex justify-between items-center border-t border-[#4A3728]/10 pt-1.5 mt-1">
+                            <span className="text-sm font-bold text-[#4A3728]">कुल देय राशि (Final Total):</span>
+                            <span className="text-base font-black text-[#2D5A27]">₹{displayPrice + appContent.deliveryChargesAmount}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex justify-between items-center border-t border-gray-200/50 pt-1.5">
+                          <span className="text-sm font-bold text-[#4A3728]">कुल राशि (Total Amount):</span>
+                          <span className="text-base font-black text-[#2D5A27]">₹{displayPrice}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {/* Delivery details form */}

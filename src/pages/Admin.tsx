@@ -1349,6 +1349,110 @@ const Admin: React.FC = () => {
               </div>
             </div>
 
+            {/* Delivery Charges Management Section */}
+            <div className="space-y-4 pt-6 mt-6 border-t border-gray-100">
+              <h4 className="text-xs font-black text-[#2D5A27] uppercase tracking-widest flex items-center gap-1.5">
+                <span>🚚</span> डिलीवरी शुल्क प्रबंधन (Delivery Charges Management)
+              </h4>
+
+              {/* Toggle row */}
+              <div className="flex justify-between items-center bg-[#FAF9F5] p-4 rounded-2xl border border-[#4A3728]/5">
+                <div>
+                  <h5 className="text-sm font-bold text-gray-800">डिलिवरी शुल्क लागू करें (Enable Delivery Charges)</h5>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {contentForm?.isDeliveryChargesEnabled 
+                      ? "डिलीवरी शुल्क लागू है - यह आटोमेटिक ऑर्डर्स और व्हाट्सएप रसीद में जुड़ जाएगा।" 
+                      : "डिलीवरी शुल्क बंद है - सभी आर्डर्स पर कोई डिलीवरी चार्ज नहीं जोड़ा जाएगा।"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!contentForm) return;
+                    const nextVal = !contentForm.isDeliveryChargesEnabled;
+                    setContentForm({
+                      ...contentForm,
+                      isDeliveryChargesEnabled: nextVal
+                    });
+                  }}
+                  className={cn(
+                    "relative inline-flex h-7.5 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                    contentForm?.isDeliveryChargesEnabled ? "bg-[#2D5A27]" : "bg-gray-300"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block h-6.5 w-6.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                      contentForm?.isDeliveryChargesEnabled ? "translate-x-6.5" : "translate-x-0"
+                    )}
+                  />
+                </button>
+              </div>
+
+              {/* Charges Input & Presets */}
+              {contentForm?.isDeliveryChargesEnabled && (
+                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-150 space-y-4 animate-in fade-in duration-200">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">
+                      डिलीवरी शुल्क राशि (Delivery Charges Amount in ₹) *
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <span className="text-gray-500 font-bold text-sm">₹</span>
+                      </div>
+                      <input 
+                        type="number" 
+                        min="0"
+                        placeholder="उदाँ: 40"
+                        value={contentForm?.deliveryChargesAmount !== undefined ? contentForm.deliveryChargesAmount : ''}
+                        onChange={e => {
+                          if (!contentForm) return;
+                          const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                          setContentForm({
+                            ...contentForm,
+                            deliveryChargesAmount: val
+                          });
+                        }}
+                        className="w-full bg-white border-2 border-gray-200 focus:border-[#2D5A27] rounded-xl py-3.5 pl-8 pr-4 outline-none transition-all font-semibold text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Presets */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">क्विक चयन प्रीसेट (Quick Presets)</span>
+                    <div className="flex flex-wrap gap-2">
+                      {[20, 40, 80, 100].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => {
+                            if (!contentForm) return;
+                            setContentForm({
+                              ...contentForm,
+                              deliveryChargesAmount: preset
+                            });
+                          }}
+                          className={cn(
+                            "px-4 py-2 text-xs font-bold rounded-xl transition-all border",
+                            contentForm?.deliveryChargesAmount === preset
+                              ? "bg-[#2D5A27] text-white border-transparent"
+                              : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100 shadow-sm"
+                          )}
+                        >
+                          ₹{preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-[#2D5A27] font-semibold">
+                    💡 भविष्य में विभिन्न क्षेत्रों (Area-wise) की डिलीवरी दरों के अनुसार आप शुल्क यहाँ से कभी भी बदल सकते हैं।
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Actions Panel */}
             <div className="pt-4 flex gap-3">
               <button
@@ -1905,9 +2009,9 @@ const Admin: React.FC = () => {
                 </span>
               </div>
 
-              <div className="space-y-2.5 pt-4 border-t border-gray-100">
+              <div className="space-y-2.5 pt-4 border-t border-gray-100 font-sans">
                 <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">ऑर्डर प्राप्त करने वाला WhatsApp नंबर (बिना + के)</label>
-                <div className="relative">
+                <div className="relative font-sans">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#2D5A27]">
                     <Phone className="w-4 h-4" />
                   </span>
@@ -1923,6 +2027,73 @@ const Admin: React.FC = () => {
                   />
                 </div>
                 <p className="text-[10px] text-gray-400 ml-1">यहाँ डाला गया नंबर ही ऐप का मुख्य ऑर्डर रिसीवर नंबर होगा। जब आप चाहें इसे बदलकर डिलीवरी स्टाफ/लड़के का नंबर सेट कर सकते हैं।</p>
+              </div>
+
+              {/* Delivery Charges inside Content tab */}
+              <div className="space-y-3 pt-4 border-t border-gray-100 font-sans">
+                <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-105">
+                  <div className="pr-4">
+                    <h4 className="text-xs font-bold text-gray-800">डिलिवरी शुल्क लागू करें (Enable Delivery Charges)</h4>
+                    <p className="text-[10px] text-gray-400 mt-1">चालू होने पर आटोमेटिक डिलीवरी शुल्क जोड़ा जाएगा और रसीद में दिखेगा।</p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (!contentForm) return;
+                      setContentForm({...contentForm, isDeliveryChargesEnabled: !contentForm.isDeliveryChargesEnabled});
+                    }}
+                    className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      contentForm?.isDeliveryChargesEnabled ? "bg-[#2D5A27]" : "bg-gray-300"
+                    }`}
+                  >
+                    <span 
+                      className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        contentForm?.isDeliveryChargesEnabled ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {contentForm?.isDeliveryChargesEnabled && (
+                  <div className="bg-[#FAF9F5] p-4 rounded-2xl border border-gray-100 space-y-3">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">डिलीवरी शुल्क राशि (Delivery Charges Amount in ₹)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">₹</span>
+                      <input 
+                        type="number"
+                        min="0"
+                        value={contentForm?.deliveryChargesAmount !== undefined ? contentForm.deliveryChargesAmount : ''}
+                        onChange={e => {
+                          if (!contentForm) return;
+                          const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                          setContentForm({ ...contentForm, deliveryChargesAmount: val });
+                        }}
+                        className="w-full bg-white border-2 border-gray-200 focus:border-[#2D5A27] rounded-xl py-2.5 pl-7 pr-3 outline-none font-semibold text-xs text-gray-800"
+                        placeholder="जैसे: 40"
+                      />
+                    </div>
+
+                    <div className="flex gap-1.5 flex-wrap">
+                      {[20, 40, 80, 100].map(amt => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => {
+                            if (!contentForm) return;
+                            setContentForm({ ...contentForm, deliveryChargesAmount: amt });
+                          }}
+                          className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-all ${
+                            contentForm?.deliveryChargesAmount === amt
+                              ? 'bg-[#2D5A27] text-white border-transparent'
+                              : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          ₹{amt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
