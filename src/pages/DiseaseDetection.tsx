@@ -420,12 +420,14 @@ const DiseaseDetection: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3 flex items-start gap-2 shadow-sm">
-                  <AlertCircle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-orange-800 font-black leading-tight">
-                    *नोट: आपको स्वयं "फल्सावदिया कृषि बाज़ार" दुकान पर आकर यह दवाई खरीदनी होगी।
-                  </p>
-                </div>
+                {!appContent?.isDeliveryActive && (
+                  <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3 flex items-start gap-2 shadow-sm">
+                    <AlertCircle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-orange-800 font-black leading-tight">
+                      ⚠️ Note/Disclaimer: आपको स्वयं “फल्सावदिया कृषि बाजार” दुकान पर आकर यह उत्पाद खरीदना होगा
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">

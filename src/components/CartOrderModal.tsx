@@ -344,11 +344,13 @@ const CartOrderModal: React.FC<CartOrderModalProps> = ({
                 </div>
 
                 {/* Disclaimer */}
-                <div className="bg-orange-50 border border-orange-100 rounded-xl p-2.5 shrink-0">
-                  <p className="text-[9px] text-orange-850 font-medium leading-relaxed">
-                    ⚠️ डिस्क्लेमर: सामान आप स्वयं दुकान पर आकर भी ले सकते हैं; होम डिलीवरी की उपलब्धता की जानकारी हेतु कृपया दुकानदार से व्हाट्सएप चैट पर पुष्टि करें।
-                  </p>
-                </div>
+                {!appContent?.isDeliveryActive && (
+                  <div className="bg-orange-50 border border-orange-100 rounded-xl p-2.5 shrink-0">
+                    <p className="text-[10px] text-orange-850 font-black leading-relaxed">
+                      ⚠️ Note/Disclaimer: आपको स्वयं “फल्सावदिया कृषि बाजार” दुकान पर आकर यह उत्पाद खरीदना होगा
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
