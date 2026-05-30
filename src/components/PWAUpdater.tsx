@@ -64,11 +64,7 @@ const PWAUpdater: React.FC = () => {
       });
     };
 
-    let currentManifestURL: string | null = null;
-
     const updateManifest = async () => {
-      const maskableIcon512 = await createProcessedIcon(iconUrl, 512, true);
-      const anyIcon512 = await createProcessedIcon(iconUrl, 512, false);
       const maskableIcon192 = await createProcessedIcon(iconUrl, 192, true);
       const anyIcon192 = await createProcessedIcon(iconUrl, 192, false);
 
@@ -90,88 +86,11 @@ const PWAUpdater: React.FC = () => {
         document.head.appendChild(appleIcon);
       }
       appleIcon.href = maskableIcon192; 
-
-      const manifest = {
-        id: 'com.krishibazaar.app.falsawdiya.v1',
-        name: name,
-        short_name: shortName,
-        description: appContent.branding?.tagline || 'मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी',
-        start_url: '/',
-        scope: '/',
-        display: 'standalone',
-        display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
-        background_color: '#FFFFFF',
-        theme_color: '#2D5A27',
-        orientation: 'portrait',
-        dir: 'ltr',
-        lang: 'hi-IN',
-        categories: ['agriculture', 'business', 'news', 'shopping'],
-        prefer_related_applications: false,
-        icons: [
-          {
-            src: anyIcon512,
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: maskableIcon512,
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable'
-          },
-          {
-            src: anyIcon192,
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: maskableIcon192,
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'maskable'
-          }
-        ],
-        shortcuts: [
-          {
-            name: 'मंडी भाव',
-            url: '/mandi',
-            description: 'ताज़ा मंडी भाव देखें',
-            icons: [{ src: anyIcon192, sizes: '192x192' }]
-          },
-          {
-            name: 'उत्पाद',
-            url: '/products',
-            description: 'दवाइयाँ और बीज खरीदें',
-            icons: [{ src: anyIcon192, sizes: '192x192' }]
-          }
-        ]
-      };
-
-      const stringManifest = JSON.stringify(manifest);
-      const blob = new Blob([stringManifest], { type: 'application/json' });
-      currentManifestURL = URL.createObjectURL(blob);
-
-      let manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
-      if (!manifestLink) {
-        manifestLink = document.createElement('link');
-        manifestLink.rel = 'manifest';
-        document.head.appendChild(manifestLink);
-      }
-      
-      const oldUrl = manifestLink.getAttribute('data-blob-url');
-      if (oldUrl) URL.revokeObjectURL(oldUrl);
-      
-      manifestLink.href = currentManifestURL;
-      manifestLink.setAttribute('data-blob-url', currentManifestURL);
     };
 
     updateManifest();
 
-    return () => {
-      if (currentManifestURL) URL.revokeObjectURL(currentManifestURL);
-    };
+    return () => {};
   }, [appContent]);
 
   return null;

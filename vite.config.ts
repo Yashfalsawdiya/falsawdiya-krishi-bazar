@@ -24,7 +24,7 @@ export default defineConfig(({mode}) => {
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
-          id: '/index.html',
+          id: '/',
           dir: 'ltr',
           lang: 'hi-IN',
           categories: ['agriculture', 'business', 'news'],
