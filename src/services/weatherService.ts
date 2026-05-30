@@ -11,6 +11,7 @@ export interface WeatherData {
     day: string;
     temp: string;
     condition: string;
+    rainProb?: number;
   }[];
   hourly?: {
     time: string;
@@ -46,7 +47,7 @@ const CONDITION_MAP: Record<number, string> = {
 };
 
 export const fetchWeather = async (lat: number, lon: number, force: boolean = false): Promise<WeatherData> => {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,precipitation&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=8`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,precipitation&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=8`;
   
   const CACHE_KEY = `weather_data_${lat}_${lon}`;
   const CACHE_TIME_KEY = `${CACHE_KEY}_timestamp`;
@@ -78,13 +79,13 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
     maxTemp: 35,
     minTemp: 25,
     forecast: [
-      { day: 'कल (Tomorrow)', temp: '32°C', condition: 'साफ' },
-      { day: 'सोमवार', temp: '33°C', condition: 'साफ' },
-      { day: 'मंगलवार', temp: '34°C', condition: 'साफ' },
-      { day: 'बुधवार', temp: '35°C', condition: 'साफ' },
-      { day: 'गुरुवार', temp: '34°C', condition: 'साफ' },
-      { day: 'शुक्रवार', temp: '33°C', condition: 'साफ' },
-      { day: 'शनिवार', temp: '32°C', condition: 'साफ' },
+      { day: 'कल (Tomorrow)', temp: '32°C', condition: 'साफ', rainProb: 10 },
+      { day: 'सोमवार', temp: '33°C', condition: 'साफ', rainProb: 15 },
+      { day: 'मंगलवार', temp: '34°C', condition: 'साफ', rainProb: 10 },
+      { day: 'बुधवार', temp: '35°C', condition: 'साफ', rainProb: 5 },
+      { day: 'गुरुवार', temp: '34°C', condition: 'साफ', rainProb: 20 },
+      { day: 'शुक्रवार', temp: '33°C', condition: 'साफ', rainProb: 15 },
+      { day: 'शनिवार', temp: '32°C', condition: 'साफ', rainProb: 25 },
     ],
     hourly: []
   };
@@ -109,6 +110,7 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
         day: dayName,
         temp: `${Math.round(data.daily.temperature_2m_max[index + 1])}°C`,
         condition: CONDITION_MAP[data.daily.weather_code[index + 1]] || 'साफ',
+        rainProb: data.daily.precipitation_probability_max ? data.daily.precipitation_probability_max[index + 1] : undefined
       };
     });
 

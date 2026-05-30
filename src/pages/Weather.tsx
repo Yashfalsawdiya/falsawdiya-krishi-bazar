@@ -117,6 +117,17 @@ const Weather: React.FC = () => {
     return Cloud;
   };
 
+  const getEstRainProbability = (condition: string): number => {
+    const cond = condition.toLowerCase();
+    if (cond.includes('भारी ओले') || cond.includes('भारी बारिश') || cond.includes('तेज बारिश')) return 90;
+    if (cond.includes('गरज') || cond.includes('बौछारें') || cond.includes('तेज')) return 80;
+    if (cond.includes('बारिश') || cond.includes('बूंदाबांदी') || cond.includes('बौछार')) return 65;
+    if (cond.includes('बादल छाए')) return 40;
+    if (cond.includes('आंशिक')) return 20;
+    if (cond.includes('कोहरा')) return 15;
+    return 10;
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
@@ -233,6 +244,7 @@ const Weather: React.FC = () => {
         <h3 className="font-bold text-[#4A3728] px-1">अगले 7 दिन का पूर्वानुमान</h3>
         {weather.forecast.map((item, idx) => {
           const Icon = getIcon(item.condition);
+          const probability = item.rainProb ?? getEstRainProbability(item.condition);
           return (
             <motion.div 
               key={idx}
@@ -248,9 +260,14 @@ const Weather: React.FC = () => {
                 <div>
                   <p className="font-bold text-gray-800">{item.day}</p>
                   <p className="text-xs text-gray-500">{item.condition}</p>
+                  {probability > 10 && (
+                    <p className="text-[11px] font-bold text-blue-600 mt-1 flex items-center gap-1 bg-blue-50/50 px-2 py-0.5 rounded-lg border border-blue-100/50 w-fit">
+                      <span>🌧</span> वर्षा संभावना: {probability}%
+                    </p>
+                  )}
                 </div>
               </div>
-              <p className="text-lg font-bold text-[#2D5A27]">{item.temp}</p>
+              <p className="text-lg font-black text-[#2D5A27]">{item.temp}</p>
             </motion.div>
           );
         })}
