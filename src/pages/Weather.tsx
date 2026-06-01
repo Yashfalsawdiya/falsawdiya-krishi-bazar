@@ -34,87 +34,13 @@ const Weather: React.FC = () => {
           setLocationName('आपकी वर्तमान लोकेशन');
           loadWeather(pos.coords.latitude, pos.coords.longitude, true);
         },
-        () => loadWeather(24.1864, 75.6328, true)
+        () => {
+          loadWeather(24.1864, 75.6328, true);
+        }
       );
     } else {
       loadWeather(24.1864, 75.6328, true);
     }
-  };
-
-  const getDynamicAlert = (data: WeatherData) => {
-    const temp = data.temp;
-    const humidity = data.humidity;
-    const isRainy = data.condition.includes('बारिश') || data.condition.includes('बौछारें');
-    const isWindy = data.windSpeed > 20;
-
-    if (isRainy) {
-      return {
-        title: "बारिश की संभावना",
-        message: "खेत में जल निकासी की व्यवस्था करें। इस समय उर्वरक या कीटनाशक का छिड़काव न करें।",
-        type: "rain",
-        icon: CloudRain
-      };
-    }
-
-    if (temp >= 40) {
-      return {
-        title: "अत्यधिक गर्मी (Heat Alert)",
-        message: "दोपहर में सिंचाई न करें, इससे फसल जल सकती है। शाम या सुबह पानी देना बेहतर है।",
-        type: "heat",
-        icon: Sun
-      };
-    }
-
-    if (isWindy) {
-      return {
-        title: "तेज़ हवा की चेतावनी",
-        message: "तेज़ हवाओं में कीटनाशकों का छिड़काव न करें। ऊँची फसलों को सहारा देने की व्यवस्था करें।",
-        type: "wind",
-        icon: Wind
-      };
-    }
-
-    if (humidity > 80) {
-      return {
-        title: "उच्च नमी (High Humidity)",
-        message: "नमी अधिक होने से कीटों का खतरा बढ़ सकता है। फसल की नियमित जांच करते रहें।",
-        type: "humidity",
-        icon: Droplets
-      };
-    }
-
-    if (temp <= 15) {
-      return {
-        title: "ठंड की चेतावनी",
-        message: "पाला पड़ने की संभावना हो सकती है। फसल में हल्की सिंचाई करें और धुआं करें।",
-        type: "cold",
-        icon: Thermometer
-      };
-    }
-
-    // Default Good Weather advice
-    const dailyAdvices = [
-      "मिट्टी की नमी की जांच करें और ज़रूरत के अनुसार सिंचाई करें।",
-      "आज का मौसम उर्वरक देने के लिए अनुकूल है।",
-      "फसलों की निगरानी करें और किसी भी रोग के लक्षण दिखने पर उपचार करें।",
-      "खेतों की साफ़-सफ़ाई का ध्यान रखें ताकि कीट न पनपें।"
-    ];
-    const dayIndex = new Date().getDate() % dailyAdvices.length;
-
-    return {
-      title: "कृषि सलाह",
-      message: dailyAdvices[dayIndex],
-      type: "normal",
-      icon: CloudSun
-    };
-  };
-
-  const getIcon = (condition: string) => {
-    if (condition.includes('बारिश') || condition.includes('बौछारें')) return CloudRain;
-    if (condition.includes('बादल')) return CloudSun;
-    if (condition.includes('गरज')) return CloudLightning;
-    if (condition.includes('साफ')) return Sun;
-    return Cloud;
   };
 
   const getEstRainProbability = (condition: string): number => {
@@ -128,11 +54,371 @@ const Weather: React.FC = () => {
     return 10;
   };
 
+  const getSanitizedHourlyInfo = (hour: { time: string; temp: number; condition: string; rainProb: number }) => {
+    let condition = hour.condition;
+    const rainProb = hour.rainProb;
+    
+    // High rain prob: >= 50%
+    if (rainProb >= 50) {
+      return {
+        condition,
+        showProb: true,
+        rainProb,
+        isBad: condition.includes('बारिश') || condition.includes('गरज') || condition.includes('ओले') || condition.includes('बौछारें')
+      };
+    }
+    
+    // Mid rain prob: 20% - 49%
+    if (rainProb >= 20 && rainProb < 50) {
+      if (condition.includes('बारिश') || condition.includes('बूंदाबांदी') || condition.includes('बौछार') || condition.includes('गरज') || condition.includes('ओले')) {
+        condition = 'आंशिक बादल';
+      }
+      return {
+        condition,
+        showProb: false,
+        rainProb,
+        isBad: false
+      };
+    }
+    
+    // Low rain prob: 0% - 19%
+    if (condition.includes('बारिश') || condition.includes('बूंदाबांदी') || condition.includes('बौछार') || condition.includes('गरज') || condition.includes('ओले')) {
+      condition = 'साफ आसमान';
+    }
+    return {
+      condition,
+      showProb: false,
+      rainProb,
+      isBad: false
+    };
+  };
+
+  const getSanitizedDailyInfo = (item: { day: string; temp: string; condition: string; rainProb?: number }) => {
+    let condition = item.condition;
+    const rainProb = item.rainProb ?? getEstRainProbability(item.condition);
+
+    // High rain prob: >= 50%
+    if (rainProb >= 50) {
+      return {
+        condition,
+        showProb: true,
+        rainProb
+      };
+    }
+    
+    // Mid rain prob: 20% - 49%
+    if (rainProb >= 20 && rainProb < 50) {
+      if (condition.includes('बारिश') || condition.includes('बूंदाबांदी') || condition.includes('बौछार') || condition.includes('गरज') || condition.includes('ओले')) {
+        condition = 'आंशिक बादल';
+      }
+      return {
+        condition,
+        showProb: false,
+        rainProb
+      };
+    }
+    
+    // Low rain prob: 0% - 19%
+    if (condition.includes('बारिश') || condition.includes('बूंदाबांदी') || condition.includes('बौछार') || condition.includes('गरज') || condition.includes('ओले')) {
+      condition = 'धूप';
+    }
+    return {
+      condition,
+      showProb: false,
+      rainProb
+    };
+  };
+
+  const getDynamicAlert = (data: WeatherData) => {
+    const temp = data.temp;
+    const humidity = data.humidity;
+    
+    let maxRainProb = 0;
+    if (data.hourly && data.hourly.length > 0) {
+      maxRainProb = Math.max(...data.hourly.slice(0, 24).map(h => h.rainProb));
+    } else if (data.forecast && data.forecast.length > 0) {
+      maxRainProb = Math.max(...data.forecast.slice(0, 3).map(f => f.rainProb ?? getEstRainProbability(f.condition)));
+    }
+
+    const isWindy = data.windSpeed > 20;
+
+    // High rain alert: If probability >= 50%
+    if (maxRainProb >= 50) {
+      return {
+        title: "वर्षा की चेतावनी (हाई अलर्ट)",
+        message: `अगले 24 घंटे में वर्षा की संभावना अधिक (${maxRainProb}%) है। कीटनाशक छिड़काव और उर्वरक प्रयोग स्थगित रखें। कटी हुई फसलों को सुरक्षित स्थान पर रखें और सिंचाई तुरंत रोकें।`,
+        type: "rain",
+        icon: CloudRain
+      };
+    }
+
+    // Mid rain probability alerts: 20% - 49%
+    if (maxRainProb >= 20 && maxRainProb < 50) {
+      return {
+        title: "मौसम सलाह (सामान्य बदलाव)",
+        message: `अगले 24 घंटे में मौसम में आंशिक बदलाव या हल्की वर्षा की सामान्य संभावना (${maxRainProb}%) है। सिंचाई केवल आवश्यकतानुसार ही करें। कीटनाशक छिड़काव करते समय ध्यान रखें कि हवा शांत हो।`,
+        type: "normal",
+        icon: CloudSun
+      };
+    }
+
+    // Low rain/No rain advisories (rain probability < 20%)
+    if (temp >= 40) {
+      return {
+        title: "अत्यधिक गर्मी और धूप की चेतावनी",
+        message: "आज वर्षा की संभावना बहुत कम है। तापमान अधिक होने की वजह से दोपहर में सिंचाई न करें, इससे फसल जल सकती है। शाम या सुबह पानी देना बेहतर है। आज सिंचाई की जा सकती है।",
+        type: "heat",
+        icon: Sun
+      };
+    }
+
+    if (isWindy) {
+      return {
+        title: "तेज़ हवा की चेतावनी",
+        message: "तेज़ हवाओं में कीटनाशकों का छिड़काव न करें, क्योंकि दवा हवा के साथ बिखर जाएगी। सिंचाई सावधानी से करें। आज वर्षा की संभावना बहुत कम है।",
+        type: "wind",
+        icon: Wind
+      };
+    }
+
+    if (humidity > 80) {
+      return {
+        title: "उच्च नमी और आर्दता चेतावनी",
+        message: "हवा में नमी अधिक होने से कीट एवं फफूंद जनित रोगों का खतरा बढ़ सकता है। आज वर्षा की संभावना बहुत कम है, अतः आप सिंचाई और आवश्यकतानुसार छिड़काव का प्रबंधन कर सकते हैं।",
+        type: "humidity",
+        icon: Droplets
+      };
+    }
+
+    if (temp <= 15) {
+      return {
+        title: "शीतलहर और ठंड की चेतावनी",
+        message: "तापमान कम होने से पाला पड़ने की संभावना हो सकती है। फसल में हल्की सिंचाई करें। आज मौसम साफ रहेगा और वर्षा की संभावना नहीं है।",
+        type: "cold",
+        icon: Thermometer
+      };
+    }
+
+    return {
+      title: "स्मार्ट निर्णय सलाह (मौसम अनुकूल)",
+      message: "आज वर्षा की संभावना बहुत कम है। मौसम पूर्णतः खेती के अनुकूल है। फसलों में आवश्यकतानुसार सिंचाई की जा सकती है, और खेतों में कीटनाशक छिड़काव व खाद डालने के लिए आज का दिन सर्वोत्तम है।",
+      type: "normal",
+      icon: CloudSun
+    };
+  };
+
+  const getAnimationType = (condition: string): 'sunny' | 'rainy' | 'windy' | 'cloudy' | 'normal' => {
+    const cond = condition.toLowerCase();
+    if (cond.includes('बारिश') || cond.includes('बौछार') || cond.includes('बूंदाबांदी') || cond.includes('गरज') || cond.includes('ओले')) return 'rainy';
+    if (cond.includes('हवा') || cond.includes('आँधी') || cond.includes('तूफान') || cond.includes('तेज') || cond.includes('wind')) return 'windy';
+    if (cond.includes('धूप') || cond.includes('साफ') || cond.includes('sunny')) return 'sunny';
+    if (cond.includes('बादल') || cond.includes('cloud')) return 'cloudy';
+    return 'normal';
+  };
+
+  const getCardThemeClasses = (condition: string): string => {
+    const type = getAnimationType(condition);
+    if (type === 'sunny') return 'bg-gradient-to-br from-[#FFFDF2] via-white to-[#FAF5DC] border-[#FCEEBC] shadow-amber-100/50';
+    if (type === 'rainy') return 'bg-gradient-to-br from-[#F1F6FB] via-white to-[#E5EDF9] border-[#D4E2F5] shadow-blue-100/50';
+    if (type === 'windy') return 'bg-gradient-to-br from-[#F0F8F4] via-white to-[#E3F2E9] border-[#D1EBE0] shadow-emerald-100/50';
+    if (type === 'cloudy') return 'bg-gradient-to-br from-[#F5F7FA] via-white to-[#EEF1F6] border-[#E2E6EE] shadow-slate-100/50';
+    return 'bg-white border-gray-100 shadow-lg';
+  };
+
+  const renderWeatherBackgroundEffects = (condition: string) => {
+    const type = getAnimationType(condition);
+    
+    if (type === 'sunny') {
+      return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+          {/* Pulsing beautiful sunbeam overlay */}
+          <motion.div 
+            animate={{ 
+              scale: [1, 1.15, 1],
+              opacity: [0.12, 0.22, 0.12],
+              rotate: [0, 45, 0]
+            }}
+            transition={{ 
+              duration: 12, 
+              repeat: Infinity, 
+              ease: "easeInOut" 
+            }}
+            className="absolute -top-20 -right-20 w-52 h-52 rounded-full bg-gradient-to-br from-amber-300 via-orange-200 to-yellow-100 blur-2xl opacity-20"
+          />
+          {/* Floating sparkling sun dust particles */}
+          {[...Array(6)].map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ 
+                x: Math.random() * 280, 
+                y: Math.random() * 160 + 40, 
+                opacity: 0.1, 
+                scale: Math.random() * 0.4 + 0.6 
+              }}
+              animate={{ 
+                y: [null, Math.random() * 80 - 40],
+                opacity: [0.1, 0.4, 0.1]
+              }}
+              transition={{ 
+                duration: 5 + Math.random() * 4, 
+                repeat: Infinity, 
+                ease: "easeInOut" 
+              }}
+              className="absolute w-1.5 h-1.5 bg-yellow-300 rounded-full blur-[0.5px]"
+            />
+          ))}
+        </div>
+      );
+    }
+
+    if (type === 'rainy') {
+      return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+          {/* Drizzle drops */}
+          {[...Array(15)].map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ 
+                x: Math.random() * 320, 
+                y: -15, 
+                opacity: Math.random() * 0.35 + 0.2 
+              }}
+              animate={{ 
+                y: 280,
+                x: [null, Math.random() * 30 - 15]
+              }}
+              transition={{ 
+                duration: 1.1 + Math.random() * 0.7, 
+                repeat: Infinity, 
+                ease: "linear" 
+              }}
+              className="absolute w-[1.5px] h-3.5 bg-gradient-to-b from-blue-300/50 to-blue-500/70 rounded-full"
+            />
+          ))}
+          {/* Cloud elements drifting */}
+          <motion.div
+            animate={{ x: [-30, 310] }}
+            transition={{ duration: 28, repeat: Infinity, ease: "linear" }}
+            className="absolute top-2 opacity-[0.08]"
+          >
+            <Cloud className="w-14 h-14 text-slate-500 blur-[0.5px]" />
+          </motion.div>
+        </div>
+      );
+    }
+
+    if (type === 'windy') {
+      return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none pb-4">
+          {/* Subtle horizontal wind currents */}
+          {[...Array(3)].map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ x: -80, y: 35 + i * 50, opacity: 0 }}
+              animate={{ 
+                x: [null, 340], 
+                opacity: [0, 0.15, 0.15, 0] 
+              }}
+              transition={{ 
+                duration: 4 + Math.random() * 2, 
+                repeat: Infinity, 
+                ease: "easeInOut",
+                delay: i * 1.8
+              }}
+              className="absolute h-[1px] w-20 bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent"
+            />
+          ))}
+          {/* Slow rising farm organic leaf elements */}
+          {[...Array(4)].map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ 
+                x: Math.random() * 120, 
+                y: 190, 
+                opacity: 0, 
+                rotate: Math.random() * 360,
+                scale: Math.random() * 0.35 + 0.45
+              }}
+              animate={{ 
+                x: [null, Math.random() * 240],
+                y: -5,
+                rotate: [null, Math.random() * 540],
+                opacity: [0, 0.4, 0.4, 0]
+              }}
+              transition={{ 
+                duration: 6 + Math.random() * 3, 
+                repeat: Infinity, 
+                ease: "easeInOut",
+                delay: i * 1.2
+              }}
+              className="absolute text-emerald-600/35 leading-none font-serif"
+              style={{ fontSize: '9.5px' }}
+            >
+              🍃
+            </motion.div>
+          ))}
+        </div>
+      );
+    }
+
+    if (type === 'cloudy') {
+      return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+          {/* Layered clouds drifting */}
+          <motion.div
+            animate={{ x: [-40, 320] }}
+            transition={{ duration: 35, repeat: Infinity, ease: "linear" }}
+            className="absolute top-2 left-3 opacity-[0.1]"
+          >
+            <CloudSun className="w-14 h-14 text-amber-600 blur-[0.4px]" />
+          </motion.div>
+          <motion.div
+            animate={{ x: [320, -40] }}
+            transition={{ duration: 42, repeat: Infinity, ease: "linear" }}
+            className="absolute bottom-16 opacity-[0.06]"
+          >
+            <Cloud className="w-16 h-16 text-slate-400" />
+          </motion.div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+        <motion.div 
+          animate={{ 
+            opacity: [0.02, 0.06, 0.02],
+            scale: [1, 1.03, 1]
+          }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute inset-0 bg-[#2D5A27]/5 rounded-3xl"
+        />
+      </div>
+    );
+  };
+
+  const getIcon = (condition: string) => {
+    if (condition.includes('बारिश') || condition.includes('बौछारें') || condition.includes('बूंदाबांदी')) return CloudRain;
+    if (condition.includes('बादल')) return CloudSun;
+    if (condition.includes('गरज')) return CloudLightning;
+    if (condition.includes('साफ') || condition.includes('धूप') || condition.includes('मुख्यतः साफ')) return Sun;
+    return Cloud;
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin" />
         <p className="text-sm text-gray-500 font-bold">मौसम की जानकारी लोड हो रही है...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center p-6 bg-red-50 border border-red-200 rounded-2xl">
+        <p className="text-red-800 font-bold">{error}</p>
+        <button onClick={() => loadWeather()} className="mt-2 text-xs text-red-600 underline font-bold">दोबारा प्रयास करें</button>
       </div>
     );
   }
@@ -150,8 +436,11 @@ const Weather: React.FC = () => {
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 relative overflow-hidden"
+        className={`rounded-3xl p-6 shadow-lg border relative overflow-hidden transition-all duration-700 ease-out ${getCardThemeClasses(weather.condition)}`}
       >
+        {/* Animated Weather Background Particles Overlay */}
+        {renderWeatherBackgroundEffects(weather.condition)}
+
         <div className="absolute top-0 right-0 p-4 opacity-10">
           <CloudSun className="w-32 h-32 text-[#2D5A27]" />
         </div>
@@ -206,8 +495,9 @@ const Weather: React.FC = () => {
           </h3>
           <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 hide-scrollbar snap-x">
             {weather.hourly.map((hour, idx) => {
-              const Icon = getIcon(hour.condition);
-              const isBadWeather = hour.condition.includes('बारिश') || hour.condition.includes('गरज') || hour.condition.includes('ओले') || hour.condition.includes('बौछारें');
+              const sanitized = getSanitizedHourlyInfo(hour);
+              const Icon = getIcon(sanitized.condition);
+              const isBadWeather = sanitized.isBad;
               return (
                 <motion.div 
                   key={idx}
@@ -223,10 +513,10 @@ const Weather: React.FC = () => {
                   <p className="text-[10px] font-bold text-gray-500">{hour.time}</p>
                   <Icon className={`w-7 h-7 my-1 ${isBadWeather ? 'text-blue-500' : 'text-[#2D5A27]'}`} />
                   <p className="font-black text-gray-800">{hour.temp}°</p>
-                  {hour.rainProb > 0 && (
+                  {sanitized.showProb && (
                     <div className="flex items-center gap-0.5 mt-0.5">
                       <Droplets className="w-2.5 h-2.5 text-blue-400" />
-                      <span className="text-[9px] font-bold text-blue-600">{hour.rainProb}%</span>
+                      <span className="text-[9px] font-bold text-blue-600">{sanitized.rainProb}%</span>
                     </div>
                   )}
                   {isBadWeather && (
@@ -243,8 +533,8 @@ const Weather: React.FC = () => {
       <div className="space-y-3">
         <h3 className="font-bold text-[#4A3728] px-1">अगले 7 दिन का पूर्वानुमान</h3>
         {weather.forecast.map((item, idx) => {
-          const Icon = getIcon(item.condition);
-          const probability = item.rainProb ?? getEstRainProbability(item.condition);
+          const sanitized = getSanitizedDailyInfo(item);
+          const Icon = getIcon(sanitized.condition);
           return (
             <motion.div 
               key={idx}
@@ -259,10 +549,10 @@ const Weather: React.FC = () => {
                 </div>
                 <div>
                   <p className="font-bold text-gray-800">{item.day}</p>
-                  <p className="text-xs text-gray-500">{item.condition}</p>
-                  {probability > 10 && (
+                  <p className="text-xs text-gray-500">{sanitized.condition}</p>
+                  {sanitized.showProb && (
                     <p className="text-[11px] font-bold text-blue-600 mt-1 flex items-center gap-1 bg-blue-50/50 px-2 py-0.5 rounded-lg border border-blue-100/50 w-fit">
-                      <span>🌧</span> वर्षा संभावना: {probability}%
+                      <span>🌧</span> वर्षा संभावना: {sanitized.rainProb}%
                     </p>
                   )}
                 </div>
@@ -273,34 +563,40 @@ const Weather: React.FC = () => {
         })}
       </div>
 
-      {/* Farming Alert */}
+      {/* Farming Alert & Smart Farmer Advisory Box */}
       {(() => {
         const alert = getDynamicAlert(weather);
         const AlertIcon = alert.icon;
         const colorClasses = {
-          heat: "bg-orange-50 border-orange-200 text-orange-800 icon-bg-orange-500",
-          rain: "bg-blue-50 border-blue-200 text-blue-800 icon-bg-blue-500",
-          wind: "bg-gray-50 border-gray-200 text-gray-800 icon-bg-gray-500",
-          humidity: "bg-cyan-50 border-cyan-200 text-cyan-800 icon-bg-cyan-500",
-          cold: "bg-indigo-50 border-indigo-200 text-indigo-800 icon-bg-indigo-500",
-          normal: "bg-green-50 border-green-200 text-green-800 icon-bg-green-500"
-        }[alert.type as keyof typeof colorClasses];
+          heat: "bg-amber-50 border-amber-200 text-amber-800",
+          rain: "bg-blue-50 border-blue-200 text-blue-800",
+          wind: "bg-gray-50 border-gray-200 text-gray-800",
+          humidity: "bg-cyan-50 border-cyan-200 text-cyan-800",
+          cold: "bg-indigo-50 border-indigo-200 text-indigo-800",
+          normal: "bg-green-50 border-green-200 text-green-800"
+        }[alert.type as keyof typeof colorClasses] || "bg-green-50 border-green-200 text-green-800";
 
-        // Extract values from dynamic class string for cleaner Tailwind usage
-        const [bgColor, borderColor, textColor, iconBg] = colorClasses.split(' ');
+        const iconBg = {
+          heat: "bg-amber-500",
+          rain: "bg-blue-500",
+          wind: "bg-gray-500",
+          humidity: "bg-cyan-500",
+          cold: "bg-indigo-500",
+          normal: "bg-green-600"
+        }[alert.type as keyof typeof iconBg] || "bg-green-600";
 
         return (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`${bgColor} border-2 ${borderColor} rounded-2xl p-4 flex items-start gap-4 shadow-sm`}
+            className={`${colorClasses} border-2 rounded-2xl p-4 flex items-start gap-4 shadow-sm`}
           >
-            <div className={`${iconBg.replace('icon-bg-', 'bg-')} p-2.5 rounded-xl shrink-0 shadow-sm`}>
+            <div className={`${iconBg} p-2.5 rounded-xl shrink-0 shadow-sm`}>
               <AlertIcon className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h4 className={`font-bold ${textColor} text-base`}>{alert.title}</h4>
-              <p className={`text-sm ${textColor} mt-1 leading-relaxed opacity-90`}>{alert.message}</p>
+              <h4 className="font-bold text-base">{alert.title}</h4>
+              <p className="text-sm mt-1 leading-relaxed opacity-95">{alert.message}</p>
             </div>
           </motion.div>
         );
