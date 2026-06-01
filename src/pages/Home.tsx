@@ -312,7 +312,7 @@ const Home: React.FC = () => {
                 <div className="w-16 h-16 bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl flex items-center justify-center text-white relative z-10 shadow-lg">
                   <Phone className="w-8 h-8 animate-bounce" />
                 </div>
-                <div className="absolute -top-2 -right-2 bg-yellow-400 text-[#4A3728] text-[8px] font-black px-2 py-0.5 rounded-full shadow-sm">NEW</div>
+                <div className="absolute -top-4 -right-3 z-20 bg-amber-400 text-[#4A3728] text-[9.5px] font-black px-2.5 py-0.5 rounded-full shadow-md border-2 border-white animate-pulse">NEW</div>
               </div>
               <div className="flex-1">
                 <h3 className="text-xl font-black text-[#4A3728] leading-tight">AI कृषि विशेषज्ञ कॉल</h3>
