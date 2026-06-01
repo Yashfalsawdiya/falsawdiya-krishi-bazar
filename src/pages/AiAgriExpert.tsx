@@ -45,6 +45,8 @@ const AiAgriExpert: React.FC = () => {
   const videoIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioQueueRef = useRef<Int16Array[]>([]);
   const nextStartTimeRef = useRef(0);
+  const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
+  const isPlayingRef = useRef(false);
 
   // Sync refs with state
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
@@ -173,12 +175,27 @@ const AiAgriExpert: React.FC = () => {
     return btoa(binary);
   };
 
+  // Stop and cancel all active and scheduled audio source nodes
+  const stopAllActiveSources = useCallback(() => {
+    activeSourcesRef.current.forEach(source => {
+      try {
+        source.stop();
+        source.disconnect();
+      } catch (e) {
+        // Source already ended or was not started
+      }
+    });
+    activeSourcesRef.current = [];
+  }, []);
+
   // Play PCM audio chunks with scheduled timing to prevent gaps
   const playNextChunk = useCallback(async () => {
     if (audioQueueRef.current.length === 0 || !isSpeakerOn || !audioContextRef.current) {
+      isPlayingRef.current = false;
       return;
     }
 
+    isPlayingRef.current = true;
     const pcmData = audioQueueRef.current.shift()!;
     
     if (audioContextRef.current) {
@@ -200,16 +217,26 @@ const AiAgriExpert: React.FC = () => {
       
       // Buffer a tiny bit if we have a gap to prevent audio artifacts
       if (startTime <= currentTime) {
-        startTime = currentTime + 0.1;
+        startTime = currentTime + 0.05;
       }
 
       source.start(startTime);
       nextStartTimeRef.current = startTime + audioBuffer.duration;
 
+      // Track active sources so they can be canceled/interrupted
+      activeSourcesRef.current.push(source);
+      source.onended = () => {
+        activeSourcesRef.current = activeSourcesRef.current.filter(src => src !== source);
+      };
+
       // Handle overlap/interruption
       if (audioQueueRef.current.length > 0) {
         setTimeout(playNextChunk, 10);
+      } else {
+        isPlayingRef.current = false;
       }
+    } else {
+      isPlayingRef.current = false;
     }
   }, [isSpeakerOn]);
 
@@ -217,6 +244,9 @@ const AiAgriExpert: React.FC = () => {
     stopTimer();
     setIsCalling(false);
     setStatus('idle');
+    
+    // Stop and clear all active speech sources immediately
+    stopAllActiveSources();
     
     if (videoIntervalRef.current) {
       clearInterval(videoIntervalRef.current);
@@ -245,7 +275,8 @@ const AiAgriExpert: React.FC = () => {
 
     audioQueueRef.current = [];
     nextStartTimeRef.current = 0;
-  }, []);
+    isPlayingRef.current = false;
+  }, [stopAllActiveSources]);
 
   const requestPermissions = async () => {
     setStatus('requesting_permission');
@@ -401,12 +432,17 @@ STRICT RULE ON NAME:
                 await audioContextRef.current.resume();
               }
               
-              playNextChunk();
+              if (!isPlayingRef.current) {
+                playNextChunk();
+              }
             }
             
             if (message.serverContent?.interrupted) {
+              console.log("Model turn interrupted by server.");
+              stopAllActiveSources();
               audioQueueRef.current = [];
               nextStartTimeRef.current = 0;
+              isPlayingRef.current = false;
             }
           },
           onerror: (err) => {
@@ -433,6 +469,23 @@ STRICT RULE ON NAME:
         if (isMutedRef.current || statusRef.current !== 'connected' || !sessionRef.current) return;
         
         const inputData = e.inputBuffer.getChannelData(0);
+
+        // Local Voice Activity Detection (VAD) to interrupt AI instantly if user speaks
+        let sum = 0;
+        for (let i = 0; i < inputData.length; i++) {
+          sum += inputData[i] * inputData[i];
+        }
+        const rms = Math.sqrt(sum / inputData.length);
+        
+        // Threshold of 0.03 indicates active speaking over mic
+        if (rms > 0.03 && (audioQueueRef.current.length > 0 || activeSourcesRef.current.length > 0)) {
+          console.log("Local voice activity interruption detected. Stopping playback (rms):", rms);
+          stopAllActiveSources();
+          audioQueueRef.current = [];
+          nextStartTimeRef.current = 0;
+          isPlayingRef.current = false;
+        }
+
         const pcmBuffer = float32ToInt16(inputData);
         const base64Data = arrayBufferToBase64(pcmBuffer);
         

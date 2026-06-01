@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/.well-known/assetlinks.json",
+      "destination": "/.well-known/assetlinks.json"
+    },
+    {
       "source": "/icon-192.png",
       "destination": "/icon-192.png"
     },
