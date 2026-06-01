@@ -109,7 +109,7 @@ const InstallPwaModal: React.FC = () => {
               </div>
               <div className="flex items-start gap-3">
                 <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-gray-600">ताज़ा मंडी भाव के नोटिफिकेशन पाएं</p>
+                <p className="text-xs text-gray-600">AI कृषि विशेषज्ञ से तुरंत सलाह प्राप्त करें</p>
               </div>
               <div className="flex items-start gap-3">
                 <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
