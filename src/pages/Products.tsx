@@ -101,33 +101,6 @@ const Products: React.FC = () => {
         ))}
       </div>
 
-      {/* Category Important Information Banner */}
-      {(() => {
-        if (selectedCategory === 'all') return null;
-        const cat = categories.find(c => c.id === selectedCategory);
-        if (cat && cat.isInfoEnabled && cat.importantInfo) {
-          return (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-orange-50 border-2 border-orange-100 rounded-3xl p-5 shadow-sm text-sm"
-            >
-              <div className="flex items-start gap-3">
-                <span className="text-xl">⚠️</span>
-                <div>
-                  <h4 className="font-extrabold text-[#4A3728] text-base mb-1">
-                    महत्वपूर्ण जानकारी ({cat.name}):
-                  </h4>
-                  <p className="text-gray-700 leading-relaxed font-semibold">
-                    {cat.importantInfo}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          );
-        }
-        return null;
-      })()}
 
       {/* Product List */}
       <div className="grid grid-cols-1 gap-4">
