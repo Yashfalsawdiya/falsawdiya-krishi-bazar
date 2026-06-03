@@ -43,7 +43,7 @@ const Admin: React.FC = () => {
     }
   }, [isAdmin]);
   
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users' | 'featured' | 'delivery'>('content');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users' | 'featured' | 'delivery' | 'categoryInfo'>('content');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
   const [productSearchQuery, setProductSearchQuery] = useState<string>('');
@@ -54,6 +54,11 @@ const Admin: React.FC = () => {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [editingCategory, setEditingCategory] = useState<CategoryData | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<CategoryData | null>(null);
+
+  const [editingCategoryForInfo, setEditingCategoryForInfo] = useState<CategoryData | null>(null);
+  const [categoryInfoText, setCategoryInfoText] = useState('');
+  const [categoryInfoEnabled, setCategoryInfoEnabled] = useState(false);
+  const [isSavingInfo, setIsSavingInfo] = useState(false);
 
   const [isAddingAgriIssue, setIsAddingAgriIssue] = useState(false);
   const [editingAgriIssue, setEditingAgriIssue] = useState<AgriIssue | null>(null);
@@ -86,7 +91,9 @@ const Admin: React.FC = () => {
   const [categoryForm, setCategoryForm] = useState<Omit<CategoryData, 'id'>>({
     name: '',
     icon: { primary: '', fallback: '' },
-    order: 0
+    order: 0,
+    importantInfo: '',
+    isInfoEnabled: false
   });
 
   const [agriIssueForm, setAgriIssueForm] = useState<Omit<AgriIssue, 'id'>>({
@@ -218,7 +225,7 @@ const Admin: React.FC = () => {
         await addCategory(finalCategoryData as Omit<CategoryData, 'id'>);
       }
       setIsAddingCategory(false);
-      setCategoryForm({ name: '', icon: { primary: '', fallback: '' }, order: categories.length + 1 });
+      setCategoryForm({ name: '', icon: { primary: '', fallback: '' }, order: categories.length + 1, importantInfo: '', isInfoEnabled: false });
     } catch (error) {
       console.error("Error saving category:", error);
     } finally {
@@ -575,6 +582,15 @@ const Admin: React.FC = () => {
           <ListFilter className="w-4 h-4" /> श्रेणियाँ (Categories)
         </button>
         <button 
+          onClick={() => setActiveTab('categoryInfo')}
+          className={cn(
+            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all border border-transparent",
+            activeTab === 'categoryInfo' ? "bg-[#2D5A27] text-white shadow-md font-extrabold border-amber-500/30" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <ShieldCheck className="w-4 h-4 text-amber-500" /> महत्वपूर्ण जानकारी (Category Info)
+        </button>
+        <button 
           onClick={() => setActiveTab('encyclopedia')}
           className={cn(
             "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
@@ -842,7 +858,7 @@ const Admin: React.FC = () => {
               onClick={() => {
                 setIsAddingCategory(true);
                 setEditingCategory(null);
-                setCategoryForm({ name: '', icon: { primary: '', fallback: '' }, order: categories.length + 1 });
+                setCategoryForm({ name: '', icon: { primary: '', fallback: '' }, order: categories.length + 1, importantInfo: '', isInfoEnabled: false });
               }}
               className="bg-[#2D5A27] text-white py-2 px-4 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold active:scale-95 transition-transform"
             >
@@ -880,7 +896,7 @@ const Admin: React.FC = () => {
                     <button 
                       onClick={() => {
                         setEditingCategory(cat);
-                        setCategoryForm({ name: cat.name, icon: cat.icon, order: cat.order });
+                        setCategoryForm({ name: cat.name, icon: cat.icon, order: cat.order, importantInfo: cat.importantInfo || '', isInfoEnabled: cat.isInfoEnabled || false });
                         setIsAddingCategory(true);
                       }}
                       className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
@@ -896,6 +912,142 @@ const Admin: React.FC = () => {
                   </div>
                 </motion.div>
               ))
+            )}
+          </div>
+        </>
+      ) : activeTab === 'categoryInfo' ? (
+        <>
+          <div className="bg-amber-50/50 border-2 border-amber-500/10 rounded-3xl p-6 mb-6">
+            <h3 className="font-extrabold text-[#4A3728] text-lg mb-2 flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-amber-500" />
+              Category में Important Information Management
+            </h3>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              यहाँ से आप ऐप की प्रत्येक श्रेणी (Category) के अनुसार विशेष महत्वपूर्ण सूचना, Safety Instructions, दिशा-निर्देश, Disclaimer या Customer Notes सेट कर सकते हैं। जब कोई ग्राहक उस श्रेणी के उत्पादों को देखेगा, तो यह सूचना स्वतः ही सबसे ऊपर दिखाई देगी। श्रेणी के सूचना संदेश को सक्रिय (Enable) या निष्क्रिय (Disable) करने के लिए Toggle का उपयोग करें।
+            </p>
+          </div>
+
+          {/* Category Info List */}
+          <div className="space-y-4">
+            {categories.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-100">
+                <p className="text-sm text-gray-400 font-medium">कोई श्रेणी उपलब्ध नहीं है।</p>
+              </div>
+            ) : (
+              categories.map((cat, idx) => {
+                const hasMessage = !!cat.importantInfo;
+                const isEnabled = !!cat.isInfoEnabled;
+
+                return (
+                  <motion.div 
+                    layout
+                    key={`cat-info-${cat.id}-${idx}`} 
+                    className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all animate-fadeIn"
+                  >
+                    <div className="space-y-3 flex-1 min-w-0">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-xl shadow-inner overflow-hidden shrink-0">
+                          {typeof cat.icon === 'string' ? cat.icon : (
+                            <SmartImage src={cat.icon} alt={cat.name} className="w-full h-full" objectFit="contain" />
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-black text-[#4A3728] text-base leading-none">{cat.name}</h4>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">
+                            Status: {hasMessage ? (isEnabled ? "🟢 सक्रिय (Show)" : "🔴 निष्क्रिय (Hide)") : "⚪ सेट नहीं है"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {hasMessage ? (
+                        <div className="bg-amber-50/40 border border-amber-500/10 rounded-2xl p-4 text-xs text-gray-700 font-semibold leading-relaxed whitespace-pre-wrap">
+                          <span className="text-amber-800 font-black block mb-0.5">💬 महत्वपूर्ण जानकारी:</span>
+                          {cat.importantInfo}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-400 italic bg-gray-50/50 rounded-2xl p-3 border border-dashed border-gray-100">
+                          कोई सूचना या निर्देश संदेश सेट नहीं किया गया है। ग्राहकों को इस श्रेणी में कोई अलर्ट बॉक्स दिखाई नहीं देगा।
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action Controls */}
+                    <div className="flex flex-wrap items-center gap-3 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-gray-50">
+                      {/* TOGGLE SWITCH */}
+                      <div className="flex items-center gap-2 bg-gray-50 py-1.5 px-3 rounded-full border border-gray-100">
+                        <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">
+                          {isEnabled ? "सक्रिय (On)" : "बंद (Off)"}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={!hasMessage}
+                          onClick={async () => {
+                            if (!hasMessage) return;
+                            await updateCategory({
+                              ...cat,
+                              isInfoEnabled: !cat.isInfoEnabled
+                            });
+                          }}
+                          className={cn(
+                            "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-0 disabled:opacity-40 disabled:cursor-not-allowed",
+                            isEnabled ? "bg-[#2D5A27]" : "bg-gray-300"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                              isEnabled ? "translate-x-4" : "translate-x-0"
+                            )}
+                          />
+                        </button>
+                      </div>
+
+                      {/* EDIT / ADD NEW */}
+                      {hasMessage ? (
+                        <button 
+                          onClick={() => {
+                            setEditingCategoryForInfo(cat);
+                            setCategoryInfoText(cat.importantInfo || '');
+                            setCategoryInfoEnabled(cat.isInfoEnabled || false);
+                          }}
+                          className="flex items-center gap-1 py-1.5 px-3 text-xs bg-blue-50 text-blue-700 font-extrabold rounded-full border border-blue-100 hover:bg-blue-100 transition-all active:scale-95"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" /> सुधारें (Edit)
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => {
+                            setEditingCategoryForInfo(cat);
+                            setCategoryInfoText('');
+                            setCategoryInfoEnabled(true);
+                          }}
+                          className="flex items-center gap-1 py-1.5 px-3 text-xs bg-[#2D5A27] text-white font-extrabold rounded-full hover:bg-[#2D5A27]/90 transition-all shadow-sm active:scale-95"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> नया संदेश जोड़ें
+                        </button>
+                      )}
+
+                      {/* DELETE / CLEAR MESSAGE */}
+                      {hasMessage && (
+                        <button 
+                          onClick={async () => {
+                            if (window.confirm(`क्या आप ${cat.name} का सूचना संदेश हटाना चाहते हैं?`)) {
+                              await updateCategory({
+                                ...cat,
+                                importantInfo: '',
+                                isInfoEnabled: false
+                              });
+                            }
+                          }}
+                          className="flex items-center gap-1 py-1.5 px-3 text-xs bg-red-50 text-red-600 font-extrabold rounded-full border border-red-100 hover:bg-red-100 transition-all active:scale-95"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> हटाएँ (Delete)
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })
             )}
           </div>
         </>
@@ -2653,6 +2805,117 @@ const Admin: React.FC = () => {
                   {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
                   श्रेणी सुरक्षित करें
                 </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Category Info Custom Advisory Modal */}
+      <AnimatePresence>
+        {editingCategoryForInfo && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-[120] flex items-end sm:items-center justify-center p-4 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ y: 100 }}
+              animate={{ y: 0 }}
+              exit={{ y: 100 }}
+              className="bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold text-[#4A3728]">
+                    {editingCategoryForInfo.name} के लिए सूचना संशोधन
+                  </h3>
+                  <p className="text-xs text-gray-400 font-medium">Important Information Management</p>
+                </div>
+                <button 
+                  onClick={() => setEditingCategoryForInfo(null)} 
+                  className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setIsSavingInfo(true);
+                  try {
+                    await updateCategory({
+                      ...editingCategoryForInfo,
+                      importantInfo: categoryInfoText,
+                      isInfoEnabled: categoryInfoEnabled
+                    });
+                    setEditingCategoryForInfo(null);
+                  } catch (error) {
+                    console.error("Error saving category info advisory:", error);
+                  } finally {
+                    setIsSavingInfo(false);
+                  }
+                }} 
+                className="space-y-5"
+              >
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
+                    महत्वपूर्ण सूचना (Information Message)
+                  </label>
+                  <textarea 
+                    required
+                    rows={6}
+                    value={categoryInfoText}
+                    onChange={e => setCategoryInfoText(e.target.value)}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium text-sm leading-relaxed text-gray-700"
+                    placeholder="जैसे: खाद उपयोग संबंधी निर्देश और दिशा-निर्देश यहाँ लिखें..."
+                  />
+                  <p className="text-[10px] text-gray-400 italic font-medium ml-1">
+                    यह संदेश ग्राहकों को संबंधित श्रेणी के बाजार पृष्ठ और उत्पादों के विवरण बॉक्स में दिखाई देगा।
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                  <div>
+                    <h4 className="text-sm font-bold text-[#4A3728]">सूचना प्रदर्शित करें (Enable / Show)</h4>
+                    <p className="text-[10px] text-gray-400 font-medium">यदि सक्षम है, तभी किसानों को अलर्ट बॉक्स दिखाई देगा।</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCategoryInfoEnabled(!categoryInfoEnabled)}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-0",
+                      categoryInfoEnabled ? "bg-[#2D5A27]" : "bg-gray-300"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                        categoryInfoEnabled ? "translate-x-5" : "translate-x-0"
+                      )}
+                    />
+                  </button>
+                </div>
+                
+                <div className="flex gap-3 pt-2">
+                  <button 
+                    type="button"
+                    onClick={() => setEditingCategoryForInfo(null)}
+                    className="flex-1 py-4 bg-gray-100 text-gray-400 rounded-[1.5rem] font-bold active:scale-95 transition-all text-sm"
+                  >
+                    रद्द करें
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={isSavingInfo}
+                    className="flex-1 bg-[#2D5A27] text-white py-4 rounded-[1.5rem] font-bold flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all disabled:opacity-50 text-sm"
+                  >
+                    {isSavingInfo ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                    सुरक्षित करें
+                  </button>
+                </div>
               </form>
             </motion.div>
           </motion.div>

@@ -169,7 +169,9 @@
       "properties": {
         "name": { "type": "string" },
         "icon": { "oneOf": [{ "type": "string" }, { "$ref": "ImageSource" }] },
-        "order": { "type": "number" }
+        "order": { "type": "number" },
+        "importantInfo": { "type": "string", "description": "Category-specific important information, disclaimer or announcements." },
+        "isInfoEnabled": { "type": "boolean", "description": "Toggle to show or hide the category-specific important information." }
       },
       "required": ["name", "icon", "order"]
     },

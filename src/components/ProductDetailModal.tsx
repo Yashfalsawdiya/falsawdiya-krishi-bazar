@@ -285,13 +285,21 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
               )}
 
-              {/* Disclaimer */}
-              <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4">
-                <p className="text-xs text-orange-800 leading-relaxed">
-                  <span className="font-bold block mb-1">⚠️ महत्वपूर्ण जानकारी:</span>
-                  खाद, बीज एवं कृषि दवाइयों का उपयोग हमेशा कृषि विशेषज्ञ की सलाह या उत्पाद पैकेट पर दिए गए निर्देशों के अनुसार ही करें। बेहतर परिणामों के लिए अपनी मिट्टी, फसल की अवस्था और आवश्यकता के अनुसार सही मात्रा का चयन करें।
-                </p>
-              </div>
+              {/* Dynamic Category Disclaimer */}
+              {(() => {
+                const productCategory = categories.find(c => c.id === product.category);
+                if (productCategory && productCategory.isInfoEnabled && productCategory.importantInfo) {
+                  return (
+                    <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 shadow-sm">
+                      <p className="text-xs text-orange-800 leading-relaxed">
+                        <span className="font-bold block mb-1">⚠️ महत्वपूर्ण जानकारी ({productCategory.name}):</span>
+                        {productCategory.importantInfo}
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             {/* Footer Actions */}

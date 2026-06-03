@@ -8,6 +8,8 @@ export interface CategoryData {
   name: string;
   icon: string | ImageSource; // Supporting legacy string icon or new dual source
   order: number;
+  importantInfo?: string;
+  isInfoEnabled?: boolean;
 }
 
 export interface Product {

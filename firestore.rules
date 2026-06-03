@@ -96,7 +96,9 @@ service cloud.firestore {
     function isValidCategory(data) {
       return data.name is string && data.name.size() > 0 &&
              isValidImage(data.icon) &&
-             data.order is number;
+             data.order is number &&
+             (!('importantInfo' in data) || data.importantInfo is string) &&
+             (!('isInfoEnabled' in data) || data.isInfoEnabled is bool);
     }
 
     function isValidAgriIssue(data) {
