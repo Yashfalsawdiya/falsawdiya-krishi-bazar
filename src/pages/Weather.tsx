@@ -58,38 +58,33 @@ const Weather: React.FC = () => {
     let condition = hour.condition;
     const rainProb = hour.rainProb;
     
-    // High rain prob: >= 50%
-    if (rainProb >= 50) {
-      return {
-        condition,
-        showProb: true,
-        rainProb,
-        isBad: condition.includes('बारिश') || condition.includes('गरज') || condition.includes('ओले') || condition.includes('बौछारें')
-      };
-    }
-    
-    // Mid rain prob: 20% - 49%
-    if (rainProb >= 20 && rainProb < 50) {
-      if (condition.includes('बारिश') || condition.includes('बूंदाबांदी') || condition.includes('बौछार') || condition.includes('गरज') || condition.includes('ओले')) {
-        condition = 'आंशिक बादल';
+    // Rule 1: Only show rain percentage if rain probability is strictly greater than 20%
+    const showProb = rainProb > 20;
+
+    // Rule 2: Smart Consistency Logic based on Rain Probability:
+    // - >= 40%: Show Rain/CloudRain icon (condition = 'वर्षा') or Thunderstorm icon (condition = 'गरज के साथ वर्षा')
+    // - 20% to 39%: Partly Cloudy / Mixed Weather Icon (condition = 'आंशिक बादल')
+    // - < 20%: Sun / Clear Weather Icon (condition = 'धूप')
+    if (rainProb >= 40) {
+      if (rainProb >= 75) {
+        condition = 'गरज के साथ वर्षा';
+      } else {
+        condition = 'वर्षा';
       }
-      return {
-        condition,
-        showProb: false,
-        rainProb,
-        isBad: false
-      };
+    } else if (rainProb >= 20) {
+      condition = 'आंशिक बादल';
+    } else {
+      condition = 'धूप';
     }
-    
-    // Low rain prob: 0% - 19%
-    if (condition.includes('बारिश') || condition.includes('बूंदाबांदी') || condition.includes('बौछार') || condition.includes('गरज') || condition.includes('ओले')) {
-      condition = 'साफ आसमान';
-    }
+
+    // Determine if weather is bad/critical for safety badge display
+    const isBad = rainProb >= 50 && (condition.includes('वर्षा') || condition.includes('गरज') || condition.includes('बारिश') || condition.includes('ओले') || condition.includes('बौछारें'));
+
     return {
       condition,
-      showProb: false,
+      showProb,
       rainProb,
-      isBad: false
+      isBad
     };
   };
 
@@ -97,34 +92,25 @@ const Weather: React.FC = () => {
     let condition = item.condition;
     const rainProb = item.rainProb ?? getEstRainProbability(item.condition);
 
-    // High rain prob: >= 50%
-    if (rainProb >= 50) {
-      return {
-        condition,
-        showProb: true,
-        rainProb
-      };
-    }
-    
-    // Mid rain prob: 20% - 49%
-    if (rainProb >= 20 && rainProb < 50) {
+    // Rule 1: Only show rain percentage if rain probability is strictly greater than 30%
+    const showProb = rainProb > 30;
+
+    // Rule 2: If rain probability is 30% or less:
+    // - Hide rain percentage (handled by showProb).
+    // - Clean up rainy conditions/icons to a normal weather condition (e.g. 'धूप' or 'आंशिक बादल').
+    if (rainProb <= 30) {
       if (condition.includes('बारिश') || condition.includes('बूंदाबांदी') || condition.includes('बौछार') || condition.includes('गरज') || condition.includes('ओले')) {
-        condition = 'आंशिक बादल';
+        if (rainProb > 15) {
+          condition = 'आंशिक बादल';
+        } else {
+          condition = 'धूप';
+        }
       }
-      return {
-        condition,
-        showProb: false,
-        rainProb
-      };
     }
-    
-    // Low rain prob: 0% - 19%
-    if (condition.includes('बारिश') || condition.includes('बूंदाबांदी') || condition.includes('बौछार') || condition.includes('गरज') || condition.includes('ओले')) {
-      condition = 'धूप';
-    }
+
     return {
       condition,
-      showProb: false,
+      showProb,
       rainProb
     };
   };
@@ -208,9 +194,9 @@ const Weather: React.FC = () => {
   };
 
   const getIcon = (condition: string) => {
-    if (condition.includes('बारिश') || condition.includes('बौछारें') || condition.includes('बूंदाबांदी')) return CloudRain;
-    if (condition.includes('बादल')) return CloudSun;
     if (condition.includes('गरज')) return CloudLightning;
+    if (condition.includes('बारिश') || condition.includes('बौछारें') || condition.includes('बूंदाबांदी') || condition.includes('वर्षा') || condition.includes('ओले')) return CloudRain;
+    if (condition.includes('बादल') || condition.includes('आंशिक')) return CloudSun;
     if (condition.includes('साफ') || condition.includes('धूप') || condition.includes('मुख्यतः साफ')) return Sun;
     return Cloud;
   };
@@ -358,8 +344,9 @@ const Weather: React.FC = () => {
                   <p className="font-bold text-gray-800">{item.day}</p>
                   <p className="text-xs text-gray-500">{sanitized.condition}</p>
                   {sanitized.showProb && (
-                    <p className="text-[11px] font-bold text-blue-600 mt-1 flex items-center gap-1 bg-blue-50/50 px-2 py-0.5 rounded-lg border border-blue-100/50 w-fit">
-                      <span>🌧</span> वर्षा संभावना: {sanitized.rainProb}%
+                    <p className="text-[11px] font-black text-sky-700 mt-1.5 flex items-center gap-1 bg-sky-50/80 px-2.5 py-1 rounded-full border border-sky-100/80 w-fit">
+                      <Droplets className="w-3 h-3 text-sky-500 shrink-0" />
+                      वर्षा संभावना: {sanitized.rainProb}%
                     </p>
                   )}
                 </div>
