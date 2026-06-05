@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
 import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon } from 'lucide-react';
@@ -90,22 +90,9 @@ const Home: React.FC = () => {
   const [apiKeyErrorMessage, setApiKeyErrorMessage] = useState<string | undefined>();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [userQuestion, setUserQuestion] = useState('');
-  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'model'; text: string }[]>(() => {
-    try {
-      const saved = sessionStorage.getItem('ai_chat_history');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
+  const [lastQuestion, setLastQuestion] = useState<string | null>(null);
+  const [chatResponse, setChatResponse] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
-  }, [chatMessages, isAiLoading, isChatOpen]);
   const [showDetail, setShowDetail] = useState(false);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [zoomImage, setZoomImage] = useState<{ src: string | ImageSource; alt: string } | null>(null);
@@ -177,13 +164,9 @@ const Home: React.FC = () => {
       return;
     }
     setIsChatOpen(true);
+    setChatResponse(null);
+    setLastQuestion(null);
     setUserQuestion('');
-  };
-
-  const handleCloseChat = () => {
-    setIsChatOpen(false);
-    setChatMessages([]);
-    sessionStorage.removeItem('ai_chat_history');
   };
 
   const handleAskQuestion = async () => {
@@ -192,33 +175,22 @@ const Home: React.FC = () => {
     if (appLoading) return;
 
     const question = userQuestion.trim();
+    setLastQuestion(question);
     setUserQuestion('');
-
-    const newUserMessage = { role: 'user' as const, text: question };
-    const updatedMessages = [...chatMessages, newUserMessage];
-    setChatMessages(updatedMessages);
-    sessionStorage.setItem('ai_chat_history', JSON.stringify(updatedMessages));
+    setChatResponse(null);
 
     setIsAiLoading(true);
     try {
-      const response = await askAiQuestion(question, weather, userSettings?.geminiApiKey, chatMessages);
-      
-      const newModelMessage = { role: 'model' as const, text: response };
-      const finalMessages = [...updatedMessages, newModelMessage];
-      setChatMessages(finalMessages);
-      sessionStorage.setItem('ai_chat_history', JSON.stringify(finalMessages));
+      const response = await askAiQuestion(question, weather, userSettings?.geminiApiKey);
+      setChatResponse(response);
     } catch (error: any) {
       console.error("AI Question failed:", error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
         setApiKeyErrorMessage(error.message);
         setIsModalOpen(true);
-        handleCloseChat();
+        setIsChatOpen(false);
       } else {
-        const errorText = error.message || "त्रुटि हुई। कृपया पुनः प्रयास करें।";
-        const newModelMessage = { role: 'model' as const, text: errorText };
-        const finalMessages = [...updatedMessages, newModelMessage];
-        setChatMessages(finalMessages);
-        sessionStorage.setItem('ai_chat_history', JSON.stringify(finalMessages));
+        setChatResponse(error.message || "त्रुटि हुई। कृपया पुनः प्रयास करें।");
       }
     } finally {
       setIsAiLoading(false);
@@ -741,7 +713,7 @@ const Home: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={handleCloseChat}
+              onClick={() => setIsChatOpen(false)}
               className="fixed inset-0 bg-black/60 z-[250] backdrop-blur-sm"
             />
             <motion.div 
@@ -760,43 +732,37 @@ const Home: React.FC = () => {
                     <p className="text-[10px] opacity-70">अपना प्रश्न पूछें</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <button 
-                    onClick={handleCloseChat}
-                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
-                  >
-                    <CloseIcon className="w-5 h-5" />
-                  </button>
-                </div>
+                <button 
+                  onClick={() => setIsChatOpen(false)}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                >
+                  <CloseIcon className="w-5 h-5" />
+                </button>
               </div>
 
-              <div ref={chatContainerRef} className="p-5 overflow-y-auto flex-1 space-y-4 max-h-[50vh]">
-                {chatMessages.length === 0 ? (
+              <div className="p-5 overflow-y-auto flex-1 space-y-4">
+                {lastQuestion && (
+                  <div className="flex justify-end">
+                    <div className="bg-[#2D5A27] text-white p-3 rounded-2xl rounded-tr-none text-sm max-w-[85%] shadow-sm font-medium">
+                      {lastQuestion}
+                    </div>
+                  </div>
+                )}
+
+                {chatResponse ? (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-[#F5F2ED] p-4 rounded-2xl rounded-tl-none text-sm text-[#4A3728] leading-relaxed whitespace-pre-wrap shadow-sm border border-[#E8E2D8]"
+                  >
+                    {chatResponse}
+                  </motion.div>
+                ) : !lastQuestion && (
                   <div className="text-center py-10">
                     <p className="text-sm text-gray-400 font-medium">
-                      नमस्ते! मैं आपका AI कृषि सहायक हूँ। खेती, फसल, मौसम या कीट प्रबंधन के बारे में कोई भी प्रश्न पूछें।
+                      आप अपना प्रश्न नीचे लिख सकते हैं।
                     </p>
                   </div>
-                ) : (
-                  chatMessages.map((msg, index) => {
-                    if (msg.role === 'user') {
-                      return (
-                        <div key={index} className="flex justify-end">
-                          <div className="bg-[#2D5A27] text-white p-3 rounded-2xl rounded-tr-none text-sm max-w-[85%] shadow-sm font-medium">
-                            {msg.text}
-                          </div>
-                        </div>
-                      );
-                    } else {
-                      return (
-                        <div key={index} className="flex justify-start">
-                          <div className="bg-[#F5F2ED] p-4 rounded-2xl rounded-tl-none text-sm text-[#4A3728] leading-relaxed whitespace-pre-wrap shadow-sm border border-[#E8E2D8] max-w-[85%]">
-                            {msg.text}
-                          </div>
-                        </div>
-                      );
-                    }
-                  })
                 )}
                 
                 {isAiLoading && (

@@ -18,6 +18,7 @@ export interface WeatherData {
     temp: number;
     condition: string;
     rainProb: number;
+    isNight?: boolean;
   }[];
 }
 
@@ -47,7 +48,7 @@ const CONDITION_MAP: Record<number, string> = {
 };
 
 export const fetchWeather = async (lat: number, lon: number, force: boolean = false): Promise<WeatherData> => {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,precipitation&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=8`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,precipitation&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=auto&forecast_days=8`;
   
   const CACHE_KEY = `weather_data_${lat}_${lon}`;
   const CACHE_TIME_KEY = `${CACHE_KEY}_timestamp`;
@@ -120,11 +121,39 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
     const hourly = data.hourly.time.slice(startIndex, startIndex + 24).map((time: string, index: number) => {
       const actualIndex = startIndex + index;
       const date = new Date(time);
+      
+      let isNight = false;
+      const hourTimestamp = date.getTime();
+      
+      if (data.daily && data.daily.sunrise && data.daily.sunset) {
+        const dateStr = time.substring(0, 10); // "YYYY-MM-DD"
+        const dailyIndex = data.daily.time.findIndex((dStr: string) => dStr.startsWith(dateStr));
+        if (dailyIndex !== -1) {
+          const sunriseStr = data.daily.sunrise[dailyIndex];
+          const sunsetStr = data.daily.sunset[dailyIndex];
+          if (sunriseStr && sunsetStr) {
+            const sunriseTime = new Date(sunriseStr).getTime();
+            const sunsetTime = new Date(sunsetStr).getTime();
+            isNight = hourTimestamp < sunriseTime || hourTimestamp >= sunsetTime;
+          } else {
+            const h = date.getHours();
+            isNight = h < 6 || h >= 19;
+          }
+        } else {
+          const h = date.getHours();
+          isNight = h < 6 || h >= 19;
+        }
+      } else {
+        const h = date.getHours();
+        isNight = h < 6 || h >= 19;
+      }
+
       return {
         time: date.toLocaleTimeString('hi-IN', { hour: 'numeric', minute: 'numeric', hour12: true }),
         temp: Math.round(data.hourly.temperature_2m[actualIndex]),
         condition: CONDITION_MAP[data.hourly.weather_code[actualIndex]] || 'साफ',
-        rainProb: data.hourly.precipitation_probability[actualIndex]
+        rainProb: data.hourly.precipitation_probability[actualIndex],
+        isNight
       };
     });
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CloudSun, Wind, Droplets, Sun, CloudRain, Thermometer, Loader2, Cloud, CloudLightning, RefreshCw, Navigation } from 'lucide-react';
+import { CloudSun, Wind, Droplets, Sun, CloudRain, Thermometer, Loader2, Cloud, CloudLightning, RefreshCw, Navigation, Moon, CloudMoon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { fetchWeather, WeatherData } from '../services/weatherService';
 
@@ -54,17 +54,18 @@ const Weather: React.FC = () => {
     return 10;
   };
 
-  const getSanitizedHourlyInfo = (hour: { time: string; temp: number; condition: string; rainProb: number }) => {
+  const getSanitizedHourlyInfo = (hour: { time: string; temp: number; condition: string; rainProb: number; isNight?: boolean }) => {
     let condition = hour.condition;
     const rainProb = hour.rainProb;
+    const isNight = hour.isNight ?? false;
     
-    // Rule 1: Only show rain percentage if rain probability is strictly greater than 30%
-    const showProb = rainProb > 30;
+    // Rule 1: Only show rain percentage if rain probability is strictly greater than 40%
+    const showProb = rainProb > 40;
 
     // Rule 2: Smart Consistency Logic based on Rain Probability:
     // - >= 40%: Show Rain/CloudRain icon (condition = 'वर्षा') or Thunderstorm icon (condition = 'गरज के साथ वर्षा')
     // - 20% to 39%: Partly Cloudy / Mixed Weather Icon (condition = 'आंशिक बादल')
-    // - < 20%: Sun / Clear Weather Icon (condition = 'धूप')
+    // - < 20%: Sun / Clear Weather Icon (condition = 'धूप' or 'साफ रात')
     if (rainProb >= 40) {
       if (rainProb >= 75) {
         condition = 'गरज के साथ वर्षा';
@@ -74,7 +75,7 @@ const Weather: React.FC = () => {
     } else if (rainProb >= 20) {
       condition = 'आंशिक बादल';
     } else {
-      condition = 'धूप';
+      condition = isNight ? 'साफ रात' : 'धूप';
     }
 
     // Determine if weather is bad/critical for safety badge display
@@ -84,7 +85,8 @@ const Weather: React.FC = () => {
       condition,
       showProb,
       rainProb,
-      isBad
+      isBad,
+      isNight
     };
   };
 
@@ -193,12 +195,19 @@ const Weather: React.FC = () => {
     };
   };
 
-  const getIcon = (condition: string) => {
+  const getIcon = (condition: string, isNight?: boolean) => {
     if (condition.includes('गरज')) return CloudLightning;
     if (condition.includes('बारिश') || condition.includes('बौछारें') || condition.includes('बूंदाबांदी') || condition.includes('वर्षा') || condition.includes('ओले')) return CloudRain;
-    if (condition.includes('बादल') || condition.includes('आंशिक')) return CloudSun;
-    if (condition.includes('साफ') || condition.includes('धूप') || condition.includes('मुख्यतः साफ')) return Sun;
-    return Cloud;
+    
+    if (isNight) {
+      if (condition.includes('बादल') || condition.includes('आंशिक')) return CloudMoon;
+      if (condition.includes('साफ') || condition.includes('धूप') || condition.includes('मुख्यतः साफ') || condition.includes('रात')) return Moon;
+      return Cloud;
+    } else {
+      if (condition.includes('बादल') || condition.includes('आंशिक')) return CloudSun;
+      if (condition.includes('साफ') || condition.includes('धूप') || condition.includes('मुख्यतः साफ')) return Sun;
+      return Cloud;
+    }
   };
 
   if (loading) {
@@ -235,7 +244,11 @@ const Weather: React.FC = () => {
         className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 relative overflow-hidden"
       >
         <div className="absolute top-0 right-0 p-4 opacity-10">
-          <CloudSun className="w-32 h-32 text-[#2D5A27]" />
+          {(() => {
+            const isNowNight = weather.hourly && weather.hourly.length > 0 ? weather.hourly[0].isNight : (new Date().getHours() < 6 || new Date().getHours() >= 19);
+            const MainIcon = getIcon(weather.condition, isNowNight);
+            return <MainIcon className="w-32 h-32 text-[#2D5A27]" />;
+          })()}
         </div>
         
         <div className="relative z-10">
@@ -289,7 +302,7 @@ const Weather: React.FC = () => {
           <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 hide-scrollbar snap-x">
             {weather.hourly.map((hour, idx) => {
               const sanitized = getSanitizedHourlyInfo(hour);
-              const Icon = getIcon(sanitized.condition);
+              const Icon = getIcon(sanitized.condition, sanitized.isNight);
               const isBadWeather = sanitized.isBad;
               return (
                 <motion.div 
