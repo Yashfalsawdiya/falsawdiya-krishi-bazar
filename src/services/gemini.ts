@@ -142,33 +142,49 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
   }
 }
 
-export async function askAiQuestion(question: string, weatherData: any, userApiKey?: string) {
+export async function askAiQuestion(
+  question: string, 
+  weatherData: any, 
+  userApiKey?: string,
+  history: { role: 'user' | 'model'; text: string }[] = []
+) {
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
     const now = new Date();
     const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 
-    const prompt = `सवाल: "${question}"
+    const currentPrompt = `सवाल: "${question}"
     स्थान: शामगढ़, मध्य प्रदेश
     मौसम: ${weatherData?.temp || 'N/A'}°C, ${weatherData?.condition || 'N/A'}
     तारीख: ${dateStr}`;
+
+    const contents = [
+      ...history.map(h => ({
+        role: h.role,
+        parts: [{ text: h.text }]
+      })),
+      {
+        role: 'user',
+        parts: [{ text: currentPrompt }]
+      }
+    ];
 
     let response;
     try {
       response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: prompt,
+        contents: contents,
         config: {
           systemInstruction: "You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाज़ार' located in Shamgarh, Mandsaur, MP.\n\nShop Profile:\n- Name: फल्सावदिया कृषि बाज़ार\n- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)\n- Timings: सुबह 9:00 बजे से शाम 7:00 बजे तक\n\nInstructions: Answer farmer questions in simple Hindi. Always mention that recommended products are available at 'फल्सावदिया कृषि बाज़ार'. STICT RULE: Do not use 'फालसावदिया'.",
           tools: [{ googleSearch: {} }]
         }
       });
     } catch (e) {
-      console.warn("Chat Search failed, fallback to knowledge...");
+      console.warn("Chat Search failed, fallback to knowledge...", e);
       response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: prompt,
+        contents: contents,
         config: {
           systemInstruction: "You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाज़ार'. Shop Timings: 9:00 AM to 7:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh, Mandsaur, MP. Answer in Hindi and properly guide people to our shop 'फल्सावदिया कृषि बाज़ार'. strictly avoid 'फालसावदिया'."
         }

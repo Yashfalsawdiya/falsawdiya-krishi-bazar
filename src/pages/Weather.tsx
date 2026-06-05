@@ -58,8 +58,8 @@ const Weather: React.FC = () => {
     let condition = hour.condition;
     const rainProb = hour.rainProb;
     
-    // Rule 1: Only show rain percentage if rain probability is strictly greater than 20%
-    const showProb = rainProb > 20;
+    // Rule 1: Only show rain percentage if rain probability is strictly greater than 30%
+    const showProb = rainProb > 30;
 
     // Rule 2: Smart Consistency Logic based on Rain Probability:
     // - >= 40%: Show Rain/CloudRain icon (condition = 'वर्षा') or Thunderstorm icon (condition = 'गरज के साथ वर्षा')
