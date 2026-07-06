@@ -34,11 +34,6 @@ const AiAgriExpert: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
 
-  // New states and refs for Smart Voice Conversation Flow
-  const [isAiSpeaking, setIsAiSpeaking] = useState(false);
-  const [queuedQuestion, setQueuedQuestion] = useState<string | null>(null);
-  const queuedQuestionRef = useRef<string | null>(null);
-  const recognitionRef = useRef<any>(null);
   const isCallingRef = useRef(isCalling);
   
   // Refs for audio, video and Gemini session
@@ -194,115 +189,7 @@ const AiAgriExpert: React.FC = () => {
       }
     });
     activeSourcesRef.current = [];
-    setIsAiSpeaking(false);
   }, []);
-
-  // Speech Recognition management
-  const startSpeechRecognition = useCallback(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      console.warn("Speech recognition is not supported in this browser.");
-      return;
-    }
-
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {}
-    }
-
-    const rec = new SpeechRecognition();
-    rec.continuous = true;
-    rec.interimResults = false;
-    rec.lang = 'hi-IN'; // Hindi-India for farmers
-
-    rec.onresult = (event: any) => {
-      // We only want to capture speech if the AI is actively speaking!
-      const isCurrentlySpeaking = isPlayingRef.current || audioQueueRef.current.length > 0 || activeSourcesRef.current.length > 0;
-      if (isCurrentlySpeaking) {
-        let text = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            text += event.results[i][0].transcript;
-          }
-        }
-        
-        const cleanedText = text.trim();
-        if (cleanedText.length > 3) {
-          console.log("Speech recognized while AI was speaking:", cleanedText);
-          queuedQuestionRef.current = cleanedText;
-          setQueuedQuestion(cleanedText);
-        }
-      }
-    };
-
-    rec.onerror = (e: any) => {
-      console.warn("Speech recognition error:", e.error);
-    };
-
-    rec.onend = () => {
-      // Automatically restart if call is still active
-      if (isCallingRef.current && recognitionRef.current === rec) {
-        try {
-          rec.start();
-        } catch (e) {
-          // Already running or starting
-        }
-      }
-    };
-
-    try {
-      rec.start();
-      recognitionRef.current = rec;
-    } catch (e) {
-      console.error("Failed to start speech recognition:", e);
-    }
-  }, []);
-
-  const stopSpeechRecognition = useCallback(() => {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {}
-      recognitionRef.current = null;
-    }
-  }, []);
-
-  const handleAiFinishedSpeaking = useCallback(() => {
-    if (queuedQuestionRef.current && sessionRef.current) {
-      const questionToQueue = queuedQuestionRef.current;
-      queuedQuestionRef.current = null;
-      setQueuedQuestion(null);
-
-      console.log("AI finished speaking. Asking user for consent to answer queued question:", questionToQueue);
-      
-      sessionRef.current.sendRealtimeInput({
-        text: `सिस्टम निर्देश: किसान ने बीच में एक और प्रश्न पूछा था: "${questionToQueue}".
-अब आप केवल और केवल यह वाक्य बोलें: "आपने अभी एक और प्रश्न पूछा था। क्या आप उसके बारे में जानकारी प्राप्त करना चाहते हैं?"
-यदि इसके बाद किसान सकारात्मक उत्तर (हाँ, बिल्कुल, हाँ बताइए, जी, yes, etc.) दे, तो आप उनके उस प्रश्न ("${questionToQueue}") का बहुत ही स्पष्ट और सुंदर समाधान हमारी दुकान "फल्सावदिया कृषि बाज़ार" के संदर्भ में दें।
-यदि वे नकारात्मक उत्तर (नहीं, No, मत बताओ, etc.) दें, तो आप कहें "ठीक है भैया, कोई बात नहीं। आप अपना कोई अन्य प्रश्न पूछ सकते हैं।" और उनके अगले निर्देश का इंतज़ार करें।`
-      });
-    }
-  }, []);
-
-  const handleManualInterrupt = () => {
-    console.log("User manually interrupted the AI.");
-    stopAllActiveSources();
-    audioQueueRef.current = [];
-    nextStartTimeRef.current = 0;
-    isPlayingRef.current = false;
-    setIsAiSpeaking(false);
-    
-    queuedQuestionRef.current = null;
-    setQueuedQuestion(null);
-
-    // Send a system cancel/interruption notice to the session to stop server generation
-    if (sessionRef.current) {
-      sessionRef.current.sendRealtimeInput({
-        text: "सिस्टम निर्देश: उपयोगकर्ता ने 'Stop' बटन दबाकर आपको रोक दिया है। कृपया तुरंत बोलना बंद करें और अगले प्रश्न का इंतज़ार करें।"
-      });
-    }
-  };
 
   // Play PCM audio chunks with scheduled timing to prevent gaps
   const playNextChunk = useCallback(async () => {
@@ -312,7 +199,6 @@ const AiAgriExpert: React.FC = () => {
     }
 
     isPlayingRef.current = true;
-    setIsAiSpeaking(true);
     const pcmData = audioQueueRef.current.shift()!;
     
     if (audioContextRef.current) {
@@ -347,8 +233,6 @@ const AiAgriExpert: React.FC = () => {
         const stillSpeaking = audioQueueRef.current.length > 0 || activeSourcesRef.current.length > 0;
         if (!stillSpeaking) {
           isPlayingRef.current = false;
-          setIsAiSpeaking(false);
-          handleAiFinishedSpeaking();
         }
       };
 
@@ -361,16 +245,12 @@ const AiAgriExpert: React.FC = () => {
     } else {
       isPlayingRef.current = false;
     }
-  }, [isSpeakerOn, handleAiFinishedSpeaking, stopAllActiveSources]);
+  }, [isSpeakerOn]);
 
   const endCall = useCallback(() => {
     stopTimer();
     setIsCalling(false);
     setStatus('idle');
-    setIsAiSpeaking(false);
-    setQueuedQuestion(null);
-    queuedQuestionRef.current = null;
-    stopSpeechRecognition();
     
     // Stop and clear all active speech sources immediately
     stopAllActiveSources();
@@ -403,7 +283,7 @@ const AiAgriExpert: React.FC = () => {
     audioQueueRef.current = [];
     nextStartTimeRef.current = 0;
     isPlayingRef.current = false;
-  }, [stopAllActiveSources, stopSpeechRecognition]);
+  }, [stopAllActiveSources]);
 
   const requestPermissions = async () => {
     setStatus('requesting_permission');
@@ -532,7 +412,6 @@ STRICT RULE ON NAME:
           onopen: () => {
             setStatus('connected');
             startTimer();
-            startSpeechRecognition(); // Start Hindi speech recognition in the background
             // Trigger the initial greeting explicitly once the session is open
             sessionPromise.then(session => {
               sessionRef.current = session;
@@ -746,38 +625,10 @@ STRICT RULE ON NAME:
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="space-y-4"
+              className="space-y-2"
             >
-              <div className="space-y-1">
-                <p className="text-3xl font-mono font-bold text-[#4A3728]">{formatDuration(callDuration)}</p>
-                <p className="text-sm text-green-600 font-black animate-pulse uppercase tracking-wider">बातचीत जारी है...</p>
-              </div>
-
-              {/* Stop / Interrupt Button */}
-              {isAiSpeaking && (
-                <motion.button
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  onClick={handleManualInterrupt}
-                  className="mx-auto px-6 py-2.5 bg-red-100 hover:bg-red-200 text-red-600 rounded-full text-xs font-black flex items-center gap-2 border border-red-200 shadow-sm transition-all active:scale-95"
-                >
-                  <div className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
-                  <span>उत्तर रोकें (Stop AI)</span>
-                </motion.button>
-              )}
-
-              {/* Queued Question Badge */}
-              {queuedQuestion && (
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0, y: 10 }}
-                  animate={{ scale: 1, opacity: 1, y: 0 }}
-                  className="bg-[#2D5A27]/5 border border-[#2D5A27]/10 p-4 rounded-3xl max-w-sm mx-auto text-left"
-                >
-                  <p className="text-[10px] font-black text-[#2D5A27] tracking-wider uppercase mb-1">सुरक्षित प्रश्न (Next Question)</p>
-                  <p className="text-xs font-bold text-[#4A3728] italic">"{queuedQuestion}"</p>
-                  <p className="text-[10px] text-gray-400 mt-1 leading-normal">यह वर्तमान उत्तर समाप्त होने के बाद पूछा जाएगा।</p>
-                </motion.div>
-              )}
+              <p className="text-3xl font-mono font-bold text-[#4A3728]">{formatDuration(callDuration)}</p>
+              <p className="text-sm text-green-600 font-black animate-pulse uppercase tracking-wider">बातचीत जारी है...</p>
             </motion.div>
           ) : status === 'connecting' ? (
             <div className="flex flex-col items-center gap-3">
