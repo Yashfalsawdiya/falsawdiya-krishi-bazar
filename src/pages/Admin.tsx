@@ -273,7 +273,7 @@ const Admin: React.FC = () => {
 
   const seedInitialHelplines = async () => {
     const initialHelplines: Omit<Helpline, 'id'>[] = [
-      { name: "फल्सावदिया कृषि बाज़ार", number: "8982338046", category: "हमारी दुकान", description: "पता: डिंपल चौराहा, शामगढ़ | समय: सुबह 9:00 - शाम 7:00", order: 1 },
+      { name: "फल्सावदिया कृषि बाज़ार", number: "8982338046", category: "हमारी दुकान", description: "पता: डिंपल चौराहा, शामगढ़ | समय: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)", order: 1 },
       { name: "पशु चिकित्सा हेल्पलाइन", number: "1962", category: "पशुपालन विभाग", description: "बीमार पशुओं के लिए त्वरित मदद", order: 2 },
       { name: "बिजली विभाग (ग्रामीण)", number: "1912", category: "बिजली विभाग", description: "बिजली कटौती या फाल्ट की शिकायत", order: 3 },
       { name: "किसान कॉल सेंटर (KCC)", number: "1800-180-1551", category: "कृषि सेवाएं", description: "कृषि संबंधी किसी भी सलाह के लिए", order: 4 },

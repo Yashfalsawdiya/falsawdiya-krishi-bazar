@@ -113,7 +113,7 @@ const Home: React.FC = () => {
   const contactInfo = appContent?.contactInfo || {
     whatsapp: '918982338046',
     address: 'डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)',
-    timings: 'सुबह 9:00 बजे से शाम 7:00 बजे तक'
+    timings: 'सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)'
   };
   const youtubeChannel = appContent?.youtubeChannel || {
     url: 'https://www.youtube.com/@FalsawdiyaKrishiBazaar',
