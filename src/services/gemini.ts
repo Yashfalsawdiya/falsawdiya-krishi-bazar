@@ -463,108 +463,126 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
     4. Provide crop-specific dosages for common crops (like Soybean, Wheat, Maize, Chickpea, Cotton, etc.) if applicable.
     5. Return the result strictly as a valid JSON object matching the defined schema. Do not include markdown wraps or anything except the JSON string in response.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        systemInstruction: "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Always analyze the query with high precision, search Google for real-time validation, and provide complete details in Hindi as requested. Ensure the output is valid JSON strictly following the schema. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').",
-        tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: {
+    const responseSchema = {
+      type: "OBJECT" as any,
+      properties: {
+        productName: { type: "STRING" },
+        companyName: { type: "STRING" },
+        technicalName: { type: "STRING" },
+        category: { type: "STRING" },
+        formulation: { type: "STRING" },
+        activeIngredient: { type: "STRING" },
+        modeOfAction: { type: "STRING" },
+        fracIracHracGroup: { type: "STRING" },
+        targetCrops: { type: "STRING" },
+        targetPests: { type: "STRING" },
+        symptoms: { type: "STRING" },
+        usage: { type: "STRING" },
+        benefits: { type: "STRING" },
+        features: { type: "STRING" },
+        compatibleProducts: { type: "STRING" },
+        incompatibleProducts: { type: "STRING" },
+        waitingPeriod: { type: "STRING" },
+        phi: { type: "STRING" },
+        rei: { type: "STRING" },
+        toxicity: { type: "STRING" },
+        safetyInstructions: { type: "STRING" },
+        mixingOrder: { type: "STRING" },
+        sprayTiming: { type: "STRING" },
+        rainfastPeriod: { type: "STRING" },
+        storage: { type: "STRING" },
+        dosageLiquid: {
           type: "OBJECT" as any,
           properties: {
-            productName: { type: "STRING" },
-            companyName: { type: "STRING" },
-            technicalName: { type: "STRING" },
-            category: { type: "STRING" },
-            formulation: { type: "STRING" },
-            activeIngredient: { type: "STRING" },
-            modeOfAction: { type: "STRING" },
-            fracIracHracGroup: { type: "STRING" },
-            targetCrops: { type: "STRING" },
-            targetPests: { type: "STRING" },
-            symptoms: { type: "STRING" },
-            usage: { type: "STRING" },
-            benefits: { type: "STRING" },
-            features: { type: "STRING" },
-            compatibleProducts: { type: "STRING" },
-            incompatibleProducts: { type: "STRING" },
-            waitingPeriod: { type: "STRING" },
-            phi: { type: "STRING" },
-            rei: { type: "STRING" },
-            toxicity: { type: "STRING" },
-            safetyInstructions: { type: "STRING" },
-            mixingOrder: { type: "STRING" },
-            sprayTiming: { type: "STRING" },
-            rainfastPeriod: { type: "STRING" },
-            storage: { type: "STRING" },
-            dosageLiquid: {
-              type: "OBJECT" as any,
-              properties: {
-                perLiter: { type: "STRING" },
-                per15L: { type: "STRING" },
-                per16L: { type: "STRING" },
-                per20L: { type: "STRING" },
-                per25L: { type: "STRING" },
-                per200L: { type: "STRING" },
-                per500L: { type: "STRING" },
-                perBigha: { type: "STRING" }
-              },
-              required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
-            },
-            dosagePowder: {
-              type: "OBJECT" as any,
-              properties: {
-                perLiter: { type: "STRING" },
-                per15L: { type: "STRING" },
-                per16L: { type: "STRING" },
-                per20L: { type: "STRING" },
-                per25L: { type: "STRING" },
-                per200L: { type: "STRING" },
-                per500L: { type: "STRING" },
-                perBigha: { type: "STRING" }
-              },
-              required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
-            },
-            dosageFertilizer: {
-              type: "OBJECT" as any,
-              properties: {
-                perPlant: { type: "STRING" },
-                perPot: { type: "STRING" },
-                perBigha: { type: "STRING" },
-                perIrrigation: { type: "STRING" },
-                perSpray: { type: "STRING" },
-                perDrenching: { type: "STRING" },
-                totalAmount: { type: "STRING" }
-              },
-              required: ["perPlant", "perPot", "perBigha", "perIrrigation", "perSpray", "perDrenching", "totalAmount"]
-            },
-            cropSpecificDosage: {
-              type: "ARRAY" as any,
-              items: {
-                type: "OBJECT" as any,
-                properties: {
-                  cropName: { type: "STRING" },
-                  dosage: { type: "STRING" },
-                  usage: { type: "STRING" },
-                  sprayTime: { type: "STRING" }
-                },
-                required: ["cropName", "dosage", "usage", "sprayTime"]
-              }
-            },
-            hasExactMatch: { type: "BOOLEAN" }
+            perLiter: { type: "STRING" },
+            per15L: { type: "STRING" },
+            per16L: { type: "STRING" },
+            per20L: { type: "STRING" },
+            per25L: { type: "STRING" },
+            per200L: { type: "STRING" },
+            per500L: { type: "STRING" },
+            perBigha: { type: "STRING" }
           },
-          required: [
-            "productName", "companyName", "technicalName", "category", "formulation", "activeIngredient", 
-            "modeOfAction", "fracIracHracGroup", "targetCrops", "targetPests", "symptoms", "usage", 
-            "benefits", "features", "compatibleProducts", "incompatibleProducts", "waitingPeriod", 
-            "phi", "rei", "toxicity", "safetyInstructions", "mixingOrder", "sprayTiming", 
-            "rainfastPeriod", "storage", "dosageLiquid", "dosagePowder", "dosageFertilizer", 
-            "cropSpecificDosage", "hasExactMatch"
-          ]
+          required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
+        },
+        dosagePowder: {
+          type: "OBJECT" as any,
+          properties: {
+            perLiter: { type: "STRING" },
+            per15L: { type: "STRING" },
+            per16L: { type: "STRING" },
+            per20L: { type: "STRING" },
+            per25L: { type: "STRING" },
+            per200L: { type: "STRING" },
+            per500L: { type: "STRING" },
+            perBigha: { type: "STRING" }
+          },
+          required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
+        },
+        dosageFertilizer: {
+          type: "OBJECT" as any,
+          properties: {
+            perPlant: { type: "STRING" },
+            perPot: { type: "STRING" },
+            perBigha: { type: "STRING" },
+            perIrrigation: { type: "STRING" },
+            perSpray: { type: "STRING" },
+            perDrenching: { type: "STRING" },
+            totalAmount: { type: "STRING" }
+          },
+          required: ["perPlant", "perPot", "perBigha", "perIrrigation", "perSpray", "perDrenching", "totalAmount"]
+        },
+        cropSpecificDosage: {
+          type: "ARRAY" as any,
+          items: {
+            type: "OBJECT" as any,
+            properties: {
+              cropName: { type: "STRING" },
+              dosage: { type: "STRING" },
+              usage: { type: "STRING" },
+              sprayTime: { type: "STRING" }
+            },
+            required: ["cropName", "dosage", "usage", "sprayTime"]
+          }
+        },
+        hasExactMatch: { type: "BOOLEAN" }
+      },
+      required: [
+        "productName", "companyName", "technicalName", "category", "formulation", "activeIngredient", 
+        "modeOfAction", "fracIracHracGroup", "targetCrops", "targetPests", "symptoms", "usage", 
+        "benefits", "features", "compatibleProducts", "incompatibleProducts", "waitingPeriod", 
+        "phi", "rei", "toxicity", "safetyInstructions", "mixingOrder", "sprayTiming", 
+        "rainfastPeriod", "storage", "dosageLiquid", "dosagePowder", "dosageFertilizer", 
+        "cropSpecificDosage", "hasExactMatch"
+      ]
+    };
+
+    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Always analyze the query with high precision, search Google for real-time validation, and provide complete details in Hindi as requested. Ensure the output is valid JSON strictly following the schema. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
+
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction,
+          tools: [{ googleSearch: {} }],
+          responseMimeType: "application/json",
+          responseSchema
         }
-      }
-    });
+      });
+    } catch (searchError: any) {
+      console.warn("Google search grounding failed in getProductKnowledge. Retrying without search tool.", searchError);
+      response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema
+        }
+      });
+    }
 
     const result = safeParseProductKnowledge(response.text);
 
@@ -581,7 +599,7 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
 
     return result;
   } catch (error: any) {
-    console.error("Gemini Product Knowledge Error:", error);
+    console.warn("Gemini Product Knowledge Error:", error);
     const friendlyError = getFriendlyAiError(error);
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
       throw friendlyError;
@@ -611,116 +629,142 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
     - If the image does not show an agricultural product, or if the product is not recognized at all, provide a helpful general response, set 'hasExactMatch' to false, and explain in productName/usage what was visible in the image.
     - Return the result strictly as a valid JSON object matching the defined schema. Do not include markdown wraps or anything except the JSON string in response.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: [
-        { text: prompt },
-        {
-          inlineData: {
-            mimeType: "image/jpeg",
-            data: base64Image.split(',')[1] || base64Image
-          }
-        }
-      ],
-      config: {
-        systemInstruction: "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Always analyze the query with high precision, search Google for real-time validation, and provide complete details in Hindi as requested. Ensure the output is valid JSON strictly following the schema. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').",
-        tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: {
+    const responseSchema = {
+      type: "OBJECT" as any,
+      properties: {
+        productName: { type: "STRING" },
+        companyName: { type: "STRING" },
+        technicalName: { type: "STRING" },
+        category: { type: "STRING" },
+        formulation: { type: "STRING" },
+        activeIngredient: { type: "STRING" },
+        modeOfAction: { type: "STRING" },
+        fracIracHracGroup: { type: "STRING" },
+        targetCrops: { type: "STRING" },
+        targetPests: { type: "STRING" },
+        symptoms: { type: "STRING" },
+        usage: { type: "STRING" },
+        benefits: { type: "STRING" },
+        features: { type: "STRING" },
+        compatibleProducts: { type: "STRING" },
+        incompatibleProducts: { type: "STRING" },
+        waitingPeriod: { type: "STRING" },
+        phi: { type: "STRING" },
+        rei: { type: "STRING" },
+        toxicity: { type: "STRING" },
+        safetyInstructions: { type: "STRING" },
+        mixingOrder: { type: "STRING" },
+        sprayTiming: { type: "STRING" },
+        rainfastPeriod: { type: "STRING" },
+        storage: { type: "STRING" },
+        dosageLiquid: {
           type: "OBJECT" as any,
           properties: {
-            productName: { type: "STRING" },
-            companyName: { type: "STRING" },
-            technicalName: { type: "STRING" },
-            category: { type: "STRING" },
-            formulation: { type: "STRING" },
-            activeIngredient: { type: "STRING" },
-            modeOfAction: { type: "STRING" },
-            fracIracHracGroup: { type: "STRING" },
-            targetCrops: { type: "STRING" },
-            targetPests: { type: "STRING" },
-            symptoms: { type: "STRING" },
-            usage: { type: "STRING" },
-            benefits: { type: "STRING" },
-            features: { type: "STRING" },
-            compatibleProducts: { type: "STRING" },
-            incompatibleProducts: { type: "STRING" },
-            waitingPeriod: { type: "STRING" },
-            phi: { type: "STRING" },
-            rei: { type: "STRING" },
-            toxicity: { type: "STRING" },
-            safetyInstructions: { type: "STRING" },
-            mixingOrder: { type: "STRING" },
-            sprayTiming: { type: "STRING" },
-            rainfastPeriod: { type: "STRING" },
-            storage: { type: "STRING" },
-            dosageLiquid: {
-              type: "OBJECT" as any,
-              properties: {
-                perLiter: { type: "STRING" },
-                per15L: { type: "STRING" },
-                per16L: { type: "STRING" },
-                per20L: { type: "STRING" },
-                per25L: { type: "STRING" },
-                per200L: { type: "STRING" },
-                per500L: { type: "STRING" },
-                perBigha: { type: "STRING" }
-              },
-              required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
-            },
-            dosagePowder: {
-              type: "OBJECT" as any,
-              properties: {
-                perLiter: { type: "STRING" },
-                per15L: { type: "STRING" },
-                per16L: { type: "STRING" },
-                per20L: { type: "STRING" },
-                per25L: { type: "STRING" },
-                per200L: { type: "STRING" },
-                per500L: { type: "STRING" },
-                perBigha: { type: "STRING" }
-              },
-              required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
-            },
-            dosageFertilizer: {
-              type: "OBJECT" as any,
-              properties: {
-                perPlant: { type: "STRING" },
-                perPot: { type: "STRING" },
-                perBigha: { type: "STRING" },
-                perIrrigation: { type: "STRING" },
-                perSpray: { type: "STRING" },
-                perDrenching: { type: "STRING" },
-                totalAmount: { type: "STRING" }
-              },
-              required: ["perPlant", "perPot", "perBigha", "perIrrigation", "perSpray", "perDrenching", "totalAmount"]
-            },
-            cropSpecificDosage: {
-              type: "ARRAY" as any,
-              items: {
-                type: "OBJECT" as any,
-                properties: {
-                  cropName: { type: "STRING" },
-                  dosage: { type: "STRING" },
-                  usage: { type: "STRING" },
-                  sprayTime: { type: "STRING" }
-                },
-                required: ["cropName", "dosage", "usage", "sprayTime"]
-              }
-            },
-            hasExactMatch: { type: "BOOLEAN" }
+            perLiter: { type: "STRING" },
+            per15L: { type: "STRING" },
+            per16L: { type: "STRING" },
+            per20L: { type: "STRING" },
+            per25L: { type: "STRING" },
+            per200L: { type: "STRING" },
+            per500L: { type: "STRING" },
+            perBigha: { type: "STRING" }
           },
-          required: [
-            "productName", "companyName", "technicalName", "category", "formulation", "activeIngredient", 
-            "modeOfAction", "fracIracHracGroup", "targetCrops", "targetPests", "symptoms", "usage", 
-            "benefits", "features", "compatibleProducts", "incompatibleProducts", "waitingPeriod", 
-            "phi", "rei", "toxicity", "safetyInstructions", "mixingOrder", "sprayTiming", 
-            "rainfastPeriod", "storage", "dosageLiquid", "dosagePowder", "dosageFertilizer", 
-            "cropSpecificDosage", "hasExactMatch"
-          ]
+          required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
+        },
+        dosagePowder: {
+          type: "OBJECT" as any,
+          properties: {
+            perLiter: { type: "STRING" },
+            per15L: { type: "STRING" },
+            per16L: { type: "STRING" },
+            per20L: { type: "STRING" },
+            per25L: { type: "STRING" },
+            per200L: { type: "STRING" },
+            per500L: { type: "STRING" },
+            perBigha: { type: "STRING" }
+          },
+          required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
+        },
+        dosageFertilizer: {
+          type: "OBJECT" as any,
+          properties: {
+            perPlant: { type: "STRING" },
+            perPot: { type: "STRING" },
+            perBigha: { type: "STRING" },
+            perIrrigation: { type: "STRING" },
+            perSpray: { type: "STRING" },
+            perDrenching: { type: "STRING" },
+            totalAmount: { type: "STRING" }
+          },
+          required: ["perPlant", "perPot", "perBigha", "perIrrigation", "perSpray", "perDrenching", "totalAmount"]
+        },
+        cropSpecificDosage: {
+          type: "ARRAY" as any,
+          items: {
+            type: "OBJECT" as any,
+            properties: {
+              cropName: { type: "STRING" },
+              dosage: { type: "STRING" },
+              usage: { type: "STRING" },
+              sprayTime: { type: "STRING" }
+            },
+            required: ["cropName", "dosage", "usage", "sprayTime"]
+          }
+        },
+        hasExactMatch: { type: "BOOLEAN" }
+      },
+      required: [
+        "productName", "companyName", "technicalName", "category", "formulation", "activeIngredient", 
+        "modeOfAction", "fracIracHracGroup", "targetCrops", "targetPests", "symptoms", "usage", 
+        "benefits", "features", "compatibleProducts", "incompatibleProducts", "waitingPeriod", 
+        "phi", "rei", "toxicity", "safetyInstructions", "mixingOrder", "sprayTiming", 
+        "rainfastPeriod", "storage", "dosageLiquid", "dosagePowder", "dosageFertilizer", 
+        "cropSpecificDosage", "hasExactMatch"
+      ]
+    };
+
+    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Always analyze the query with high precision, search Google for real-time validation, and provide complete details in Hindi as requested. Ensure the output is valid JSON strictly following the schema. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
+
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [
+          { text: prompt },
+          {
+            inlineData: {
+              mimeType: "image/jpeg",
+              data: base64Image.split(',')[1] || base64Image
+            }
+          }
+        ],
+        config: {
+          systemInstruction,
+          tools: [{ googleSearch: {} }],
+          responseMimeType: "application/json",
+          responseSchema
         }
-      }
-    });
+      });
+    } catch (searchError: any) {
+      console.warn("Google search grounding failed in analyzeProductImage. Retrying without search tool.", searchError);
+      response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [
+          { text: prompt },
+          {
+            inlineData: {
+              mimeType: "image/jpeg",
+              data: base64Image.split(',')[1] || base64Image
+            }
+          }
+        ],
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema
+        }
+      });
+    }
 
     const result = safeParseProductKnowledge(response.text);
 
