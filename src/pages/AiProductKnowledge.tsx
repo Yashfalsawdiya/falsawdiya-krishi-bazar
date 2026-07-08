@@ -148,7 +148,6 @@ export default function AiProductKnowledge() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // History & Bookmarks
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [bookmarkedProducts, setBookmarkedProducts] = useState<ProductKnowledgeResult[]>([]);
   const [isCopied, setIsCopied] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -159,10 +158,6 @@ export default function AiProductKnowledge() {
 
   // Load History & Bookmarks from localStorage
   useEffect(() => {
-    const history = localStorage.getItem('product_knowledge_history');
-    if (history) {
-      setRecentSearches(JSON.parse(history));
-    }
     const bookmarks = localStorage.getItem('product_knowledge_bookmarks');
     if (bookmarks) {
       setBookmarkedProducts(JSON.parse(bookmarks));
@@ -192,6 +187,7 @@ export default function AiProductKnowledge() {
   }, [result, bookmarkedProducts]);
 
   const handleSearch = async (searchQuery: string, forceRefresh = false) => {
+    if (isLoading) return;
     const term = searchQuery.trim();
     if (!term) return;
 
@@ -206,11 +202,6 @@ export default function AiProductKnowledge() {
     setSelectedImage(null);
     setError(null);
     setResult(null);
-
-    // Save search history
-    const updatedHistory = [term, ...recentSearches.filter(s => s !== term)].slice(0, 8);
-    setRecentSearches(updatedHistory);
-    localStorage.setItem('product_knowledge_history', JSON.stringify(updatedHistory));
 
     // Check Cache
     if (!forceRefresh) {
@@ -250,6 +241,7 @@ export default function AiProductKnowledge() {
   };
 
   const handleImageSearch = async (base64Img: string) => {
+    if (isLoading) return;
     if (!userSettings?.geminiApiKey) {
       setApiKeyErrorMessage("AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key सेट करें।");
       setIsApiKeyModalOpen(true);
@@ -293,11 +285,6 @@ export default function AiProductKnowledge() {
 
     setBookmarkedProducts(updated);
     localStorage.setItem('product_knowledge_bookmarks', JSON.stringify(updated));
-  };
-
-  const clearHistory = () => {
-    setRecentSearches([]);
-    localStorage.removeItem('product_knowledge_history');
   };
 
   const copyToClipboard = () => {
@@ -997,35 +984,6 @@ ${result.safetyInstructions}
                     </div>
                     <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#2D5A27] transition-all" />
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Recent searches history */}
-          {recentSearches.length > 0 && (
-            <div className="space-y-3 bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">हाल ही में खोजे गए उत्पाद (Recent)</h3>
-                <button 
-                  onClick={clearHistory}
-                  className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" /> सब साफ़ करें
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {recentSearches.map((term, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      setQuery(term);
-                      handleSearch(term);
-                    }}
-                    className="bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-600 rounded-full px-4 py-2 text-xs font-bold transition-all"
-                  >
-                    {term}
-                  </button>
                 ))}
               </div>
             </div>
