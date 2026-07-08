@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Search, Mic, MicOff, Copy, Share2, Bookmark, BookmarkCheck, ArrowLeft, 
+  Search, Copy, Share2, Bookmark, BookmarkCheck, ArrowLeft, 
   RotateCcw, AlertTriangle, HelpCircle, CheckCircle2, ChevronRight, FileText, 
   Sparkles, Droplets, Layers, ShieldAlert, Thermometer, ExternalLink, 
   RefreshCw, Star, Info, ClipboardCheck, Printer, Check, Leaf, Heart,
@@ -12,16 +12,122 @@ import { useAppContext } from '../context/AppContext';
 import { getProductKnowledge, ProductKnowledgeResult, analyzeProductImage } from '../services/gemini';
 import ApiKeyModal from '../components/ApiKeyModal';
 
-const SUGGESTIONS = [
-  { name: "Coragen", label: "कोराजन (Chlorantraniliprole)" },
-  { name: "Urea", label: "यूरिया (Nitrogen Fertilizer)" },
-  { name: "DAP", label: "डीएपी (18:46:0)" },
-  { name: "Gibberellic Acid", label: "जिबरेलिक एसिड (PGR)" },
-  { name: "Glyphosate", label: "ग्लाइफोसेट (खरपतवार नाशक)" },
-  { name: "M-45 Fungicide", label: "एम-45 (Mancozeb)" },
-  { name: "NPK 19:19:19", label: "एनपीके 19:19:19 (Water Soluble)" },
-  { name: "Neem Oil", label: "नीम तेल (Biological Insecticide)" }
-];
+const CACHE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+
+interface CacheEntry {
+  productId: string;
+  timestamp: number;
+  data: ProductKnowledgeResult;
+  searchQuery: string;
+}
+
+interface SmartCache {
+  entries: Record<string, CacheEntry>; // key is normalized product name
+  index: Record<string, string>; // key is normalized search keyword, value is normalized product name
+}
+
+const normalizeText = (text: string): string => {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[।०.,\/#!$%\^&\*;:{}=\-_`~()]/g, "") // remove punctuation
+    .replace(/\s+/g, " "); // collapse spacing
+};
+
+const getCachedResult = (query: string): ProductKnowledgeResult | null => {
+  try {
+    const rawCache = localStorage.getItem('pk_smart_cache');
+    if (!rawCache) return null;
+    const cache: SmartCache = JSON.parse(rawCache);
+    if (!cache.entries || !cache.index) return null;
+
+    const normQuery = normalizeText(query);
+    const productId = cache.index[normQuery];
+    if (!productId) return null;
+
+    const entry = cache.entries[productId];
+    if (!entry) return null;
+
+    // Check expiration
+    const isExpired = Date.now() - entry.timestamp > CACHE_EXPIRY_MS;
+    if (isExpired) {
+      return null;
+    }
+
+    return entry.data;
+  } catch (e) {
+    console.error("Error reading cache", e);
+    return null;
+  }
+};
+
+const saveToCache = (query: string, data: ProductKnowledgeResult) => {
+  try {
+    const rawCache = localStorage.getItem('pk_smart_cache');
+    let cache: SmartCache = { entries: {}, index: {} };
+    if (rawCache) {
+      try {
+        cache = JSON.parse(rawCache);
+        if (!cache.entries) cache.entries = {};
+        if (!cache.index) cache.index = {};
+      } catch (e) {
+        // Reset if corrupt
+      }
+    }
+
+    const productId = normalizeText(data.productName);
+    const normQuery = normalizeText(query);
+
+    // Save/update the main entry
+    cache.entries[productId] = {
+      productId,
+      timestamp: Date.now(),
+      data,
+      searchQuery: query
+    };
+
+    // Create index mappings
+    cache.index[normQuery] = productId;
+    cache.index[normalizeText(data.productName)] = productId;
+    if (data.technicalName) {
+      cache.index[normalizeText(data.technicalName)] = productId;
+      if (data.technicalName.includes('+')) {
+        const parts = data.technicalName.split('+');
+        parts.forEach(part => {
+          cache.index[normalizeText(part)] = productId;
+        });
+      }
+    }
+    if (data.companyName) {
+      cache.index[normalizeText(data.companyName)] = productId;
+    }
+
+    // Run a quick cleanup of expired items to keep localStorage size low
+    const now = Date.now();
+    const activeProductIds = new Set<string>();
+
+    const cleanedEntries: Record<string, CacheEntry> = {};
+    Object.entries(cache.entries).forEach(([id, entry]) => {
+      if (now - entry.timestamp <= CACHE_EXPIRY_MS) {
+        cleanedEntries[id] = entry;
+        activeProductIds.add(id);
+      }
+    });
+    cache.entries = cleanedEntries;
+
+    const cleanedIndex: Record<string, string> = {};
+    Object.entries(cache.index).forEach(([keyword, id]) => {
+      if (activeProductIds.has(id)) {
+        cleanedIndex[keyword] = id;
+      }
+    });
+    cache.index = cleanedIndex;
+
+    localStorage.setItem('pk_smart_cache', JSON.stringify(cache));
+  } catch (e) {
+    console.error("Error saving to cache", e);
+  }
+};
 
 export default function AiProductKnowledge() {
   const navigate = useNavigate();
@@ -29,6 +135,7 @@ export default function AiProductKnowledge() {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ProductKnowledgeResult | null>(null);
+  const [isFromCache, setIsFromCache] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [apiKeyErrorMessage, setApiKeyErrorMessage] = useState<string | undefined>();
@@ -39,10 +146,6 @@ export default function AiProductKnowledge() {
   const [isImageSearch, setIsImageSearch] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
-
-  // Voice Search states
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
 
   // History & Bookmarks
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -88,53 +191,7 @@ export default function AiProductKnowledge() {
     }
   }, [result, bookmarkedProducts]);
 
-  // Voice Search Implementation
-  useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const rec = new SpeechRecognition();
-      rec.continuous = false;
-      rec.interimResults = false;
-      rec.lang = 'hi-IN';
-
-      rec.onstart = () => {
-        setIsListening(true);
-      };
-
-      rec.onresult = (event: any) => {
-        const text = event.results[0][0].transcript;
-        setQuery(text);
-        handleSearch(text);
-      };
-
-      rec.onerror = (e: any) => {
-        console.error("Speech recognition error:", e);
-        setIsListening(false);
-      };
-
-      rec.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current = rec;
-    }
-  }, []);
-
-  const toggleListening = () => {
-    if (!recognitionRef.current) {
-      alert("आपके ब्राउज़र में आवाज़ खोज (Voice Search) समर्थित नहीं है। कृपया गूगल क्रोम का उपयोग करें।");
-      return;
-    }
-
-    if (isListening) {
-      recognitionRef.current.stop();
-    } else {
-      setIsListening(true);
-      recognitionRef.current.start();
-    }
-  };
-
-  const handleSearch = async (searchQuery: string) => {
+  const handleSearch = async (searchQuery: string, forceRefresh = false) => {
     const term = searchQuery.trim();
     if (!term) return;
 
@@ -155,8 +212,21 @@ export default function AiProductKnowledge() {
     setRecentSearches(updatedHistory);
     localStorage.setItem('product_knowledge_history', JSON.stringify(updatedHistory));
 
+    // Check Cache
+    if (!forceRefresh) {
+      const cachedData = getCachedResult(term);
+      if (cachedData) {
+        setIsFromCache(true);
+        setResult(cachedData);
+        setIsLoading(false);
+        return;
+      }
+    }
+    setIsFromCache(false);
+
     try {
       const data = await getProductKnowledge(term, userSettings.geminiApiKey);
+      saveToCache(term, data);
       setResult(data);
     } catch (err: any) {
       console.error(err);
@@ -190,9 +260,11 @@ export default function AiProductKnowledge() {
     setIsImageSearch(true);
     setError(null);
     setResult(null);
+    setIsFromCache(false);
 
     try {
       const data = await analyzeProductImage(base64Img, userSettings.geminiApiKey);
+      saveToCache(data.productName || "scanned_image", data);
       setResult(data);
       if (data.productName && data.hasExactMatch) {
         setQuery(data.productName);
@@ -318,7 +390,7 @@ ${result.safetyInstructions}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch(query)}
             placeholder="उत्पाद का नाम, तकनीकी (Technical) या ब्रांड खोजें..."
-            className="w-full bg-white border-2 border-[#2D5A27]/20 rounded-3xl py-4 pl-12 pr-36 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] transition-all shadow-sm"
+            className="w-full bg-white border-2 border-[#2D5A27]/20 rounded-3xl py-4 pl-12 pr-28 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] transition-all shadow-sm"
           />
           <Search className="absolute left-4 top-4.5 w-5 h-5 text-gray-400" />
           
@@ -329,13 +401,6 @@ ${result.safetyInstructions}
               title="Image Search"
             >
               <Camera className="w-4.5 h-4.5" />
-            </button>
-            <button 
-              onClick={toggleListening}
-              className={`p-2.5 rounded-full transition-all ${isListening ? 'bg-red-500 text-white animate-bounce' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
-              title="Voice Search"
-            >
-              {isListening ? <MicOff className="w-4.5 h-4.5" /> : <Mic className="w-4.5 h-4.5" />}
             </button>
             <button 
               onClick={() => handleSearch(query)}
@@ -363,34 +428,6 @@ ${result.safetyInstructions}
           ref={galleryInputRef}
           onChange={handleImageUpload}
         />
-
-        {/* Listen Pulse Banner */}
-        {isListening && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-red-50 border border-red-200 rounded-2xl p-3 flex items-center gap-3"
-          >
-            <div className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
-            <span className="text-xs text-red-600 font-black uppercase tracking-wider">कृपया बोलें... AI सुन रहा है (Listening...)</span>
-          </motion.div>
-        )}
-
-        {/* Suggestions Bar */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-          {SUGGESTIONS.map((item, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                setQuery(item.name);
-                handleSearch(item.name);
-              }}
-              className="bg-white hover:bg-gray-50 border border-gray-200 rounded-full px-4 py-2 text-xs font-bold text-[#2D5A27] whitespace-nowrap active:scale-95 transition-all shadow-xs"
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Selected Image Preview */}
@@ -470,6 +507,25 @@ ${result.safetyInstructions}
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
+          {isFromCache && (
+            <div className="bg-amber-50 border border-amber-200/60 rounded-3xl p-4 flex items-center justify-between gap-3 text-amber-800 print:hidden shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                <div className="space-y-0.5">
+                  <p className="text-xs font-black text-amber-900">ऑफ़लाइन संग्रह (Local Cache) से तुरंत लोड किया गया</p>
+                  <p className="text-[10px] text-amber-700/80 font-bold">बिना इंटरनेट या कमजोर नेटवर्क में भी तुरंत जानकारी</p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleSearch(query || result.productName, true)}
+                className="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 shrink-0 shadow-xs active:scale-95"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                अपडेट करें
+              </button>
+            </div>
+          )}
+
           {/* Quick Actions Panel */}
           <div className="flex items-center justify-between bg-white border border-gray-100 p-3 rounded-2xl shadow-sm print:hidden">
             <div className="flex items-center gap-1.5">
