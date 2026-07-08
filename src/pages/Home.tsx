@@ -304,21 +304,20 @@ const Home: React.FC = () => {
         className="pt-2"
       >
         <Link to="/ai-call">
-          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-blue-50 relative overflow-hidden group active:scale-95 transition-all">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-blue-500/10 transition-colors" />
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-emerald-100 relative overflow-hidden group active:scale-95 transition-all">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D5A27]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#2D5A27]/10 transition-colors" />
             <div className="flex items-center gap-5">
               <div className="relative">
                 <div className="absolute inset-0 bg-[#2D5A27] rounded-2xl blur-lg opacity-20 animate-pulse" />
                 <div className="w-16 h-16 bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl flex items-center justify-center text-white relative z-10 shadow-lg">
                   <Phone className="w-8 h-8 animate-bounce" />
                 </div>
-                <div className="absolute -top-4 -right-3 z-20 bg-amber-400 text-[#4A3728] text-[9.5px] font-black px-2.5 py-0.5 rounded-full shadow-md border-2 border-white animate-pulse">NEW</div>
               </div>
               <div className="flex-1">
                 <h3 className="text-xl font-black text-[#4A3728] leading-tight">AI कृषि विशेषज्ञ कॉल</h3>
                 <p className="text-xs text-gray-500 font-bold mt-1">सीधे बात करें और समस्या का हल पाएं</p>
                 <div className="flex items-center gap-1.5 mt-2">
-                  <Sparkles className="w-3 h-3 text-[#EAB308]" />
+                  <Sparkles className="w-3 h-3 text-[#2D5A27]" />
                   <span className="text-[10px] font-black text-[#2D5A27] uppercase tracking-widest">इंसानों की तरह बातचीत</span>
                 </div>
               </div>
@@ -337,15 +336,14 @@ const Home: React.FC = () => {
         className="pt-1"
       >
         <Link to="/ai-product-knowledge">
-          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-amber-100 relative overflow-hidden group active:scale-95 transition-all">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-amber-500/10 transition-colors" />
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-emerald-100 relative overflow-hidden group active:scale-95 transition-all">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D5A27]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#2D5A27]/10 transition-colors" />
             <div className="flex items-center gap-5">
               <div className="relative">
-                <div className="absolute inset-0 bg-[#EAB308] rounded-2xl blur-lg opacity-20 animate-pulse" />
-                <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl flex items-center justify-center text-white relative z-10 shadow-lg">
-                  <BookOpen className="w-8 h-8 text-white" />
+                <div className="absolute inset-0 bg-[#2D5A27] rounded-2xl blur-lg opacity-20 animate-pulse" />
+                <div className="w-16 h-16 bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl flex items-center justify-center text-white relative z-10 shadow-lg">
+                  <Sprout className="w-8 h-8 text-white" />
                 </div>
-                <div className="absolute -top-4 -right-3 z-20 bg-[#2D5A27] text-white text-[9.5px] font-black px-2.5 py-0.5 rounded-full shadow-md border-2 border-white">AI</div>
               </div>
               <div className="flex-1">
                 <h3 className="text-xl font-black text-[#4A3728] leading-tight">AI उत्पाद जानकारी</h3>
