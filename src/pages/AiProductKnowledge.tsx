@@ -573,7 +573,14 @@ ${result.safetyInstructions}
       {/* Header Panel */}
       <div className="flex items-center gap-3 bg-gradient-to-r from-[#2D5A27] to-[#3D7A35] text-white p-4 rounded-3xl shadow-lg print:hidden">
         <button 
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            if (result) {
+              setResult(null);
+              setSelectedImage(null);
+            } else {
+              navigate(-1);
+            }
+          }}
           className="p-2 hover:bg-white/10 rounded-full transition-colors"
         >
           <ArrowLeft className="w-6 h-6" />
@@ -720,6 +727,19 @@ ${result.safetyInstructions}
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
+          {/* Back to main list button */}
+          <div className="print:hidden">
+            <button
+              onClick={() => {
+                setResult(null);
+                setSelectedImage(null);
+              }}
+              className="flex items-center gap-2 text-xs font-black text-[#2D5A27] bg-[#2D5A27]/5 hover:bg-[#2D5A27]/10 px-4.5 py-2.5 rounded-2xl transition-all active:scale-95 border border-[#2D5A27]/10 w-fit cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>← मुख्य सूची / खोज पर वापस जाएँ (Go Back)</span>
+            </button>
+          </div>
           {isFromCache && (
             <div className="bg-amber-50 border border-amber-200/60 rounded-3xl p-4 flex items-center justify-between gap-3 text-amber-800 print:hidden shadow-xs">
               <div className="flex items-center gap-2.5">
