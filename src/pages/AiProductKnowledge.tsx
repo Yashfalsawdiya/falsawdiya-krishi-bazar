@@ -5,10 +5,11 @@ import {
   Search, Mic, MicOff, Copy, Share2, Bookmark, BookmarkCheck, ArrowLeft, 
   RotateCcw, AlertTriangle, HelpCircle, CheckCircle2, ChevronRight, FileText, 
   Sparkles, Droplets, Layers, ShieldAlert, Thermometer, ExternalLink, 
-  RefreshCw, Star, Info, ClipboardCheck, Printer, Check, Leaf, Heart
+  RefreshCw, Star, Info, ClipboardCheck, Printer, Check, Leaf, Heart,
+  Camera, Image as ImageIcon, X
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { getProductKnowledge, ProductKnowledgeResult } from '../services/gemini';
+import { getProductKnowledge, ProductKnowledgeResult, analyzeProductImage } from '../services/gemini';
 import ApiKeyModal from '../components/ApiKeyModal';
 
 const SUGGESTIONS = [
@@ -32,6 +33,13 @@ export default function AiProductKnowledge() {
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [apiKeyErrorMessage, setApiKeyErrorMessage] = useState<string | undefined>();
   
+  // Image Search states and refs
+  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isImageSearch, setIsImageSearch] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
   // Voice Search states
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
@@ -44,6 +52,7 @@ export default function AiProductKnowledge() {
 
   // Active Dosage Tab
   const [activeDosageTab, setActiveDosageTab] = useState<'liquid' | 'powder' | 'fertilizer'>('liquid');
+
 
   // Load History & Bookmarks from localStorage
   useEffect(() => {
@@ -136,6 +145,8 @@ export default function AiProductKnowledge() {
     }
 
     setIsLoading(true);
+    setIsImageSearch(false);
+    setSelectedImage(null);
     setError(null);
     setResult(null);
 
@@ -150,6 +161,45 @@ export default function AiProductKnowledge() {
     } catch (err: any) {
       console.error(err);
       setError(err.message || "जानकारी खोजने में समस्या आई। कृपया पुनः प्रयास करें।");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setSelectedImage(base64);
+        handleImageSearch(base64);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleImageSearch = async (base64Img: string) => {
+    if (!userSettings?.geminiApiKey) {
+      setApiKeyErrorMessage("AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key सेट करें।");
+      setIsApiKeyModalOpen(true);
+      return;
+    }
+
+    setIsLoading(true);
+    setIsImageSearch(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const data = await analyzeProductImage(base64Img, userSettings.geminiApiKey);
+      setResult(data);
+      if (data.productName && data.hasExactMatch) {
+        setQuery(data.productName);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "इमेज का विश्लेषण करने में समस्या आई। कृपया पुनः प्रयास करें।");
     } finally {
       setIsLoading(false);
     }
@@ -268,11 +318,18 @@ ${result.safetyInstructions}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch(query)}
             placeholder="उत्पाद का नाम, तकनीकी (Technical) या ब्रांड खोजें..."
-            className="w-full bg-white border-2 border-[#2D5A27]/20 rounded-3xl py-4 pl-12 pr-24 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] transition-all shadow-sm"
+            className="w-full bg-white border-2 border-[#2D5A27]/20 rounded-3xl py-4 pl-12 pr-36 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] transition-all shadow-sm"
           />
           <Search className="absolute left-4 top-4.5 w-5 h-5 text-gray-400" />
           
           <div className="absolute right-2 top-2 flex items-center gap-1.5">
+            <button 
+              onClick={() => setIsBottomSheetOpen(true)}
+              className="p-2.5 rounded-full transition-all bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-200/50"
+              title="Image Search"
+            >
+              <Camera className="w-4.5 h-4.5" />
+            </button>
             <button 
               onClick={toggleListening}
               className={`p-2.5 rounded-full transition-all ${isListening ? 'bg-red-500 text-white animate-bounce' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
@@ -289,6 +346,23 @@ ${result.safetyInstructions}
             </button>
           </div>
         </div>
+
+        {/* Hidden File Inputs for Camera and Gallery */}
+        <input 
+          type="file" 
+          accept="image/*" 
+          capture="environment"
+          className="hidden" 
+          ref={cameraInputRef}
+          onChange={handleImageUpload}
+        />
+        <input 
+          type="file" 
+          accept="image/*" 
+          className="hidden" 
+          ref={galleryInputRef}
+          onChange={handleImageUpload}
+        />
 
         {/* Listen Pulse Banner */}
         {isListening && (
@@ -319,6 +393,41 @@ ${result.safetyInstructions}
         </div>
       </div>
 
+      {/* Selected Image Preview */}
+      {selectedImage && (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-3xl p-4 border border-amber-100 shadow-sm flex items-center justify-between gap-4 print:hidden"
+        >
+          <div className="flex items-center gap-3">
+            <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-gray-100 shrink-0">
+              <img src={selectedImage} alt="Scanned Product" className="w-full h-full object-cover" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-[#2D5A27] flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                स्कैन किया गया उत्पाद फोटो
+              </p>
+              <p className="text-[10px] text-gray-400 font-bold mt-0.5">
+                {isLoading ? "AI फोटो का विश्लेषण कर रहा है..." : "सफलतापूर्वक पहचाना गया!"}
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={() => {
+              setSelectedImage(null);
+              setResult(null);
+              setQuery('');
+            }}
+            className="p-2 bg-rose-50 text-rose-600 rounded-full hover:bg-rose-100 active:scale-90 transition-all"
+            title="फ़ोटो हटाएं"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </motion.div>
+      )}
+
       {/* Loading Block */}
       {isLoading && (
         <div className="flex flex-col items-center justify-center py-16 gap-4 print:hidden">
@@ -329,8 +438,12 @@ ${result.safetyInstructions}
             </div>
           </div>
           <div className="text-center">
-            <p className="text-[#2D5A27] font-black text-lg animate-pulse">Google और कृषि सूत्रों से शोध जारी है...</p>
-            <p className="text-xs text-gray-500 font-bold mt-1">CIB&RC, IFFCO, ICAR और अधिकृत डेटाबेस की जाँच हो रही है</p>
+            <p className="text-[#2D5A27] font-black text-lg animate-pulse">
+              {isImageSearch ? "AI उत्पाद फोटो का विश्लेषण जारी है..." : "Google और कृषि सूत्रों से शोध जारी है..."}
+            </p>
+            <p className="text-xs text-gray-500 font-bold mt-1">
+              {isImageSearch ? "लेबल, सामग्री (Ingredients) and टेक्निकल घटकों की पहचान हो रही है" : "CIB&RC, IFFCO, ICAR और अधिकृत डेटाबेसों की जाँच हो रही है"}
+            </p>
           </div>
         </div>
       )}
@@ -876,6 +989,78 @@ ${result.safetyInstructions}
           )}
         </div>
       )}
+
+      {/* Bottom Sheet for Camera / Gallery */}
+      <AnimatePresence>
+        {isBottomSheetOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsBottomSheetOpen(false)}
+              className="fixed inset-0 bg-black z-50 pointer-events-auto"
+            />
+
+            {/* Sheet */}
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 250 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[2.5rem] shadow-2xl z-50 p-6 pb-10 border-t border-gray-100 flex flex-col space-y-4 max-w-lg mx-auto pointer-events-auto"
+            >
+              {/* Drag indicator bar */}
+              <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-2" />
+
+              <div className="text-center pb-2">
+                <h4 className="text-lg font-black text-[#4A3728]">AI उत्पाद फोटो खोज (Image Search)</h4>
+                <p className="text-xs text-gray-500 font-bold mt-1">दवाई या खाद की बोतल/थैली की साफ़ फोटो चुनें</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                {/* Take Photo */}
+                <button
+                  onClick={() => {
+                    setIsBottomSheetOpen(false);
+                    cameraInputRef.current?.click();
+                  }}
+                  className="flex flex-col items-center justify-center p-5 bg-amber-50 hover:bg-amber-100/70 border-2 border-amber-100 rounded-2xl gap-3 transition-all active:scale-95 group animate-none"
+                >
+                  <div className="w-14 h-14 bg-amber-500 text-white rounded-full flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                    <Camera className="w-7 h-7" />
+                  </div>
+                  <span className="text-xs font-black text-amber-900">कैमरे से फोटो लें</span>
+                  <span className="text-[10px] text-amber-700/80 font-bold">Take Photo</span>
+                </button>
+
+                {/* Gallery */}
+                <button
+                  onClick={() => {
+                    setIsBottomSheetOpen(false);
+                    galleryInputRef.current?.click();
+                  }}
+                  className="flex flex-col items-center justify-center p-5 bg-green-50 hover:bg-green-100/70 border-2 border-green-100 rounded-2xl gap-3 transition-all active:scale-95 group animate-none"
+                >
+                  <div className="w-14 h-14 bg-[#2D5A27] text-white rounded-full flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                    <ImageIcon className="w-7 h-7" />
+                  </div>
+                  <span className="text-xs font-black text-green-900">गैलरी से चुनें</span>
+                  <span className="text-[10px] text-green-700/80 font-bold">Choose from Gallery</span>
+                </button>
+              </div>
+
+              <button
+                onClick={() => setIsBottomSheetOpen(false)}
+                className="w-full py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl text-xs font-black transition-all active:scale-95 mt-4"
+              >
+                रद्द करें (Cancel)
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
