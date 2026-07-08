@@ -1,0 +1,881 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Search, Mic, MicOff, Copy, Share2, Bookmark, BookmarkCheck, ArrowLeft, 
+  RotateCcw, AlertTriangle, HelpCircle, CheckCircle2, ChevronRight, FileText, 
+  Sparkles, Droplets, Layers, ShieldAlert, Thermometer, ExternalLink, 
+  RefreshCw, Star, Info, ClipboardCheck, Printer, Check, Leaf, Heart
+} from 'lucide-react';
+import { useAppContext } from '../context/AppContext';
+import { getProductKnowledge, ProductKnowledgeResult } from '../services/gemini';
+import ApiKeyModal from '../components/ApiKeyModal';
+
+const SUGGESTIONS = [
+  { name: "Coragen", label: "कोराजन (Chlorantraniliprole)" },
+  { name: "Urea", label: "यूरिया (Nitrogen Fertilizer)" },
+  { name: "DAP", label: "डीएपी (18:46:0)" },
+  { name: "Gibberellic Acid", label: "जिबरेलिक एसिड (PGR)" },
+  { name: "Glyphosate", label: "ग्लाइफोसेट (खरपतवार नाशक)" },
+  { name: "M-45 Fungicide", label: "एम-45 (Mancozeb)" },
+  { name: "NPK 19:19:19", label: "एनपीके 19:19:19 (Water Soluble)" },
+  { name: "Neem Oil", label: "नीम तेल (Biological Insecticide)" }
+];
+
+export default function AiProductKnowledge() {
+  const navigate = useNavigate();
+  const { userSettings } = useAppContext();
+  const [query, setQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [result, setResult] = useState<ProductKnowledgeResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [apiKeyErrorMessage, setApiKeyErrorMessage] = useState<string | undefined>();
+  
+  // Voice Search states
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // History & Bookmarks
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [bookmarkedProducts, setBookmarkedProducts] = useState<ProductKnowledgeResult[]>([]);
+  const [isCopied, setIsCopied] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+
+  // Active Dosage Tab
+  const [activeDosageTab, setActiveDosageTab] = useState<'liquid' | 'powder' | 'fertilizer'>('liquid');
+
+  // Load History & Bookmarks from localStorage
+  useEffect(() => {
+    const history = localStorage.getItem('product_knowledge_history');
+    if (history) {
+      setRecentSearches(JSON.parse(history));
+    }
+    const bookmarks = localStorage.getItem('product_knowledge_bookmarks');
+    if (bookmarks) {
+      setBookmarkedProducts(JSON.parse(bookmarks));
+    }
+  }, []);
+
+  // Update Bookmark State when result changes
+  useEffect(() => {
+    if (result) {
+      const exists = bookmarkedProducts.some(
+        (b) => b.productName.toLowerCase() === result.productName.toLowerCase()
+      );
+      setIsBookmarked(exists);
+
+      // Auto-switch dosage tab based on product category/formulation
+      const formulationLower = result.formulation.toLowerCase();
+      const catLower = result.category.toLowerCase();
+      
+      if (formulationLower.includes('ec') || formulationLower.includes('sl') || formulationLower.includes('sc') || formulationLower.includes('liquid') || formulationLower.includes('लिक्लीड') || formulationLower.includes('तरल')) {
+        setActiveDosageTab('liquid');
+      } else if (catLower.includes('fertilizer') || catLower.includes('खाद') || catLower.includes('urea') || catLower.includes('dap')) {
+        setActiveDosageTab('fertilizer');
+      } else {
+        setActiveDosageTab('powder');
+      }
+    }
+  }, [result, bookmarkedProducts]);
+
+  // Voice Search Implementation
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const rec = new SpeechRecognition();
+      rec.continuous = false;
+      rec.interimResults = false;
+      rec.lang = 'hi-IN';
+
+      rec.onstart = () => {
+        setIsListening(true);
+      };
+
+      rec.onresult = (event: any) => {
+        const text = event.results[0][0].transcript;
+        setQuery(text);
+        handleSearch(text);
+      };
+
+      rec.onerror = (e: any) => {
+        console.error("Speech recognition error:", e);
+        setIsListening(false);
+      };
+
+      rec.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = rec;
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      alert("आपके ब्राउज़र में आवाज़ खोज (Voice Search) समर्थित नहीं है। कृपया गूगल क्रोम का उपयोग करें।");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      setIsListening(true);
+      recognitionRef.current.start();
+    }
+  };
+
+  const handleSearch = async (searchQuery: string) => {
+    const term = searchQuery.trim();
+    if (!term) return;
+
+    if (!userSettings?.geminiApiKey) {
+      setApiKeyErrorMessage("AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key सेट करें।");
+      setIsApiKeyModalOpen(true);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setResult(null);
+
+    // Save search history
+    const updatedHistory = [term, ...recentSearches.filter(s => s !== term)].slice(0, 8);
+    setRecentSearches(updatedHistory);
+    localStorage.setItem('product_knowledge_history', JSON.stringify(updatedHistory));
+
+    try {
+      const data = await getProductKnowledge(term, userSettings.geminiApiKey);
+      setResult(data);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "जानकारी खोजने में समस्या आई। कृपया पुनः प्रयास करें।");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleBookmark = () => {
+    if (!result) return;
+
+    let updated: ProductKnowledgeResult[];
+    if (isBookmarked) {
+      updated = bookmarkedProducts.filter(
+        (b) => b.productName.toLowerCase() !== result.productName.toLowerCase()
+      );
+      setIsBookmarked(false);
+    } else {
+      updated = [result, ...bookmarkedProducts];
+      setIsBookmarked(true);
+    }
+
+    setBookmarkedProducts(updated);
+    localStorage.setItem('product_knowledge_bookmarks', JSON.stringify(updated));
+  };
+
+  const clearHistory = () => {
+    setRecentSearches([]);
+    localStorage.removeItem('product_knowledge_history');
+  };
+
+  const copyToClipboard = () => {
+    if (!result) return;
+
+    const shareText = `*🌱 फल्सावदिया कृषि बाज़ार - AI उत्पाद जानकारी 🌱*
+----------------------------------------
+*उत्पाद का नाम:* ${result.productName}
+*कंपनी:* ${result.companyName}
+*तकनीकी नाम (Technical):* ${result.technicalName}
+*श्रेणी (Category):* ${result.category}
+*फॉर्मूलेशन (Formulation):* ${result.formulation}
+
+*📋 विवरण और फायदे:*
+${result.benefits}
+
+*⭐ प्रमुख मात्रा (Dosage & Usage):*
+• प्रति 15 लीटर पंप: ${result.dosageLiquid.per15L || result.dosagePowder.per15L || "उत्पाद श्रेणी अनुसार"}
+• प्रति बीघा: ${result.dosageLiquid.perBigha || result.dosagePowder.perBigha || result.dosageFertilizer.perBigha || "उत्पाद श्रेणी अनुसार"}
+
+*⚠️ सावधानियां:*
+${result.safetyInstructions}
+
+----------------------------------------
+📌 अधिक जानकारी के लिए फल्सावदिया कृषि बाज़ार ऐप देखें।
+📍 डिंपल चौराहा, शामगढ़ (म.प्र.)
+🕒 समय: सुबह 8:00 बजे से रात 8:00 बजे तक`;
+
+    navigator.clipboard.writeText(shareText);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleShare = () => {
+    if (!result) return;
+    if (navigator.share) {
+      navigator.share({
+        title: result.productName,
+        text: `फल्सावदिया कृषि बाज़ार से जानें ${result.productName} (${result.technicalName}) की पूरी जानकारी और सही मात्रा।`,
+        url: window.location.href,
+      }).catch(console.error);
+    } else {
+      copyToClipboard();
+    }
+  };
+
+  const triggerPrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="space-y-6 pb-24 print:pb-0 print:space-y-4">
+      {/* API Key Modal */}
+      <ApiKeyModal 
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+        message={apiKeyErrorMessage}
+      />
+
+      {/* Header Panel */}
+      <div className="flex items-center gap-3 bg-gradient-to-r from-[#2D5A27] to-[#3D7A35] text-white p-4 rounded-3xl shadow-lg print:hidden">
+        <button 
+          onClick={() => navigate(-1)}
+          className="p-2 hover:bg-white/10 rounded-full transition-colors"
+        >
+          <ArrowLeft className="w-6 h-6" />
+        </button>
+        <div>
+          <h2 className="text-xl font-black flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-[#EAB308] animate-pulse" />
+            AI उत्पाद ज्ञान साथी
+          </h2>
+          <p className="text-xs text-white/80 font-bold">Company Products, Technicals & Fertilizers की सटीक जानकारी</p>
+        </div>
+      </div>
+
+      {/* Print Only Header */}
+      <div className="hidden print:block text-center border-b pb-4">
+        <h1 className="text-2xl font-black text-[#2D5A27]">फल्सावदिया कृषि बाज़ार</h1>
+        <p className="text-xs text-gray-500">डिंपल चौराहा, शामगढ़ (म.प्र.) | संपर्क: 8982338046</p>
+        <p className="text-xs text-gray-400 mt-1">दुकान समय: सुबह 8:00 बजे से रात 8:00 बजे तक</p>
+      </div>
+
+      {/* Main Search Block (Hidden on Print) */}
+      <div className="space-y-4 print:hidden">
+        <div className="relative">
+          <input 
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch(query)}
+            placeholder="उत्पाद का नाम, तकनीकी (Technical) या ब्रांड खोजें..."
+            className="w-full bg-white border-2 border-[#2D5A27]/20 rounded-3xl py-4 pl-12 pr-24 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] transition-all shadow-sm"
+          />
+          <Search className="absolute left-4 top-4.5 w-5 h-5 text-gray-400" />
+          
+          <div className="absolute right-2 top-2 flex items-center gap-1.5">
+            <button 
+              onClick={toggleListening}
+              className={`p-2.5 rounded-full transition-all ${isListening ? 'bg-red-500 text-white animate-bounce' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
+              title="Voice Search"
+            >
+              {isListening ? <MicOff className="w-4.5 h-4.5" /> : <Mic className="w-4.5 h-4.5" />}
+            </button>
+            <button 
+              onClick={() => handleSearch(query)}
+              disabled={isLoading || !query.trim()}
+              className="bg-[#2D5A27] hover:bg-[#3D7A35] text-white px-4 py-2.5 rounded-full text-xs font-black transition-all disabled:opacity-50"
+            >
+              खोजें
+            </button>
+          </div>
+        </div>
+
+        {/* Listen Pulse Banner */}
+        {isListening && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-50 border border-red-200 rounded-2xl p-3 flex items-center gap-3"
+          >
+            <div className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
+            <span className="text-xs text-red-600 font-black uppercase tracking-wider">कृपया बोलें... AI सुन रहा है (Listening...)</span>
+          </motion.div>
+        )}
+
+        {/* Suggestions Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+          {SUGGESTIONS.map((item, idx) => (
+            <button
+              key={idx}
+              onClick={() => {
+                setQuery(item.name);
+                handleSearch(item.name);
+              }}
+              className="bg-white hover:bg-gray-50 border border-gray-200 rounded-full px-4 py-2 text-xs font-bold text-[#2D5A27] whitespace-nowrap active:scale-95 transition-all shadow-xs"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Loading Block */}
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center py-16 gap-4 print:hidden">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-[#2D5A27]/20 border-t-[#2D5A27] rounded-full animate-spin"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-[#EAB308] animate-pulse" />
+            </div>
+          </div>
+          <div className="text-center">
+            <p className="text-[#2D5A27] font-black text-lg animate-pulse">Google और कृषि सूत्रों से शोध जारी है...</p>
+            <p className="text-xs text-gray-500 font-bold mt-1">CIB&RC, IFFCO, ICAR और अधिकृत डेटाबेस की जाँच हो रही है</p>
+          </div>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border-2 border-red-100 rounded-3xl p-5 text-center space-y-3 print:hidden">
+          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto" />
+          <h3 className="font-bold text-red-900 text-lg">जानकारी लोड नहीं हो सकी</h3>
+          <p className="text-xs text-red-700 font-medium leading-relaxed">{error}</p>
+          <button 
+            onClick={() => handleSearch(query)}
+            className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-full text-xs font-black transition-all active:scale-95 flex items-center gap-2 mx-auto"
+          >
+            <RotateCcw className="w-4 h-4" /> पुनः प्रयास करें
+          </button>
+        </div>
+      )}
+
+      {/* Result Panel */}
+      {result && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          {/* Quick Actions Panel */}
+          <div className="flex items-center justify-between bg-white border border-gray-100 p-3 rounded-2xl shadow-sm print:hidden">
+            <div className="flex items-center gap-1.5">
+              <button 
+                onClick={toggleBookmark}
+                className={`p-2.5 rounded-xl transition-all ${isBookmarked ? 'bg-amber-50 text-amber-500 border border-amber-200' : 'bg-gray-50 hover:bg-gray-100 text-gray-600'}`}
+                title="Save Product"
+              >
+                {isBookmarked ? <BookmarkCheck className="w-5 h-5" /> : <Bookmark className="w-5 h-5" />}
+              </button>
+              <span className="text-xs font-bold text-gray-500">{isBookmarked ? 'सुरक्षित है' : 'सुरक्षित करें'}</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={copyToClipboard}
+                className="bg-gray-50 hover:bg-gray-100 p-2.5 rounded-xl border border-gray-100 text-gray-600 flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95"
+                title="Copy details"
+              >
+                {isCopied ? <ClipboardCheck className="w-4.5 h-4.5 text-green-600" /> : <Copy className="w-4.5 h-4.5" />}
+                <span>{isCopied ? 'कॉपी हो गया' : 'व्हाट्सएप कॉपी'}</span>
+              </button>
+
+              <button 
+                onClick={handleShare}
+                className="bg-gray-50 hover:bg-gray-100 p-2.5 rounded-xl border border-gray-100 text-gray-600 transition-all active:scale-95"
+                title="Share details"
+              >
+                <Share2 className="w-4.5 h-4.5" />
+              </button>
+
+              <button 
+                onClick={triggerPrint}
+                className="bg-[#2D5A27]/5 hover:bg-[#2D5A27]/10 text-[#2D5A27] p-2.5 rounded-xl border border-[#2D5A27]/10 flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95"
+                title="Export as PDF / Print"
+              >
+                <Printer className="w-4.5 h-4.5" />
+                <span>PDF / प्रिंट</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Primary Info Card */}
+          <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D5A27]/5 rounded-full -mr-12 -mt-12 blur-2xl" />
+            
+            <div className="flex items-start justify-between gap-4 relative z-10">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                  <span className="bg-[#2D5A27] text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs uppercase tracking-wider">
+                    {result.category}
+                  </span>
+                  {result.formulation && (
+                    <span className="bg-gray-100 text-gray-600 text-[10px] font-black px-2 py-0.5 rounded-full border border-gray-200">
+                      {result.formulation}
+                    </span>
+                  )}
+                  {result.fracIracHracGroup && (
+                    <span className="bg-rose-50 text-rose-600 text-[9px] font-black px-2 py-0.5 rounded-full border border-rose-200">
+                      Group: {result.fracIracHracGroup}
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-2xl font-black text-[#4A3728] leading-tight">{result.productName}</h3>
+                <p className="text-sm text-gray-500 font-bold mt-0.5">निर्माता: {result.companyName || "विविध ब्रांड्स"}</p>
+              </div>
+
+              {/* Verified badge */}
+              <div className="bg-green-50 border border-green-200 px-3 py-1.5 rounded-2xl flex items-center gap-1.5 text-right shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                <div>
+                  <p className="text-[9px] text-green-700 font-black uppercase tracking-wider leading-none">अधिकृत जानकारी</p>
+                  <p className="text-[8px] text-gray-400 font-bold mt-0.5">Verified Data</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-dashed border-gray-100 pt-4 grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">सक्रिय तत्व (Technical Name)</p>
+                <p className="text-xs font-bold text-gray-800 mt-0.5 bg-gray-50 px-2 py-1 rounded-lg border border-gray-200/50 inline-block">{result.technicalName}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">एक्टिव घटक (Active Ingredient)</p>
+                <p className="text-xs font-bold text-gray-800 mt-0.5">{result.activeIngredient || "डेटाबेस अनुसार"}</p>
+              </div>
+            </div>
+
+            <div className="border-t border-dashed border-gray-100 pt-4">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">असर का तरीका (Mode of Action)</p>
+              <p className="text-xs font-bold text-gray-700 mt-1 leading-relaxed bg-[#F5F2ED]/40 p-3 rounded-2xl border border-gray-100">
+                {result.modeOfAction}
+              </p>
+            </div>
+          </div>
+
+          {/* ⭐ Major Section – Dosage & Usage Calculator */}
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="bg-[#2D5A27] text-white p-5">
+              <h3 className="text-lg font-black flex items-center gap-2">
+                <Droplets className="w-5 h-5 text-amber-400" />
+                सही मात्रा और छिड़काव मार्गदर्शिका (Dosage & Spray Guide)
+              </h3>
+              <p className="text-xs text-white/85 font-medium mt-1">
+                फसल को नुकसान से बचाने के लिए नीचे दी गई मात्रा का कड़ाई से पालन करें।
+              </p>
+            </div>
+
+            {/* Dose Type Selection Tabs */}
+            <div className="flex border-b border-gray-100 print:hidden">
+              <button 
+                onClick={() => setActiveDosageTab('liquid')}
+                className={`flex-1 py-3.5 text-xs font-black text-center border-b-2 transition-all ${activeDosageTab === 'liquid' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                तरल उत्पाद (Liquid / ML)
+              </button>
+              <button 
+                onClick={() => setActiveDosageTab('powder')}
+                className={`flex-1 py-3.5 text-xs font-black text-center border-b-2 transition-all ${activeDosageTab === 'powder' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                पाउडर/दानेदार (Powder / Gram)
+              </button>
+              <button 
+                onClick={() => setActiveDosageTab('fertilizer')}
+                className={`flex-1 py-3.5 text-xs font-black text-center border-b-2 transition-all ${activeDosageTab === 'fertilizer' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                उर्वरक/खाद (Fertilizers / KG)
+              </button>
+            </div>
+
+            {/* Calculations Render */}
+            <div className="p-6 space-y-6">
+              {/* Liquid Dose Section */}
+              {activeDosageTab === 'liquid' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">प्रति 1 लीटर पानी</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid.perLiter || "N/A"}</p>
+                    </div>
+                    <div className="bg-[#2D5A27]/5 p-3.5 rounded-2xl border border-[#2D5A27]/10 text-center relative overflow-hidden">
+                      <div className="absolute top-1 right-2 text-[8px] bg-[#2D5A27] text-white px-1 rounded-sm uppercase tracking-wider font-bold">Standard</div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">15L टंकी (Pump)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid.per15L || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">16L टंकी (Pump)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid.per16L || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">20L टंकी (Pump)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid.per20L || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">25L टंकी (Pump)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid.per25L || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center col-span-2 md:col-span-1">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">200L ड्रम (Tank)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid.per200L || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center col-span-2 md:col-span-1">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">500L टैंकर (Tanker)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid.per500L || "N/A"}</p>
+                    </div>
+                    <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-center col-span-2 md:col-span-1">
+                      <p className="text-[10px] text-amber-700 font-black uppercase">प्रति 1 बीघा (Bigha)</p>
+                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosageLiquid.perBigha || "N/A"}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Powder Dose Section */}
+              {activeDosageTab === 'powder' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">प्रति 1 लीटर पानी</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder.perLiter || "N/A"}</p>
+                    </div>
+                    <div className="bg-[#2D5A27]/5 p-3.5 rounded-2xl border border-[#2D5A27]/10 text-center relative overflow-hidden">
+                      <div className="absolute top-1 right-2 text-[8px] bg-[#2D5A27] text-white px-1 rounded-sm uppercase tracking-wider font-bold">Standard</div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">15L टंकी (Pump)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder.per15L || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">16L टंकी (Pump)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder.per16L || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">20L टंकी (Pump)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder.per20L || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">25L टंकी (Pump)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder.per25L || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center col-span-2 md:col-span-1">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">200L ड्रम (Tank)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder.per200L || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center col-span-2 md:col-span-1">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">500L टैंकर (Tanker)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder.per500L || "N/A"}</p>
+                    </div>
+                    <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-center col-span-2 md:col-span-1">
+                      <p className="text-[10px] text-amber-700 font-black uppercase">प्रति 1 बीघा (Bigha)</p>
+                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosagePowder.perBigha || "N/A"}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Fertilizers Section */}
+              {activeDosageTab === 'fertilizer' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">प्रति पौधा</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer.perPlant || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">प्रति गमला (Pot)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer.perPot || "N/A"}</p>
+                    </div>
+                    <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-center">
+                      <p className="text-[10px] text-amber-700 font-black uppercase">प्रति 1 बीघा (Bigha)</p>
+                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosageFertilizer.perBigha || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">प्रति सिंचाई</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer.perIrrigation || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">प्रति स्प्रे (Spray)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer.perSpray || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">ड्रेंचिंग मात्रा (Drenching)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer.perDrenching || "N/A"}</p>
+                    </div>
+                    <div className="bg-gray-100 p-4 rounded-2xl border border-gray-200 text-center col-span-2 md:col-span-3">
+                      <p className="text-[10px] text-gray-500 font-bold uppercase">कुल अनुशंसित मात्रा (Total Dose)</p>
+                      <p className="text-lg font-black text-gray-800 mt-1">{result.dosageFertilizer.totalAmount || "N/A"}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Crop Specific Dosages */}
+              {result.cropSpecificDosage && result.cropSpecificDosage.length > 0 && (
+                <div className="border-t border-gray-100 pt-5 space-y-3">
+                  <h4 className="text-sm font-black text-[#4A3728] uppercase tracking-wider flex items-center gap-1.5">
+                    <Leaf className="w-4 h-4 text-green-600" />
+                    फसलों के अनुसार मात्रा (Crop Specific Recommendation)
+                  </h4>
+                  <div className="space-y-3.5">
+                    {result.cropSpecificDosage.map((item, idx) => (
+                      <div key={idx} className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <p className="font-black text-[#2D5A27] text-sm flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-green-500" />
+                            {item.cropName}
+                          </p>
+                          <p className="text-xs text-gray-600 font-medium">उपयोग विधि: {item.usage}</p>
+                          <p className="text-[10px] text-gray-400 font-bold">छिड़काव का सही समय: {item.sprayTime}</p>
+                        </div>
+                        <div className="bg-white border border-[#2D5A27]/20 px-4 py-2 rounded-xl text-center md:text-right">
+                          <span className="text-[9px] text-gray-400 font-black uppercase tracking-wider block">मात्रा / बीघा</span>
+                          <span className="font-black text-[#2D5A27] text-sm">{item.dosage}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Benefits & Key Uses */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
+              <h3 className="text-base font-black text-[#4A3728] uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                <Check className="w-5 h-5 text-green-600" />
+                मुख्य उपयोग एवं फायदे (Benefits & Uses)
+              </h3>
+              <div className="text-xs font-bold text-gray-700 leading-relaxed whitespace-pre-line space-y-2">
+                {result.benefits || result.usage}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
+              <h3 className="text-base font-black text-[#4A3728] uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                <Sparkles className="w-5 h-5 text-amber-500" />
+                विशेषताएं (Outstanding Features)
+              </h3>
+              <div className="text-xs font-bold text-gray-700 leading-relaxed whitespace-pre-line space-y-2">
+                {result.features || "विवरण उपलब्ध नहीं है"}
+              </div>
+            </div>
+          </div>
+
+          {/* Target crops, Pests, & Symptoms */}
+          <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
+            <h3 className="text-base font-black text-[#4A3728] uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+              <Info className="w-5 h-5 text-blue-500" />
+              लक्षित फसलें एवं रोग / कीट (Target Crops & Pests)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-1">
+                <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider">लक्षित फसलें (Crops)</p>
+                <p className="text-xs font-bold text-gray-800 leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">{result.targetCrops || "डेटाबेस अनुसार"}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider">नुकसान / रोग / कीट (Target Pests)</p>
+                <p className="text-xs font-bold text-gray-800 leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">{result.targetPests || "डेटाबेस अनुसार"}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider">लक्षण पहचान (Symptoms)</p>
+                <p className="text-xs font-bold text-gray-800 leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">{result.symptoms || "डेटाबेस अनुसार"}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Compatibility list */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
+              <h3 className="text-sm font-black text-[#4A3728] uppercase tracking-wider flex items-center gap-1.5 border-b pb-2">
+                <CheckCircle2 className="w-4.5 h-4.5 text-green-500" />
+                किसके साथ मिला सकते हैं (Compatible Products)
+              </h3>
+              <p className="text-xs font-bold text-green-800 bg-green-50/50 p-3.5 rounded-2xl border border-green-100 leading-relaxed">
+                {result.compatibleProducts || "सामान्यतः अधिकांश कीटनाशकों और कवकनाशकों के साथ मिला सकते हैं।"}
+              </p>
+            </div>
+
+            <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
+              <h3 className="text-sm font-black text-[#4A3728] uppercase tracking-wider flex items-center gap-1.5 border-b pb-2">
+                <AlertTriangle className="w-4.5 h-4.5 text-red-500" />
+                किसके साथ न मिलाएं (Incompatible Products)
+              </h3>
+              <p className="text-xs font-bold text-red-800 bg-red-50/50 p-3.5 rounded-2xl border border-red-100 leading-relaxed">
+                {result.incompatibleProducts || "क्षारीय (Alkaline) या बोर्डो मिश्रण (Bordeaux mixture) के साथ मिश्रण न करें।"}
+              </p>
+            </div>
+          </div>
+
+          {/* Precautions, Safety, PHI, REI, Waiting Period */}
+          <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-5">
+            <h3 className="text-base font-black text-[#4A3728] uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+              <ShieldAlert className="w-5 h-5 text-rose-500" />
+              सुरक्षा, सावधानियां एवं तकनीकी मापदंड (Safety & Precautions)
+            </h3>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-gray-50/50 p-3 rounded-xl text-center">
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">टॉक्सिसिटी (Toxicity)</span>
+                <p className="text-xs font-bold text-rose-600 mt-1">{result.toxicity || "मध्यम रूप से विषैला"}</p>
+              </div>
+              <div className="bg-gray-50/50 p-3 rounded-xl text-center">
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">प्रतीक्षा अवधि (Waiting Period)</span>
+                <p className="text-xs font-bold text-gray-800 mt-1">{result.waitingPeriod || "N/A"}</p>
+              </div>
+              <div className="bg-gray-50/50 p-3 rounded-xl text-center">
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">सुरक्षित अंतराल (PHI)</span>
+                <p className="text-xs font-bold text-gray-800 mt-1">{result.phi || "N/A"}</p>
+              </div>
+              <div className="bg-gray-50/50 p-3 rounded-xl text-center">
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">प्रवेश निषेध अवधि (REI)</span>
+                <p className="text-xs font-bold text-gray-800 mt-1">{result.rei || "N/A"}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div className="flex gap-3">
+                <div className="bg-rose-50 p-1.5 rounded-lg text-rose-600 shrink-0">
+                  <ShieldAlert className="w-4 h-4" />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-black text-rose-800 uppercase tracking-wider">सुरक्षा निर्देश (Safety Instructions)</p>
+                  <p className="text-xs text-gray-700 font-bold leading-relaxed">{result.safetyInstructions}</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="bg-blue-50 p-1.5 rounded-lg text-blue-600 shrink-0">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-black text-blue-800 uppercase tracking-wider">मिक्सिंग ऑर्डर (Mixing Order)</p>
+                  <p className="text-xs text-gray-700 font-bold leading-relaxed">{result.mixingOrder}</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="bg-amber-50 p-1.5 rounded-lg text-amber-600 shrink-0">
+                  <Thermometer className="w-4 h-4" />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-black text-amber-800 uppercase tracking-wider">स्प्रे का सही समय (Spray Timing & Rainfast)</p>
+                  <p className="text-xs text-gray-700 font-bold leading-relaxed">
+                    समय: {result.sprayTiming} | पानी से बचाव (Rainfast): {result.rainfastPeriod}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="bg-gray-100 p-1.5 rounded-lg text-gray-600 shrink-0">
+                  <Info className="w-4 h-4" />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider">भंडारण (Storage)</p>
+                  <p className="text-xs text-gray-700 font-bold leading-relaxed">{result.storage}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Web Sources / Citations */}
+          {result.sources && result.sources.length > 0 && (
+            <div className="bg-gray-50 rounded-3xl p-6 border border-gray-100 space-y-3.5 print:hidden">
+              <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">प्रमाणित जानकारी के आधिकारिक स्रोत:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {result.sources.map((src, i) => (
+                  <a 
+                    key={i} 
+                    href={src.uri} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 bg-white border border-gray-100 hover:border-[#2D5A27] rounded-xl transition-all group shadow-2xs"
+                  >
+                    <div className="truncate pr-4">
+                      <p className="text-xs font-bold text-gray-800 truncate group-hover:text-[#2D5A27]">{src.title}</p>
+                      <p className="text-[10px] text-gray-400 truncate mt-0.5">{src.uri}</p>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-[#2D5A27] shrink-0" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* Bookmarks & Search History Panels */}
+      {!result && !isLoading && (
+        <div className="space-y-6 print:hidden">
+          {/* Favorite Bookmarks list */}
+          {bookmarkedProducts.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-black text-[#4A3728] uppercase tracking-wider flex items-center gap-1.5">
+                <Heart className="w-4.5 h-4.5 text-rose-500 fill-rose-500" />
+                सुरक्षित उत्पाद जानकारी (Saved Products)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {bookmarkedProducts.map((prod, i) => (
+                  <div 
+                    key={i}
+                    onClick={() => setResult(prod)}
+                    className="bg-white border border-gray-100 hover:border-[#2D5A27] p-4 rounded-2xl cursor-pointer shadow-2xs transition-all hover:shadow-xs flex items-center justify-between group"
+                  >
+                    <div>
+                      <span className="text-[9px] bg-[#2D5A27]/10 text-[#2D5A27] px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                        {prod.category}
+                      </span>
+                      <h4 className="font-black text-gray-800 mt-1 group-hover:text-[#2D5A27] transition-all">{prod.productName}</h4>
+                      <p className="text-[10px] text-gray-400 font-medium mt-0.5">{prod.technicalName}</p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#2D5A27] transition-all" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recent searches history */}
+          {recentSearches.length > 0 && (
+            <div className="space-y-3 bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">हाल ही में खोजे गए उत्पाद (Recent)</h3>
+                <button 
+                  onClick={clearHistory}
+                  className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> सब साफ़ करें
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {recentSearches.map((term, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setQuery(term);
+                      handleSearch(term);
+                    }}
+                    className="bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-600 rounded-full px-4 py-2 text-xs font-bold transition-all"
+                  >
+                    {term}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Blank Info card */}
+          {!result && (
+            <div className="bg-gradient-to-br from-[#2D5A27]/5 to-[#EAB308]/5 rounded-3xl p-6 text-center space-y-4 border border-[#2D5A27]/5">
+              <Leaf className="w-16 h-16 text-[#2D5A27]/25 mx-auto animate-bounce" />
+              <div className="max-w-xs mx-auto">
+                <h3 className="font-black text-gray-700">भारत का सबसे एडवांस कृषि इनपुट ज्ञान सिस्टम</h3>
+                <p className="text-xs text-gray-500 font-medium mt-1 leading-relaxed">
+                  कोराजन, यूरिया, एनपीके, नीम तेल, बीज वैरायटी या किसी भी टेक्निकल नाम को सर्च करें और उसका सही प्रमाण, डोज़ और उपयोग तुरंत जानें।
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

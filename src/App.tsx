@@ -23,6 +23,7 @@ const CropCalendar = lazy(() => import('./pages/CropCalendar'));
 const Encyclopedia = lazy(() => import('./pages/Encyclopedia'));
 const EncyclopediaDetail = lazy(() => import('./pages/EncyclopediaDetail'));
 const AiAgriExpert = lazy(() => import('./pages/AiAgriExpert'));
+const AiProductKnowledge = lazy(() => import('./pages/AiProductKnowledge'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Profile = lazy(() => import('./pages/Profile'));
 const CartPage = lazy(() => import('./pages/CartPage'));
@@ -67,6 +68,7 @@ export default function App() {
                 <Route path="encyclopedia" element={<Encyclopedia />} />
                 <Route path="encyclopedia/:id" element={<EncyclopediaDetail />} />
                 <Route path="ai-call" element={<AiAgriExpert />} />
+                <Route path="ai-product-knowledge" element={<AiProductKnowledge />} />
                 <Route path="admin" element={<Admin />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="cart" element={<CartPage />} />

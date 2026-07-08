@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
-import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon } from 'lucide-react';
+import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
@@ -320,6 +320,39 @@ const Home: React.FC = () => {
                 <div className="flex items-center gap-1.5 mt-2">
                   <Sparkles className="w-3 h-3 text-[#EAB308]" />
                   <span className="text-[10px] font-black text-[#2D5A27] uppercase tracking-widest">इंसानों की तरह बातचीत</span>
+                </div>
+              </div>
+              <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all">
+                <ArrowRight className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
+        </Link>
+      </motion.div>
+
+      {/* AI Product Knowledge Entry Section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="pt-1"
+      >
+        <Link to="/ai-product-knowledge">
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-amber-100 relative overflow-hidden group active:scale-95 transition-all">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-amber-500/10 transition-colors" />
+            <div className="flex items-center gap-5">
+              <div className="relative">
+                <div className="absolute inset-0 bg-[#EAB308] rounded-2xl blur-lg opacity-20 animate-pulse" />
+                <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl flex items-center justify-center text-white relative z-10 shadow-lg">
+                  <BookOpen className="w-8 h-8 text-white" />
+                </div>
+                <div className="absolute -top-4 -right-3 z-20 bg-[#2D5A27] text-white text-[9.5px] font-black px-2.5 py-0.5 rounded-full shadow-md border-2 border-white">AI</div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-black text-[#4A3728] leading-tight">AI उत्पाद जानकारी</h3>
+                <p className="text-xs text-gray-500 font-bold mt-1">दवाई, खाद या टेक्निकल का सही डोज़ जानें</p>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <Sparkles className="w-3 h-3 text-[#2D5A27]" />
+                  <span className="text-[10px] font-black text-[#2D5A27] uppercase tracking-widest">सटीक डोज़ और उपयोग विधि</span>
                 </div>
               </div>
               <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all">
