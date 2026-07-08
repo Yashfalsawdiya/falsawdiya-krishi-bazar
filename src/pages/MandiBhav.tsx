@@ -31,7 +31,7 @@ const MandiBhav: React.FC = () => {
       const result = await fetchMandiBhav(mandi, userSettings?.geminiApiKey);
       setData(result);
     } catch (error: any) {
-      console.error(error);
+      console.warn(error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
         // If it's a key error, the service might have already returned fallback if handled,
         // but fetchMandiBhav throws if ai is null AND no cache/fallback?

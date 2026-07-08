@@ -81,10 +81,10 @@ async function testConnection() {
       console.warn("Firestore connection test: PARTIAL SUCCESS (Server reached but Quota Exceeded)");
       console.warn("The app will operate in OFFLINE/CACHE-ONLY mode until quota resets.");
     } else {
-      console.error("Firestore connection test: FAILED");
-      console.error("Error Message:", errorMessage);
+      console.warn("Firestore connection test: FAILED (App will run in local offline/cached mode)");
+      console.warn("Error Message:", errorMessage);
       if (errorMessage.includes('the client is offline')) {
-        console.error("The client is reporting offline mode. This may be due to environment constraints.");
+        console.warn("The client is reporting offline mode. This is expected in server-side/sandboxed test environments.");
       }
     }
   }

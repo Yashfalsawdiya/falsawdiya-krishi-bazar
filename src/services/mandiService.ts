@@ -238,7 +238,7 @@ export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?
     if (isQuotaError) {
       console.warn("Gemini API Quota Exceeded for Mandi Bhav. Using fallback.");
     } else {
-      console.error("Critical error fetching Mandi Bhav:", error);
+      console.warn("Critical error fetching Mandi Bhav:", error);
     }
 
     // If we have any cached data at all (even if expired), use it as a better fallback than static data

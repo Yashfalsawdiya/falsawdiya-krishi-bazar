@@ -141,7 +141,7 @@ const Home: React.FC = () => {
   const dailyTip = getDailyTip();
 
   useEffect(() => {
-    fetchWeather(24.1864, 75.6328).then(setWeather).catch(console.error);
+    fetchWeather(24.1864, 75.6328).then(setWeather).catch(console.warn);
   }, []);
 
   useEffect(() => {
@@ -150,7 +150,7 @@ const Home: React.FC = () => {
       fetchMandiBhav('Shamgarh', userSettings?.geminiApiKey)
         .then(setMandi)
         .catch(err => {
-          console.error("Mandi load failed, but service should have returned fallback", err);
+          console.warn("Mandi load failed, but service should have returned fallback", err);
         });
     }
   }, [appLoading, userSettings?.geminiApiKey]);

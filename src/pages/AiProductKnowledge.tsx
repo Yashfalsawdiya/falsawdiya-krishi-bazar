@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { 
   Search, Copy, Share2, Bookmark, BookmarkCheck, ArrowLeft, 
   RotateCcw, AlertTriangle, HelpCircle, CheckCircle2, ChevronRight, FileText, 
@@ -154,6 +156,7 @@ export default function AiProductKnowledge() {
 
   // Active Dosage Tab
   const [activeDosageTab, setActiveDosageTab] = useState<'liquid' | 'powder' | 'fertilizer'>('liquid');
+  const [isPdfGenerating, setIsPdfGenerating] = useState(false);
 
 
   // Load History & Bookmarks from localStorage
@@ -290,26 +293,45 @@ export default function AiProductKnowledge() {
   const copyToClipboard = () => {
     if (!result) return;
 
-    const shareText = `*🌱 फल्सावदिया कृषि बाज़ार - AI उत्पाद जानकारी 🌱*
+    let dosageText = '';
+    if (activeDosageTab === 'liquid') {
+      dosageText = `• प्रति 15 लीटर पंप: ${result.dosageLiquid.per15L || result.dosageLiquid.per16L || "उत्पाद श्रेणी अनुसार"}
+• प्रति 20 लीटर पंप: ${result.dosageLiquid.per20L || "उत्पाद श्रेणी अनुसार"}
+• प्रति बीघा: ${result.dosageLiquid.perBigha || "उत्पाद श्रेणी अनुसार"}`;
+    } else if (activeDosageTab === 'powder') {
+      dosageText = `• प्रति 15 लीटर पंप: ${result.dosagePowder.per15L || result.dosagePowder.per16L || "उत्पाद श्रेणी अनुसार"}
+• प्रति 20 लीटर पंप: ${result.dosagePowder.per20L || "उत्पाद श्रेणी अनुसार"}
+• प्रति बीघा: ${result.dosagePowder.perBigha || "उत्पाद श्रेणी अनुसार"}`;
+    } else {
+      dosageText = `• प्रति पौधा: ${result.dosageFertilizer.perPlant || "उत्पाद श्रेणी अनुसार"}
+• प्रति सिंचाई: ${result.dosageFertilizer.perIrrigation || "उत्पाद श्रेणी अनुसार"}
+• प्रति बीघा: ${result.dosageFertilizer.perBigha || "उत्पाद श्रेणी अनुसार"}`;
+    }
+
+    const shareText = `*फल्सावदिया कृषि बाज़ार* - AI उत्पाद जानकारी
 ----------------------------------------
+
 *उत्पाद का नाम:* ${result.productName}
+
 *कंपनी:* ${result.companyName}
+
 *तकनीकी नाम (Technical):* ${result.technicalName}
+
 *श्रेणी (Category):* ${result.category}
+
 *फॉर्मूलेशन (Formulation):* ${result.formulation}
 
 *📋 विवरण और फायदे:*
 ${result.benefits}
 
 *⭐ प्रमुख मात्रा (Dosage & Usage):*
-• प्रति 15 लीटर पंप: ${result.dosageLiquid.per15L || result.dosagePowder.per15L || "उत्पाद श्रेणी अनुसार"}
-• प्रति बीघा: ${result.dosageLiquid.perBigha || result.dosagePowder.perBigha || result.dosageFertilizer.perBigha || "उत्पाद श्रेणी अनुसार"}
+${dosageText}
 
 *⚠️ सावधानियां:*
 ${result.safetyInstructions}
 
 ----------------------------------------
-📌 अधिक जानकारी के लिए फल्सावदिया कृषि बाज़ार ऐप देखें।
+📌 अधिक जानकारी के लिए फल्सावदिया कृषि बाज़ार दुकान पर विजिट करें।
 📍 डिंपल चौराहा, शामगढ़ (म.प्र.)
 🕒 समय: सुबह 8:00 बजे से रात 8:00 बजे तक`;
 
@@ -331,8 +353,212 @@ ${result.safetyInstructions}
     }
   };
 
-  const triggerPrint = () => {
-    window.print();
+  const exportPdf = async () => {
+    if (!result) return;
+    setIsPdfGenerating(true);
+    
+    // Give browser time to close any open popups or complete pending renders
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // Canvas to convert modern CSS color functions (oklch, oklab, lch, lab) to sRGB rgba
+    const tempColorCanvas = document.createElement('canvas');
+    tempColorCanvas.width = 1;
+    tempColorCanvas.height = 1;
+    const tempColorCtx = tempColorCanvas.getContext('2d', { willReadFrequently: true });
+
+    const convertColorToRgba = (colorStr: string): string => {
+      if (!tempColorCtx) return '#9ca3af';
+      try {
+        tempColorCtx.clearRect(0, 0, 1, 1);
+        tempColorCtx.fillStyle = colorStr;
+        tempColorCtx.fillRect(0, 0, 1, 1);
+        const imgData = tempColorCtx.getImageData(0, 0, 1, 1).data;
+        const r = imgData[0];
+        const g = imgData[1];
+        const b = imgData[2];
+        const a = (imgData[3] / 255).toFixed(3);
+        return `rgba(${r}, ${g}, ${b}, ${a})`;
+      } catch (e) {
+        return '#9ca3af';
+      }
+    };
+
+    const cleanCssValue = (value: string): string => {
+      if (typeof value !== 'string') return value;
+      if (!value.includes('oklch') && !value.includes('oklab') && !value.includes('lch') && !value.includes('lab')) {
+        return value;
+      }
+      const colorRegex = /(oklch|oklab|lch|lab)\(([^)]+)\)/gi;
+      return value.replace(colorRegex, (match) => {
+        return convertColorToRgba(match);
+      });
+    };
+
+    // Color replacement helper functions to convert CSS color spaces in stylesheet texts
+    const replaceOklchWithHsl = (cssString: string) => {
+      return cssString.replace(/oklch\(([^)]+)\)/gi, (match) => convertColorToRgba(match));
+    };
+
+    const replaceOklabWithHsl = (cssString: string) => {
+      return cssString.replace(/oklab\(([^)]+)\)/gi, (match) => convertColorToRgba(match));
+    };
+
+    const replaceLchWithHsl = (cssString: string) => {
+      return cssString.replace(/lch\(([^)]+)\)/gi, (match) => convertColorToRgba(match));
+    };
+
+    const replaceLabWithHsl = (cssString: string) => {
+      return cssString.replace(/lab\(([^)]+)\)/gi, (match) => convertColorToRgba(match));
+    };
+
+    const cleanCss = (css: string) => {
+      return replaceLabWithHsl(replaceLchWithHsl(replaceOklabWithHsl(replaceOklchWithHsl(css))));
+    };
+
+    // Find all style elements and backup their text content
+    const styleElements = Array.from(document.querySelectorAll('style'));
+    const linkElements = Array.from(document.querySelectorAll('link[rel="stylesheet"]')) as HTMLLinkElement[];
+
+    const originalContents = styleElements.map(el => el.textContent || '');
+    const tempStyleElements: HTMLStyleElement[] = [];
+
+    // Backup original window.getComputedStyle
+    const originalGetComputedStyle = window.getComputedStyle;
+
+    try {
+      // 1. Override window.getComputedStyle to intercept oklch/oklab in computed style querying (vital for html2canvas)
+      window.getComputedStyle = function (elt, pseudoElt) {
+        const style = originalGetComputedStyle.call(this, elt, pseudoElt);
+        return new Proxy(style, {
+          get(target, prop, receiver) {
+            if (prop === 'getPropertyValue') {
+              return function(propertyName: string) {
+                const val = target.getPropertyValue(propertyName);
+                return cleanCssValue(val);
+              };
+            }
+            const value = Reflect.get(target, prop, receiver);
+            if (typeof prop === 'string' && typeof value === 'string') {
+              return cleanCssValue(value);
+            }
+            return value;
+          }
+        });
+      };
+
+      // 2. Temporarily clean styles inside style tags
+      styleElements.forEach(el => {
+        if (el.textContent) {
+          el.textContent = cleanCss(el.textContent);
+        }
+      });
+
+      // 3. Fetch, clean and temporarily override external same-origin stylesheet link elements
+      await Promise.all(linkElements.map(async link => {
+        const href = link.getAttribute('href');
+        if (href) {
+          try {
+            const url = new URL(href, window.location.href);
+            if (url.origin === window.location.origin) {
+              const response = await fetch(href);
+              if (response.ok) {
+                const rawText = await response.text();
+                const cleanedText = cleanCss(rawText);
+                
+                // Create a temporary style tag with the cleaned CSS
+                const tempStyle = document.createElement('style');
+                tempStyle.textContent = cleanedText;
+                document.head.appendChild(tempStyle);
+                tempStyleElements.push(tempStyle);
+                
+                // Disable the original link tag
+                link.disabled = true;
+              }
+            }
+          } catch (e) {
+            console.warn("Could not process stylesheet link:", href, e);
+          }
+        }
+      }));
+
+      const element = document.getElementById('pdf-export-template');
+      if (!element) {
+        throw new Error("Export template element not found");
+      }
+
+      // Temporarily show the template off-screen but with proper styling for rendering
+      const originalStyle = element.getAttribute('style') || '';
+      element.setAttribute('style', 'position: fixed; left: -9999px; top: 0px; width: 794px; background: white; z-index: -9999; padding: 40px; box-sizing: border-box; display: block;');
+
+      // Scroll to top of the offscreen template to ensure complete capture
+      element.scrollTop = 0;
+
+      const canvas = await html2canvas(element, {
+        scale: 2, // High DPI capture for ultra-sharp text
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: 794,
+        windowHeight: element.scrollHeight
+      });
+
+      // Restore original hidden style
+      element.setAttribute('style', originalStyle);
+
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const canvasHeightInMm = (canvas.height * imgWidth) / canvas.width;
+      
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      let heightLeft = canvasHeightInMm;
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, canvasHeightInMm);
+      heightLeft -= pageHeight;
+
+      // Add remaining pages if document is long
+      while (heightLeft > 0) {
+        position = position - pageHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, canvasHeightInMm);
+        heightLeft -= pageHeight;
+      }
+
+      // Add generation date & time metadata to filename
+      const now = new Date();
+      const formattedDate = now.toLocaleDateString('hi-IN').replace(/\//g, '-');
+      const formattedTime = now.toLocaleTimeString('hi-IN').replace(/:/g, '-').replace(/\s+/g, '');
+      
+      pdf.save(`${result.productName.trim().replace(/\s+/g, '_')}_विवरण_${formattedDate}_${formattedTime}.pdf`);
+    } catch (err) {
+      console.error("Error generating PDF:", err);
+      alert("PDF बनाने में त्रुटि हुई। कृपया पुनः प्रयास करें।");
+    } finally {
+      // Restore getComputedStyle
+      window.getComputedStyle = originalGetComputedStyle;
+
+      // Restore original style tags content
+      styleElements.forEach((el, index) => {
+        el.textContent = originalContents[index];
+      });
+
+      // Re-enable original link tags
+      linkElements.forEach(link => {
+        link.disabled = false;
+      });
+
+      // Remove temporary styles we appended
+      tempStyleElements.forEach(el => {
+        if (el.parentNode) {
+          el.parentNode.removeChild(el);
+        }
+      });
+
+      setIsPdfGenerating(false);
+    }
   };
 
   return (
@@ -376,7 +602,7 @@ ${result.safetyInstructions}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch(query)}
-            placeholder="उत्पाद का नाम, तकनीकी (Technical) या ब्रांड खोजें..."
+            placeholder="उत्पाद का नाम / Technical"
             className="w-full bg-white border-2 border-[#2D5A27]/20 rounded-3xl py-4 pl-12 pr-28 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] transition-all shadow-sm"
           />
           <Search className="absolute left-4 top-4.5 w-5 h-5 text-gray-400" />
@@ -534,23 +760,6 @@ ${result.safetyInstructions}
               >
                 {isCopied ? <ClipboardCheck className="w-4.5 h-4.5 text-green-600" /> : <Copy className="w-4.5 h-4.5" />}
                 <span>{isCopied ? 'कॉपी हो गया' : 'व्हाट्सएप कॉपी'}</span>
-              </button>
-
-              <button 
-                onClick={handleShare}
-                className="bg-gray-50 hover:bg-gray-100 p-2.5 rounded-xl border border-gray-100 text-gray-600 transition-all active:scale-95"
-                title="Share details"
-              >
-                <Share2 className="w-4.5 h-4.5" />
-              </button>
-
-              <button 
-                onClick={triggerPrint}
-                className="bg-[#2D5A27]/5 hover:bg-[#2D5A27]/10 text-[#2D5A27] p-2.5 rounded-xl border border-[#2D5A27]/10 flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95"
-                title="Export as PDF / Print"
-              >
-                <Printer className="w-4.5 h-4.5" />
-                <span>PDF / प्रिंट</span>
               </button>
             </div>
           </div>
@@ -1075,6 +1284,280 @@ ${result.safetyInstructions}
           </>
         )}
       </AnimatePresence>
+
+      {/* Off-screen PDF Export Template */}
+      {result && (
+        <div 
+          id="pdf-export-template" 
+          style={{ position: 'fixed', left: '-9999px', top: '0px', width: '794px', background: 'white', display: 'block', pointerEvents: 'none' }}
+          className="bg-white p-10 text-gray-800"
+        >
+          {/* Header */}
+          <div className="border-b-4 border-[#2D5A27] pb-4 mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <img 
+                src="/icon-192.png" 
+                alt="App Logo" 
+                className="w-16 h-16 rounded-full border-2 border-[#2D5A27]"
+                crossOrigin="anonymous"
+              />
+              <div>
+                <h1 className="text-2xl font-extrabold text-[#2D5A27] tracking-tight">फल्सावदिया कृषि बाज़ार</h1>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">किसान का भरोसा, हमारी पहचान</p>
+                <p className="text-[10px] text-[#2D5A27] font-extrabold bg-[#2D5A27]/5 px-2.5 py-0.5 rounded-full inline-block mt-1">
+                  AI उत्पाद ज्ञान साथी - विस्तृत तकनीकी रिपोर्ट
+                </p>
+              </div>
+            </div>
+            <div className="text-right text-xs font-bold text-gray-500">
+              <p>दिनांक: {new Date().toLocaleDateString('hi-IN')}</p>
+              <p>समय: {new Date().toLocaleTimeString('hi-IN')}</p>
+              <p className="text-[10px] text-gray-400 mt-1">शामगढ़, मध्य प्रदेश</p>
+            </div>
+          </div>
+
+          {/* Product Identification Summary */}
+          <div className="bg-[#2D5A27]/5 p-5 rounded-2xl border border-gray-100 mb-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="bg-[#2D5A27] text-white text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
+                  {result.category}
+                </span>
+                <h2 className="text-2xl font-black text-[#2D5A27] mt-2 leading-tight">{result.productName}</h2>
+                <p className="text-sm font-bold text-gray-600 mt-1">निर्माता: <span className="text-gray-900">{result.companyName}</span></p>
+              </div>
+              {result.fracIracHracGroup && (
+                <div className="bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl text-center">
+                  <span className="text-[9px] text-amber-700 font-extrabold uppercase tracking-widest block">Group Code</span>
+                  <span className="font-extrabold text-[#4A3728] text-xs">{result.fracIracHracGroup}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Technical Specifications Grid */}
+          <div className="mb-6">
+            <h3 className="text-sm font-extrabold text-[#4A3728] uppercase tracking-widest border-b border-gray-200 pb-1.5 mb-3 flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#2D5A27]" />
+              उत्पाद तकनीकी विवरण (Technical Details)
+            </h3>
+            <table className="w-full border-collapse">
+              <tbody>
+                <tr className="border-b border-gray-100">
+                  <td className="py-2.5 text-xs font-bold text-gray-400 w-1/3">उत्पाद का नाम (Product Name)</td>
+                  <td className="py-2.5 text-xs font-black text-gray-800">{result.productName}</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-2.5 text-xs font-bold text-gray-400">निर्माता कंपनी (Company)</td>
+                  <td className="py-2.5 text-xs font-black text-gray-800">{result.companyName}</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-2.5 text-xs font-bold text-gray-400">तकनीकी नाम (Technical Name)</td>
+                  <td className="py-2.5 text-xs font-black text-gray-800">{result.technicalName}</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-2.5 text-xs font-bold text-gray-400">उत्पाद श्रेणी (Category)</td>
+                  <td className="py-2.5 text-xs font-black text-gray-800">{result.category}</td>
+                </tr>
+                {result.formulation && (
+                  <tr className="border-b border-gray-100">
+                    <td className="py-2.5 text-xs font-bold text-gray-400">फॉर्मूलेशन (Formulation)</td>
+                    <td className="py-2.5 text-xs font-black text-gray-800">{result.formulation}</td>
+                  </tr>
+                )}
+                {result.activeIngredient && (
+                  <tr className="border-b border-gray-100">
+                    <td className="py-2.5 text-xs font-bold text-gray-400">सक्रिय तत्व (Active Ingredient)</td>
+                    <td className="py-2.5 text-xs font-black text-gray-800">{result.activeIngredient}</td>
+                  </tr>
+                )}
+                {result.modeOfAction && (
+                  <tr className="border-b border-gray-100">
+                    <td className="py-2.5 text-xs font-bold text-gray-400">कार्य करने का तरीका (Mode of Action)</td>
+                    <td className="py-2.5 text-xs font-bold text-gray-800 leading-relaxed">{result.modeOfAction}</td>
+                  </tr>
+                )}
+                {result.fracIracHracGroup && (
+                  <tr className="border-b border-gray-100">
+                    <td className="py-2.5 text-xs font-bold text-gray-400">IRAC / FRAC / HRAC Group</td>
+                    <td className="py-2.5 text-xs font-black text-gray-800">{result.fracIracHracGroup}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Target Crops & Pests */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+              <h4 className="text-xs font-extrabold text-gray-400 uppercase tracking-wider mb-1.5">लक्षित फसलें (Target Crops)</h4>
+              <p className="text-xs font-bold text-gray-800 leading-relaxed">{result.targetCrops || "सभी प्रमुख फसलें"}</p>
+            </div>
+            <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+              <h4 className="text-xs font-extrabold text-gray-400 uppercase tracking-wider mb-1.5">लक्षित कीट / बीमारी / खरपतवार</h4>
+              <p className="text-xs font-bold text-gray-800 leading-relaxed">{result.targetPests || "उत्पाद अनुसार"}</p>
+            </div>
+          </div>
+
+          {/* Description & Benefits */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+              <h4 className="text-xs font-extrabold text-gray-400 uppercase tracking-wider mb-1.5">मुख्य उपयोग एवं विवरण (Description)</h4>
+              <p className="text-xs font-bold text-gray-700 leading-relaxed whitespace-pre-line">{result.benefits || result.usage || "विवरण उपलब्ध नहीं है"}</p>
+            </div>
+            <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+              <h4 className="text-xs font-extrabold text-gray-400 uppercase tracking-wider mb-1.5">उत्पाद की विशेषताएं (Features)</h4>
+              <p className="text-xs font-bold text-gray-700 leading-relaxed whitespace-pre-line">{result.features || "विशेषताएं उपलब्ध नहीं हैं"}</p>
+            </div>
+          </div>
+
+          {/* Dosage & Usage (BIG SECTION) */}
+          <div className="mb-6">
+            <h3 className="text-sm font-extrabold text-[#4A3728] uppercase tracking-widest border-b border-gray-200 pb-1.5 mb-3 flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              दवा की मात्रा और उपयोग विधि (Dosage & Usage) - मुख्य सेक्शन
+            </h3>
+
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
+                <span className="text-[9px] text-gray-400 font-bold uppercase block">प्रति 15 लीटर पंप</span>
+                <span className="font-extrabold text-sm text-[#2D5A27] mt-1 block">
+                  {result.dosageLiquid.per15L || result.dosagePowder.per15L || "उत्पाद अनुसार"}
+                </span>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
+                <span className="text-[9px] text-gray-400 font-bold uppercase block">प्रति 16 लीटर पंप</span>
+                <span className="font-extrabold text-sm text-[#2D5A27] mt-1 block">
+                  {result.dosageLiquid.per16L || result.dosagePowder.per16L || "उत्पाद अनुसार"}
+                </span>
+              </div>
+              <div className="bg-[#2D5A27]/5 p-3 rounded-xl border border-[#2D5A27]/20 text-center">
+                <span className="text-[9px] text-[#2D5A27] font-extrabold uppercase block">प्रति 1 बीघा (Bigha)</span>
+                <span className="font-extrabold text-sm text-[#2D5A27] mt-1 block">
+                  {result.dosageLiquid.perBigha || result.dosagePowder.perBigha || result.dosageFertilizer.perBigha || "उत्पाद अनुसार"}
+                </span>
+              </div>
+            </div>
+
+            {/* Complete Technical Dosages table */}
+            <table className="w-full border border-gray-200 rounded-xl overflow-hidden text-xs text-left mb-4">
+              <thead>
+                <tr className="bg-gray-100 text-gray-600 font-bold border-b border-gray-200">
+                  <th className="p-2.5">पानी / पैमाना</th>
+                  <th className="p-2.5">तरल मात्रा (Liquid Dose)</th>
+                  <th className="p-2.5">पाउडर मात्रा (Powder Dose)</th>
+                  <th className="p-2.5">खाद मात्रा (Fertilizer)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-gray-150">
+                  <td className="p-2.5 font-bold text-gray-700">प्रति 1 लीटर पानी</td>
+                  <td className="p-2.5 text-gray-600">{result.dosageLiquid.perLiter || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosagePowder.perLiter || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosageFertilizer.perPlant ? `${result.dosageFertilizer.perPlant} (प्रति पौधा)` : "N/A"}</td>
+                </tr>
+                <tr className="border-b border-gray-150">
+                  <td className="p-2.5 font-bold text-gray-700">प्रति 15L टंकी (Pump)</td>
+                  <td className="p-2.5 text-gray-600 font-bold">{result.dosageLiquid.per15L || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600 font-bold">{result.dosagePowder.per15L || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosageFertilizer.perPlant ? `${result.dosageFertilizer.perPlant} (प्रति पौधा)` : "N/A"}</td>
+                </tr>
+                <tr className="border-b border-gray-150">
+                  <td className="p-2.5 font-bold text-gray-700">प्रति 200L ड्रम</td>
+                  <td className="p-2.5 text-gray-600">{result.dosageLiquid.per200L || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosagePowder.per200L || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosageFertilizer.perIrrigation ? `${result.dosageFertilizer.perIrrigation} (सिंचाई)` : "N/A"}</td>
+                </tr>
+                <tr className="border-b border-gray-150">
+                  <td className="p-2.5 font-bold text-gray-700">प्रति 500L टैंकर</td>
+                  <td className="p-2.5 text-gray-600">{result.dosageLiquid.per500L || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosagePowder.per500L || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosageFertilizer.perSpray ? `${result.dosageFertilizer.perSpray} (स्प्रे)` : "N/A"}</td>
+                </tr>
+                <tr className="bg-amber-50/40">
+                  <td className="p-2.5 font-black text-[#4A3728]">प्रति 1 बीघा (Bigha)</td>
+                  <td className="p-2.5 font-black text-amber-900">{result.dosageLiquid.perBigha || "N/A"}</td>
+                  <td className="p-2.5 font-black text-amber-900">{result.dosagePowder.perBigha || "N/A"}</td>
+                  <td className="p-2.5 font-black text-amber-900">{result.dosageFertilizer.perBigha || "N/A"}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Crop Specific Dosage */}
+            {result.cropSpecificDosage && result.cropSpecificDosage.length > 0 && (
+              <div className="mt-4 border border-gray-200 rounded-xl p-4 bg-gray-50/30">
+                <h4 className="text-xs font-black text-[#2D5A27] uppercase tracking-wider mb-2 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2D5A27]" />
+                  विभिन्न फसलों के अनुसार विस्तृत मात्रा (Crop Wise Dosages)
+                </h4>
+                <table className="w-full border-collapse text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-gray-500 font-bold">
+                      <th className="py-2">फसल का नाम</th>
+                      <th className="py-2">अनुशंसित डोज़</th>
+                      <th className="py-2">विधि</th>
+                      <th className="py-2">छिड़काव का समय</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.cropSpecificDosage.map((item, idx) => (
+                      <tr key={idx} className="border-b border-gray-100 last:border-0">
+                        <td className="py-2 font-black text-gray-800">{item.cropName}</td>
+                        <td className="py-2 font-black text-[#2D5A27]">{item.dosage}</td>
+                        <td className="py-2 text-gray-600">{item.usage}</td>
+                        <td className="py-2 text-gray-500">{item.sprayTime}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Management & Safety */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="border border-green-150 bg-green-50/20 p-4 rounded-xl">
+              <h4 className="text-xs font-extrabold text-green-700 uppercase tracking-wider mb-1.5">अनुकूलता (Compatibility)</h4>
+              <p className="text-xs font-bold text-green-800 leading-relaxed">
+                {result.compatibleProducts || "सभी सामान्य कीटनाशकों और कवकनाशकों के साथ सुरक्षित रूप से मिला सकते हैं।"}
+              </p>
+            </div>
+            <div className="border border-rose-150 bg-rose-50/20 p-4 rounded-xl">
+              <h4 className="text-xs font-extrabold text-rose-700 uppercase tracking-wider mb-1.5">सुरक्षा निर्देश (Safety Instructions)</h4>
+              <p className="text-xs font-bold text-rose-800 leading-relaxed">
+                {result.safetyInstructions || "सावधानीपूर्वक छिड़काव करें। मास्क और दस्तानों का प्रयोग करें। बच्चों की पहुँच से दूर रखें।"}
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Info Grid */}
+          <div className="grid grid-cols-4 gap-3 border-t border-gray-100 pt-5 mb-8">
+            <div className="text-center">
+              <span className="text-[9px] text-gray-400 font-extrabold uppercase block">छिड़काव का समय</span>
+              <span className="text-xs font-bold text-gray-800 mt-1 block">{result.sprayTiming || "सुबह / शाम"}</span>
+            </div>
+            <div className="text-center">
+              <span className="text-[9px] text-gray-400 font-extrabold uppercase block">वर्षा सुरक्षा काल</span>
+              <span className="text-xs font-bold text-gray-800 mt-1 block">{result.rainfastPeriod || "2 घंटे"}</span>
+            </div>
+            <div className="text-center">
+              <span className="text-[9px] text-gray-400 font-extrabold uppercase block">ज़हर का स्तर</span>
+              <span className="text-xs font-bold text-gray-800 mt-1 block">{result.toxicity || "सामान्य"}</span>
+            </div>
+            <div className="text-center">
+              <span className="text-[9px] text-gray-400 font-extrabold uppercase block">सुरक्षित भण्डारण</span>
+              <span className="text-xs font-bold text-gray-800 mt-1 block">{result.storage || "ठंडी/सूखी जगह"}</span>
+            </div>
+          </div>
+
+          {/* Professional Footer */}
+          <div className="border-t-2 border-gray-200 pt-4 flex justify-between items-center text-gray-400 text-[10px] font-bold">
+            <p>Generated by Falsawdiya Krishi Bazaar AI Product Knowledge</p>
+            <p>विवरण दिनांक: {new Date().toLocaleDateString('hi-IN')}</p>
+            <p>फल्सावदिया कृषि बाज़ार, शामगढ़, म.प्र.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
