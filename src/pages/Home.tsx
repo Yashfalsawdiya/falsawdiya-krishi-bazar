@@ -304,7 +304,7 @@ const Home: React.FC = () => {
         className="pt-2"
       >
         <Link to="/ai-call">
-          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-emerald-100 relative overflow-hidden group active:scale-95 transition-all">
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden group active:scale-95 transition-all">
             <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D5A27]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#2D5A27]/10 transition-colors" />
             <div className="flex items-center gap-5">
               <div className="relative">
@@ -336,7 +336,7 @@ const Home: React.FC = () => {
         className="pt-1"
       >
         <Link to="/ai-product-knowledge">
-          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-emerald-100 relative overflow-hidden group active:scale-95 transition-all">
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden group active:scale-95 transition-all">
             <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D5A27]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#2D5A27]/10 transition-colors" />
             <div className="flex items-center gap-5">
               <div className="relative">
