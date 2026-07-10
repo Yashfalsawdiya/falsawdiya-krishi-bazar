@@ -8,11 +8,22 @@ import {
   RotateCcw, AlertTriangle, HelpCircle, CheckCircle2, ChevronRight, FileText, 
   Sparkles, Droplets, Layers, ShieldAlert, Thermometer, ExternalLink, 
   RefreshCw, Star, Info, ClipboardCheck, Printer, Check, Leaf, Heart,
-  Camera, Image as ImageIcon, X
+  Camera, Image as ImageIcon, X, GripVertical, Trash2
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { getProductKnowledge, ProductKnowledgeResult, analyzeProductImage } from '../services/gemini';
 import ApiKeyModal from '../components/ApiKeyModal';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  onSnapshot, 
+  query as fsQuery, 
+  orderBy, 
+  writeBatch 
+} from 'firebase/firestore';
+import { db } from '../firebase';
 
 const CACHE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
@@ -131,9 +142,29 @@ const saveToCache = (query: string, data: ProductKnowledgeResult) => {
   }
 };
 
+const getSafeDocId = (productName: string): string => {
+  if (!productName) return 'product_unknown';
+  const cleanName = productName.toLowerCase().trim();
+  
+  // Calculate a simple, stable hash code for uniqueness
+  let hash = 0;
+  for (let i = 0; i < cleanName.length; i++) {
+    const char = cleanName.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  
+  // Create a clean alphanumeric prefix (characters [a-z0-9])
+  const safePrefix = cleanName
+    .replace(/[^a-z0-9]/g, '')
+    .substring(0, 30);
+    
+  return `${safePrefix || 'product'}_${Math.abs(hash)}`;
+};
+
 export default function AiProductKnowledge() {
   const navigate = useNavigate();
-  const { userSettings } = useAppContext();
+  const { user, userSettings } = useAppContext();
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ProductKnowledgeResult | null>(null);
@@ -158,14 +189,84 @@ export default function AiProductKnowledge() {
   const [activeDosageTab, setActiveDosageTab] = useState<'liquid' | 'powder' | 'fertilizer'>('liquid');
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
 
+  // Drag & Drop and Delete Confirmation states and refs
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragTimeoutRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<ProductKnowledgeResult | null>(null);
 
-  // Load History & Bookmarks from localStorage
+
+  // Real-time Firebase Cloud Sync & Local Cache Merging
   useEffect(() => {
-    const bookmarks = localStorage.getItem('product_knowledge_bookmarks');
-    if (bookmarks) {
-      setBookmarkedProducts(JSON.parse(bookmarks));
+    if (!user) {
+      const local = localStorage.getItem('product_knowledge_bookmarks');
+      if (local) {
+        try {
+          const parsed = JSON.parse(local) as ProductKnowledgeResult[];
+          setBookmarkedProducts(parsed.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+        } catch (e) {
+          console.error("Error parsing local bookmarks", e);
+        }
+      } else {
+        setBookmarkedProducts([]);
+      }
+      return;
     }
-  }, []);
+
+    console.log("Setting up Firestore sync for user:", user.uid);
+    const q = fsQuery(
+      collection(db, 'users', user.uid, 'savedProducts'),
+      orderBy('order', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const firestoreProducts = snapshot.docs.map(doc => doc.data() as ProductKnowledgeResult);
+      
+      const localStr = localStorage.getItem('product_knowledge_bookmarks');
+      let localProducts: ProductKnowledgeResult[] = [];
+      if (localStr) {
+        try {
+          localProducts = JSON.parse(localStr);
+        } catch (e) {}
+      }
+
+      const unsyncedLocal = localProducts.filter(lp => 
+        !firestoreProducts.some(fp => fp.productName.toLowerCase().trim() === lp.productName.toLowerCase().trim())
+      );
+
+      if (unsyncedLocal.length > 0) {
+        console.log("Migrating unsynced local products to Firestore:", unsyncedLocal.length);
+        try {
+          const batch = writeBatch(db);
+          let startOrder = firestoreProducts.length;
+          unsyncedLocal.forEach((lp) => {
+            const docId = getSafeDocId(lp.productName);
+            const ref = doc(db, 'users', user.uid, 'savedProducts', docId);
+            batch.set(ref, {
+              ...lp,
+              order: startOrder++,
+              createdAt: lp.createdAt || Date.now()
+            });
+          });
+          await batch.commit();
+          return;
+        } catch (err) {
+          console.error("Migration to Firestore failed:", err);
+        }
+      }
+
+      setBookmarkedProducts(firestoreProducts);
+      localStorage.setItem('product_knowledge_bookmarks', JSON.stringify(firestoreProducts));
+    }, (error) => {
+      console.error("Firestore savedProducts sync error:", error);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [user]);
 
   // Update Bookmark State when result changes
   useEffect(() => {
@@ -213,6 +314,7 @@ export default function AiProductKnowledge() {
         setIsFromCache(true);
         setResult(cachedData);
         setIsLoading(false);
+        autoSaveProduct(cachedData);
         return;
       }
     }
@@ -222,6 +324,7 @@ export default function AiProductKnowledge() {
       const data = await getProductKnowledge(term, userSettings.geminiApiKey);
       saveToCache(term, data);
       setResult(data);
+      autoSaveProduct(data);
     } catch (err: any) {
       console.error(err);
       setError(err.message || "जानकारी खोजने में समस्या आई। कृपया पुनः प्रयास करें।");
@@ -261,6 +364,7 @@ export default function AiProductKnowledge() {
       const data = await analyzeProductImage(base64Img, userSettings.geminiApiKey);
       saveToCache(data.productName || "scanned_image", data);
       setResult(data);
+      autoSaveProduct(data);
       if (data.productName && data.hasExactMatch) {
         setQuery(data.productName);
       }
@@ -272,22 +376,219 @@ export default function AiProductKnowledge() {
     }
   };
 
-  const toggleBookmark = () => {
-    if (!result) return;
+  // Intelligent Cloud Sync Auto Save, Delete, Order Actions
+  const autoSaveProduct = async (data: ProductKnowledgeResult) => {
+    if (!data || !data.productName || data.productName === "जानकारी उपलब्ध नहीं है") return;
+    
+    const cleanName = data.productName.toLowerCase().trim();
+    const docId = getSafeDocId(data.productName);
+    if (!docId) return;
 
-    let updated: ProductKnowledgeResult[];
-    if (isBookmarked) {
-      updated = bookmarkedProducts.filter(
-        (b) => b.productName.toLowerCase() !== result.productName.toLowerCase()
+    setBookmarkedProducts((prevList) => {
+      const alreadyExists = prevList.some(
+        p => p.productName.toLowerCase().trim() === cleanName
       );
-      setIsBookmarked(false);
-    } else {
-      updated = [result, ...bookmarkedProducts];
-      setIsBookmarked(true);
-    }
+      if (alreadyExists) return prevList;
 
-    setBookmarkedProducts(updated);
-    localStorage.setItem('product_knowledge_bookmarks', JSON.stringify(updated));
+      const newOrder = prevList.length;
+      const savedProductData = {
+        ...data,
+        order: newOrder,
+        createdAt: Date.now()
+      };
+
+      const updatedList = [...prevList, savedProductData].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      localStorage.setItem('product_knowledge_bookmarks', JSON.stringify(updatedList));
+
+      if (user) {
+        const userSavedProductsRef = doc(db, 'users', user.uid, 'savedProducts', docId);
+        setDoc(userSavedProductsRef, savedProductData).catch(err => {
+          console.error("Error auto-saving to Firestore:", err);
+        });
+      }
+
+      return updatedList;
+    });
+  };
+
+  const handleDeleteProduct = async (productName: string) => {
+    const docId = getSafeDocId(productName);
+    
+    setBookmarkedProducts((prevList) => {
+      const updatedList = prevList.filter(
+        p => p.productName.toLowerCase().trim() !== productName.toLowerCase().trim()
+      ).map((item, idx) => ({ ...item, order: idx }));
+
+      localStorage.setItem('product_knowledge_bookmarks', JSON.stringify(updatedList));
+
+      if (user) {
+        const userSavedProductRef = doc(db, 'users', user.uid, 'savedProducts', docId);
+        deleteDoc(userSavedProductRef).then(() => {
+          const batch = writeBatch(db);
+          updatedList.forEach((item) => {
+            const itemDocId = getSafeDocId(item.productName);
+            const itemRef = doc(db, 'users', user.uid, 'savedProducts', itemDocId);
+            batch.update(itemRef, { order: item.order });
+          });
+          return batch.commit();
+        }).catch(err => {
+          console.error("Error deleting from Firestore:", err);
+        });
+      }
+
+      return updatedList;
+    });
+
+    if (result && result.productName.toLowerCase().trim() === productName.toLowerCase().trim()) {
+      setResult(null);
+    }
+  };
+
+  const saveNewOrder = async (newList: ProductKnowledgeResult[]) => {
+    const orderedList = newList.map((item, idx) => ({
+      ...item,
+      order: idx
+    }));
+
+    setBookmarkedProducts(orderedList);
+    localStorage.setItem('product_knowledge_bookmarks', JSON.stringify(orderedList));
+
+    if (user) {
+      try {
+        const batch = writeBatch(db);
+        orderedList.forEach((item) => {
+          const itemDocId = getSafeDocId(item.productName);
+          const itemRef = doc(db, 'users', user.uid, 'savedProducts', itemDocId);
+          batch.set(itemRef, item, { merge: true });
+        });
+        await batch.commit();
+      } catch (err) {
+        console.error("Error saving new order to Firestore:", err);
+      }
+    }
+  };
+
+  // Touch handlers for Drag & Drop
+  const handleTouchStart = (index: number) => {
+    dragTimeoutRef.current = setTimeout(() => {
+      setDraggedIndex(index);
+      setIsDragging(true);
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }, 300);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || draggedIndex === null) return;
+    
+    if (e.cancelable) {
+      e.preventDefault();
+    }
+    
+    const touch = e.touches[0];
+    const clientY = touch.clientY;
+    
+    if (!containerRef.current) return;
+    
+    const children = Array.from(containerRef.current.children) as HTMLElement[];
+    let targetIndex = -1;
+    
+    for (let i = 0; i < children.length; i++) {
+      const rect = children[i].getBoundingClientRect();
+      if (clientY >= rect.top && clientY <= rect.bottom) {
+        targetIndex = i;
+        break;
+      }
+    }
+    
+    if (targetIndex !== -1 && targetIndex !== draggedIndex) {
+      setBookmarkedProducts((prevList) => {
+        const newList = [...prevList];
+        const temp = newList[draggedIndex];
+        newList[draggedIndex] = newList[targetIndex];
+        newList[targetIndex] = temp;
+        
+        const updatedList = newList.map((item, idx) => ({
+          ...item,
+          order: idx
+        }));
+        
+        localStorage.setItem('product_knowledge_bookmarks', JSON.stringify(updatedList));
+        setDraggedIndex(targetIndex);
+        return updatedList;
+      });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (dragTimeoutRef.current) {
+      clearTimeout(dragTimeoutRef.current);
+      dragTimeoutRef.current = null;
+    }
+    if (isDragging) {
+      setIsDragging(false);
+      setDraggedIndex(null);
+      saveNewOrder(bookmarkedProducts);
+    }
+  };
+
+  // Mouse Down / Desktop Drag Handler
+  const handleMouseDown = (index: number) => {
+    setDraggedIndex(index);
+    setIsDragging(true);
+    
+    let currentDraggedIndex = index;
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      const clientY = e.clientY;
+      if (!containerRef.current) return;
+      
+      const children = Array.from(containerRef.current.children) as HTMLElement[];
+      let targetIndex = -1;
+      
+      for (let idx = 0; idx < children.length; idx++) {
+        const rect = children[idx].getBoundingClientRect();
+        if (clientY >= rect.top && clientY <= rect.bottom) {
+          targetIndex = idx;
+          break;
+        }
+      }
+      
+      if (targetIndex !== -1 && targetIndex !== currentDraggedIndex) {
+        setBookmarkedProducts((prevList) => {
+          const newList = [...prevList];
+          const temp = newList[currentDraggedIndex];
+          newList[currentDraggedIndex] = newList[targetIndex];
+          newList[targetIndex] = temp;
+          
+          const updatedList = newList.map((item, idx) => ({
+            ...item,
+            order: idx
+          }));
+          
+          localStorage.setItem('product_knowledge_bookmarks', JSON.stringify(updatedList));
+          return updatedList;
+        });
+        currentDraggedIndex = targetIndex;
+        setDraggedIndex(targetIndex);
+      }
+    };
+    
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      setDraggedIndex(null);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      
+      setBookmarkedProducts(finalList => {
+        saveNewOrder(finalList);
+        return finalList;
+      });
+    };
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
   };
 
   const copyToClipboard = () => {
@@ -763,13 +1064,16 @@ ${result.safetyInstructions}
           <div className="flex items-center justify-between bg-white border border-gray-100 p-3 rounded-2xl shadow-sm print:hidden">
             <div className="flex items-center gap-1.5">
               <button 
-                onClick={toggleBookmark}
-                className={`p-2.5 rounded-xl transition-all ${isBookmarked ? 'bg-amber-50 text-amber-500 border border-amber-200' : 'bg-gray-50 hover:bg-gray-100 text-gray-600'}`}
-                title="Save Product"
+                onClick={() => {
+                  setProductToDelete(result);
+                  setIsDeleteConfirmOpen(true);
+                }}
+                className="p-2.5 rounded-xl transition-all bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 flex items-center gap-1.5 cursor-pointer"
+                title="Delete Saved Product"
               >
-                {isBookmarked ? <BookmarkCheck className="w-5 h-5" /> : <Bookmark className="w-5 h-5" />}
+                <Trash2 className="w-4.5 h-4.5 animate-none" />
+                <span className="text-xs font-black">सुरक्षित सूची से हटाएं (Delete)</span>
               </button>
-              <span className="text-xs font-bold text-gray-500">{isBookmarked ? 'सुरक्षित है' : 'सुरक्षित करें'}</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1197,21 +1501,53 @@ ${result.safetyInstructions}
                 <Heart className="w-4.5 h-4.5 text-rose-500 fill-rose-500" />
                 सुरक्षित उत्पाद जानकारी (Saved Products)
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div 
+                ref={containerRef}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                className="flex flex-col gap-3"
+              >
                 {bookmarkedProducts.map((prod, i) => (
                   <div 
-                    key={i}
+                    key={prod.productName}
                     onClick={() => setResult(prod)}
-                    className="bg-white border border-gray-100 hover:border-[#2D5A27] p-4 rounded-2xl cursor-pointer shadow-2xs transition-all hover:shadow-xs flex items-center justify-between group"
+                    className={`bg-white border p-4 rounded-2xl cursor-pointer shadow-2xs transition-all flex items-center justify-between group select-none ${draggedIndex === i ? 'opacity-40 scale-[0.98] border-amber-300 bg-amber-50/20' : 'border-gray-100 hover:border-[#2D5A27] hover:shadow-xs'}`}
                   >
-                    <div>
-                      <span className="text-[9px] bg-[#2D5A27]/10 text-[#2D5A27] px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
-                        {prod.category}
-                      </span>
-                      <h4 className="font-black text-gray-800 mt-1 group-hover:text-[#2D5A27] transition-all">{prod.productName}</h4>
-                      <p className="text-[10px] text-gray-400 font-medium mt-0.5">{prod.technicalName}</p>
+                    <div className="flex items-center gap-3">
+                      {/* Drag Handle */}
+                      <div 
+                        onTouchStart={() => handleTouchStart(i)}
+                        onTouchEnd={handleTouchEnd}
+                        onMouseDown={() => handleMouseDown(i)}
+                        className="p-2 -ml-2 text-gray-300 hover:text-[#2D5A27] cursor-grab active:cursor-grabbing shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <GripVertical className="w-4.5 h-4.5" />
+                      </div>
+
+                      <div>
+                        <span className="text-[9px] bg-[#2D5A27]/10 text-[#2D5A27] px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                          {prod.category}
+                        </span>
+                        <h4 className="font-black text-gray-800 mt-1 group-hover:text-[#2D5A27] transition-all">{prod.productName}</h4>
+                        <p className="text-[10px] text-gray-400 font-medium mt-0.5">{prod.technicalName}</p>
+                      </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#2D5A27] transition-all" />
+
+                    <div className="flex items-center gap-1.5">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProductToDelete(prod);
+                          setIsDeleteConfirmOpen(true);
+                        }}
+                        className="p-2 text-gray-300 hover:text-rose-600 rounded-xl hover:bg-rose-50 transition-all cursor-pointer"
+                        title="हटाएं (Delete)"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#2D5A27] transition-all" />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1578,6 +1914,61 @@ ${result.safetyInstructions}
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AnimatePresence>
+        {isDeleteConfirmOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsDeleteConfirmOpen(false)}
+              className="fixed inset-0 bg-black z-50 pointer-events-auto"
+            />
+
+            {/* Dialog Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed inset-0 m-auto w-full max-w-sm h-fit bg-white rounded-3xl p-6 shadow-2xl z-50 border border-gray-100 flex flex-col space-y-4 pointer-events-auto"
+            >
+              <div className="text-center space-y-2">
+                <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-1.5">
+                  <Trash2 className="w-6 h-6 animate-none" />
+                </div>
+                <h4 className="text-lg font-black text-gray-800">उत्पाद की जानकारी हटाएं?</h4>
+                <p className="text-xs text-gray-500 font-bold leading-relaxed">
+                  क्या आप सचमुच <span className="text-rose-600">"{productToDelete?.productName}"</span> की जानकारी को सुरक्षित सूची से हटाना चाहते हैं?
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  onClick={() => setIsDeleteConfirmOpen(false)}
+                  className="py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl text-xs font-black transition-all active:scale-95 cursor-pointer"
+                >
+                  रद्द करें (Cancel)
+                </button>
+                <button
+                  onClick={() => {
+                    if (productToDelete) {
+                      handleDeleteProduct(productToDelete.productName);
+                    }
+                    setIsDeleteConfirmOpen(false);
+                    setProductToDelete(null);
+                  }}
+                  className="py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-black transition-all active:scale-95 cursor-pointer"
+                >
+                  हटाएं (Delete)
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

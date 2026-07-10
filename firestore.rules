@@ -180,6 +180,10 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /users/{userId}/{subcollection}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
     // Settings Collection
     match /settings/{settingId} {
       allow read: if true;

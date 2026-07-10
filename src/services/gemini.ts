@@ -63,7 +63,7 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
       }
     });
 
-    return JSON.parse(response.text);
+    return cleanAndParseJson<DiseaseAnalysis>(response.text);
   } catch (error: any) {
     const friendlyError = getFriendlyAiError(error);
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
@@ -249,6 +249,8 @@ export interface ProductKnowledgeResult {
   }>;
   hasExactMatch: boolean;
   sources?: Array<{ title: string; uri: string }>;
+  order?: number;
+  createdAt?: number;
 }
 
 const DEFAULT_PRODUCT_KNOWLEDGE: ProductKnowledgeResult = {
@@ -310,12 +312,37 @@ const DEFAULT_PRODUCT_KNOWLEDGE: ProductKnowledgeResult = {
   hasExactMatch: false
 };
 
+function repairUnescapedQuotes(jsonText: string): string {
+  const schemaKeys = [
+    "productName", "companyName", "technicalName", "category", "formulation", "activeIngredient", 
+    "modeOfAction", "fracIracHracGroup", "targetCrops", "targetPests", "symptoms", "usage", 
+    "benefits", "features", "compatibleProducts", "incompatibleProducts", "waitingPeriod", 
+    "phi", "rei", "toxicity", "safetyInstructions", "mixingOrder", "sprayTiming", 
+    "rainfastPeriod", "storage", "dosageLiquid", "dosagePowder", "dosageFertilizer", 
+    "cropSpecificDosage", "hasExactMatch", "perLiter", "per15L", "per16L", "per20L", 
+    "per25L", "per200L", "per500L", "perBigha", "perPlant", "perPot", "perIrrigation", 
+    "perSpray", "perDrenching", "totalAmount", "cropName", "dosage", "sprayTime", "sources", "title", "uri",
+    "analysis", "keywords"
+  ];
+
+  const keysPattern = schemaKeys.join('|');
+  const regex = new RegExp('"(' + keysPattern + ')"\\s*:\\s*"(.*?)"\\s*(?=,\\s*"(?:' + keysPattern + ')"\\s*:|\\s*\\}|\\s*\\])', 'gs');
+
+  return jsonText.replace(regex, (match, key, value) => {
+    const escapedValue = value.replace(/\\"/g, '"').replace(/"/g, '\\"');
+    return `"${key}":"${escapedValue}"`;
+  });
+}
+
 function cleanAndParseJson<T>(jsonText: string): T {
   // 1. Remove markdown formatting if present
   let cleaned = jsonText.trim();
   if (cleaned.startsWith("```")) {
     cleaned = cleaned.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/, "").trim();
   }
+
+  // Repair unescaped double quotes inside string values before parsing
+  cleaned = repairUnescapedQuotes(cleaned);
 
   // 2. Character-by-character scan to escape control characters inside string literals
   let result = "";

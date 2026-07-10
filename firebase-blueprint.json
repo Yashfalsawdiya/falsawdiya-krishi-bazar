@@ -72,6 +72,41 @@
       },
       "required": ["uid", "email", "role"]
     },
+    "SavedProduct": {
+      "title": "SavedProduct",
+      "description": "Information about a product saved by the user.",
+      "type": "object",
+      "properties": {
+        "productName": { "type": "string" },
+        "companyName": { "type": "string" },
+        "technicalName": { "type": "string" },
+        "category": { "type": "string" },
+        "formulation": { "type": "string" },
+        "activeIngredient": { "type": "string" },
+        "modeOfAction": { "type": "string" },
+        "fracIracHracGroup": { "type": "string" },
+        "targetCrops": { "type": "string" },
+        "targetPests": { "type": "string" },
+        "benefits": { "type": "string" },
+        "usage": { "type": "string" },
+        "features": { "type": "string" },
+        "compatibleProducts": { "type": "string" },
+        "incompatibleProducts": { "type": "string" },
+        "toxicity": { "type": "string" },
+        "waitingPeriod": { "type": "string" },
+        "phi": { "type": "string" },
+        "rei": { "type": "string" },
+        "safetyInstructions": { "type": "string" },
+        "mixingOrder": { "type": "string" },
+        "sprayTiming": { "type": "string" },
+        "rainfastPeriod": { "type": "string" },
+        "storage": { "type": "string" },
+        "hasExactMatch": { "type": "boolean" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["productName", "category", "order"]
+    },
     "ImageSource": {
       "title": "ImageSource",
       "description": "Dual source image with primary and fallback URLs.",
@@ -215,6 +250,10 @@
     "/users/{userId}": {
       "schema": "User",
       "description": "User profiles and permissions."
+    },
+    "/users/{userId}/savedProducts/{savedProductId}": {
+      "schema": "SavedProduct",
+      "description": "Collection of search results saved by the user."
     },
     "/settings/content": {
       "schema": "AppContent",
