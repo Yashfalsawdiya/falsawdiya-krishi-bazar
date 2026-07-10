@@ -56,11 +56,51 @@ const DiseaseDetection: React.FC = () => {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImage(reader.result as string);
-        setAnalysisResult(null);
+        const base64 = reader.result as string;
+        
+        // Downscale and compress captured photo using HTML Canvas to keep memory low and prevent timeouts/errors
+        const img = new Image();
+        img.onload = () => {
+          const maxWidth = 1024;
+          const maxHeight = 1024;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+          
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+            setImage(compressedBase64);
+          } else {
+            setImage(base64);
+          }
+          setAnalysisResult(null);
+        };
+        img.onerror = () => {
+          setImage(base64);
+          setAnalysisResult(null);
+        };
+        img.src = base64;
       };
       reader.readAsDataURL(file);
     }
+    // Clear input value to allow uploading the same file again on subsequent triggers
+    e.target.value = '';
   };
 
   const analyzeImage = async () => {
@@ -68,7 +108,8 @@ const DiseaseDetection: React.FC = () => {
     
     if (appLoading) return;
 
-    if (!userSettings?.geminiApiKey) {
+    const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
+    if (!effectiveApiKey) {
       setErrorMessage(undefined);
       setIsModalOpen(true);
       return;
@@ -76,7 +117,7 @@ const DiseaseDetection: React.FC = () => {
 
     setLoading(true);
     try {
-      const analysis = await detectDisease(image, userSettings?.geminiApiKey);
+      const analysis = await detectDisease(image, effectiveApiKey);
       setAnalysisResult(analysis);
     } catch (error: any) {
       console.error("Analysis failed:", error);

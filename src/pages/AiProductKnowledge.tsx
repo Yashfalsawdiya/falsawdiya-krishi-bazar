@@ -197,6 +197,25 @@ export default function AiProductKnowledge() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<ProductKnowledgeResult | null>(null);
 
+  // Gesture, pointer, and auto-scroll tracking refs
+  const startTouchXRef = useRef<number>(0);
+  const startTouchYRef = useRef<number>(0);
+  const startTouchTimeRef = useRef<number>(0);
+  const isLongPressActiveRef = useRef<boolean>(false);
+  const didDragRef = useRef<boolean>(false);
+  const isDraggingRef = useRef<boolean>(false);
+  const draggedIndexRef = useRef<number | null>(null);
+  const autoScrollFrameRef = useRef<number | null>(null);
+  const pointerYRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    isDraggingRef.current = isDragging;
+  }, [isDragging]);
+
+  useEffect(() => {
+    draggedIndexRef.current = draggedIndex;
+  }, [draggedIndex]);
+
 
   // Real-time Firebase Cloud Sync & Local Cache Merging
   useEffect(() => {
@@ -295,7 +314,8 @@ export default function AiProductKnowledge() {
     const term = searchQuery.trim();
     if (!term) return;
 
-    if (!userSettings?.geminiApiKey) {
+    const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
+    if (!effectiveApiKey) {
       setApiKeyErrorMessage("AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key सेट करें।");
       setIsApiKeyModalOpen(true);
       return;
@@ -321,7 +341,7 @@ export default function AiProductKnowledge() {
     setIsFromCache(false);
 
     try {
-      const data = await getProductKnowledge(term, userSettings.geminiApiKey);
+      const data = await getProductKnowledge(term, effectiveApiKey);
       saveToCache(term, data);
       setResult(data);
       autoSaveProduct(data);
@@ -340,15 +360,54 @@ export default function AiProductKnowledge() {
       reader.onloadend = () => {
         const base64 = reader.result as string;
         setSelectedImage(base64);
-        handleImageSearch(base64);
+        
+        // Downscale and compress captured photo using HTML Canvas to keep memory low and prevent timeouts/errors
+        const img = new Image();
+        img.onload = () => {
+          const maxWidth = 1024;
+          const maxHeight = 1024;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+          
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+            handleImageSearch(compressedBase64);
+          } else {
+            handleImageSearch(base64);
+          }
+        };
+        img.onerror = () => {
+          handleImageSearch(base64);
+        };
+        img.src = base64;
       };
       reader.readAsDataURL(file);
     }
+    // Clear input value to allow uploading the same file again on subsequent triggers
+    e.target.value = '';
   };
 
   const handleImageSearch = async (base64Img: string) => {
     if (isLoading) return;
-    if (!userSettings?.geminiApiKey) {
+    const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
+    if (!effectiveApiKey) {
       setApiKeyErrorMessage("AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key सेट करें।");
       setIsApiKeyModalOpen(true);
       return;
@@ -361,7 +420,7 @@ export default function AiProductKnowledge() {
     setIsFromCache(false);
 
     try {
-      const data = await analyzeProductImage(base64Img, userSettings.geminiApiKey);
+      const data = await analyzeProductImage(base64Img, effectiveApiKey);
       saveToCache(data.productName || "scanned_image", data);
       setResult(data);
       autoSaveProduct(data);
@@ -468,28 +527,41 @@ export default function AiProductKnowledge() {
     }
   };
 
-  // Touch handlers for Drag & Drop
-  const handleTouchStart = (index: number) => {
-    dragTimeoutRef.current = setTimeout(() => {
-      setDraggedIndex(index);
-      setIsDragging(true);
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
+  // Touch & Mouse handlers with Long Press, Lift Effect, gesture lock, and smooth Auto Scroll
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const preventDefaultScroll = (e: TouchEvent) => {
+      if (e.cancelable) {
+        e.preventDefault();
       }
-    }, 300);
+    };
+
+    // Use non-passive touchmove listener to completely prevent native scroll/gesture conflicts
+    window.addEventListener('touchmove', preventDefaultScroll, { passive: false });
+    
+    // Temporarily disable scroll on body to guarantee gesture priority on mobile
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+
+    return () => {
+      window.removeEventListener('touchmove', preventDefaultScroll);
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [isDragging]);
+
+  const stopAutoScroll = () => {
+    if (autoScrollFrameRef.current) {
+      cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = null;
+    }
+    pointerYRef.current = null;
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || draggedIndex === null) return;
-    
-    if (e.cancelable) {
-      e.preventDefault();
-    }
-    
-    const touch = e.touches[0];
-    const clientY = touch.clientY;
-    
-    if (!containerRef.current) return;
+  const recalculateDragPosition = (clientY: number) => {
+    const currentDraggedIndex = draggedIndexRef.current;
+    if (currentDraggedIndex === null || !containerRef.current) return;
     
     const children = Array.from(containerRef.current.children) as HTMLElement[];
     let targetIndex = -1;
@@ -502,11 +574,11 @@ export default function AiProductKnowledge() {
       }
     }
     
-    if (targetIndex !== -1 && targetIndex !== draggedIndex) {
+    if (targetIndex !== -1 && targetIndex !== currentDraggedIndex) {
       setBookmarkedProducts((prevList) => {
         const newList = [...prevList];
-        const temp = newList[draggedIndex];
-        newList[draggedIndex] = newList[targetIndex];
+        const temp = newList[currentDraggedIndex];
+        newList[currentDraggedIndex] = newList[targetIndex];
         newList[targetIndex] = temp;
         
         const updatedList = newList.map((item, idx) => ({
@@ -515,33 +587,180 @@ export default function AiProductKnowledge() {
         }));
         
         localStorage.setItem('product_knowledge_bookmarks', JSON.stringify(updatedList));
-        setDraggedIndex(targetIndex);
         return updatedList;
       });
+      setDraggedIndex(targetIndex);
     }
   };
 
-  const handleTouchEnd = () => {
+  const startAutoScroll = () => {
+    if (autoScrollFrameRef.current) return;
+    
+    const scrollLoop = () => {
+      if (pointerYRef.current === null || !isDraggingRef.current) {
+        autoScrollFrameRef.current = null;
+        return;
+      }
+      
+      const clientY = pointerYRef.current;
+      const threshold = 120; // pixels from the viewport edge
+      const speedMultiplier = 0.15;
+      
+      let speed = 0;
+      if (clientY < threshold) {
+        // Near top: auto-scroll UP
+        speed = -Math.max(3, (threshold - clientY) * speedMultiplier);
+      } else if (clientY > window.innerHeight - threshold) {
+        // Near bottom: auto-scroll DOWN
+        speed = Math.max(3, (clientY - (window.innerHeight - threshold)) * speedMultiplier);
+      }
+      
+      if (speed !== 0) {
+        window.scrollBy(0, speed);
+        recalculateDragPosition(clientY);
+      }
+      
+      autoScrollFrameRef.current = requestAnimationFrame(scrollLoop);
+    };
+    
+    autoScrollFrameRef.current = requestAnimationFrame(scrollLoop);
+  };
+
+  // Card Touch Start - handles both direct drag handle touch and card-wide long press
+  const handleCardTouchStart = (e: React.TouchEvent, index: number) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) return; // ignore delete and other buttons
+
+    const touch = e.touches[0];
+    startTouchXRef.current = touch.clientX;
+    startTouchYRef.current = touch.clientY;
+    startTouchTimeRef.current = Date.now();
+    isLongPressActiveRef.current = false;
+    didDragRef.current = false;
+
+    if (dragTimeoutRef.current) {
+      clearTimeout(dragTimeoutRef.current);
+    }
+
+    // Direct drag handle touch starts drag immediately, rest of card requires 300ms long press
+    const isDragHandle = target.closest('.drag-handle') !== null;
+    const delay = isDragHandle ? 0 : 300;
+
+    dragTimeoutRef.current = setTimeout(() => {
+      isLongPressActiveRef.current = true;
+      didDragRef.current = true;
+      setDraggedIndex(index);
+      setIsDragging(true);
+      
+      if (navigator.vibrate) {
+        navigator.vibrate(50); // Haptic vibration on lift
+      }
+      
+      pointerYRef.current = touch.clientY;
+      startAutoScroll();
+    }, delay);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    pointerYRef.current = touch.clientY;
+
+    if (!isDragging) {
+      // Cancel dragging if user starts scrolling/moving before long-press fires
+      const diffX = Math.abs(touch.clientX - startTouchXRef.current);
+      const diffY = Math.abs(touch.clientY - startTouchYRef.current);
+      if (diffX > 8 || diffY > 8) {
+        if (dragTimeoutRef.current) {
+          clearTimeout(dragTimeoutRef.current);
+          dragTimeoutRef.current = null;
+        }
+      }
+      return;
+    }
+
+    if (e.cancelable) {
+      e.preventDefault();
+    }
+
+    recalculateDragPosition(touch.clientY);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent, index: number) => {
     if (dragTimeoutRef.current) {
       clearTimeout(dragTimeoutRef.current);
       dragTimeoutRef.current = null;
     }
+    
+    stopAutoScroll();
+
     if (isDragging) {
       setIsDragging(false);
       setDraggedIndex(null);
       saveNewOrder(bookmarkedProducts);
+      
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    } else {
+      // Click detection for brief tap
+      const duration = Date.now() - startTouchTimeRef.current;
+      const touch = e.changedTouches[0];
+      const diffX = Math.abs(touch.clientX - startTouchXRef.current);
+      const diffY = Math.abs(touch.clientY - startTouchYRef.current);
+      
+      if (duration < 300 && diffX < 8 && diffY < 8) {
+        setResult(bookmarkedProducts[index]);
+      }
     }
   };
 
-  // Mouse Down / Desktop Drag Handler
-  const handleMouseDown = (index: number) => {
-    setDraggedIndex(index);
-    setIsDragging(true);
-    
+  // Card Mouse Down - handles desktop long press and direct drag handle dragging
+  const handleCardMouseDown = (e: React.MouseEvent, index: number) => {
+    if (e.button !== 0) return; // Only left click
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) return;
+
+    startTouchXRef.current = e.clientX;
+    startTouchYRef.current = e.clientY;
+    startTouchTimeRef.current = Date.now();
+    isLongPressActiveRef.current = false;
+    didDragRef.current = false;
+
+    if (dragTimeoutRef.current) {
+      clearTimeout(dragTimeoutRef.current);
+    }
+
+    const isDragHandle = target.closest('.drag-handle') !== null;
+    const delay = isDragHandle ? 0 : 300;
+
+    dragTimeoutRef.current = setTimeout(() => {
+      isLongPressActiveRef.current = true;
+      didDragRef.current = true;
+      setDraggedIndex(index);
+      setIsDragging(true);
+      
+      pointerYRef.current = e.clientY;
+      startAutoScroll();
+    }, delay);
+
     let currentDraggedIndex = index;
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      const clientY = e.clientY;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const clientY = moveEvent.clientY;
+      pointerYRef.current = clientY;
+
+      if (!isDraggingRef.current) {
+        const diffX = Math.abs(moveEvent.clientX - startTouchXRef.current);
+        const diffY = Math.abs(moveEvent.clientY - startTouchYRef.current);
+        if (diffX > 6 || diffY > 6) {
+          if (dragTimeoutRef.current) {
+            clearTimeout(dragTimeoutRef.current);
+            dragTimeoutRef.current = null;
+          }
+        }
+        return;
+      }
+
       if (!containerRef.current) return;
       
       const children = Array.from(containerRef.current.children) as HTMLElement[];
@@ -574,21 +793,41 @@ export default function AiProductKnowledge() {
         setDraggedIndex(targetIndex);
       }
     };
-    
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      setDraggedIndex(null);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+
+    const onMouseUp = (upEvent: MouseEvent) => {
+      if (dragTimeoutRef.current) {
+        clearTimeout(dragTimeoutRef.current);
+        dragTimeoutRef.current = null;
+      }
       
-      setBookmarkedProducts(finalList => {
-        saveNewOrder(finalList);
-        return finalList;
-      });
+      stopAutoScroll();
+      
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+
+      if (isLongPressActiveRef.current || isDraggingRef.current) {
+        setIsDragging(false);
+        setDraggedIndex(null);
+        
+        setBookmarkedProducts((finalList) => {
+          saveNewOrder(finalList);
+          return finalList;
+        });
+        
+        upEvent.preventDefault();
+        upEvent.stopPropagation();
+      } else {
+        const duration = Date.now() - startTouchTimeRef.current;
+        const diffX = Math.abs(upEvent.clientX - startTouchXRef.current);
+        const diffY = Math.abs(upEvent.clientY - startTouchYRef.current);
+        if (duration < 300 && diffX < 8 && diffY < 8) {
+          setResult(bookmarkedProducts[index]);
+        }
+      }
     };
-    
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
   };
 
   const copyToClipboard = () => {
@@ -1504,28 +1743,30 @@ ${result.safetyInstructions}
               <div 
                 ref={containerRef}
                 onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                className="flex flex-col gap-3"
+                className="flex flex-col gap-3 relative"
               >
                 {bookmarkedProducts.map((prod, i) => (
                   <div 
                     key={`${prod.productName}_${i}`}
-                    onClick={() => setResult(prod)}
-                    className={`bg-white border p-4 rounded-2xl cursor-pointer shadow-2xs transition-all flex items-center justify-between group select-none ${draggedIndex === i ? 'opacity-40 scale-[0.98] border-amber-300 bg-amber-50/20' : 'border-gray-100 hover:border-[#2D5A27] hover:shadow-xs'}`}
+                    onTouchStart={(e) => handleCardTouchStart(e, i)}
+                    onTouchEnd={(e) => handleTouchEnd(e, i)}
+                    onMouseDown={(e) => handleCardMouseDown(e, i)}
+                    className={`bg-white border p-4 rounded-2xl cursor-grab active:cursor-grabbing shadow-2xs transition-all duration-150 flex items-center justify-between group select-none relative
+                      ${draggedIndex === i 
+                        ? 'border-[#2D5A27] bg-[#2D5A27]/5 shadow-xl scale-[1.03] -translate-y-1 z-50 ring-4 ring-[#2D5A27]/10' 
+                        : 'border-gray-100 hover:border-[#2D5A27] hover:shadow-xs'
+                      }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 pointer-events-none">
                       {/* Drag Handle */}
                       <div 
-                        onTouchStart={() => handleTouchStart(i)}
-                        onTouchEnd={handleTouchEnd}
-                        onMouseDown={() => handleMouseDown(i)}
-                        className="p-2 -ml-2 text-gray-300 hover:text-[#2D5A27] cursor-grab active:cursor-grabbing shrink-0"
+                        className="drag-handle p-2 -ml-2 text-gray-300 hover:text-[#2D5A27] shrink-0 pointer-events-auto"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <GripVertical className="w-4.5 h-4.5" />
                       </div>
 
-                      <div>
+                      <div className="pointer-events-none">
                         <span className="text-[9px] bg-[#2D5A27]/10 text-[#2D5A27] px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
                           {prod.category}
                         </span>
@@ -1534,7 +1775,7 @@ ${result.safetyInstructions}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 pointer-events-auto">
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1602,8 +1843,12 @@ ${result.safetyInstructions}
                 {/* Take Photo */}
                 <button
                   onClick={() => {
-                    setIsBottomSheetOpen(false);
-                    cameraInputRef.current?.click();
+                    if (cameraInputRef.current) {
+                      cameraInputRef.current.click();
+                    }
+                    setTimeout(() => {
+                      setIsBottomSheetOpen(false);
+                    }, 300);
                   }}
                   className="flex flex-col items-center justify-center p-5 bg-amber-50 hover:bg-amber-100/70 border-2 border-amber-100 rounded-2xl gap-3 transition-all active:scale-95 group animate-none"
                 >
@@ -1617,8 +1862,12 @@ ${result.safetyInstructions}
                 {/* Gallery */}
                 <button
                   onClick={() => {
-                    setIsBottomSheetOpen(false);
-                    galleryInputRef.current?.click();
+                    if (galleryInputRef.current) {
+                      galleryInputRef.current.click();
+                    }
+                    setTimeout(() => {
+                      setIsBottomSheetOpen(false);
+                    }, 300);
                   }}
                   className="flex flex-col items-center justify-center p-5 bg-green-50 hover:bg-green-100/70 border-2 border-green-100 rounded-2xl gap-3 transition-all active:scale-95 group animate-none"
                 >

@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { 
   initializeFirestore, 
+  getFirestore,
   doc, 
   getDocFromServer, 
   persistentLocalCache, 
@@ -46,16 +47,46 @@ console.log("Final Firestore Database ID:", dbId);
 
 // CRITICAL: Use initializeFirestore with experimentalForceLongPolling: true 
 // and useFetchStreams: false to fix connectivity issues (code=unavailable) 
-// in proxy/sandboxed environments.
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-  experimentalAutoDetectLongPolling: false,
-  useFetchStreams: false,
-  ignoreUndefinedProperties: true,
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-} as any, dbId);
+// in proxy/sandboxed environments. We wrap this in try/catch to fallback 
+// gracefully if browser environment restricts storage/IndexedDB access inside iframes.
+let dbInstance: any;
+try {
+  dbInstance = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+    experimentalAutoDetectLongPolling: false,
+    useFetchStreams: false,
+    ignoreUndefinedProperties: true,
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
+  } as any, dbId);
+} catch (e) {
+  console.warn("Firestore with multiple-tab local cache failed to initialize, trying basic cache fallback:", e);
+  try {
+    dbInstance = initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+      experimentalAutoDetectLongPolling: false,
+      useFetchStreams: false,
+      ignoreUndefinedProperties: true,
+      localCache: persistentLocalCache({}) // Fallback without multi-tab manager
+    } as any, dbId);
+  } catch (e2) {
+    console.warn("Firestore with standard local cache failed, falling back to memory/default firestore:", e2);
+    try {
+      dbInstance = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        experimentalAutoDetectLongPolling: false,
+        useFetchStreams: false,
+        ignoreUndefinedProperties: true
+      } as any, dbId);
+    } catch (e3) {
+      console.error("All custom Firestore initializations failed, using default getFirestore:", e3);
+      dbInstance = getFirestore(app);
+    }
+  }
+}
+
+export const db = dbInstance;
 
 // Persistence is now handled by persistentLocalCache in the initialization settings.
 

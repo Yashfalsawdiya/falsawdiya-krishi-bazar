@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { getFriendlyAiError } from "../utils/aiErrorHandler";
 
 const getAI = (userApiKey?: string) => {
-  const apiKey = userApiKey;
+  const apiKey = userApiKey || import.meta.env.VITE_GEMINI_API_KEY;
   
   if (!apiKey || apiKey.trim() === "") {
     return null;
@@ -341,16 +341,45 @@ function cleanAndParseJson<T>(jsonText: string): T {
     cleaned = cleaned.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/, "").trim();
   }
 
-  // Repair unescaped double quotes inside string values before parsing
-  cleaned = repairUnescapedQuotes(cleaned);
+  // 2. Extract JSON block (from first '{' or '[' to the last corresponding '}' or ']')
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  const firstBracket = cleaned.indexOf('[');
+  const lastBracket = cleaned.lastIndexOf(']');
 
-  // 2. Character-by-character scan to escape control characters inside string literals
+  if (firstBrace !== -1 && lastBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  } else if (firstBracket !== -1 && lastBracket !== -1) {
+    cleaned = cleaned.substring(firstBracket, lastBracket + 1);
+  }
+
+  // 3. Try parsing directly first
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch (directParseError: any) {
+    const errorMsg = directParseError?.message || "";
+    const match = errorMsg.match(/Unexpected non-whitespace character after JSON at position (\d+)/);
+    if (match) {
+      const pos = parseInt(match[1], 10);
+      try {
+        return JSON.parse(cleaned.substring(0, pos)) as T;
+      } catch (innerError) {
+        // ignore and let repair logic handle it
+      }
+    }
+    console.warn("Direct JSON parse failed. Attempting cleanup and repair...", directParseError);
+  }
+
+  // 4. Fallback: repair unescaped double quotes inside string values before parsing
+  let repaired = repairUnescapedQuotes(cleaned);
+
+  // 5. Character-by-character scan to escape control characters inside string literals
   let result = "";
   let inString = false;
   let escape = false;
 
-  for (let i = 0; i < cleaned.length; i++) {
-    const char = cleaned[i];
+  for (let i = 0; i < repaired.length; i++) {
+    const char = repaired[i];
 
     if (escape) {
       result += char;
@@ -390,7 +419,7 @@ function cleanAndParseJson<T>(jsonText: string): T {
     }
   }
 
-  // 3. Clean up common LLM JSON syntax issues
+  // 6. Clean up common LLM JSON syntax issues
   // Fix trailing commas in objects or arrays
   result = result.replace(/,(\s*[\]}])/g, '$1');
 
@@ -400,7 +429,18 @@ function cleanAndParseJson<T>(jsonText: string): T {
 
   try {
     return JSON.parse(result) as T;
-  } catch (firstError) {
+  } catch (firstError: any) {
+    const errorMsg = firstError?.message || "";
+    const match = errorMsg.match(/Unexpected non-whitespace character after JSON at position (\d+)/);
+    if (match) {
+      const pos = parseInt(match[1], 10);
+      try {
+        return JSON.parse(result.substring(0, pos)) as T;
+      } catch (inner) {
+        // continue
+      }
+    }
+
     console.warn("Standard JSON parse failed, trying advanced regex cleaning...", firstError);
     
     // Fallback: If there are still unmatched punctuation or cutoffs, let's try to fix them.
@@ -413,6 +453,16 @@ function cleanAndParseJson<T>(jsonText: string): T {
     try {
       return JSON.parse(result) as T;
     } catch (secondError: any) {
+      const secondErrorMsg = secondError?.message || "";
+      const match2 = secondErrorMsg.match(/Unexpected non-whitespace character after JSON at position (\d+)/);
+      if (match2) {
+        const pos2 = parseInt(match2[1], 10);
+        try {
+          return JSON.parse(result.substring(0, pos2)) as T;
+        } catch (inner2) {
+          // continue
+        }
+      }
       console.error("Advanced JSON parse also failed:", secondError);
       throw new Error(`JSON parsing failed: ${secondError.message}. Original text snippet: ${jsonText.substring(0, 100)}...`);
     }
