@@ -1509,7 +1509,7 @@ ${result.safetyInstructions}
               >
                 {bookmarkedProducts.map((prod, i) => (
                   <div 
-                    key={prod.productName}
+                    key={`${prod.productName}_${i}`}
                     onClick={() => setResult(prod)}
                     className={`bg-white border p-4 rounded-2xl cursor-pointer shadow-2xs transition-all flex items-center justify-between group select-none ${draggedIndex === i ? 'opacity-40 scale-[0.98] border-amber-300 bg-amber-50/20' : 'border-gray-100 hover:border-[#2D5A27] hover:shadow-xs'}`}
                   >
