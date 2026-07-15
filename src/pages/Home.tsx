@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
-import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen } from 'lucide-react';
+import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen, Calculator } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
@@ -351,6 +351,38 @@ const Home: React.FC = () => {
                 <div className="flex items-center gap-1.5 mt-2">
                   <Sparkles className="w-3 h-3 text-[#2D5A27]" />
                   <span className="text-[10px] font-black text-[#2D5A27] uppercase tracking-widest">सटीक डोज़ और उपयोग विधि</span>
+                </div>
+              </div>
+              <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all">
+                <ArrowRight className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
+        </Link>
+      </motion.div>
+
+      {/* Calculator Entry Section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: "easeInOut" }}
+        className="pt-1"
+      >
+        <Link to="/calculator">
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden group active:scale-95 transition-all">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D5A27]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#2D5A27]/10 transition-colors" />
+            <div className="flex items-center gap-5">
+              <div className="relative">
+                <div className="absolute inset-0 bg-[#2D5A27] rounded-2xl blur-lg opacity-20 animate-pulse" />
+                <div className="w-16 h-16 bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl flex items-center justify-center text-white relative z-10 shadow-lg">
+                  <Calculator className="w-8 h-8 text-white" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-black text-[#4A3728] leading-tight">Calculator</h3>
+                <p className="text-xs text-gray-500 font-bold mt-1">कृषि दुकान और रोज़मर्रा के हिसाब-किताब के लिए</p>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <span className="text-[10px] font-black text-[#2D5A27] uppercase tracking-widest">✨ सामान्य कैलकुलेटर • ₹→वजन • वजन→₹</span>
                 </div>
               </div>
               <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all">

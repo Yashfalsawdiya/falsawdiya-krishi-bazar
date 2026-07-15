@@ -356,58 +356,91 @@ export default function AiProductKnowledge() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Instantly close sheet and show loader for immediate visual feedback
+      setIsBottomSheetOpen(false);
+      setIsLoading(true);
+      setIsImageSearch(true);
+      setError(null);
+      setResult(null);
+      setSelectedImage(null);
+
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setSelectedImage(base64);
-        
-        // Downscale and compress captured photo using HTML Canvas to keep memory low and prevent timeouts/errors
-        const img = new Image();
-        img.onload = () => {
-          const maxWidth = 1024;
-          const maxHeight = 1024;
-          let width = img.width;
-          let height = img.height;
+        try {
+          const base64 = reader.result as string;
+          setSelectedImage(base64);
           
-          if (width > height) {
-            if (width > maxWidth) {
-              height = Math.round((height * maxWidth) / width);
-              width = maxWidth;
+          // Downscale and compress captured photo using HTML Canvas to keep memory low and prevent timeouts/errors
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const maxWidth = 1024;
+              const maxHeight = 1024;
+              let width = img.width;
+              let height = img.height;
+              
+              if (width > height) {
+                if (width > maxWidth) {
+                  height = Math.round((height * maxWidth) / width);
+                  width = maxWidth;
+                }
+              } else {
+                if (height > maxHeight) {
+                  width = Math.round((width * maxHeight) / height);
+                  height = maxHeight;
+                }
+              }
+              
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, width, height);
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+                handleImageSearch(compressedBase64);
+              } else {
+                handleImageSearch(base64);
+              }
+            } catch (innerErr: any) {
+              console.error("Canvas compression failed, falling back to original:", innerErr);
+              handleImageSearch(base64);
             }
-          } else {
-            if (height > maxHeight) {
-              width = Math.round((width * maxHeight) / height);
-              height = maxHeight;
-            }
-          }
-          
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
-            handleImageSearch(compressedBase64);
-          } else {
+          };
+          img.onerror = (err) => {
+            console.error("Image load failed, trying search with raw base64:", err);
             handleImageSearch(base64);
-          }
-        };
-        img.onerror = () => {
-          handleImageSearch(base64);
-        };
-        img.src = base64;
+          };
+          img.src = base64;
+        } catch (readerErr: any) {
+          console.error("Reader success handler failed:", readerErr);
+          setIsLoading(false);
+          setError("फोटो प्रोसेस करने में विफलता। कृपया पुनः प्रयास करें।");
+        }
       };
-      reader.readAsDataURL(file);
+      
+      reader.onerror = (err) => {
+        console.error("FileReader error:", err);
+        setIsLoading(false);
+        setError("फाइल को पढ़ने में समस्या आई। कृपया पुनः प्रयास करें।");
+      };
+
+      try {
+        reader.readAsDataURL(file);
+      } catch (readErr: any) {
+        console.error("FileReader readAsDataURL call failed:", readErr);
+        setIsLoading(false);
+        setError("फाइल लोड करने में समस्या आई। कृपया पुनः प्रयास करें।");
+      }
     }
     // Clear input value to allow uploading the same file again on subsequent triggers
     e.target.value = '';
   };
 
   const handleImageSearch = async (base64Img: string) => {
-    if (isLoading) return;
     const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
     if (!effectiveApiKey) {
+      setIsLoading(false);
       setApiKeyErrorMessage("AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key सेट करें।");
       setIsApiKeyModalOpen(true);
       return;
@@ -421,6 +454,15 @@ export default function AiProductKnowledge() {
 
     try {
       const data = await analyzeProductImage(base64Img, effectiveApiKey);
+      
+      // If product is not recognized or hasExactMatch is false, show a clear warning as requested
+      if (!data || !data.hasExactMatch || !data.productName || data.productName.includes("पहचान नहीं") || data.productName === "जानकारी उपलब्ध नहीं है") {
+        setError("उत्पाद स्पष्ट रूप से पहचान में नहीं आया। कृपया साफ़ फोटो लें या Gallery से पुनः प्रयास करें।");
+        setSelectedImage(base64Img); // Keep image preview visible
+        setResult(null);
+        return;
+      }
+
       saveToCache(data.productName || "scanned_image", data);
       setResult(data);
       autoSaveProduct(data);
@@ -1249,7 +1291,9 @@ ${result.safetyInstructions}
       {error && (
         <div className="bg-red-50 border-2 border-red-100 rounded-3xl p-5 text-center space-y-3 print:hidden">
           <AlertTriangle className="w-12 h-12 text-red-500 mx-auto" />
-          <h3 className="font-bold text-red-900 text-lg">जानकारी लोड नहीं हो सकी</h3>
+          <h3 className="font-bold text-red-900 text-lg">
+            {error.includes("पहचान") ? "उत्पाद नहीं पहचाना जा सका" : "जानकारी लोड नहीं हो सकी"}
+          </h3>
           <p className="text-xs text-red-700 font-medium leading-relaxed">{error}</p>
           <button 
             onClick={() => handleSearch(query)}
@@ -1842,13 +1886,11 @@ ${result.safetyInstructions}
               <div className="grid grid-cols-2 gap-3 pt-2">
                 {/* Take Photo */}
                 <button
+                  type="button"
                   onClick={() => {
                     if (cameraInputRef.current) {
                       cameraInputRef.current.click();
                     }
-                    setTimeout(() => {
-                      setIsBottomSheetOpen(false);
-                    }, 300);
                   }}
                   className="flex flex-col items-center justify-center p-5 bg-amber-50 hover:bg-amber-100/70 border-2 border-amber-100 rounded-2xl gap-3 transition-all active:scale-95 group animate-none"
                 >
@@ -1861,13 +1903,11 @@ ${result.safetyInstructions}
 
                 {/* Gallery */}
                 <button
+                  type="button"
                   onClick={() => {
                     if (galleryInputRef.current) {
                       galleryInputRef.current.click();
                     }
-                    setTimeout(() => {
-                      setIsBottomSheetOpen(false);
-                    }, 300);
                   }}
                   className="flex flex-col items-center justify-center p-5 bg-green-50 hover:bg-green-100/70 border-2 border-green-100 rounded-2xl gap-3 transition-all active:scale-95 group animate-none"
                 >

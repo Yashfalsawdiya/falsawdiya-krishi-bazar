@@ -51,10 +51,9 @@ console.log("Final Firestore Database ID:", dbId);
 // gracefully if browser environment restricts storage/IndexedDB access inside iframes.
 let dbInstance: any;
 try {
+  // 1. Try with experimentalAutoDetectLongPolling: true (uses WebSockets first, falls back to long-polling automatically)
   dbInstance = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
-    experimentalAutoDetectLongPolling: false,
-    useFetchStreams: false,
+    experimentalAutoDetectLongPolling: true,
     ignoreUndefinedProperties: true,
     localCache: persistentLocalCache({
       tabManager: persistentMultipleTabManager()
@@ -63,25 +62,34 @@ try {
 } catch (e) {
   console.warn("Firestore with multiple-tab local cache failed to initialize, trying basic cache fallback:", e);
   try {
+    // 2. Fallback: single tab cache with auto-detect long polling
     dbInstance = initializeFirestore(app, {
-      experimentalForceLongPolling: true,
-      experimentalAutoDetectLongPolling: false,
-      useFetchStreams: false,
+      experimentalAutoDetectLongPolling: true,
       ignoreUndefinedProperties: true,
-      localCache: persistentLocalCache({}) // Fallback without multi-tab manager
+      localCache: persistentLocalCache({})
     } as any, dbId);
   } catch (e2) {
-    console.warn("Firestore with standard local cache failed, falling back to memory/default firestore:", e2);
+    console.warn("Firestore with standard local cache failed, trying experimental force long polling:", e2);
     try {
+      // 3. Fallback: force long polling if auto-detect throws or is restricted
       dbInstance = initializeFirestore(app, {
         experimentalForceLongPolling: true,
         experimentalAutoDetectLongPolling: false,
         useFetchStreams: false,
-        ignoreUndefinedProperties: true
+        ignoreUndefinedProperties: true,
+        localCache: persistentLocalCache({})
       } as any, dbId);
     } catch (e3) {
-      console.error("All custom Firestore initializations failed, using default getFirestore:", e3);
-      dbInstance = getFirestore(app);
+      console.warn("Firestore custom initializations failed, falling back to memory/default firestore:", e3);
+      try {
+        dbInstance = initializeFirestore(app, {
+          experimentalAutoDetectLongPolling: true,
+          ignoreUndefinedProperties: true
+        } as any, dbId);
+      } catch (e4) {
+        console.error("All custom Firestore initializations failed, using default getFirestore:", e4);
+        dbInstance = getFirestore(app);
+      }
     }
   }
 }
@@ -154,6 +162,12 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   const errorMessage = error instanceof Error ? error.message : String(error);
   const isQuotaError = errorMessage.toLowerCase().includes('quota') || errorMessage.includes('429');
   
+  const isConnectionError = 
+    errorMessage.toLowerCase().includes('offline') || 
+    errorMessage.toLowerCase().includes('unavailable') || 
+    errorMessage.toLowerCase().includes('could not reach cloud firestore backend') ||
+    errorMessage.toLowerCase().includes('failed to connect');
+  
   const errInfo: FirestoreErrorInfo = {
     error: errorMessage,
     authInfo: {
@@ -176,6 +190,12 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   if (isQuotaError) {
     console.warn('Firestore Quota Exceeded (Limited Mode):', JSON.stringify(errInfo));
     // We don't throw here for quota errors so the app can attempt to use cached data or fallbacks
+    return errInfo;
+  }
+
+  if (isConnectionError) {
+    console.warn('Firestore Connection Error (Operating in Local/Cached Mode):', JSON.stringify(errInfo));
+    // We don't throw here for network/offline errors to keep the application highly functional via offline cache
     return errInfo;
   }
 

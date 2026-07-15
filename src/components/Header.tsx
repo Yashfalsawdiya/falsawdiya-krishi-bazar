@@ -42,7 +42,7 @@ const Header: React.FC = () => {
     { icon: TrendingUp, label: 'मंडी भाव (Mandi Bhav)', path: '/mandi', color: 'text-green-600' },
     { icon: Bug, label: 'कीट एवं रोग निर्देशिका', path: '/encyclopedia', color: 'text-rose-600' },
     { icon: Landmark, label: 'सरकारी योजनाएं', path: '/schemes', color: 'text-blue-600' },
-    { icon: Calculator, label: 'खेती कैलकुलेटर', path: '/calculator', color: 'text-orange-600' },
+    { icon: Calculator, label: 'Calculator', path: '/calculator', color: 'text-orange-600' },
     { icon: PhoneCall, label: 'हेल्पलाइन डायरेक्टरी', path: '/helpline', color: 'text-cyan-600' },
     { icon: Calendar, label: 'फसल कैलेंडर', path: '/calendar', color: 'text-amber-600' },
     { icon: Phone, label: 'संपर्क करें', path: 'tel:8982338046', color: 'text-red-600', isExternal: true },
