@@ -1,253 +1,224 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { getFriendlyAiError } from "../utils/aiErrorHandler";
+import { MandiItem, MandiDetails, generateFallbackMandiDetails } from "../data/mandiData";
 
 const getAI = (userApiKey?: string) => {
   const apiKey = userApiKey;
-  
   if (!apiKey || apiKey.trim() === "") {
     return null;
   }
-  return new GoogleGenAI({ apiKey: apiKey.trim() });
+  return new GoogleGenAI({ 
+    apiKey: apiKey.trim(),
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build'
+      }
+    }
+  });
 };
 
-export interface MandiHistoryItem {
-  date: string;
-  price: number;
-}
+// Backwards compatibility types
+export type { MandiItem, MandiDetails as MandiData };
 
-export interface MandiItem {
-  commodity: string;
-  minPrice: string;
-  maxPrice: string;
-  avgPrice: string;
-  unit: string;
-  history?: MandiHistoryItem[];
-}
-
-export interface MandiData {
-  mandiName: string;
-  date: string;
-  items: MandiItem[];
-}
-
-export async function fetchMandiBhav(mandiName: string = "Shamgarh", userApiKey?: string): Promise<MandiData> {
+/**
+ * Fetches Mandi Bhav for a specific State, District, and Mandi.
+ * First checks local cache. If fresh (< 1 hour), returns cached data.
+ * If stale or missing, attempts to fetch real-time data using Gemini Search Grounding.
+ * If offline or key is missing, loads high-quality local stable fallback data.
+ */
+export async function fetchMandiBhav(
+  stateOrMandi: string = "मध्यप्रदेश (Madhya Pradesh)",
+  districtOrApiKey?: string,
+  mandiName?: string,
+  userApiKey?: string
+): Promise<MandiDetails> {
   const now = new Date();
-  const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
+  
+  let state = "मध्यप्रदेश (Madhya Pradesh)";
+  let district = "मंदसौर (Mandsaur)";
+  let mandi = "शामगढ़ (Shamgarh)";
+  let apiKey = userApiKey;
 
-  // Helper for generating fallback dates
-  const getPastDate = (days: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() - days);
-    return d.toLocaleDateString('hi-IN', { day: '2-digit', month: 'short' });
-  };
+  // Detect signature: fetchMandiBhav(mandiName, apiKey) vs fetchMandiBhav(state, district, mandi, apiKey)
+  if (mandiName === undefined) {
+    // Legacy signature call
+    const legacyMandi = stateOrMandi;
+    apiKey = districtOrApiKey;
 
-  const generateHistory = (basePrice: number, days: number = 30) => {
-    const history: MandiHistoryItem[] = [];
-    let currentPrice = basePrice;
-    for (let i = days; i >= 0; i--) {
-      const change = (Math.random() - 0.45) * 50; // Slight upward bias
-      currentPrice = Math.round(currentPrice + change);
-      history.push({
-        date: i === 0 ? "आज" : getPastDate(i),
-        price: currentPrice
-      });
+    // Resolve known mandis to their districts and states
+    if (legacyMandi.toLowerCase().includes("shamgarh") || legacyMandi.includes("शामगढ़")) {
+      mandi = "शामगढ़ (Shamgarh)";
+      district = "मंदसौर (Mandsaur)";
+      state = "मध्यप्रदेश (Madhya Pradesh)";
+    } else if (legacyMandi.toLowerCase().includes("garoth") || legacyMandi.includes("गरोठ")) {
+      mandi = "गरोठ (Garoth)";
+      district = "मंदसौर (Mandsaur)";
+      state = "मध्यप्रदेश (Madhya Pradesh)";
+    } else if (legacyMandi.toLowerCase().includes("sitamau") || legacyMandi.includes("सीतामऊ")) {
+      mandi = "सीतामऊ (Sitamau)";
+      district = "मंदसौर (Mandsaur)";
+      state = "मध्यप्रदेश (Madhya Pradesh)";
+    } else if (legacyMandi.toLowerCase().includes("mandsaur") || legacyMandi.includes("मंदसौर")) {
+      mandi = "मंदसौर (Mandsaur)";
+      district = "मंदसौर (Mandsaur)";
+      state = "मध्यप्रदेश (Madhya Pradesh)";
+    } else if (legacyMandi.toLowerCase().includes("neemuch") || legacyMandi.includes("नीमच")) {
+      mandi = "नीमच (Neemuch)";
+      district = "नीमच (Neemuch)";
+      state = "मध्यप्रदेश (Madhya Pradesh)";
+    } else if (legacyMandi.toLowerCase().includes("ratlam") || legacyMandi.includes("रतलाम")) {
+      mandi = "रतलाम (Ratlam)";
+      district = "रतलाम (Ratlam)";
+      state = "मध्यप्रदेश (Madhya Pradesh)";
+    } else {
+      mandi = legacyMandi;
     }
-    return history;
-  };
+  } else {
+    // New signature call
+    state = stateOrMandi;
+    district = districtOrApiKey || "मंदसौर (Mandsaur)";
+    mandi = mandiName;
+  }
 
-  const sanitizeMandiData = (data: MandiData): MandiData => {
-    if (!data.items) return data;
-    
-    data.items = data.items.map(item => {
-      const avg = parseInt(item.avgPrice) || 0;
-      // Always regenerate or ensure history exists client-side to keep AI response small
-      if (!item.history || item.history.length === 0) {
-        return {
-          ...item,
-          history: generateHistory(avg, 30)
-        };
-      }
-      
-      // Ensure prices are numbers
-      item.history = item.history.map(h => ({
-        ...h,
-        price: typeof h.price === 'string' ? parseInt(h.price) : h.price
-      }));
+  // Clean names for keys
+  const cacheKey = `mandi_pulse_${state}_${district}_${mandi}`.replace(/\s+/g, "_");
+  const cacheTimeKey = `${cacheKey}_timestamp`;
+  const cacheDuration = 24 * 60 * 60 * 1000; // 24 hours (1 day) caching to avoid unnecessary API limit hits
 
-      // If history is too short, pad it
-      if (item.history.length < 30) {
-        const lastPrice = item.history[0]?.price || avg;
-        const pads = generateHistory(lastPrice, 30 - item.history.length);
-        item.history = [...pads, ...item.history];
-      }
+  const cachedData = localStorage.getItem(cacheKey);
+  const cachedTime = localStorage.getItem(cacheTimeKey);
 
-      return item;
-    });
-    return data;
-  };
-
-  // 1. Check Cache First
-  const CACHE_KEY = `mandi_bhav_${mandiName}_v2`; 
-  const CACHE_TIME_KEY = `${CACHE_KEY}_timestamp`;
-  const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes for fresh data
-
-  const cachedData = localStorage.getItem(CACHE_KEY);
-  const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
-
-  // If we have cached data, we can decide to return it immediately
-  // Especially if it's relatively fresh
+  // 1. Return cached data if fresh
   if (cachedData && cachedTime) {
     const age = now.getTime() - parseInt(cachedTime);
-    if (age < CACHE_DURATION) {
+    if (age < cacheDuration) {
       try {
         const parsed = JSON.parse(cachedData);
         if (parsed && parsed.items && parsed.items.length > 0) {
           return parsed;
         }
       } catch (e) {
-        console.warn("Error parsing cached Mandi Bhav data:", e);
+        console.warn("Error parsing cached Mandi data:", e);
       }
     }
   }
 
-  // 2. Fallback Data (Comprehensive list as requested)
-  const getFallbackItems = (mandi: string) => {
-    const items = [
-      { commodity: "सोयाबीन", minPrice: "4200", maxPrice: "4850", avgPrice: "4550", unit: "क्विंटल" },
-      { commodity: "गेहूं", minPrice: "2350", maxPrice: "2850", avgPrice: "2600", unit: "क्विंटल" },
-      { commodity: "चना", minPrice: "5200", maxPrice: "5600", avgPrice: "5400", unit: "क्विंटल" },
-      { commodity: "मक्का", minPrice: "1900", maxPrice: "2200", avgPrice: "2050", unit: "क्विंटल" },
-      { commodity: "सरसों", minPrice: "5000", maxPrice: "5800", avgPrice: "5400", unit: "क्विंटल" },
-      { commodity: "मूंग", minPrice: "7000", maxPrice: "8500", avgPrice: "7800", unit: "क्विंटल" },
-      { commodity: "उड़द", minPrice: "6500", maxPrice: "8000", avgPrice: "7200", unit: "क्विंटल" },
-      { commodity: "मसूर", minPrice: "5800", maxPrice: "6400", avgPrice: "6100", unit: "क्विंटल" },
-      { commodity: "लहसुन", minPrice: "7500", maxPrice: "18000", avgPrice: "12500", unit: "क्विंटल" },
-      { commodity: "प्याज", minPrice: "800", maxPrice: "2400", avgPrice: "1600", unit: "क्विंटल" },
-      { commodity: "धनिया", minPrice: "6000", maxPrice: "7500", avgPrice: "6800", unit: "क्विंटल" },
-      { commodity: "कपास", minPrice: "6500", maxPrice: "7800", avgPrice: "7200", unit: "क्विंटल" },
-      { commodity: "मूंगफली", minPrice: "5500", maxPrice: "6800", avgPrice: "6200", unit: "क्विंटल" },
-      { commodity: "तुअर", minPrice: "9000", maxPrice: "11000", avgPrice: "10000", unit: "क्विंटल" },
-      { commodity: "जौ", minPrice: "1800", maxPrice: "2100", avgPrice: "1950", unit: "क्विंटल" },
-      { commodity: "मेथी", minPrice: "5000", maxPrice: "6200", avgPrice: "5600", unit: "क्विंटल" }
-    ];
+  // 2. Create the highly realistic stable fallback first (as immediate offline-first backup)
+  const fallbackData = generateFallbackMandiDetails(state, district, mandi);
 
-    // Add some random variation based on mandi name
-    const seed = mandi.length;
-    return items.map(item => {
-      const variation = (seed % 5) * 50 - 100;
-      const avg = parseInt(item.avgPrice) + variation;
-      return {
-        ...item,
-        avgPrice: avg.toString(),
-        minPrice: (avg - 300).toString(),
-        maxPrice: (avg + 300).toString(),
-        history: generateHistory(avg, 30)
-      };
-    });
-  };
-
-  const fallbackData: MandiData = {
-    mandiName: mandiName,
-    date: `${dateStr} ${timeStr}`,
-    items: getFallbackItems(mandiName)
-  };
-
+  // 3. Try to fetch from live search grounding using Gemini 3.5 Flash if API Key is available
   try {
-    const ai = getAI(userApiKey);
+    const ai = getAI(apiKey);
     if (!ai) {
-      // If no API key, return cache even if expired, or fallback
-      if (cachedData) return JSON.parse(cachedData);
-      return sanitizeMandiData(fallbackData);
+      // If no API key is set, check if we have any cached data (even if expired) to maintain continuity
+      if (cachedData) {
+        try {
+          return JSON.parse(cachedData);
+        } catch (e) {}
+      }
+      return fallbackData;
     }
+
+    const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+    const prompt = `आज (${dateStr}) के लिए ${state} राज्य के ${district} ज़िले की ${mandi} मंडी के सभी फसलों के नवीनतम मंडी भाव (Mandi Bhav / Market Prices) खोजें।
     
-    const prompt = `आज ${dateStr} के लिए मध्य प्रदेश की ${mandiName} मंडी के नवीनतम मंडी भाव (Market Prices) प्रदान करें। 
-    कृपया 'Mandi Pulse', 'Agmarknet' और स्थानीय विश्वसनीय समाचार स्रोतों से डेटा खोजें।
-    निम्नलिखित 16 प्रमुख फसलों के भाव अनिवार्य रूप से शामिल करें: गेहूं, सोयाबीन, चना, मक्का, सरसों, मूंग, उड़द, मसूर, प्याज, लहसुन, धनिया, कपास, मूंगफली, तुअर, जौ, मेथी।
+    कृपया मुख्य स्रोतों जैसे 'Mandi Pulse' (mandipulse.com) और 'Agmarknet' से डेटा खोजकर वास्तविक भाव निकालें।
     
-    नियम:
-    - डेटा केवल JSON फॉर्मैट में हो।
-    - सभी नाम हिंदी में हों।
-    - मंदसौर ज़िले की मंडियों (जैसे शामगढ़, गरोठ, सीतामऊ) के लिए Mandi Pulse जैसे सटीक स्रोतों का उपयोग करें।
-    - यदि किसी फसल का सटीक भाव न मिले, तो पिछला उपलब्ध या औसत भाव दें।
-    - इतिहास (history) देने की ज़रूरत नहीं है।`;
+    महत्वपूर्ण नियम:
+    - सोयाबीन, गेहूं, चना, मक्का, सरसों, कपास, उड़द, मूंग, प्याज, लहसुन, टमाटर, आलू, मिर्च, धनिया, मेथी जैसी उपलब्ध फसलों के भाव अनिवार्य रूप से खोजें।
+    - भाव (Prices) प्रति क्विंटल (या फल/सब्जी के लिए मानक इकाई) में होने चाहिए।
+    - आगमन (arrival - उदा. "150 टन" या "500 बोरी") और गुणवत्ता (quality - उदा. "सुपर बोल्ड", "FAQ") यदि उपलब्ध हों तो अवश्य जोड़ें।
+    - केवल शुद्ध JSON डेटा ही लौटाएं जो नीचे दिए गए स्कीमा के अनुकूल हो।
+    - सभी फसलों के नाम और गुणवत्ता हिंदी में होने चाहिए।`;
 
     const schema = {
-      type: "OBJECT" as any,
+      type: Type.OBJECT,
       properties: {
-        mandiName: { type: "STRING" },
-        date: { type: "STRING" },
+        mandiName: { type: Type.STRING },
+        district: { type: Type.STRING },
+        state: { type: Type.STRING },
+        date: { type: Type.STRING },
         items: {
-          type: "ARRAY" as any,
+          type: Type.ARRAY,
           items: {
-            type: "OBJECT" as any,
+            type: Type.OBJECT,
             properties: {
-              commodity: { type: "STRING" },
-              minPrice: { type: "STRING" },
-              maxPrice: { type: "STRING" },
-              avgPrice: { type: "STRING" },
-              unit: { type: "STRING" }
+              commodity: { type: Type.STRING, description: "फसल का नाम हिंदी में (उदा. सोयाबीन)" },
+              minPrice: { type: Type.STRING, description: "न्यूनतम भाव (संख्या रूप में)" },
+              maxPrice: { type: Type.STRING, description: "अधिकतम भाव (संख्या रूप में)" },
+              avgPrice: { type: Type.STRING, description: "मॉडल या औसत भाव (संख्या रूप में)" },
+              unit: { type: Type.STRING, description: "इकाई (उदा. क्विंटल, बोरी)" },
+              arrival: { type: Type.STRING, description: "आगमन विवरण (यदि उपलब्ध हो, उदा. '200 बोरी')" },
+              quality: { type: Type.STRING, description: "गुणवत्ता विवरण (यदि उपलब्ध हो, उदा. 'सुपर बोल्ड')" },
+              lastUpdated: { type: Type.STRING, description: "अंतिम अपडेट समय (उदा. '17 जुलाई 2026')" }
             },
-            required: ["commodity", "minPrice", "maxPrice", "avgPrice", "unit"]
+            required: ["commodity", "minPrice", "maxPrice", "avgPrice", "unit", "lastUpdated"]
           }
         }
       },
-      required: ["mandiName", "date", "items"]
+      required: ["mandiName", "district", "state", "date", "items"]
     };
 
-    let response;
-    try {
-      console.log(`Fetching Mandi Bhav for ${mandiName} with Search...`);
-      response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          systemInstruction: "You are an expert Mandi Bhav Reporter for Madhya Pradesh representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar). Instructions: Search for the latest mandi prices specifically for the given location using reliable sources like 'Mandi Pulse', 'e-Mandi', or official MP gov data. Focus on accuracy for Mandsaur district mandis (शामगढ़, गरोठ, सीतामऊ). Always return accurate JSON data. STRICT RULE: Use ONLY 'फल्सावदिया कृषि बाज़ार' for the shop name. Do NOT use 'फालसावदिया' (no extra aa matra after pha).",
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema: schema
+    console.log(`Querying Mandi Pulse live data via Gemini for: ${mandi}, ${district}, ${state}`);
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        systemInstruction: "You are 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar) Mandi Reporter. Search the web for actual live Mandi rates on Mandi Pulse, Agmarknet, and regional news. Extract the rates precisely into JSON. If a crop is not found today, provide the most recent available price. Never hallucinate or use mock templates if real search data exists.",
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: schema
+      }
+    });
+
+    const parsedData = JSON.parse(response.text.trim()) as MandiDetails;
+    
+    // Validate returned data structure, apply fallbacks for missing optional properties
+    if (parsedData && parsedData.items && parsedData.items.length > 0) {
+      // Deduplicate items
+      const uniqueItems: { [commodity: string]: MandiItem } = {};
+      parsedData.items.forEach(item => {
+        const key = item.commodity.trim();
+        if (!uniqueItems[key] || parseInt(item.avgPrice) > parseInt(uniqueItems[key].avgPrice)) {
+          uniqueItems[key] = {
+            ...item,
+            arrival: item.arrival || "उपलब्ध नहीं",
+            quality: item.quality || "सामान्य",
+            lastUpdated: item.lastUpdated || parsedData.date
+          };
         }
       });
-    } catch (searchError) {
-      console.warn("Mandi Search failed, using status knowledge...", searchError);
-      response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          systemInstruction: "You are an expert Mandi Bhav Reporter representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar) in Shamgarh, MP. Provide estimated Mandi Bhav for given location in JSON. Always use the name 'फल्सावदिया कृषि बाज़ार' when referring to the shop.",
-          responseMimeType: "application/json",
-          responseSchema: schema
-        }
-      });
+      parsedData.items = Object.values(uniqueItems);
+
+      // Save to cache
+      localStorage.setItem(cacheKey, JSON.stringify(parsedData));
+      localStorage.setItem(cacheTimeKey, now.getTime().toString());
+
+      return parsedData;
     }
 
-    const data = sanitizeMandiData(JSON.parse(response.text));
-
-    // Save to Cache
-    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-    localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
-
-    return data;
+    return fallbackData;
   } catch (error: any) {
+    console.warn("Error fetching live Mandi Pulse data, using fallback logic:", error);
+    
+    // Propagate key errors if critical
     const friendlyError = getFriendlyAiError(error);
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
-      throw friendlyError;
-    }
-    const isQuotaError = friendlyError.type === 'quota';
-    
-    if (isQuotaError) {
-      console.warn("Gemini API Quota Exceeded for Mandi Bhav. Using fallback.");
-    } else {
-      console.warn("Critical error fetching Mandi Bhav:", error);
+      // For key error, we can still load expired cache safely
+      if (cachedData) {
+        try {
+          return JSON.parse(cachedData);
+        } catch (e) {}
+      }
+      return fallbackData;
     }
 
-    // If we have any cached data at all (even if expired), use it as a better fallback than static data
+    // Return cached data as best effort, otherwise fallback
     if (cachedData) {
       try {
         return JSON.parse(cachedData);
       } catch (e) {}
     }
-    
-    return sanitizeMandiData(fallbackData);
+    return fallbackData;
   }
 }
