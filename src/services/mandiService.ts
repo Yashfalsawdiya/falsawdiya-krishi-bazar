@@ -30,7 +30,8 @@ export async function fetchMandiBhav(
   stateOrMandi: string = "मध्यप्रदेश (Madhya Pradesh)",
   districtOrApiKey?: string,
   mandiName?: string,
-  userApiKey?: string
+  userApiKey?: string,
+  forceRefresh: boolean = false
 ): Promise<MandiDetails> {
   const now = new Date();
   
@@ -88,8 +89,8 @@ export async function fetchMandiBhav(
   const cachedData = localStorage.getItem(cacheKey);
   const cachedTime = localStorage.getItem(cacheTimeKey);
 
-  // 1. Return cached data if fresh
-  if (cachedData && cachedTime) {
+  // 1. Return cached data if fresh (unless forceRefresh is true)
+  if (!forceRefresh && cachedData && cachedTime) {
     const age = now.getTime() - parseInt(cachedTime);
     if (age < cacheDuration) {
       try {

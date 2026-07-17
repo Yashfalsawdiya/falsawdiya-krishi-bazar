@@ -112,7 +112,7 @@ const MandiBhav: React.FC = () => {
     try {
       // In forceRefresh mode, we bypass caching temporarily by passing true to fetchMandiBhav 
       // (our mandiService is cache-aware, so if they click refresh, we generate or fetch new rates)
-      const result = await fetchMandiBhav(stateVal, distVal, mandiVal, userSettings?.geminiApiKey);
+      const result = await fetchMandiBhav(stateVal, distVal, mandiVal, userSettings?.geminiApiKey, forceRefresh);
       setData(result);
     } catch (error: any) {
       console.warn("Mandi load failed", error);
