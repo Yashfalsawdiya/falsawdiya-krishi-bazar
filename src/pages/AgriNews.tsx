@@ -1,18 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { fetchAgriNews, AgriNewsItem, getFormattedDateString } from '../services/newsService';
+import { fetchAgriNews, AgriNewsItem, getFormattedDateString, parseDDMMYYYY } from '../services/newsService';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Newspaper, 
   Calendar, 
-  Loader2, 
   RefreshCw, 
   AlertCircle, 
   AlertTriangle, 
   WifiOff, 
-  Sparkles,
-  Info,
   ChevronRight,
-  TrendingUp
+  Copy,
+  Check,
+  Share2
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { cn } from '../lib/utils';
@@ -27,6 +26,7 @@ const AgriNews: React.FC = () => {
   const [silentSyncing, setSilentSyncing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   
   // Metadata for smart banners
   const [hasTodayNews, setHasTodayNews] = useState(false);
@@ -151,6 +151,76 @@ const AgriNews: React.FC = () => {
     }
   };
 
+  // Format news text for Copy/Share strictly according to user guidelines
+  const getFormattedNewsText = (item: AgriNewsItem): string => {
+    const hindiDate = convertToHindiDate(item.date);
+    return `📰 *कृषि समाचार*
+
+*शीर्षक:*
+${item.title}
+
+📅 *प्रकाशित तिथि:*
+${hindiDate}
+
+📝 *समाचार:*
+${item.summary}
+
+📚 *स्रोत:*
+${item.source || "कृषि जागरण"}
+
+━━━━━━━━━━━━━━━
+
+*फल्सावदिया कृषि बाज़ार*`;
+  };
+
+  // Handle Clipboard Copy
+  const handleCopy = async (item: AgriNewsItem, index: number, event: React.MouseEvent) => {
+    event.preventDefault();
+    const text = getFormattedNewsText(item);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedIdx(index);
+      setTimeout(() => {
+        setCopiedIdx(null);
+      }, 2000);
+    } catch (err) {
+      console.error("Failed to copy news text:", err);
+    }
+  };
+
+  // Filters news list to include ONLY the last 7 days of articles
+  const isWithinLast7Days = (dateStr: string): boolean => {
+    try {
+      const itemDate = parseDDMMYYYY(dateStr);
+      const today = new Date();
+      const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      
+      // Limit to 7 days ago midnight
+      const limitDate = new Date(todayMidnight.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const itemMidnight = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate());
+      
+      return itemMidnight.getTime() >= limitDate.getTime();
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // Filter and sort the news items
+  const filteredAndSortedNews = news
+    .filter(item => isWithinLast7Days(item.date))
+    .sort((a, b) => parseDDMMYYYY(b.date).getTime() - parseDDMMYYYY(a.date).getTime());
+
   return (
     <div className="space-y-6 pb-16">
       <ApiKeyModal 
@@ -257,10 +327,10 @@ const AgriNews: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {news.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-3xl border border-gray-100">
+          {filteredAndSortedNews.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm">
               <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-xs font-bold text-gray-500">कोई समाचार उपलब्ध नहीं हैं।</p>
+              <p className="text-xs font-bold text-gray-500">पिछले 7 दिनों में कोई समाचार उपलब्ध नहीं है।</p>
               <button 
                 onClick={() => loadNews(true)} 
                 className="mt-3 px-5 py-2 bg-[#2D5A27] text-white text-[11px] font-black rounded-full"
@@ -270,26 +340,15 @@ const AgriNews: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {news.map((item, idx) => {
-                const isTodayItem = item.date === getFormattedDateString();
+              {filteredAndSortedNews.map((item, idx) => {
                 return (
                   <motion.div
                     key={idx}
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: Math.min(idx * 0.05, 0.4) }}
-                    className={cn(
-                      "bg-white rounded-2xl p-5 border shadow-sm flex flex-col gap-3.5 group hover:shadow-md hover:border-[#2D5A27]/25 transition-all duration-300 relative overflow-hidden",
-                      isTodayItem ? "border-[#2D5A27]/30 ring-1 ring-[#2D5A27]/5" : "border-gray-100"
-                    )}
+                    className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col gap-3.5 group hover:shadow-md hover:border-[#2D5A27]/25 transition-all duration-300 relative overflow-hidden"
                   >
-                    {isTodayItem && (
-                      <div className="absolute top-0 right-0 bg-[#2D5A27] text-white text-[8px] font-black uppercase px-2.5 py-1 rounded-bl-xl tracking-wider flex items-center gap-1 shadow-sm">
-                        <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
-                        आज की ताज़ा खबर
-                      </div>
-                    )}
-
                     <div className="flex justify-between items-center">
                       <span className={cn(
                         "px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border",
@@ -313,44 +372,73 @@ const AgriNews: React.FC = () => {
                       </p>
                     </div>
                     
-                    <div className="pt-3 flex items-center justify-between border-t border-gray-100">
+                    <div className="pt-3.5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 bg-emerald-50 border border-[#2D5A27]/10 rounded-full flex items-center justify-center font-black text-[10px] text-[#2D5A27]">
                           {item.source ? item.source.charAt(0) : 'K'}
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">प्रमाणित स्रोत</span>
+                          <span className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">स्रोत</span>
                           <span className="text-[10px] font-black text-gray-700">{item.source || "कृषि जागरण"}</span>
                         </div>
                       </div>
 
-                      {item.url && item.url.startsWith("http") && (
-                        <a 
-                          href={item.url}
+                      <div className="flex items-center gap-2">
+                        {/* Copy Button */}
+                        <button
+                          onClick={(e) => handleCopy(item, idx, e)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10.5px] font-black transition-all border",
+                            copiedIdx === idx 
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                              : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
+                          )}
+                          title="समाचार कॉपी करें"
+                        >
+                          {copiedIdx === idx ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>कॉपी हो गया!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5 text-gray-500" />
+                              <span>कॉपी</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* Share Button */}
+                        <a
+                          href={`https://api.whatsapp.com/send?text=${encodeURIComponent(getFormattedNewsText(item))}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[10px] font-black text-[#2D5A27] flex items-center gap-0.5 hover:underline"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10.5px] font-black bg-[#2D5A27] text-white hover:bg-[#1E3F1A] transition-all border border-transparent shadow-sm"
+                          title="WhatsApp पर शेयर करें"
                         >
-                          विवरण देखें <ChevronRight className="w-3.5 h-3.5" />
+                          <Share2 className="w-3.5 h-3.5 text-white" />
+                          <span>शेयर</span>
                         </a>
-                      )}
+
+                        {/* विस्तार देखें Link */}
+                        {item.url && item.url.startsWith("http") && (
+                          <a 
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-0.5 px-2 py-1.5 text-[10.5px] font-black text-[#2D5A27] hover:underline"
+                          >
+                            <span>विस्तार देखें</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </motion.div>
                 );
               })}
             </div>
           )}
-
-          {/* Bottom Information Tip Card */}
-          <div className="bg-[#2D5A27]/5 border border-[#2D5A27]/10 rounded-2xl p-4 flex gap-3 items-start">
-            <Sparkles className="w-4.5 h-4.5 text-[#2D5A27] shrink-0 mt-0.5 animate-pulse" />
-            <div className="space-y-0.5">
-              <p className="text-[10px] text-[#2D5A27] font-black">कृषक बंधु टिप:</p>
-              <p className="text-[9.5px] text-[#2D5A27]/90 font-bold leading-relaxed">
-                फल्सावदिया कृषि बाज़ार हमेशा 'कृषि जागरण' एवं आधिकारिक सरकारी पोर्टलों जैसे प्रामाणिक स्रोतों से ही खबरें संकलित करता है। किसी भी योजना के लिए आवेदन करने से पहले आधिकारिक वेबसाइट लिंक पर जाकर पुष्टि अवश्य करें।
-              </p>
-            </div>
-          </div>
         </div>
       )}
     </div>
