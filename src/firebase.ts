@@ -4,10 +4,13 @@ import {
   initializeFirestore, 
   getFirestore,
   doc, 
-  getDocFromServer, 
   persistentLocalCache, 
-  persistentMultipleTabManager 
+  persistentMultipleTabManager,
+  setLogLevel
 } from 'firebase/firestore';
+
+// Set Firestore log level to error to prevent non-critical connection fallback warning logs
+setLogLevel('error');
 
 // Try to load from JSON file, fallback to environment variables for Vercel/Production
 let firebaseConfig: any;
@@ -46,14 +49,12 @@ const dbId = (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreData
 console.log("Final Firestore Database ID:", dbId);
 
 // CRITICAL: Use initializeFirestore with experimentalForceLongPolling: true 
-// and useFetchStreams: false to fix connectivity issues (code=unavailable) 
-// in proxy/sandboxed environments. We wrap this in try/catch to fallback 
-// gracefully if browser environment restricts storage/IndexedDB access inside iframes.
+// to fix connectivity issues (code=unavailable) in proxy/sandboxed environments.
 let dbInstance: any;
 try {
-  // 1. Try with experimentalAutoDetectLongPolling: true (uses WebSockets first, falls back to long-polling automatically)
+  // 1. Primary: force long polling + multiple tab local cache (best for sandboxed iframes)
   dbInstance = initializeFirestore(app, {
-    experimentalAutoDetectLongPolling: true,
+    experimentalForceLongPolling: true,
     ignoreUndefinedProperties: true,
     localCache: persistentLocalCache({
       tabManager: persistentMultipleTabManager()
@@ -62,20 +63,18 @@ try {
 } catch (e) {
   console.warn("Firestore with multiple-tab local cache failed to initialize, trying basic cache fallback:", e);
   try {
-    // 2. Fallback: single tab cache with auto-detect long polling
+    // 2. Fallback: force long polling + single tab cache
     dbInstance = initializeFirestore(app, {
-      experimentalAutoDetectLongPolling: true,
+      experimentalForceLongPolling: true,
       ignoreUndefinedProperties: true,
       localCache: persistentLocalCache({})
     } as any, dbId);
   } catch (e2) {
-    console.warn("Firestore with standard local cache failed, trying experimental force long polling:", e2);
+    console.warn("Firestore with standard local cache failed, trying auto-detect long polling:", e2);
     try {
-      // 3. Fallback: force long polling if auto-detect throws or is restricted
+      // 3. Fallback: auto-detect long polling
       dbInstance = initializeFirestore(app, {
-        experimentalForceLongPolling: true,
-        experimentalAutoDetectLongPolling: false,
-        useFetchStreams: false,
+        experimentalAutoDetectLongPolling: true,
         ignoreUndefinedProperties: true,
         localCache: persistentLocalCache({})
       } as any, dbId);
@@ -104,31 +103,6 @@ export const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence).catch(err => {
   console.error("Auth persistence error:", err);
 });
-
-async function testConnection() {
-  console.log("Testing Firestore connection...");
-  try {
-    // CRITICAL: Call getFromServer to test the connection to Firestore.
-    // We use a specific doc path that doesn't necessarily need to exist
-    await getDocFromServer(doc(db, '_connection_test_', 'check'));
-    console.log("Firestore connection test: SUCCESS (Server reached)");
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const isQuotaError = errorMessage.toLowerCase().includes('quota') || errorMessage.includes('429');
-    
-    if (isQuotaError) {
-      console.warn("Firestore connection test: PARTIAL SUCCESS (Server reached but Quota Exceeded)");
-      console.warn("The app will operate in OFFLINE/CACHE-ONLY mode until quota resets.");
-    } else {
-      console.warn("Firestore connection test: FAILED (App will run in local offline/cached mode)");
-      console.warn("Error Message:", errorMessage);
-      if (errorMessage.includes('the client is offline')) {
-        console.warn("The client is reporting offline mode. This is expected in server-side/sandboxed test environments.");
-      }
-    }
-  }
-}
-testConnection();
 
 export enum OperationType {
   CREATE = 'create',
