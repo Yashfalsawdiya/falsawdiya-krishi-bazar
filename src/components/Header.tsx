@@ -53,7 +53,7 @@ const Header: React.FC = () => {
     <>
       <header className="fixed top-0 left-0 right-0 max-w-md mx-auto bg-[#2D5A27] text-white z-50 px-4 py-3 shadow-md">
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <motion.div 
               whileTap={{ scale: 0.95 }}
               onClick={!isAdmin ? handleLogoClick : undefined}
@@ -61,13 +61,13 @@ const Header: React.FC = () => {
             >
               <Link 
                 to={isAdmin ? "/admin" : "#"} 
-                className="w-14 h-14 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-inner p-1.5"
+                className="w-13 h-13 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-md border border-white/30 p-0.5"
               >
                 <SmartImage 
                   src={branding.logo} 
                   fallbackSrc="/icon-192.png"
                   alt="Logo" 
-                  className="w-full h-full" 
+                  className="w-full h-full scale-[1.05]" 
                   objectFit="contain" 
                   priority
                 />
@@ -186,13 +186,13 @@ const Header: React.FC = () => {
                   <motion.div 
                     whileTap={{ scale: 0.95 }}
                     onClick={handleLogoClick}
-                    className="w-12 h-12 bg-white rounded-full flex items-center justify-center overflow-hidden p-1 shadow-inner cursor-pointer"
+                    className="w-14 h-14 bg-white rounded-full flex items-center justify-center overflow-hidden p-0.5 shadow-md border border-white/30 cursor-pointer"
                   >
                     <SmartImage 
                       src={branding.logo} 
                       fallbackSrc="/icon-192.png"
                       alt="Logo" 
-                      className="w-full h-full" 
+                      className="w-full h-full scale-[1.05]" 
                       objectFit="contain" 
                       priority
                     />
