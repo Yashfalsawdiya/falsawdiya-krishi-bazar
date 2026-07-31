@@ -182,6 +182,7 @@ export default function AiProductKnowledge() {
 
   // History & Bookmarks
   const [bookmarkedProducts, setBookmarkedProducts] = useState<ProductKnowledgeResult[]>([]);
+  const [savedSearchQuery, setSavedSearchQuery] = useState('');
   const [isCopied, setIsCopied] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
 
@@ -1143,6 +1144,88 @@ ${result.safetyInstructions}
     }
   };
 
+  const devanagariToLatin = (str: string): string => {
+    if (!str) return '';
+    const charMap: Record<string, string> = {
+      'अ': 'a', 'आ': 'a', 'इ': 'i', 'ई': 'i', 'उ': 'u', 'ऊ': 'u', 'ऋ': 'r', 'ए': 'e', 'ऐ': 'ai', 'ओ': 'o', 'औ': 'au',
+      'क': 'k', 'ख': 'kh', 'ग': 'g', 'घ': 'gh', 'ङ': 'n',
+      'च': 'ch', 'छ': 'chh', 'ज': 'j', 'झ': 'jh', 'ञ': 'n',
+      'ट': 't', 'ठ': 'th', 'ड': 'd', 'ढ': 'dh', 'ण': 'n',
+      'त': 't', 'थ': 'th', 'द': 'd', 'ध': 'dh', 'न': 'n',
+      'प': 'p', 'फ': 'f', 'ब': 'b', 'भ': 'bh', 'म': 'm',
+      'य': 'y', 'र': 'r', 'ल': 'l', 'व': 'v', 'श': 'sh', 'ष': 'sh', 'स': 's', 'ह': 'h',
+      'ा': 'a', 'ि': 'i', 'ी': 'i', 'ु': 'u', 'ू': 'u', 'ृ': 'r', 'े': 'e', 'ै': 'ai', 'ो': 'o', 'ौ': 'au',
+      'ं': 'n', 'ँ': 'm', 'ः': 'h', '्': '', '़': ''
+    };
+    return str.split('').map(c => charMap[c] || c).join('').toLowerCase();
+  };
+
+  const filteredSavedProducts = React.useMemo(() => {
+    const rawQ = savedSearchQuery.trim().toLowerCase();
+    if (!rawQ) {
+      return bookmarkedProducts.map((prod, originalIndex) => ({ prod, originalIndex, score: 0 }));
+    }
+
+    const latinQ = devanagariToLatin(rawQ);
+    const searchWords = rawQ.split(/\s+/).filter(Boolean);
+    const latinWords = latinQ.split(/\s+/).filter(Boolean);
+
+    const matched = bookmarkedProducts.map((prod, originalIndex) => {
+      const pName = (prod.productName || '').toLowerCase();
+      const pTech = (prod.technicalName || '').toLowerCase();
+      const pComp = (prod.companyName || '').toLowerCase();
+      const pCat = (prod.category || '').toLowerCase();
+      const pForm = (prod.formulation || '').toLowerCase();
+      const pAct = (prod.activeIngredient || '').toLowerCase();
+      const pBenefits = (prod.benefits || '').toLowerCase();
+
+      const lName = devanagariToLatin(pName);
+      const lTech = devanagariToLatin(pTech);
+      const lComp = devanagariToLatin(pComp);
+      const lCat = devanagariToLatin(pCat);
+      const lForm = devanagariToLatin(pForm);
+
+      const fullText = `${pName} ${pTech} ${pComp} ${pCat} ${pForm} ${pAct} ${pBenefits}`;
+      const latinFullText = `${lName} ${lTech} ${lComp} ${lCat} ${lForm}`;
+
+      const allWordsMatch = searchWords.every((word, idx) => {
+        const lWord = latinWords[idx] || devanagariToLatin(word);
+        return (
+          fullText.includes(word) || 
+          latinFullText.includes(word) || 
+          (lWord && (latinFullText.includes(lWord) || fullText.includes(lWord)))
+        );
+      });
+
+      if (!allWordsMatch) {
+        return { prod, originalIndex, score: -1 };
+      }
+
+      let score = 10;
+      if (pName.startsWith(rawQ) || (lName && lName.startsWith(latinQ))) {
+        score += 100;
+      } else if (pName.includes(rawQ) || (lName && lName.includes(latinQ))) {
+        score += 80;
+      } else if (pTech.startsWith(rawQ) || (lTech && lTech.startsWith(latinQ))) {
+        score += 70;
+      } else if (pTech.includes(rawQ) || (lTech && lTech.includes(latinQ))) {
+        score += 60;
+      } else if (pComp.includes(rawQ) || (lComp && lComp.includes(latinQ))) {
+        score += 50;
+      } else if (pCat.includes(rawQ) || (lCat && lCat.includes(latinQ))) {
+        score += 40;
+      } else if (pForm.includes(rawQ) || (lForm && lForm.includes(latinQ))) {
+        score += 30;
+      }
+
+      return { prod, originalIndex, score };
+    }).filter(item => item.score > 0);
+
+    matched.sort((a, b) => b.score - a.score);
+
+    return matched;
+  }, [bookmarkedProducts, savedSearchQuery]);
+
   return (
     <div className="space-y-6 pb-24 print:pb-0 print:space-y-4">
       {/* API Key Modal */}
@@ -1784,58 +1867,99 @@ ${result.safetyInstructions}
                 <Heart className="w-4.5 h-4.5 text-rose-500 fill-rose-500" />
                 सुरक्षित उत्पाद जानकारी (Saved Products)
               </h3>
-              <div 
-                ref={containerRef}
-                onTouchMove={handleTouchMove}
-                className="flex flex-col gap-3 relative"
-              >
-                {bookmarkedProducts.map((prod, i) => (
-                  <div 
-                    key={`${prod.productName}_${i}`}
-                    onTouchStart={(e) => handleCardTouchStart(e, i)}
-                    onTouchEnd={(e) => handleTouchEnd(e, i)}
-                    onMouseDown={(e) => handleCardMouseDown(e, i)}
-                    className={`bg-white border p-4 rounded-2xl cursor-grab active:cursor-grabbing shadow-2xs transition-all duration-150 flex items-center justify-between group select-none relative
-                      ${draggedIndex === i 
-                        ? 'border-[#2D5A27] bg-[#2D5A27]/5 shadow-xl scale-[1.03] -translate-y-1 z-50 ring-4 ring-[#2D5A27]/10' 
-                        : 'border-gray-100 hover:border-[#2D5A27] hover:shadow-xs'
-                      }`}
+
+              {/* Saved Products Search Bar */}
+              <div className="relative">
+                <Search className="w-4.5 h-4.5 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={savedSearchQuery}
+                  onChange={(e) => setSavedSearchQuery(e.target.value)}
+                  placeholder="Saved Product खोजें (Name, Technical, Company, Brand)..."
+                  className="w-full bg-white border border-gray-200 focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 rounded-2xl pl-10 pr-10 py-2.5 text-xs font-bold text-gray-800 placeholder-gray-400 transition-all shadow-xs"
+                />
+                {savedSearchQuery && (
+                  <button
+                    onClick={() => setSavedSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-rose-600 rounded-full transition-colors"
+                    title="क्लियर करें (Clear)"
                   >
-                    <div className="flex items-center gap-3 pointer-events-none">
-                      {/* Drag Handle */}
-                      <div 
-                        className="drag-handle p-2 -ml-2 text-gray-300 hover:text-[#2D5A27] shrink-0 pointer-events-auto"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <GripVertical className="w-4.5 h-4.5" />
-                      </div>
-
-                      <div className="pointer-events-none">
-                        <span className="text-[9px] bg-[#2D5A27]/10 text-[#2D5A27] px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
-                          {prod.category}
-                        </span>
-                        <h4 className="font-black text-gray-800 mt-1 group-hover:text-[#2D5A27] transition-all">{prod.productName}</h4>
-                        <p className="text-[10px] text-gray-400 font-medium mt-0.5">{prod.technicalName}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 pointer-events-auto">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setProductToDelete(prod);
-                          setIsDeleteConfirmOpen(true);
-                        }}
-                        className="p-2 text-gray-300 hover:text-rose-600 rounded-xl hover:bg-rose-50 transition-all cursor-pointer"
-                        title="हटाएं (Delete)"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#2D5A27] transition-all" />
-                    </div>
-                  </div>
-                ))}
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
+
+              {/* Saved Product List */}
+              {filteredSavedProducts.length > 0 ? (
+                <div 
+                  ref={containerRef}
+                  onTouchMove={savedSearchQuery ? undefined : handleTouchMove}
+                  className="flex flex-col gap-3 relative"
+                >
+                  {filteredSavedProducts.map(({ prod, originalIndex }) => (
+                    <div 
+                      key={`${prod.productName}_${originalIndex}`}
+                      onTouchStart={savedSearchQuery ? undefined : (e) => handleCardTouchStart(e, originalIndex)}
+                      onTouchEnd={savedSearchQuery ? (e) => { e.preventDefault(); setResult(prod); } : (e) => handleTouchEnd(e, originalIndex)}
+                      onMouseDown={savedSearchQuery ? undefined : (e) => handleCardMouseDown(e, originalIndex)}
+                      onClick={savedSearchQuery ? () => setResult(prod) : undefined}
+                      className={`bg-white border p-4 rounded-2xl shadow-2xs transition-all duration-150 flex items-center justify-between group select-none relative
+                        ${!savedSearchQuery ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}
+                        ${draggedIndex === originalIndex 
+                          ? 'border-[#2D5A27] bg-[#2D5A27]/5 shadow-xl scale-[1.03] -translate-y-1 z-50 ring-4 ring-[#2D5A27]/10' 
+                          : 'border-gray-100 hover:border-[#2D5A27] hover:shadow-xs'
+                        }`}
+                    >
+                      <div className="flex items-center gap-3 pointer-events-none">
+                        {/* Drag Handle - shown only when not searching */}
+                        {!savedSearchQuery && (
+                          <div 
+                            className="drag-handle p-2 -ml-2 text-gray-300 hover:text-[#2D5A27] shrink-0 pointer-events-auto"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <GripVertical className="w-4.5 h-4.5" />
+                          </div>
+                        )}
+
+                        <div className="pointer-events-none">
+                          <span className="text-[9px] bg-[#2D5A27]/10 text-[#2D5A27] px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                            {prod.category}
+                          </span>
+                          <h4 className="font-black text-gray-800 mt-1 group-hover:text-[#2D5A27] transition-all">{prod.productName}</h4>
+                          <p className="text-[10px] text-gray-400 font-medium mt-0.5">{prod.technicalName}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 pointer-events-auto">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProductToDelete(prod);
+                            setIsDeleteConfirmOpen(true);
+                          }}
+                          className="p-2 text-gray-300 hover:text-rose-600 rounded-xl hover:bg-rose-50 transition-all cursor-pointer"
+                          title="हटाएं (Delete)"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#2D5A27] transition-all" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-6 text-center text-[#4A3728] space-y-2">
+                  <p className="text-xs font-black text-amber-900">
+                    🔍 इस नाम का कोई Saved Product नहीं मिला।
+                  </p>
+                  <button 
+                    onClick={() => setSavedSearchQuery('')}
+                    className="text-xs font-bold text-[#2D5A27] underline hover:text-[#3D7A35] transition-colors"
+                  >
+                    सभी Saved Products देखें
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

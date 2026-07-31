@@ -27,6 +27,7 @@ const AiProductKnowledge = lazy(() => import('./pages/AiProductKnowledge'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Profile = lazy(() => import('./pages/Profile'));
 const CartPage = lazy(() => import('./pages/CartPage'));
+const AgriTradeInfo = lazy(() => import('./pages/AgriTradeInfo'));
 
 const PageLoader = () => (
   <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -72,6 +73,7 @@ export default function App() {
                 <Route path="admin" element={<Admin />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="cart" element={<CartPage />} />
+                <Route path="agri-trade-info" element={<AgriTradeInfo />} />
               </Route>
             </Routes>
           </Suspense>

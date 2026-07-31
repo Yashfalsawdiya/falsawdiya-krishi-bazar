@@ -100,3 +100,20 @@ export interface CartItem {
   price: number;
   unit: string;
 }
+
+export interface AgriTradeNotice {
+  id: string;
+  title: string;
+  date: string; // DD/MM/YYYY or readable Hindi date
+  department: string; // e.g. CIB&RC, FCO, Ministry of Agriculture, Seed Division, State Agri Dept
+  state?: string; // e.g. "केंद्र सरकार (भारत)", "मध्यप्रदेश", "उत्तर प्रदेश" etc.
+  category: 'Government Orders' | 'Ban Notifications' | 'Fertilizer' | 'Pesticides' | 'Seeds' | 'Licensing' | 'Legal Updates' | 'GST' | 'Subsidy' | 'Company Circulars' | 'Others';
+  summary: string;
+  fullContent: string;
+  orderNumber?: string;
+  pdfUrl?: string;
+  source: string;
+  isImportant?: boolean;
+  createdAt: number; // timestamp
+}
+
