@@ -16,6 +16,114 @@ export interface DiseaseAnalysis {
   keywords: string[];
 }
 
+export interface DiseaseChatMessage {
+  id: string;
+  sender: 'user' | 'ai';
+  text: string;
+  timestamp: number;
+}
+
+export async function askDiseaseReportChat(
+  diseaseReportText: string,
+  userQuestion: string,
+  chatHistory: DiseaseChatMessage[],
+  userApiKey?: string,
+  weatherData?: any
+): Promise<string> {
+  try {
+    const ai = getAI(userApiKey);
+    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    let weatherInfo = "स्थान: शामगढ़, मंदसौर (म.प्र.)";
+    if (weatherData) {
+      weatherInfo += ` | तापमान: ${weatherData.temp || 'N/A'}°C, आर्द्रता: ${weatherData.humidity || 'N/A'}%, स्थिति: ${weatherData.condition || 'N/A'}, बारिश: ${weatherData.rain || 0}mm`;
+    }
+
+    const systemInstruction = `You are an expert Indian agricultural scientist and plant pathologist representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar, Shamgarh, MP).
+
+Shop Profile:
+- Name: फल्सावदिया कृषि बाज़ार
+- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)
+- Timings: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)
+
+CONTEXT - SCAN & DISEASE ANALYSIS REPORT:
+--------------------------------
+${diseaseReportText}
+--------------------------------
+Current Weather & Location: ${weatherInfo}
+Today's Date: ${dateStr}
+
+YOUR INSTRUCTIONS:
+1. You are continuing a multi-turn chat with a farmer specifically regarding the scan report and crop disease/pest analysis provided above.
+2. You ALREADY KNOW the crop name, identified pest/disease, symptoms, recommended active ingredients, chemical/organic treatments, dosages, and products mentioned in the report.
+3. Answer the farmer's question directly and concisely in CLEAR, SIMPLE HINDI (सरल किसान-मित्र भाषा).
+4. Use bullet points (•) and bold headers for clarity. Keep paragraphs short.
+5. Specific Topic Handling:
+   - **Dosage for 20L pump / 500L tank**: Provide exact calculation (e.g. per 20L pump or per 500L water tank) based on standard per acre/liter recommendation.
+   - **Alternatives (Cheaper/Premium/Organic)**: Suggest appropriate alternatives (e.g., Neem oil, Beauveria, Trichoderma for organic; or chemical active ingredients like Thiamethoxam, Emamectin Benzoate, Chlorantraniliprole, Azoxystrobin, Tebuconazole, etc.).
+   - **Tank Mix Order (टैंक घोलने का सही क्रम)**: Explain standard sequence clearly:
+     1. पानी (Water) - आधा टैंक भरें
+     2. WDG / DF (सूखे दानेदार)
+     3. WP (पाउडर)
+     4. SC / FS (गाढ़ा तरल घोल)
+     5. EC (तेल आधारित तरल)
+     6. SL (पानी में घुलनशील तरल)
+     7. सिलिकॉन चिपको / स्प्रेडर (Silicon Spreader)
+   - **Compatibility (किसके साथ न मिलाएँ)**: Warn clearly about improper mixtures (e.g., Copper/Sulfur with EC or alkaline pesticides, weedicides with insecticides/fungicides).
+   - **Uncertainty**: If a question requires details not visible or determinable from the photo/report, politely state:
+     "इस फोटो या रिपोर्ट से पूरी पुष्टि संभव नहीं है। कृपया पूरी फसल, तने या दूसरी पत्तियों की फोटो भी भेजें ताकि अधिक सटीक सलाह दी जा सके।"
+6. Always assure the farmer that genuine pesticides and agricultural products are available at 'फल्सावदिया कृषि बाज़ार'.
+7. STRICT RULE: ONLY write 'फल्सावदिया' for the shop name. NEVER write 'फालसावदिया'.`;
+
+    const formattedContents: any[] = [];
+    const recentHistory = chatHistory.slice(-10);
+    for (const msg of recentHistory) {
+      formattedContents.push({
+        role: msg.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.text }]
+      });
+    }
+
+    formattedContents.push({
+      role: 'user',
+      parts: [{ text: userQuestion }]
+    });
+
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: formattedContents,
+        config: {
+          systemInstruction,
+          tools: [{ googleSearch: {} }]
+        }
+      });
+    } catch (e) {
+      console.warn("Disease report chat fallback without search:", e);
+      response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: formattedContents,
+        config: {
+          systemInstruction
+        }
+      });
+    }
+
+    return response.text || "माफ़ करें, उत्तर प्राप्त नहीं हो सका। कृपया पुनः प्रयास करें।";
+  } catch (error: any) {
+    const friendlyError = getFriendlyAiError(error);
+    if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
+      throw friendlyError;
+    }
+    console.error("Gemini Disease Report Chat Error:", error);
+    return friendlyError.message || "तकनीकी त्रुटि के कारण AI उत्तर नहीं दे सका।";
+  }
+}
+
 export async function detectDisease(base64Image: string, userApiKey?: string): Promise<DiseaseAnalysis> {
   try {
     const ai = getAI(userApiKey);
