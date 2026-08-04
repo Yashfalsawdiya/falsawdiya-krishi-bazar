@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAppContext } from '../context/AppContext';
-import { Minus, Plus, Trash2, ArrowLeft, ShoppingCart, MessageSquare } from 'lucide-react';
+import { Minus, Plus, Trash2, ArrowLeft, ShoppingCart, CreditCard } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
 import CartOrderModal from '../components/CartOrderModal';
@@ -235,36 +235,19 @@ const CartPage: React.FC = () => {
                 <span>{cartCount}</span>
               </div>
               
-              {appContent?.isDeliveryChargesEnabled && appContent?.deliveryChargesAmount !== undefined ? (
-                <>
-                  <div className="flex items-center justify-between text-xs text-gray-650 font-semibold">
-                    <span>उत्पाद मूल्य (Products Total)</span>
-                    <span className="font-bold">₹{cartTotal}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-gray-650 font-semibold border-b border-gray-200/50 pb-2">
-                    <span>डिलीवरी शुल्क (Delivery Charges)</span>
-                    <span className="font-bold text-amber-700">+ ₹{appContent.deliveryChargesAmount}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-sm font-bold text-[#4A3728]">कुल देय राशि (Final Total)</span>
-                    <span className="text-xl font-black text-[#2D5A27]">₹{cartTotal + appContent.deliveryChargesAmount}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-sm font-bold text-[#4A3728]">कुल देय राशि (Gross Amount)</span>
-                  <span className="text-xl font-black text-[#2D5A27]">₹{cartTotal}</span>
-                </div>
-              )}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-sm font-bold text-[#4A3728]">कुल उत्पाद मूल्य (Subtotal)</span>
+                <span className="text-xl font-black text-[#2D5A27]">₹{cartTotal}</span>
+              </div>
             </div>
 
-            {/* Checkout via WhatsApp Floating / Sticky Button */}
+            {/* Checkout Button */}
             <button
               onClick={handleSendOrder}
-              className="w-full bg-[#25D366] text-white py-4.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-green-500/20 active:scale-95 transition-all mt-4"
+              className="w-full bg-[#2D5A27] hover:bg-[#254A20] text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-[#2D5A27]/20 active:scale-95 transition-all mt-4"
             >
-              <MessageSquare className="w-5 h-5 fill-white text-[#25D366]" />
-              Cart से Order करें (Order via WhatsApp)
+              <CreditCard className="w-5 h-5 text-amber-300" />
+              ऑर्डर व ऑनलाइन भुगतान करें (Checkout & Pay Online)
             </button>
           </div>
         )}

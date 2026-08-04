@@ -169,7 +169,7 @@ export default function AgriTradeInfo() {
 
   // Format Notice for WhatsApp and Clipboard
   const getFormattedShareText = (notice: AgriTradeNotice) => {
-    return `📢 *कृषि व्यापार सूचना केंद्र*
+    return `*कृषि व्यापार सूचना केंद्र*
 *फल्सावदिया कृषि बाज़ार (Retailer/Distributor Hub)*
 
 ${notice.isImportant ? "🔴 *अति महत्वपूर्ण सरकारी सूचना*\n" : ""}
@@ -275,7 +275,7 @@ ${notice.pdfUrl ? `🔗 *अधिकारक लिंक/PDF:* ${notice.pdfUr
               <span>Admin Only Section</span>
             </div>
             <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-              📢 कृषि व्यापार सूचना केंद्र
+              कृषि व्यापार सूचना केंद्र
             </h1>
             <p className="text-xs text-emerald-100/90 font-medium max-w-xl">
               Retailers, Wholesalers एवं Distributors के लिए सरकारी आदेश, FCO, CIB&RC नियम, कीटनाशी बैन, लाइसेंस एवं कंपनी सर्कुलर्स का मुख्य हब।

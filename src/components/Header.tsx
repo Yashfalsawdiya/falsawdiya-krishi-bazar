@@ -37,7 +37,7 @@ const Header: React.FC = () => {
 
   const menuItems = [
     { icon: User, label: 'मेरा प्रोफाइल (Profile)', path: '/profile', color: 'text-purple-600' },
-    { icon: ShieldAlert, label: '📢 कृषि व्यापार सूचना केंद्र', path: '/agri-trade-info', color: 'text-amber-600', isAdminOnly: true },
+    { icon: ShieldAlert, label: 'कृषि व्यापार सूचना केंद्र', path: '/agri-trade-info', color: 'text-amber-600', isAdminOnly: true },
     { icon: Phone, label: 'AI कृषि विशेषज्ञ कॉल', path: '/ai-call', color: 'text-[#2D5A27]' },
     { icon: Sparkles, label: 'AI उत्पाद जानकारी (Knowledge)', path: '/ai-product-knowledge', color: 'text-amber-500' },
     { icon: TrendingUp, label: 'मंडी भाव (Mandi Bhav)', path: '/mandi', color: 'text-green-600' },

@@ -236,6 +236,43 @@
         "order": { "type": "number" }
       },
       "required": ["name", "number", "category"]
+    },
+    "RazorpaySettings": {
+      "title": "RazorpaySettings",
+      "description": "Razorpay payment gateway configuration.",
+      "type": "object",
+      "properties": {
+        "keyId": { "type": "string" },
+        "keySecret": { "type": "string" },
+        "isTestMode": { "type": "boolean" },
+        "gstPercentage": { "type": "number" },
+        "platformChargePercentage": { "type": "number" },
+        "deliveryFee": { "type": "number" },
+        "isRazorpayEnabled": { "type": "boolean" },
+        "updatedAt": { "type": "number" }
+      }
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Verified customer orders.",
+      "type": "object",
+      "properties": {
+        "razorpayOrderId": { "type": "string" },
+        "razorpayPaymentId": { "type": "string" },
+        "razorpaySignature": { "type": "string" },
+        "status": { "type": "string" },
+        "paymentStatus": { "type": "string" },
+        "customerDetails": { "type": "object" },
+        "items": { "type": "array", "items": { "type": "object" } },
+        "subtotal": { "type": "number" },
+        "gstAmount": { "type": "number" },
+        "platformCharge": { "type": "number" },
+        "deliveryFee": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "isTestMode": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      }
     }
   },
   "firestore": {
@@ -258,6 +295,14 @@
     "/settings/content": {
       "schema": "AppContent",
       "description": "Global application content settings."
+    },
+    "/settings/razorpay": {
+      "schema": "RazorpaySettings",
+      "description": "Razorpay configuration settings."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Collection of customer orders."
     },
     "/categories/{categoryId}": {
       "schema": "Category",
