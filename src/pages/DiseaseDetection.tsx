@@ -899,9 +899,9 @@ const DiseaseDetection: React.FC = () => {
                   </button>
                   <button 
                     onClick={() => setIsOrderModalOpen(true)}
-                    className="flex-1 bg-[#25D366] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-green-100 active:scale-95 transition-all text-xs outline-none"
+                    className="flex-1 bg-[#2D5A27] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-1.5 hover:bg-[#2D5A27]/90 shadow-lg shadow-green-50 active:scale-95 transition-all text-xs outline-none"
                   >
-                    WhatsApp पर ऑर्डर करें
+                    Order करे
                   </button>
                 </div>
                 <button 
