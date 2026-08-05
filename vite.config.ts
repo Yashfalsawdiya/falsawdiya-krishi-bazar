@@ -17,7 +17,7 @@ export default defineConfig(({mode}) => {
           name: 'फल्सावदिया कृषि बाज़ार',
           short_name: 'कृषि बाज़ार',
           description: 'मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी',
-          theme_color: '#2D5A27',
+          theme_color: '#FFFFFF',
           background_color: '#FFFFFF',
           display: 'standalone',
           display_override: ['window-controls-overlay', 'standalone'],

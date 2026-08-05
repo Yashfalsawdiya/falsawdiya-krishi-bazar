@@ -56,15 +56,16 @@ const Layout: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#F5F2ED] flex flex-col max-w-md mx-auto shadow-2xl relative overflow-hidden">
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-          <div className="w-24 h-24 bg-white rounded-full shadow-xl flex items-center justify-center mb-8 border-2 border-[#2D5A27]/20 overflow-hidden p-0.5 relative">
+          <div className="w-24 h-24 bg-transparent rounded-3xl shadow-xl flex items-center justify-center mb-8 border-2 border-[#2D5A27]/10 overflow-hidden p-2 relative">
             <SmartImage 
               src={branding.logo} 
               fallbackSrc="/icon-192.png"
               alt="Logo" 
-              className="w-full h-full relative z-10 scale-[1.05]" 
+              className="w-full h-full relative z-10" 
               objectFit="contain" 
               priority
             />
+            <div className="absolute inset-0 bg-white/40 -z-10" />
           </div>
           <h1 className="text-3xl font-black text-[#4A3728] mb-2">{branding.name}</h1>
           <p className="text-gray-500 mb-12 font-medium">{branding.tagline}</p>
