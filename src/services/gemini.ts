@@ -77,6 +77,100 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
   }
 }
 
+export interface ReportChatMessage {
+  role: 'user' | 'model';
+  text: string;
+}
+
+export interface DiseaseReportChatInput {
+  reportAnalysis: string;
+  userQuestion: string;
+  chatHistory: ReportChatMessage[];
+  location?: string;
+  weatherSummary?: string;
+  userApiKey?: string;
+}
+
+export async function askDiseaseReportChat({
+  reportAnalysis,
+  userQuestion,
+  chatHistory,
+  location = "शामगढ़, मंदसौर, मध्य प्रदेश",
+  weatherSummary = "सामान्‍य",
+  userApiKey
+}: DiseaseReportChatInput): Promise<string> {
+  try {
+    const ai = getAI(userApiKey);
+    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
+
+    const historyPrompt = chatHistory && chatHistory.length > 0 
+      ? chatHistory.map(m => `${m.role === 'user' ? 'किसान' : 'AI विशेषज्ञ'}: ${m.text}`).join('\n')
+      : 'कोई पूर्व बातचीत नहीं';
+
+    const systemInstruction = `आप 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar, Shamgarh, MP) के वरिष्ठ कृषि विशेषज्ञ और फसल रोग वैज्ञानिक हैं।
+    
+    आपका मुख्य कर्तव्य किसान द्वारा कराई गई **फसल बीमारी जाँच रिपोर्ट (Scan Report)** के संदर्भ (Context) में उनके प्रश्नों का उत्तर देना है।
+    
+    **इस Scan Report का पूरा संदर्भ निम्न है:**
+    -------------------------------------------
+    ${reportAnalysis}
+    -------------------------------------------
+    स्थान: ${location}
+    मौसम की स्थिति: ${weatherSummary}
+    
+    **दिशा-निर्देश (Guidelines for Answering):**
+    1. **Context-Aware Memory**: उत्तर देते समय हमेशा इसी रिपोर्ट की फसल, बीमारी, कीट, सुझाई गई दवाइयों/टेक्निकल और मौसम का ध्यान रखें।
+    2. **सरल हिन्दी**: हमेशा आसान हिन्दी में उत्तर दें। यदि तकनीकी शब्द (जैसे WDG, WP, SC, EC, PHI, IRAC) आएँ तो उनका सरल अर्थ भी समझाएँ।
+    3. **संक्षिप्त एवं पॉइंट-वाइज़**: लंबे पैराग्राफ न लिखें। छोटे, स्पष्ट और पढ़ने में आसान पॉइंट्स (Points) में उत्तर दें।
+    4. **विशिष्ट प्रश्नों के सटीक उत्तर**:
+       - **टैंक मिक्स (Tank Mix) का क्रम**: यदि किसान दवा मिलाने का क्रम पूछे, तो सही वैज्ञानिक क्रम बताएँ (1. पानी, 2. WDG, 3. WP, 4. SC, 5. EC, 6. SL, 7. स्टिकर/Adjuvant)।
+       - **मात्रा/डोज़**: 20 लीटर पंप या 500 लीटर टैंक या प्रति बीघा के लिए डोज़ स्पष्ट रूप से बताएँ।
+       - **ब्रांड विकल्प / सस्ता विकल्प / Organic**: यदि किसान सस्ता विकल्प, Bayer/UPL का विकल्प या ऑर्गेनिक उपाय पूछे तो इसी बीमारी/कीट का उपयुक्त विकल्प बताएँ।
+       - **छिड़काव का समय व मौसम**: सुबह या शाम ठंडे मौसम में छिड़काव की सलाह दें। बारिश आने पर स्टिकर मिलाने और सुखाने के समय (Rainfast period) का सुझाव दें।
+       - **दवा संगति (Compatibility)**: कौन-सी दवाएँ आपस में नहीं मिलानी चाहिए (जैसे कॉपर युक्त दवाएँ अन्य के साथ) स्पष्ट बताएँ।
+    5. **यदि फोटो या जानकारी से निश्चित न हों**:
+       यदि प्रश्न ऐसा हो जिसकी पुष्टि इस फोटो/रिपोर्ट से संभव न हो, तो स्पष्ट कहें:
+       "इस फोटो से पूरी पुष्टि संभव नहीं है। कृपया पूरी फसल, तने या दूसरी पत्तियों की फोटो भी भेजें ताकि अधिक सटीक सलाह दी जा सके।"
+    6. **दुकान का नाम**: हमेशा 'फल्सावदिया कृषि बाज़ार' ही लिखें। (STRICT RULE: 'फालसावदिया' कभी न लिखें।)`;
+
+    const prompt = `पूर्व बातचीत:
+${historyPrompt}
+
+किसान का नया प्रश्न:
+"${userQuestion}"`;
+
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: "gemini-3.6-flash",
+        contents: prompt,
+        config: {
+          systemInstruction,
+          temperature: 0.7
+        }
+      });
+    } catch (e) {
+      response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction,
+          temperature: 0.7
+        }
+      });
+    }
+
+    return response.text || "क्षमा करें, AI उत्तर उत्पन्न नहीं कर सका। कृपया पुनः प्रयास करें।";
+  } catch (error: any) {
+    const friendlyError = getFriendlyAiError(error);
+    if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
+      throw friendlyError;
+    }
+    console.error("Gemini Disease Report Chat Error:", error);
+    return friendlyError.message || "उत्तर प्राप्त करने में समस्या आई।";
+  }
+}
+
 export async function getDynamicAdvice(weatherData: any, season: string, cropName: string, userApiKey?: string) {
   const CACHE_KEY = `agri_advice_${cropName}_${season}`;
   const CACHE_TIME_KEY = `${CACHE_KEY}_timestamp`;

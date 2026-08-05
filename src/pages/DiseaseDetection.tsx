@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Upload, Loader2, AlertCircle, CheckCircle2, Image as ImageIcon, RefreshCw, Info, ShoppingCart, ArrowRight, X, Tag, Wheat, Droplets } from 'lucide-react';
-import { detectDisease, DiseaseAnalysis } from '../services/gemini';
+import { 
+  Camera, Upload, Loader2, AlertCircle, CheckCircle2, Image as ImageIcon, 
+  RefreshCw, Info, ShoppingCart, ArrowRight, X, Tag, Wheat, Droplets, 
+  MessageSquare, Send, Sparkles, Bot, History, Trash2, ChevronRight, 
+  RotateCcw, FileText, HelpCircle, Check, MessageCircle 
+} from 'lucide-react';
+import { detectDisease, DiseaseAnalysis, askDiseaseReportChat, ReportChatMessage } from '../services/gemini';
+import { fetchWeather } from '../services/weatherService';
 import { motion, AnimatePresence } from 'motion/react';
 import { getFriendlyAiError } from '../utils/aiErrorHandler';
 import SmartImage from '../components/SmartImage';
@@ -10,24 +16,103 @@ import { useCart } from '../context/CartContext';
 import ApiKeyModal from '../components/ApiKeyModal';
 import OrderModal from '../components/OrderModal';
 
+export interface DiseaseChatMessage {
+  id: string;
+  sender: 'user' | 'ai';
+  text: string;
+  timestamp: number;
+}
+
+export interface DiseaseScanRecord {
+  id: string;
+  timestamp: number;
+  dateStr: string;
+  image: string;
+  cropName?: string;
+  analysisResult: DiseaseAnalysis;
+  chatMessages: DiseaseChatMessage[];
+}
+
+const SUGGESTED_QUESTIONS = [
+  '• यह बीमारी क्यों हुई?',
+  '• दूसरा Product बताओ',
+  '• सस्ता विकल्प',
+  '• Premium विकल्प',
+  '• Organic उपाय',
+  '• 20 लीटर डोज़',
+  '• 500 लीटर डोज़',
+  '• Tank Mix क्रम',
+  '• कितने दिन में ठीक होगा?',
+  '• दोबारा Spray कब करें?',
+  '• किन दवाओं के साथ न मिलाएँ?',
+  '• बचाव कैसे करें?'
+];
+
 const DiseaseDetection: React.FC = () => {
   const { appContent, userSettings, products, categories, loading: appLoading } = useAppContext();
   const { addToCart } = useCart();
+  
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<DiseaseAnalysis | null>(null);
+  
+  // Modals & Errors
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  
+  // Scan History & Chat States
+  const [scanHistory, setScanHistory] = useState<DiseaseScanRecord[]>([]);
+  const [activeScanId, setActiveScanId] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<DiseaseChatMessage[]>([]);
+  const [chatInputText, setChatInputText] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [currentWeatherSummary, setCurrentWeatherSummary] = useState<string>('शामगढ़, मंदसौर (30°C, साफ आसमान)');
+
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const getCategoryName = (catId: string) => {
     if (!categories) return catId;
     const cat = categories.find(c => c.id === catId);
     return cat ? cat.name : catId;
   };
+
+  // Load Saved Scan History on Mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('agri_disease_scans_history');
+      if (saved) {
+        const parsed: DiseaseScanRecord[] = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setScanHistory(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn("Error loading scan history:", e);
+    }
+
+    // Fetch Weather for Chat Context
+    fetchWeather(24.18, 75.61)
+      .then(w => {
+        if (w) {
+          setCurrentWeatherSummary(`तापमान: ${w.temp}°C, आर्द्रता: ${w.humidity}%, मौसम: ${w.condition}`);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Auto Scroll Chat to Bottom
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, chatLoading]);
 
   useEffect(() => {
     if (selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0) {
@@ -39,8 +124,6 @@ const DiseaseDetection: React.FC = () => {
 
   const displayPrice = selectedVariant ? selectedVariant.price : (selectedProduct?.price || 0);
   const displayUnit = selectedVariant ? selectedVariant.quantity : (selectedProduct?.unit || 'Pack');
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const whatsappNumber = appContent?.contactInfo.whatsapp || '918982338046';
 
@@ -58,7 +141,7 @@ const DiseaseDetection: React.FC = () => {
       reader.onloadend = () => {
         const base64 = reader.result as string;
         
-        // Downscale and compress captured photo using HTML Canvas to keep memory low and prevent timeouts/errors
+        // Downscale and compress captured photo using HTML Canvas
         const img = new Image();
         img.onload = () => {
           const maxWidth = 1024;
@@ -90,22 +173,24 @@ const DiseaseDetection: React.FC = () => {
             setImage(base64);
           }
           setAnalysisResult(null);
+          setActiveScanId(null);
+          setChatMessages([]);
         };
         img.onerror = () => {
           setImage(base64);
           setAnalysisResult(null);
+          setActiveScanId(null);
+          setChatMessages([]);
         };
         img.src = base64;
       };
       reader.readAsDataURL(file);
     }
-    // Clear input value to allow uploading the same file again on subsequent triggers
     e.target.value = '';
   };
 
   const analyzeImage = async () => {
     if (!image) return;
-    
     if (appLoading) return;
 
     const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
@@ -119,6 +204,45 @@ const DiseaseDetection: React.FC = () => {
     try {
       const analysis = await detectDisease(image, effectiveApiKey);
       setAnalysisResult(analysis);
+
+      // Create new Scan Record with unique ID and initial chat history
+      const newScanId = `scan_${Date.now()}`;
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'short', year: 'numeric' }) + 
+                      ' ' + now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
+
+      let detectedTitle = 'फसल रोग रिपोर्ट';
+      if (analysis.keywords && analysis.keywords.length > 0) {
+        detectedTitle = analysis.keywords.slice(0, 2).join(', ');
+      }
+
+      const welcomeMsg: DiseaseChatMessage = {
+        id: `msg_welcome_${Date.now()}`,
+        sender: 'ai',
+        text: `नमस्ते! मैं **फल्सावदिया कृषि बाज़ार** का AI कृषि विशेषज्ञ हूँ।\n\nआपकी **${detectedTitle}** जाँच रिपोर्ट तैयार है। इस बीमारी, डोज़ (मात्रा), टैंक मिक्स क्रम, सस्ते/ऑर्गेनिक विकल्प या छिड़काव समय के बारे में नीचे कोई भी सवाल पूछें!`,
+        timestamp: Date.now()
+      };
+
+      const newScanRecord: DiseaseScanRecord = {
+        id: newScanId,
+        timestamp: Date.now(),
+        dateStr,
+        image,
+        cropName: detectedTitle,
+        analysisResult: analysis,
+        chatMessages: [welcomeMsg]
+      };
+
+      const updatedHistory = [newScanRecord, ...scanHistory];
+      setScanHistory(updatedHistory);
+      setActiveScanId(newScanId);
+      setChatMessages([welcomeMsg]);
+
+      try {
+        localStorage.setItem('agri_disease_scans_history', JSON.stringify(updatedHistory));
+      } catch (e) {
+        console.warn("Could not save scan history:", e);
+      }
     } catch (error: any) {
       console.error("Analysis failed:", error);
       const friendlyError = getFriendlyAiError(error);
@@ -137,9 +261,108 @@ const DiseaseDetection: React.FC = () => {
     }
   };
 
+  const handleSendChatMessage = async (inputQuery?: string) => {
+    const queryText = (inputQuery || chatInputText).trim();
+    if (!queryText || chatLoading || !analysisResult) return;
+
+    const userMsg: DiseaseChatMessage = {
+      id: `user_${Date.now()}`,
+      sender: 'user',
+      text: queryText,
+      timestamp: Date.now()
+    };
+
+    const updatedMsgs = [...chatMessages, userMsg];
+    setChatMessages(updatedMsgs);
+    setChatInputText('');
+    setChatLoading(true);
+
+    const geminiHistory: ReportChatMessage[] = chatMessages.map(m => ({
+      role: m.sender === 'user' ? 'user' : 'model',
+      text: m.text
+    }));
+
+    try {
+      const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
+      const aiReply = await askDiseaseReportChat({
+        reportAnalysis: analysisResult.analysis,
+        userQuestion: queryText,
+        chatHistory: geminiHistory,
+        location: "शामगढ़, मंदसौर, मध्य प्रदेश",
+        weatherSummary: currentWeatherSummary,
+        userApiKey: effectiveApiKey
+      });
+
+      const aiMsg: DiseaseChatMessage = {
+        id: `ai_${Date.now()}`,
+        sender: 'ai',
+        text: aiReply,
+        timestamp: Date.now()
+      };
+
+      const finalMsgs = [...updatedMsgs, aiMsg];
+      setChatMessages(finalMsgs);
+
+      // Persist to active scan record
+      if (activeScanId) {
+        setScanHistory(prevHistory => {
+          const newHistory = prevHistory.map(scan => {
+            if (scan.id === activeScanId) {
+              return { ...scan, chatMessages: finalMsgs };
+            }
+            return scan;
+          });
+          try {
+            localStorage.setItem('agri_disease_scans_history', JSON.stringify(newHistory));
+          } catch (e) {}
+          return newHistory;
+        });
+      }
+    } catch (err: any) {
+      const friendlyError = getFriendlyAiError(err);
+      const errorMsg: DiseaseChatMessage = {
+        id: `err_${Date.now()}`,
+        sender: 'ai',
+        text: `⚠️ ${friendlyError.message || "उत्तर प्राप्त करने में समस्या आई।"}\n\nयदि उत्तर न मिले तो कृपया पूरी फसल या पत्तियों की स्पष्ट फोटो पुनः अपलोड करके पूछें।`,
+        timestamp: Date.now()
+      };
+      const finalMsgs = [...updatedMsgs, errorMsg];
+      setChatMessages(finalMsgs);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const loadHistoryScan = (scan: DiseaseScanRecord) => {
+    setImage(scan.image);
+    setAnalysisResult(scan.analysisResult);
+    setActiveScanId(scan.id);
+    setChatMessages(scan.chatMessages || []);
+    setIsHistoryOpen(false);
+  };
+
+  const deleteHistoryScan = (scanId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = scanHistory.filter(s => s.id !== scanId);
+    setScanHistory(updated);
+    try {
+      localStorage.setItem('agri_disease_scans_history', JSON.stringify(updated));
+    } catch (err) {}
+
+    if (activeScanId === scanId) {
+      if (updated.length > 0) {
+        loadHistoryScan(updated[0]);
+      } else {
+        reset();
+      }
+    }
+  };
+
   const reset = () => {
     setImage(null);
     setAnalysisResult(null);
+    setActiveScanId(null);
+    setChatMessages([]);
   };
 
   return (
@@ -149,28 +372,43 @@ const DiseaseDetection: React.FC = () => {
         onClose={() => setIsModalOpen(false)} 
         message={errorMessage}
       />
-      <div className="text-center">
-        <h2 className="text-xl font-bold text-[#4A3728]">बीमारी की सटीक जाँच (AI Scan)</h2>
-        <p className="text-sm text-gray-500">फोटो चुनें और तुरंत समाधान पाएं</p>
+
+      {/* Header & Scan History Button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-[#4A3728]">बीमारी की सटीक जाँच (AI Scan)</h2>
+          <p className="text-sm text-gray-500">फोटो अपलोड करें और रिपोर्ट के साथ AI से पूछें</p>
+        </div>
+        {scanHistory.length > 0 && (
+          <button
+            onClick={() => setIsHistoryOpen(true)}
+            className="bg-[#2D5A27]/10 text-[#2D5A27] px-3.5 py-2 rounded-2xl text-xs font-bold flex items-center gap-1.5 hover:bg-[#2D5A27]/20 active:scale-95 transition-all shadow-sm border border-[#2D5A27]/20"
+          >
+            <History className="w-4 h-4" />
+            <span>इतिहास ({scanHistory.length})</span>
+          </button>
+        )}
       </div>
 
+      {/* Scan Photo Container */}
       <div className="relative aspect-square w-full max-w-[320px] mx-auto bg-white rounded-3xl border-4 border-dashed border-[#2D5A27]/20 flex flex-col items-center justify-center overflow-hidden shadow-xl transition-all">
         {image && image !== "" ? (
           <div className="relative w-full h-full group">
             <img src={image} alt="Crop" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             <button 
               onClick={reset}
-              className="absolute top-3 right-3 bg-black/50 text-white p-2 rounded-full backdrop-blur-sm active:scale-90 transition-transform"
+              className="absolute top-3 right-3 bg-black/50 text-white p-2 rounded-full backdrop-blur-sm active:scale-90 transition-transform flex items-center gap-1 text-xs px-3 font-medium"
             >
               <RefreshCw className="w-4 h-4" />
+              <span>नया फोटो</span>
             </button>
           </div>
         ) : (
           <div className="text-center p-8">
-            <div className="w-20 h-20 bg-[#F5F2ED] rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-20 h-20 bg-[#F5F2ED] rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
               <Camera className="w-10 h-10 text-[#2D5A27] opacity-40" />
             </div>
-            <p className="text-sm text-gray-500 font-bold mb-1">कोई फोटो नहीं चुनी गई</p>
+            <p className="text-sm text-gray-600 font-bold mb-1">कोई फोटो नहीं चुनी गई</p>
             <p className="text-[11px] text-gray-400">पौधे के प्रभावित हिस्से की साफ़ फोटो अपलोड करें</p>
           </div>
         )}
@@ -237,16 +475,31 @@ const DiseaseDetection: React.FC = () => {
       <AnimatePresence>
         {analysisResult && (
           <div className="space-y-6">
+            {/* AI Report Card */}
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100 space-y-4"
             >
-              <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
-                <div className="bg-[#EAB308] p-2 rounded-xl">
-                  <AlertCircle className="w-5 h-5 text-[#2D5A27]" />
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="bg-[#EAB308] p-2 rounded-xl">
+                    <AlertCircle className="w-5 h-5 text-[#2D5A27]" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-[#4A3728]">जाँच का परिणाम (AI Result)</h3>
+                    {activeScanId && (
+                      <p className="text-[10px] text-gray-400 font-medium">रिपोर्ट ID: {activeScanId}</p>
+                    )}
+                  </div>
                 </div>
-                <h3 className="font-bold text-[#4A3728]">जाँच का परिणाम (AI Result)</h3>
+                <button
+                  onClick={reset}
+                  className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 bg-gray-50 px-2.5 py-1 rounded-lg"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>नया स्कैन</span>
+                </button>
               </div>
 
               <div className="prose prose-sm max-w-none">
@@ -273,7 +526,7 @@ const DiseaseDetection: React.FC = () => {
                       `नमस्ते फल्सावदिया कृषि बाज़ार विशेषज्ञ,\n\n` +
                       `मैंने अभी ऐप के माध्यम से अपनी फसल की जाँच की है।\n\n` +
                       `*AI द्वारा दी गई जाँच रिपोर्ट:*\n${analysisResult.analysis}\n\n` +
-                      `*मेरा सवाल:* कृपया इस रिपोर्ट को देखें और मुझे सही दवा और मात्रा के बारे में विस्तार से बताएं। मैं अपनी फसल की फोटो भी साथ में भेज रहा हूँ।\n\n` +
+                      `*मेरा सवाल:* कृपया इस रिपोर्ट को देखें और मुझे सही दवा और मात्रा के बारे में विस्तार से बताएं।\n\n` +
                       `धन्यवाद!`
                     )}`}
                     target="_blank"
@@ -353,11 +606,221 @@ const DiseaseDetection: React.FC = () => {
                 </div>
               </motion.div>
             )}
+
+            {/* ============================================================ */}
+            {/* CONTEXT-AWARE AI CHAT SECTION FOR THIS DISEASE SCAN REPORT */}
+            {/* ============================================================ */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden space-y-0"
+            >
+              {/* Chat Header */}
+              <div className="bg-gradient-to-r from-[#2D5A27] via-emerald-800 to-[#1f3f1b] p-5 text-white flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md relative">
+                    <Bot className="w-6 h-6 text-yellow-300" />
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-[#2D5A27] animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base leading-snug flex items-center gap-1.5">
+                      <span>💬 AI से इस रिपोर्ट के बारे में पूछें</span>
+                      <Sparkles className="w-4 h-4 text-yellow-300 animate-spin" style={{ animationDuration: '4s' }} />
+                    </h3>
+                    <p className="text-[11px] text-green-100 font-medium opacity-90">
+                      इसी फसल रिपोर्ट के संदर्भ (Context) में सीधा समाधान
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Suggested Questions Section */}
+              <div className="p-4 bg-emerald-50/60 border-b border-emerald-100/50 space-y-2">
+                <p className="text-xs font-bold text-[#2D5A27] flex items-center gap-1">
+                  <HelpCircle className="w-3.5 h-3.5 text-[#2D5A27]" />
+                  <span>सुझाये गए प्रश्न (टैप करें):</span>
+                </p>
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                  {SUGGESTED_QUESTIONS.map((q, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSendChatMessage(q)}
+                      disabled={chatLoading}
+                      className="whitespace-nowrap bg-white hover:bg-[#2D5A27] text-[#2D5A27] hover:text-white border border-[#2D5A27]/20 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 shrink-0"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Chat Messages Thread */}
+              <div className="p-4 max-h-[380px] overflow-y-auto space-y-3 bg-gray-50/50">
+                {chatMessages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[85%] rounded-2xl p-3.5 text-sm shadow-sm ${
+                        msg.sender === 'user'
+                          ? 'bg-[#2D5A27] text-white rounded-br-none'
+                          : 'bg-white border border-gray-200 text-gray-800 rounded-bl-none'
+                      }`}
+                    >
+                      {msg.sender === 'ai' && (
+                        <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-gray-100 text-[10px] font-bold text-[#2D5A27]">
+                          <Bot className="w-3.5 h-3.5 text-[#2D5A27]" />
+                          <span>फल्सावदिया कृषि विशेषज्ञ</span>
+                        </div>
+                      )}
+                      <div className="markdown-body leading-relaxed">
+                        <Markdown>{msg.text}</Markdown>
+                      </div>
+                      <span
+                        className={`text-[9px] block text-right mt-1 font-medium ${
+                          msg.sender === 'user' ? 'text-green-200' : 'text-gray-400'
+                        }`}
+                      >
+                        {new Date(msg.timestamp).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+
+                {chatLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-white border border-gray-200 rounded-2xl p-3 shadow-sm flex items-center gap-2.5 text-xs text-gray-600">
+                      <Loader2 className="w-4 h-4 text-[#2D5A27] animate-spin" />
+                      <span className="font-bold text-[#2D5A27]">AI कृषि विशेषज्ञ उत्तर सोच रहे हैं...</span>
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* Chat Input Bar */}
+              <div className="p-3 bg-white border-t border-gray-100 flex items-center gap-2">
+                <input
+                  type="text"
+                  value={chatInputText}
+                  onChange={(e) => setChatInputText(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
+                  placeholder="इस रिपोर्ट से संबंधित कोई भी प्रश्न पूछें..."
+                  disabled={chatLoading}
+                  className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-[#2D5A27] transition-all"
+                />
+                <button
+                  onClick={() => handleSendChatMessage()}
+                  disabled={chatLoading || !chatInputText.trim()}
+                  className="bg-[#2D5A27] hover:bg-green-800 text-white px-4 py-3 rounded-2xl font-bold flex items-center gap-1.5 text-xs shadow-md disabled:opacity-40 active:scale-95 transition-all shrink-0"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>भेजें</span>
+                </button>
+              </div>
+            </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* Product Order Modal */}
+      {/* ============================================================ */}
+      {/* SCAN HISTORY DRAWER / MODAL */}
+      {/* ============================================================ */}
+      <AnimatePresence>
+        {isHistoryOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsHistoryOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="fixed bottom-0 left-0 right-0 max-h-[85vh] bg-white rounded-t-[40px] z-[101] shadow-2xl p-6 pb-10 flex flex-col"
+            >
+              <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-4" />
+              
+              <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <History className="w-5 h-5 text-[#2D5A27]" />
+                  <h3 className="font-extrabold text-[#4A3728] text-base">पिछली जाँच का इतिहास (Scan History)</h3>
+                </div>
+                <button
+                  onClick={() => setIsHistoryOpen(false)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 bg-gray-100 rounded-full"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto py-4 space-y-3 flex-1">
+                {scanHistory.length === 0 ? (
+                  <div className="text-center py-10 text-gray-400 text-sm">
+                    कोई पुराना इतिहास नहीं मिला।
+                  </div>
+                ) : (
+                  scanHistory.map((scan) => (
+                    <div
+                      key={scan.id}
+                      onClick={() => loadHistoryScan(scan)}
+                      className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 cursor-pointer ${
+                        activeScanId === scan.id
+                          ? 'bg-emerald-50/80 border-[#2D5A27] shadow-sm'
+                          : 'bg-white border-gray-100 hover:border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img
+                          src={scan.image}
+                          alt="Scan Thumb"
+                          className="w-14 h-14 object-cover rounded-xl shrink-0 border border-gray-200"
+                        />
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-gray-900 text-sm truncate">
+                            {scan.cropName || 'फसल बीमारी रिपोर्ट'}
+                          </h4>
+                          <p className="text-[11px] text-gray-400 font-medium">{scan.dateStr}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] bg-[#2D5A27]/10 text-[#2D5A27] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                              <MessageCircle className="w-3 h-3" />
+                              {scan.chatMessages?.length || 0} सन्देश
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={(e) => deleteHistoryScan(scan.id, e)}
+                          className="p-2 text-gray-300 hover:text-red-500 rounded-xl hover:bg-red-50 transition-colors"
+                          title="हटाएं"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <ChevronRight className="w-5 h-5 text-gray-300" />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <button
+                onClick={() => setIsHistoryOpen(false)}
+                className="w-full bg-gray-100 text-gray-600 py-3 rounded-2xl font-bold text-xs active:scale-95 transition-all mt-2"
+              >
+                बंद करें (Close)
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Product Details Sheet */}
       <AnimatePresence>
         {selectedProduct && (
           <>
@@ -531,5 +994,4 @@ const DiseaseDetection: React.FC = () => {
   );
 };
 
-// Removed duplicate import fix at bottom
 export default DiseaseDetection;
