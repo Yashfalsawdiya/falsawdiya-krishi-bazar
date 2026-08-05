@@ -129,38 +129,20 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
     
-    const prompt = `You are an expert Indian agricultural scientist, crop nutritionist, and plant pathologist representing 'फल्सावदिया कृषि बाज़ार' (Shamgarh, MP). 
-            Perform a COMPLETE PLANT HEALTH ANALYSIS (सम्पूर्ण पौधा स्वास्थ्य विश्लेषण) on this crop / plant photo.
+    const prompt = `You are an expert Indian agricultural scientist and plant pathologist. 
+            Analyze this photo of a crop leaf or plant. 
             
-            Analyze ALL of the following aspects thoroughly:
+            Identify:
+            1. **Crop Name (फसल का नाम)**
+            2. **Disease or Pest Type (बीमारी या कीट का प्रकार)**: Identify if it is a disease, a Sucking Pest, or a Chewing Pest.
+            3. **Specific Name (नाम)**: Name of the disease or specific pest.
+            4. **Symptoms (लक्षण)**: What is visible in the photo?
+            5. **Recommended Treatment (उपचार)**: Detailed chemical and organic solutions with dosage.
+            6. **Prevention (बचाव)**: Long-term prevention tips.
             
-            1. 🌾 **फसल एवं स्वास्थ्य ओवरव्यू (Crop & Health Overview)**:
-               - फसल का नाम (Crop Name)
-               - प्रभावित भाग (Leaf / Stem / Fruit / Root)
-               - समग्र स्वास्थ्य स्कोर (e.g. 70% स्वस्थ / 30% प्रभावित)
-
-            2. 🐛 **कीट एवं बीमारी विश्लेषण (Pests & Disease Analysis)**:
-               - बीमारी / फफूंद का नाम (Disease / Fungal / Bacterial Disease)
-               - रसचूसक / चबाने वाले कीट (Sucking / Chewing Pests)
-               - गम्भीरता (Severity Level: कम / मध्यम / गंभीर)
-
-            3. 🧪 **पोषक तत्वों की कमी / तनाव (Nutrient Deficiency & Stress)**:
-               - नाइट्रोजन, फास्फोरस, पोटाश, जिंक, सल्फर आदि की दिखाई दे रही कमी
-               - जल तनाव या धूप / तापमान का प्रभाव (Water or Heat Stress)
-
-            4. 💊 **सम्पूर्ण उपचार योजना (Comprehensive Treatment & Spray Plan)**:
-               - **रासायनिक समाधान (Chemical Treatment)**: साल्ट/एक्टिव इंग्रीडिएंट (Active Ingredients), व्यापारिक नाम (Product Examples)
-               - **सटीक डोज़ (Exact Dosage)**: प्रति 20 लीटर पंप (20L Pump) और प्रति 500 लीटर टैंक (500L Tank)
-               - **जैविक / ऑर्गेनिक उपाय (Organic & Biological Solutions)**: नीम तेल, बायो-पेस्टीसाइड, मित्र फफूंद आदि
-               - **पोषक तत्व प्रबंधन (Nutrient & Micronutrient Spray)**: माइक्रोन्यूट्रिएंट, 19:19:19, 0:52:34 आदि
-
-            5. 🛡️ **भविष्य बचाव व रखरखाव (Prevention & Care)**:
-               - फसल सुरक्षा व सिंचाई चक्र की सलाह
-
             FORMATTING INSTRUCTIONS:
-            1. Write in CLEAR, SIMPLE, FARMER-FRIENDLY HINDI with English technical terms in brackets.
-            2. Use bullet points (•) and bold headers for instant readability.
-            3. At the very end of your response, provide search keywords (active ingredients or pesticide categories) separated by commas that can be used to search for real products in a store.`;
+            1. Provide the analysis in CLEAR, SIMPLE HINDI with English terms in brackets.
+            2. At the very end of your response, provide a list of search keywords (active ingredients or pesticide categories) separated by commas that can be used to search for real products in a store.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -176,7 +158,7 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
         ]
       },
       config: {
-        systemInstruction: "You are an expert plant doctor and crop scientist representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar). Located in Shamgarh, MP. Our shop is located at Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Our shop timings are 8:00 AM to 8:00 PM every day (सुबह 8:00 बजे से रात 8:00 बजे तक). Always provide a comprehensive plant health analysis in Hindi, mention that recommended products are available at our shop 'फल्सावदिया कृषि बाज़ार'. STRICT RULE: ONLY use 'फल्सावदिया' for the name. Never use 'फालसावदिया' (no extra aa matra). Return structured JSON.",
+        systemInstruction: "You are an expert plant pathologist representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar). Located in Shamgarh, MP. Our shop is located at Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Our shop timings are 8:00 AM to 8:00 PM every day (सुबह 8:00 बजे से रात 8:00 बजे तक). Always provide detailed analysis in Hindi, mention that recommended products are available at our shop 'फल्सावदिया कृषि बाज़ार'. STRICT RULE: ONLY use 'फल्सावदिया' for the name. Never use 'फालसावदिया' (no extra aa matra). Return structured JSON.",
         responseMimeType: "application/json",
         responseSchema: {
           type: "OBJECT" as any,

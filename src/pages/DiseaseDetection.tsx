@@ -25,16 +25,18 @@ export interface DiseaseScanRecord {
 }
 
 const SUGGESTED_QUESTIONS = [
-  '• यह बीमारी या कीट क्यों हुआ?',
-  '• क्या पोषक तत्व (Nutrient) की कमी है?',
-  '• क्या पानी या मौसम का तनाव है?',
-  '• 20 लीटर डोज़ क्या रखें?',
-  '• 500 लीटर टैंक डोज़?',
-  '• सस्ता / Premium विकल्प',
+  '• यह बीमारी क्यों हुई?',
+  '• दूसरा Product बताओ',
+  '• सस्ता विकल्प',
+  '• Premium विकल्प',
   '• Organic उपाय',
-  '• Tank Mix घोलने का सही क्रम',
-  '• छिड़काव कब व कितनी बार करें?',
-  '• किन दवाओं के साथ न मिलाएँ?'
+  '• 20 लीटर डोज़',
+  '• 500 लीटर डोज़',
+  '• Tank Mix क्रम',
+  '• कितने दिन में ठीक होगा?',
+  '• दोबारा Spray कब करें?',
+  '• किन दवाओं के साथ न मिलाएँ?',
+  '• बचाव कैसे करें?'
 ];
 
 const DiseaseDetection: React.FC = () => {
@@ -328,8 +330,8 @@ const DiseaseDetection: React.FC = () => {
 
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-extrabold text-[#4A3728]">सम्पूर्ण पौधा स्वास्थ्य विश्लेषण (Plant Health AI)</h2>
-          <p className="text-xs text-gray-500 font-medium">बीमारी, कीट, पोषक तत्वों की कमी व तनाव की एक ही रिपोर्ट में संपूर्ण जाँच</p>
+          <h2 className="text-xl font-bold text-[#4A3728]">बीमारी की सटीक जाँच (AI Scan)</h2>
+          <p className="text-xs text-gray-500">फोटो चुनें और तुरंत AI समाधान पाएं</p>
         </div>
         {scansHistory.length > 0 && (
           <button
@@ -415,12 +417,12 @@ const DiseaseDetection: React.FC = () => {
           {loading ? (
             <>
               <Loader2 className="w-6 h-6 animate-spin" />
-              <span>सम्पूर्ण स्वास्थ्य विश्लेषण हो रहा है...</span>
+              <span>जाँच हो रही है...</span>
             </>
           ) : (
             <>
               <CheckCircle2 className="w-6 h-6" />
-              <span>सम्पूर्ण स्वास्थ्य जाँच करें (Analyze Complete Health)</span>
+              <span>जाँच करें (Analyze Now)</span>
             </>
           )}
         </motion.button>
@@ -439,10 +441,7 @@ const DiseaseDetection: React.FC = () => {
                 <div className="bg-[#EAB308] p-2 rounded-xl">
                   <AlertCircle className="w-5 h-5 text-[#2D5A27]" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-[#4A3728] text-base">सम्पूर्ण पौधा स्वास्थ्य रिपोर्ट (Complete Health Report)</h3>
-                  <p className="text-[11px] text-gray-500 font-medium">रोग, कीट, पोषक तत्व व तनाव का विस्तृत AI विश्लेषण</p>
-                </div>
+                <h3 className="font-bold text-[#4A3728]">जाँच का परिणाम (AI Result)</h3>
               </div>
 
               <div className="prose prose-sm max-w-none">
