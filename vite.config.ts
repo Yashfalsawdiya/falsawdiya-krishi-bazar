@@ -12,27 +12,15 @@ export default defineConfig(({mode}) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        devOptions: {
-          enabled: true,
-          type: 'module',
-        },
-        includeAssets: [
-          'icon-192.png',
-          'icon-512.png',
-          'icon-maskable-192.png',
-          'icon-maskable-512.png',
-          'manifest.webmanifest',
-          'manifest.json',
-          'splash-logo.png',
-          'logo-1024.png'
-        ],
+        includeAssets: [],
         manifest: {
           name: 'फल्सावदिया कृषि बाज़ार',
           short_name: 'कृषि बाज़ार',
           description: 'मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी',
           theme_color: '#2D5A27',
-          background_color: '#FFFFFF',
+          background_color: '#F5F2ED',
           display: 'standalone',
+          display_override: ['window-controls-overlay', 'standalone'],
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
@@ -46,13 +34,25 @@ export default defineConfig(({mode}) => {
               src: '/icon-192.png',
               sizes: '192x192',
               type: 'image/png',
-              purpose: 'any maskable'
+              purpose: 'any'
+            },
+            {
+              src: '/icon-192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'maskable'
             },
             {
               src: '/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
-              purpose: 'any maskable'
+              purpose: 'any'
+            },
+            {
+              src: '/icon-512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable'
             }
           ],
           shortcuts: [

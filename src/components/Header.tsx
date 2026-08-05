@@ -37,7 +37,7 @@ const Header: React.FC = () => {
 
   const menuItems = [
     { icon: User, label: 'मेरा प्रोफाइल (Profile)', path: '/profile', color: 'text-purple-600' },
-    { icon: ShieldAlert, label: 'कृषि व्यापार सूचना केंद्र', path: '/agri-trade-info', color: 'text-amber-600', isAdminOnly: true },
+    { icon: ShieldAlert, label: '📢 कृषि व्यापार सूचना केंद्र', path: '/agri-trade-info', color: 'text-amber-600', isAdminOnly: true },
     { icon: Phone, label: 'AI कृषि विशेषज्ञ कॉल', path: '/ai-call', color: 'text-[#2D5A27]' },
     { icon: Sparkles, label: 'AI उत्पाद जानकारी (Knowledge)', path: '/ai-product-knowledge', color: 'text-amber-500' },
     { icon: TrendingUp, label: 'मंडी भाव (Mandi Bhav)', path: '/mandi', color: 'text-green-600' },
@@ -53,7 +53,7 @@ const Header: React.FC = () => {
     <>
       <header className="fixed top-0 left-0 right-0 max-w-md mx-auto bg-[#2D5A27] text-white z-50 px-4 py-3 shadow-md">
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <motion.div 
               whileTap={{ scale: 0.95 }}
               onClick={!isAdmin ? handleLogoClick : undefined}
@@ -61,13 +61,13 @@ const Header: React.FC = () => {
             >
               <Link 
                 to={isAdmin ? "/admin" : "#"} 
-                className="w-13 h-13 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-md border border-white/30 p-0.5"
+                className="w-14 h-14 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-inner p-1.5"
               >
                 <SmartImage 
                   src={branding.logo} 
                   fallbackSrc="/icon-192.png"
                   alt="Logo" 
-                  className="w-full h-full scale-[1.05]" 
+                  className="w-full h-full" 
                   objectFit="contain" 
                   priority
                 />
@@ -186,13 +186,13 @@ const Header: React.FC = () => {
                   <motion.div 
                     whileTap={{ scale: 0.95 }}
                     onClick={handleLogoClick}
-                    className="w-14 h-14 bg-white rounded-full flex items-center justify-center overflow-hidden p-0.5 shadow-md border border-white/30 cursor-pointer"
+                    className="w-12 h-12 bg-white rounded-full flex items-center justify-center overflow-hidden p-1 shadow-inner cursor-pointer"
                   >
                     <SmartImage 
                       src={branding.logo} 
                       fallbackSrc="/icon-192.png"
                       alt="Logo" 
-                      className="w-full h-full scale-[1.05]" 
+                      className="w-full h-full" 
                       objectFit="contain" 
                       priority
                     />

@@ -187,15 +187,7 @@ service cloud.firestore {
     // Settings Collection
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // Orders Collection
-    match /orders/{orderId} {
-      allow read: if true; // Allows customer and admin order tracking
-      allow create: if true; // Orders can be created upon payment verification
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow write: if isAdmin() && (settingId != 'content' || isValidAppContent(request.resource.data));
     }
 
     // Categories Collection
