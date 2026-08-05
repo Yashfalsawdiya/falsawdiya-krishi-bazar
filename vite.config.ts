@@ -12,7 +12,20 @@ export default defineConfig(({mode}) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: [],
+        devOptions: {
+          enabled: true,
+          type: 'module',
+        },
+        includeAssets: [
+          'icon-192.png',
+          'icon-512.png',
+          'icon-maskable-192.png',
+          'icon-maskable-512.png',
+          'manifest.webmanifest',
+          'manifest.json',
+          'splash-logo.png',
+          'logo-1024.png'
+        ],
         manifest: {
           name: 'फल्सावदिया कृषि बाज़ार',
           short_name: 'कृषि बाज़ार',

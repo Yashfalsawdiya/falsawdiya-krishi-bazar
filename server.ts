@@ -278,6 +278,16 @@ async function startServer() {
     }
   });
 
+  // Serve public static assets (manifests, icons) with correct headers
+  const publicPath = path.join(process.cwd(), 'public');
+  app.use(express.static(publicPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.webmanifest') || filePath.endsWith('.json')) {
+        res.setHeader('Content-Type', 'application/manifest+json');
+      }
+    }
+  }));
+
   // Vite development middleware vs production static server
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
