@@ -16,25 +16,151 @@ export interface DiseaseAnalysis {
   keywords: string[];
 }
 
+export interface DiseaseChatMessage {
+  id: string;
+  sender: 'user' | 'ai';
+  text: string;
+  timestamp: number;
+}
+
+export async function askDiseaseReportChat(
+  diseaseReportText: string,
+  userQuestion: string,
+  chatHistory: DiseaseChatMessage[],
+  userApiKey?: string,
+  weatherData?: any
+): Promise<string> {
+  try {
+    const ai = getAI(userApiKey);
+    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    let weatherInfo = "स्थान: शामगढ़, मंदसौर (म.प्र.)";
+    if (weatherData) {
+      weatherInfo += ` | तापमान: ${weatherData.temp || 'N/A'}°C, आर्द्रता: ${weatherData.humidity || 'N/A'}%, स्थिति: ${weatherData.condition || 'N/A'}, बारिश: ${weatherData.rain || 0}mm`;
+    }
+
+    const systemInstruction = `You are an expert Indian agricultural scientist and plant pathologist representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar, Shamgarh, MP).
+
+Shop Profile:
+- Name: फल्सावदिया कृषि बाज़ार
+- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)
+- Timings: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)
+
+CONTEXT - SCAN & DISEASE ANALYSIS REPORT:
+--------------------------------
+${diseaseReportText}
+--------------------------------
+Current Weather & Location: ${weatherInfo}
+Today's Date: ${dateStr}
+
+YOUR INSTRUCTIONS:
+1. You are continuing a multi-turn chat with a farmer specifically regarding the scan report and crop disease/pest analysis provided above.
+2. You ALREADY KNOW the crop name, identified pest/disease, symptoms, recommended active ingredients, chemical/organic treatments, dosages, and products mentioned in the report.
+3. Answer the farmer's question directly and concisely in CLEAR, SIMPLE HINDI (सरल किसान-मित्र भाषा).
+4. Use bullet points (•) and bold headers for clarity. Keep paragraphs short.
+5. Specific Topic Handling:
+   - **Dosage for 20L pump / 500L tank**: Provide exact calculation (e.g. per 20L pump or per 500L water tank) based on standard per acre/liter recommendation.
+   - **Alternatives (Cheaper/Premium/Organic)**: Suggest appropriate alternatives (e.g., Neem oil, Beauveria, Trichoderma for organic; or chemical active ingredients like Thiamethoxam, Emamectin Benzoate, Chlorantraniliprole, Azoxystrobin, Tebuconazole, etc.).
+   - **Tank Mix Order (टैंक घोलने का सही क्रम)**: Explain standard sequence clearly:
+     1. पानी (Water) - आधा टैंक भरें
+     2. WDG / DF (सूखे दानेदार)
+     3. WP (पाउडर)
+     4. SC / FS (गाढ़ा तरल घोल)
+     5. EC (तेल आधारित तरल)
+     6. SL (पानी में घुलनशील तरल)
+     7. सिलिकॉन चिपको / स्प्रेडर (Silicon Spreader)
+   - **Compatibility (किसके साथ न मिलाएँ)**: Warn clearly about improper mixtures (e.g., Copper/Sulfur with EC or alkaline pesticides, weedicides with insecticides/fungicides).
+   - **Uncertainty**: If a question requires details not visible or determinable from the photo/report, politely state:
+     "इस फोटो या रिपोर्ट से पूरी पुष्टि संभव नहीं है। कृपया पूरी फसल, तने या दूसरी पत्तियों की फोटो भी भेजें ताकि अधिक सटीक सलाह दी जा सके।"
+6. Always assure the farmer that genuine pesticides and agricultural products are available at 'फल्सावदिया कृषि बाज़ार'.
+7. STRICT RULE: ONLY write 'फल्सावदिया' for the shop name. NEVER write 'फालसावदिया'.`;
+
+    const formattedContents: any[] = [];
+    const recentHistory = chatHistory.slice(-10);
+    for (const msg of recentHistory) {
+      formattedContents.push({
+        role: msg.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.text }]
+      });
+    }
+
+    formattedContents.push({
+      role: 'user',
+      parts: [{ text: userQuestion }]
+    });
+
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: formattedContents,
+        config: {
+          systemInstruction,
+          tools: [{ googleSearch: {} }]
+        }
+      });
+    } catch (e) {
+      console.warn("Disease report chat fallback without search:", e);
+      response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: formattedContents,
+        config: {
+          systemInstruction
+        }
+      });
+    }
+
+    return response.text || "माफ़ करें, उत्तर प्राप्त नहीं हो सका। कृपया पुनः प्रयास करें।";
+  } catch (error: any) {
+    const friendlyError = getFriendlyAiError(error);
+    if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
+      throw friendlyError;
+    }
+    console.error("Gemini Disease Report Chat Error:", error);
+    return friendlyError.message || "तकनीकी त्रुटि के कारण AI उत्तर नहीं दे सका।";
+  }
+}
+
 export async function detectDisease(base64Image: string, userApiKey?: string): Promise<DiseaseAnalysis> {
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
     
-    const prompt = `You are an expert Indian agricultural scientist and plant pathologist. 
-            Analyze this photo of a crop leaf or plant. 
+    const prompt = `You are an expert Indian agricultural scientist, crop nutritionist, and plant pathologist representing 'फल्सावदिया कृषि बाज़ार' (Shamgarh, MP). 
+            Perform a COMPLETE PLANT HEALTH ANALYSIS (सम्पूर्ण पौधा स्वास्थ्य विश्लेषण) on this crop / plant photo.
             
-            Identify:
-            1. **Crop Name (फसल का नाम)**
-            2. **Disease or Pest Type (बीमारी या कीट का प्रकार)**: Identify if it is a disease, a Sucking Pest, or a Chewing Pest.
-            3. **Specific Name (नाम)**: Name of the disease or specific pest.
-            4. **Symptoms (लक्षण)**: What is visible in the photo?
-            5. **Recommended Treatment (उपचार)**: Detailed chemical and organic solutions with dosage.
-            6. **Prevention (बचाव)**: Long-term prevention tips.
+            Analyze ALL of the following aspects thoroughly:
             
+            1. 🌾 **फसल एवं स्वास्थ्य ओवरव्यू (Crop & Health Overview)**:
+               - फसल का नाम (Crop Name)
+               - प्रभावित भाग (Leaf / Stem / Fruit / Root)
+               - समग्र स्वास्थ्य स्कोर (e.g. 70% स्वस्थ / 30% प्रभावित)
+
+            2. 🐛 **कीट एवं बीमारी विश्लेषण (Pests & Disease Analysis)**:
+               - बीमारी / फफूंद का नाम (Disease / Fungal / Bacterial Disease)
+               - रसचूसक / चबाने वाले कीट (Sucking / Chewing Pests)
+               - गम्भीरता (Severity Level: कम / मध्यम / गंभीर)
+
+            3. 🧪 **पोषक तत्वों की कमी / तनाव (Nutrient Deficiency & Stress)**:
+               - नाइट्रोजन, फास्फोरस, पोटाश, जिंक, सल्फर आदि की दिखाई दे रही कमी
+               - जल तनाव या धूप / तापमान का प्रभाव (Water or Heat Stress)
+
+            4. 💊 **सम्पूर्ण उपचार योजना (Comprehensive Treatment & Spray Plan)**:
+               - **रासायनिक समाधान (Chemical Treatment)**: साल्ट/एक्टिव इंग्रीडिएंट (Active Ingredients), व्यापारिक नाम (Product Examples)
+               - **सटीक डोज़ (Exact Dosage)**: प्रति 20 लीटर पंप (20L Pump) और प्रति 500 लीटर टैंक (500L Tank)
+               - **जैविक / ऑर्गेनिक उपाय (Organic & Biological Solutions)**: नीम तेल, बायो-पेस्टीसाइड, मित्र फफूंद आदि
+               - **पोषक तत्व प्रबंधन (Nutrient & Micronutrient Spray)**: माइक्रोन्यूट्रिएंट, 19:19:19, 0:52:34 आदि
+
+            5. 🛡️ **भविष्य बचाव व रखरखाव (Prevention & Care)**:
+               - फसल सुरक्षा व सिंचाई चक्र की सलाह
+
             FORMATTING INSTRUCTIONS:
-            1. Provide the analysis in CLEAR, SIMPLE HINDI with English terms in brackets.
-            2. At the very end of your response, provide a list of search keywords (active ingredients or pesticide categories) separated by commas that can be used to search for real products in a store.`;
+            1. Write in CLEAR, SIMPLE, FARMER-FRIENDLY HINDI with English technical terms in brackets.
+            2. Use bullet points (•) and bold headers for instant readability.
+            3. At the very end of your response, provide search keywords (active ingredients or pesticide categories) separated by commas that can be used to search for real products in a store.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -50,7 +176,7 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
         ]
       },
       config: {
-        systemInstruction: "You are an expert plant pathologist representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar). Located in Shamgarh, MP. Our shop is located at Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Our shop timings are 8:00 AM to 8:00 PM every day (सुबह 8:00 बजे से रात 8:00 बजे तक). Always provide detailed analysis in Hindi, mention that recommended products are available at our shop 'फल्सावदिया कृषि बाज़ार'. STRICT RULE: ONLY use 'फल्सावदिया' for the name. Never use 'फालसावदिया' (no extra aa matra). Return structured JSON.",
+        systemInstruction: "You are an expert plant doctor and crop scientist representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar). Located in Shamgarh, MP. Our shop is located at Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Our shop timings are 8:00 AM to 8:00 PM every day (सुबह 8:00 बजे से रात 8:00 बजे तक). Always provide a comprehensive plant health analysis in Hindi, mention that recommended products are available at our shop 'फल्सावदिया कृषि बाज़ार'. STRICT RULE: ONLY use 'फल्सावदिया' for the name. Never use 'फालसावदिया' (no extra aa matra). Return structured JSON.",
         responseMimeType: "application/json",
         responseSchema: {
           type: "OBJECT" as any,

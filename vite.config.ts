@@ -18,7 +18,7 @@ export default defineConfig(({mode}) => {
           short_name: 'कृषि बाज़ार',
           description: 'मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी',
           theme_color: '#2D5A27',
-          background_color: '#F5F2ED',
+          background_color: '#FFFFFF',
           display: 'standalone',
           display_override: ['window-controls-overlay', 'standalone'],
           orientation: 'portrait',
@@ -37,7 +37,7 @@ export default defineConfig(({mode}) => {
               purpose: 'any'
             },
             {
-              src: '/icon-192.png',
+              src: '/icon-maskable-192.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'maskable'
@@ -49,7 +49,7 @@ export default defineConfig(({mode}) => {
               purpose: 'any'
             },
             {
-              src: '/icon-512.png',
+              src: '/icon-maskable-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'

@@ -7,7 +7,7 @@ const BottomNav: React.FC = () => {
   const navItems = [
     { to: '/', icon: Home, label: 'होम' },
     { to: '/products', icon: ShoppingBag, label: 'बाजार' },
-    { to: '/disease', icon: Camera, label: 'बीमारी जाँच', primary: true },
+    { to: '/disease', icon: Camera, label: 'स्वास्थ्य जाँच', primary: true },
     { to: '/news', icon: Newspaper, label: 'कृषि समाचार' },
     { to: '/weather', icon: CloudSun, label: 'मौसम' },
   ];
