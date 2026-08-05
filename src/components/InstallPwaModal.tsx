@@ -16,53 +16,74 @@ const InstallPwaModal: React.FC = () => {
     // Check if app is already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true);
+      return;
     }
 
-    const handleBeforeInstallPrompt = (e: any) => {
-      // Prevent the mini-infobar from appearing on mobile
-      e.preventDefault();
-      // Stash the event so it can be triggered later.
-      setDeferredPrompt(e);
-      // Update UI notify the user they can install the PWA
-      
-      // Delay surfacing the prompt to give user time to engage with content
-      const timer = setTimeout(() => {
-        setIsVisible(true);
-      }, 5000); // Show after 5 seconds of browsing
+    // Check if prompt was captured globally before react mounted
+    if ((window as any).deferredPwaPrompt) {
+      setDeferredPrompt((window as any).deferredPwaPrompt);
+      setIsVisible(true);
+    }
 
-      return () => clearTimeout(timer);
+    const handlePromptReady = (e: any) => {
+      setDeferredPrompt(e);
+      setIsVisible(true);
+    };
+
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      (window as any).deferredPwaPrompt = e;
+      setDeferredPrompt(e);
+      // Show immediately on open
+      setIsVisible(true);
     };
 
     const handleAppInstalled = () => {
-      // Clear the deferredPrompt so it can be garbage collected
       setDeferredPrompt(null);
+      (window as any).deferredPwaPrompt = null;
       setIsVisible(false);
       setIsInstalled(true);
       console.log('PWA was installed');
     };
 
+    (window as any).onPwaPromptReady = handlePromptReady;
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
+    // If no beforeinstallprompt fired within 1s, show modal anyway so user has install guidance
+    const timer = setTimeout(() => {
+      if (!window.matchMedia('(display-mode: standalone)').matches && !(window as any).hasDismissedInstall) {
+        setIsVisible(true);
+      }
+    }, 1000);
+
     return () => {
+      delete (window as any).onPwaPromptReady;
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
+      clearTimeout(timer);
     };
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    const promptEvent = deferredPrompt || (window as any).deferredPwaPrompt;
 
-    // Show the install prompt
-    deferredPrompt.prompt();
-
-    // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`User response to the install prompt: ${outcome}`);
-
-    // We've used the prompt, and can't use it again, throw it away
-    setDeferredPrompt(null);
-    setIsVisible(false);
+    if (promptEvent && typeof promptEvent.prompt === 'function') {
+      try {
+        promptEvent.prompt();
+        const { outcome } = await promptEvent.userChoice;
+        console.log(`User response to the install prompt: ${outcome}`);
+        setDeferredPrompt(null);
+        (window as any).deferredPwaPrompt = null;
+        setIsVisible(false);
+      } catch (err) {
+        console.warn("Prompt error:", err);
+      }
+    } else {
+      // Fallback guidance if browser doesn't expose prompt object directly
+      alert("ऐप इंस्टॉल करने के लिए:\n1. अपने ब्राउज़र के तीन डॉट्स (⋮) या Share बटन पर क्लिक करें।\n2. 'Install app' या 'Add to Home Screen' चुनें।");
+      setIsVisible(false);
+    }
   };
 
   if (isInstalled) return null;

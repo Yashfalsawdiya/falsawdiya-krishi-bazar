@@ -11,32 +11,35 @@ setupChunkErrorHandling();
 // Check for app version change and clear cache if needed
 checkAppVersion();
 
-// Register Service Worker with automatic updates
-registerSW({ 
-  immediate: true,
-  onNeedRefresh() {
-    console.log('New content available, refreshing...');
-    window.location.reload();
-  },
-  onOfflineReady() {
-    console.log('App is ready to work offline');
-  }
-});
+// Register Service Worker with automatic updates and error safety
+try {
+  registerSW({ 
+    immediate: true,
+    onNeedRefresh() {
+      console.log('New content available, refreshing...');
+      window.location.reload();
+    },
+    onOfflineReady() {
+      console.log('App is ready to work offline');
+    },
+    onRegisterError(error) {
+      console.warn('Service worker registration failed or ignored in frame:', error);
+    }
+  });
+} catch (e) {
+  console.warn('Service worker initialization skipped:', e);
+}
 
-// Global error handling - log to console instead of intrusive alerts in production
-const isDev = process.env.NODE_ENV === 'development';
-
-window.onerror = function(message, source, lineno, colno, error) {
+// Global error handling - log gracefully without crashing preview frame
+window.onerror = function(message, source, lineno) {
   console.error("App Error:", message, "at", source, ":", lineno);
-  if (isDev) {
-    // Keep alerts only in dev if desired, but for now console is safer
-  }
-  return false;
+  return true; // Prevents default browser error overlay
 };
 
-window.onunhandledrejection = function(event) {
-  console.error("Unhandled Promise Rejection:", event.reason);
-};
+window.addEventListener('unhandledrejection', function(event) {
+  console.warn("Handled unhandled promise rejection:", event.reason);
+  event.preventDefault(); // Prevents error from crashing preview iframe or triggering unhandled error reporting
+});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

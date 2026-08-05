@@ -33,7 +33,6 @@ export default defineConfig(({mode}) => {
           theme_color: '#2D5A27',
           background_color: '#FFFFFF',
           display: 'standalone',
-          display_override: ['window-controls-overlay', 'standalone'],
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
@@ -47,25 +46,13 @@ export default defineConfig(({mode}) => {
               src: '/icon-192.png',
               sizes: '192x192',
               type: 'image/png',
-              purpose: 'any'
-            },
-            {
-              src: '/icon-maskable-192.png',
-              sizes: '192x192',
-              type: 'image/png',
-              purpose: 'maskable'
+              purpose: 'any maskable'
             },
             {
               src: '/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
-              purpose: 'any'
-            },
-            {
-              src: '/icon-maskable-512.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'maskable'
+              purpose: 'any maskable'
             }
           ],
           shortcuts: [
