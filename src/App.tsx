@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import SplashScreen from './components/SplashScreen';
 import PWAUpdater from './components/PWAUpdater';
 import InstallPwaModal from './components/InstallPwaModal';
+import DesktopTouchSimulator from './components/DesktopTouchSimulator';
 import { Loader2 } from 'lucide-react';
 
 // Lazy load pages
@@ -46,6 +47,7 @@ export default function App() {
   return (
     <AppProvider>
       <CartProvider>
+        <DesktopTouchSimulator />
         <SplashScreen />
         <PWAUpdater />
         <InstallPwaModal />
