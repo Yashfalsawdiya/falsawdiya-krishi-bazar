@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Menu, Sprout, X, Landmark, Phone, Newspaper, User, Calculator, PhoneCall, Calendar, Bug, TrendingUp, ShoppingCart, Sparkles, ShieldAlert } from 'lucide-react';
+import { Search, Menu, Sprout, X, Landmark, Phone, Newspaper, User, Calculator, PhoneCall, Bug, TrendingUp, ShoppingCart, Sparkles } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
@@ -37,7 +37,6 @@ const Header: React.FC = () => {
 
   const menuItems = [
     { icon: User, label: 'मेरा प्रोफाइल (Profile)', path: '/profile', color: 'text-purple-600' },
-    { icon: ShieldAlert, label: '📢 कृषि व्यापार सूचना केंद्र', path: '/agri-trade-info', color: 'text-amber-600', isAdminOnly: true },
     { icon: Phone, label: 'AI कृषि विशेषज्ञ कॉल', path: '/ai-call', color: 'text-[#2D5A27]' },
     { icon: Sparkles, label: 'AI उत्पाद जानकारी (Knowledge)', path: '/ai-product-knowledge', color: 'text-amber-500' },
     { icon: TrendingUp, label: 'मंडी भाव (Mandi Bhav)', path: '/mandi', color: 'text-green-600' },
@@ -45,7 +44,6 @@ const Header: React.FC = () => {
     { icon: Landmark, label: 'सरकारी योजनाएं', path: '/schemes', color: 'text-blue-600' },
     { icon: Calculator, label: 'Calculator', path: '/calculator', color: 'text-orange-600' },
     { icon: PhoneCall, label: 'हेल्पलाइन डायरेक्टरी', path: '/helpline', color: 'text-cyan-600' },
-    { icon: Calendar, label: 'फसल कैलेंडर', path: '/calendar', color: 'text-amber-600' },
     { icon: Phone, label: 'संपर्क करें', path: 'tel:8982338046', color: 'text-red-600', isExternal: true },
   ];
 
@@ -61,13 +59,13 @@ const Header: React.FC = () => {
             >
               <Link 
                 to={isAdmin ? "/admin" : "#"} 
-                className="w-14 h-14 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-inner p-1.5"
+                className="w-14 h-14 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-md ring-2 ring-white/90 p-0.5"
               >
                 <SmartImage 
                   src={branding.logo} 
                   fallbackSrc="/icon-192.png"
                   alt="Logo" 
-                  className="w-full h-full" 
+                  className="w-full h-full scale-105" 
                   objectFit="contain" 
                   priority
                 />
@@ -186,13 +184,13 @@ const Header: React.FC = () => {
                   <motion.div 
                     whileTap={{ scale: 0.95 }}
                     onClick={handleLogoClick}
-                    className="w-12 h-12 bg-white rounded-full flex items-center justify-center overflow-hidden p-1 shadow-inner cursor-pointer"
+                    className="w-14 h-14 bg-white rounded-full flex items-center justify-center overflow-hidden p-0.5 shadow-md ring-2 ring-white/90 cursor-pointer"
                   >
                     <SmartImage 
                       src={branding.logo} 
                       fallbackSrc="/icon-192.png"
                       alt="Logo" 
-                      className="w-full h-full" 
+                      className="w-full h-full scale-105" 
                       objectFit="contain" 
                       priority
                     />
@@ -207,9 +205,7 @@ const Header: React.FC = () => {
 
               <div className="flex-1 overflow-y-auto p-4">
                 <div className="space-y-2">
-                  {menuItems
-                    .filter(item => !item.isAdminOnly || isAdmin)
-                    .map((item, idx) => (
+                  {menuItems.map((item, idx) => (
                     <button
                       key={idx}
                       onClick={() => {

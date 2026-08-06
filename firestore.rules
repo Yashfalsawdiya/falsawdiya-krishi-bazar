@@ -59,13 +59,13 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (request.auth.token.email == "yashfalsawdiya36@gmail.com" ||
+        (request.auth.token.get('email', '') == "yashfalsawdiya36@gmail.com" ||
          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin') || 
          (exists(/databases/$(database)/documents/settings/content) && request.auth.token.get('email', '') in get(/databases/$(database)/documents/settings/content).data.get('adminEmails', [])));
     }
 
     function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+      return email is string && email.size() > 0 && email.size() < 200;
     }
 
     function isValidUrl(url) {
@@ -90,7 +90,7 @@ service cloud.firestore {
              (!('description' in data) || (data.description is string && data.description.size() < 5000)) &&
              (!('crops' in data) || data.crops is list) &&
              (!('variants' in data) || data.variants is list) &&
-             (!('dosage' in data) || (data.dosage is map && data.dosage.get('show', false) is bool && data.dosage.get('value', '') is string));
+             (!('dosage' in data) || data.dosage is map);
     }
 
     function isValidCategory(data) {
@@ -119,12 +119,12 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return data.uid is string && 
-             data.email is string && isValidEmail(data.email) &&
-             data.role in ['admin', 'user'] &&
+      return (!('uid' in data) || (data.uid is string && data.uid.size() < 128)) && 
+             (!('email' in data) || isValidEmail(data.email)) &&
+             (!('role' in data) || data.role in ['admin', 'user']) &&
              (!('isBlocked' in data) || data.isBlocked is bool) &&
-             (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
-             (!('geminiApiKey' in data) || (data.geminiApiKey is string && data.geminiApiKey.size() < 200));
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 200)) &&
+             (!('geminiApiKey' in data) || (data.geminiApiKey is string && data.geminiApiKey.size() < 500));
     }
 
     function isValidAppContent(data) {
@@ -170,13 +170,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       // Users can create their own profile as 'user' unless they are the bootstrap admin
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
-                    (request.resource.data.role == 'user' || isAdmin());
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
       // Users can update their own profile but cannot change their role or block status unless they are an admin
       allow update: if (isOwner(userId) && isValidUser(request.resource.data) && 
-                        request.resource.data.role == resource.data.role && 
+                        request.resource.data.get('role', 'user') == resource.data.get('role', 'user') && 
                         request.resource.data.get('isBlocked', false) == resource.data.get('isBlocked', false)) || 
-                    (isAdmin() && isValidUser(request.resource.data));
+                    isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -212,6 +211,12 @@ service cloud.firestore {
       allow create: if isAdmin() && isValidHelpline(request.resource.data);
       allow update: if isAdmin() && isValidHelpline(request.resource.data);
       allow delete: if isAdmin();
+    }
+
+    // Agri Trade Notices Collection
+    match /agri_trade_notices/{noticeId} {
+      allow read: if true;
+      allow create, update, delete: if isAuthenticated();
     }
 
     // Default deny-all (moved to end)

@@ -19,7 +19,6 @@ const AgriNews = lazy(() => import('./pages/AgriNews'));
 const SoilTesting = lazy(() => import('./pages/SoilTesting'));
 const AgriCalculator = lazy(() => import('./pages/AgriCalculator'));
 const Helpline = lazy(() => import('./pages/Helpline'));
-const CropCalendar = lazy(() => import('./pages/CropCalendar'));
 const Encyclopedia = lazy(() => import('./pages/Encyclopedia'));
 const EncyclopediaDetail = lazy(() => import('./pages/EncyclopediaDetail'));
 const AiAgriExpert = lazy(() => import('./pages/AiAgriExpert'));
@@ -27,7 +26,6 @@ const AiProductKnowledge = lazy(() => import('./pages/AiProductKnowledge'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Profile = lazy(() => import('./pages/Profile'));
 const CartPage = lazy(() => import('./pages/CartPage'));
-const AgriTradeInfo = lazy(() => import('./pages/AgriTradeInfo'));
 
 const PageLoader = () => (
   <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -65,7 +63,6 @@ export default function App() {
                 <Route path="soil-testing" element={<SoilTesting />} />
                 <Route path="calculator" element={<AgriCalculator />} />
                 <Route path="helpline" element={<Helpline />} />
-                <Route path="calendar" element={<CropCalendar />} />
                 <Route path="encyclopedia" element={<Encyclopedia />} />
                 <Route path="encyclopedia/:id" element={<EncyclopediaDetail />} />
                 <Route path="ai-call" element={<AiAgriExpert />} />
@@ -73,7 +70,6 @@ export default function App() {
                 <Route path="admin" element={<Admin />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="cart" element={<CartPage />} />
-                <Route path="agri-trade-info" element={<AgriTradeInfo />} />
               </Route>
             </Routes>
           </Suspense>

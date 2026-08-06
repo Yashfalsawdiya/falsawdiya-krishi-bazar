@@ -236,6 +236,26 @@
         "order": { "type": "number" }
       },
       "required": ["name", "number", "category"]
+    },
+    "AgriTradeNotice": {
+      "title": "AgriTradeNotice",
+      "description": "Government trade notices and advisories.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "department": { "type": "string" },
+        "state": { "type": "string" },
+        "category": { "type": "string" },
+        "summary": { "type": "string" },
+        "fullContent": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "pdfUrl": { "type": "string" },
+        "source": { "type": "string" },
+        "isImportant": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["title", "category", "summary"]
     }
   },
   "firestore": {
@@ -270,6 +290,10 @@
     "/helplines/{helplineId}": {
       "schema": "Helpline",
       "description": "Collection of helpline numbers."
+    },
+    "/agri_trade_notices/{noticeId}": {
+      "schema": "AgriTradeNotice",
+      "description": "Collection of official trade notices and regulatory updates."
     }
   }
 }

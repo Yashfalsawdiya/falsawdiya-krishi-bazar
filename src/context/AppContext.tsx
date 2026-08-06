@@ -355,7 +355,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       markSyncDone();
       setIsQuotaExceeded(false);
     }, (error) => {
-      console.error("Products listener error:", error);
       const err = handleFirestoreError(error, OperationType.LIST, 'products');
       if (err?.error.toLowerCase().includes('quota')) {
         setIsQuotaExceeded(true);
@@ -389,7 +388,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       setIsQuotaExceeded(false);
     }, (error) => {
-      console.error("Categories listener error:", error);
       const err = handleFirestoreError(error, OperationType.LIST, 'categories');
       if (err?.error.toLowerCase().includes('quota')) {
         setIsQuotaExceeded(true);
@@ -416,7 +414,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       markSyncDone();
       setIsQuotaExceeded(false);
     }, (error) => {
-      console.error("AgriIssues listener error:", error);
       const err = handleFirestoreError(error, OperationType.LIST, 'agriIssues');
       if (err?.error.toLowerCase().includes('quota')) {
         setIsQuotaExceeded(true);
@@ -437,7 +434,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCacheData('helplines', data);
       setIsQuotaExceeded(false);
     }, (error) => {
-      console.error("Helplines listener error:", error);
       const err = handleFirestoreError(error, OperationType.LIST, 'helplines');
       if (err?.error.toLowerCase().includes('quota')) {
         setIsQuotaExceeded(true);
