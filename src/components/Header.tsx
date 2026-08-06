@@ -59,13 +59,13 @@ const Header: React.FC = () => {
             >
               <Link 
                 to={isAdmin ? "/admin" : "#"} 
-                className="w-14 h-14 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-md ring-2 ring-white/90 p-0.5"
+                className="w-14 h-14 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-inner p-1.5"
               >
                 <SmartImage 
                   src={branding.logo} 
                   fallbackSrc="/icon-192.png"
                   alt="Logo" 
-                  className="w-full h-full scale-105" 
+                  className="w-full h-full" 
                   objectFit="contain" 
                   priority
                 />
@@ -184,13 +184,13 @@ const Header: React.FC = () => {
                   <motion.div 
                     whileTap={{ scale: 0.95 }}
                     onClick={handleLogoClick}
-                    className="w-14 h-14 bg-white rounded-full flex items-center justify-center overflow-hidden p-0.5 shadow-md ring-2 ring-white/90 cursor-pointer"
+                    className="w-12 h-12 bg-white rounded-full flex items-center justify-center overflow-hidden p-1 shadow-inner cursor-pointer"
                   >
                     <SmartImage 
                       src={branding.logo} 
                       fallbackSrc="/icon-192.png"
                       alt="Logo" 
-                      className="w-full h-full scale-105" 
+                      className="w-full h-full" 
                       objectFit="contain" 
                       priority
                     />
