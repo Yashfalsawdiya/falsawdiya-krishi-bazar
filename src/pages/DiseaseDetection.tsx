@@ -3,10 +3,11 @@ import {
   Camera, Upload, Loader2, AlertCircle, CheckCircle2, Image as ImageIcon, 
   RefreshCw, Info, ShoppingCart, ArrowRight, X, Tag, Wheat, Droplets, 
   MessageSquare, Send, Sparkles, Bot, History, Trash2, ChevronRight, 
-  RotateCcw, FileText, HelpCircle, Check, MessageCircle 
+  RotateCcw, FileText, HelpCircle, Check, MessageCircle, Plus, Eye, Layers
 } from 'lucide-react';
 import { detectDisease, DiseaseAnalysis, askDiseaseReportChat, ReportChatMessage } from '../services/gemini';
 import { fetchWeather } from '../services/weatherService';
+import { compressImageFile, compressMultipleImageFiles } from '../utils/imageCompressor';
 import { motion, AnimatePresence } from 'motion/react';
 import { getFriendlyAiError } from '../utils/aiErrorHandler';
 import SmartImage from '../components/SmartImage';
@@ -27,11 +28,14 @@ export interface DiseaseScanRecord {
   id: string;
   timestamp: number;
   dateStr: string;
-  image: string;
+  image: string; // Primary image for backward compatibility
+  images?: string[]; // Array of all uploaded photos
   cropName?: string;
   analysisResult: DiseaseAnalysis;
   chatMessages: DiseaseChatMessage[];
 }
+
+const MAX_PHOTOS = 5;
 
 const SUGGESTED_QUESTIONS = [
   '• यह बीमारी क्यों हुई?',
@@ -53,7 +57,14 @@ const DiseaseDetection: React.FC = () => {
   const { addToCart } = useCart();
   
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
-  const [image, setImage] = useState<string | null>(null);
+  
+  // Multi-image state
+  const [images, setImages] = useState<string[]>([]);
+  const [activeImageIndex, setActiveImageIndex] = useState<number>(0);
+  const [isCompressing, setIsCompressing] = useState<boolean>(false);
+  const [notification, setNotification] = useState<string | null>(null);
+  const [isAddPhotoPickerOpen, setIsAddPhotoPickerOpen] = useState<boolean>(false);
+
   const [loading, setLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<DiseaseAnalysis | null>(null);
   
@@ -76,6 +87,15 @@ const DiseaseDetection: React.FC = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const addMoreCameraRef = useRef<HTMLInputElement>(null);
+  const addMoreGalleryRef = useRef<HTMLInputElement>(null);
+
+  const showToast = (msg: string) => {
+    setNotification(msg);
+    setTimeout(() => {
+      setNotification(null);
+    }, 3000);
+  };
 
   const getCategoryName = (catId: string) => {
     if (!categories) return catId;
@@ -134,63 +154,95 @@ const DiseaseDetection: React.FC = () => {
     return analysisResult.keywords.some(k => searchStr.includes(k.toLowerCase()));
   }) || [];
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        
-        // Downscale and compress captured photo using HTML Canvas
-        const img = new Image();
-        img.onload = () => {
-          const maxWidth = 1024;
-          const maxHeight = 1024;
-          let width = img.width;
-          let height = img.height;
-          
-          if (width > height) {
-            if (width > maxWidth) {
-              height = Math.round((height * maxWidth) / width);
-              width = maxWidth;
-            }
-          } else {
-            if (height > maxHeight) {
-              width = Math.round((width * maxHeight) / height);
-              height = maxHeight;
-            }
-          }
-          
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
-            setImage(compressedBase64);
-          } else {
-            setImage(base64);
-          }
-          setAnalysisResult(null);
-          setActiveScanId(null);
-          setChatMessages([]);
-        };
-        img.onerror = () => {
-          setImage(base64);
-          setAnalysisResult(null);
-          setActiveScanId(null);
-          setChatMessages([]);
-        };
-        img.src = base64;
-      };
-      reader.readAsDataURL(file);
+  // Handle Initial Image Upload (Camera or Gallery)
+  const handleInitialUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsCompressing(true);
+    try {
+      const fileList = Array.from(files).slice(0, MAX_PHOTOS);
+      const compressedList = await compressMultipleImageFiles(fileList, {
+        maxWidth: 1024,
+        maxHeight: 1024,
+        quality: 0.82
+      });
+
+      if (compressedList.length > 0) {
+        setImages(compressedList);
+        setActiveImageIndex(0);
+        setAnalysisResult(null);
+        setActiveScanId(null);
+        setChatMessages([]);
+        if (compressedList.length > 1) {
+          showToast(`✅ ${compressedList.length} फोटो जोड़ी गईं`);
+        }
+      }
+    } catch (err) {
+      console.error("Image compression error:", err);
+      showToast("⚠️ फोटो लोड करने में समस्या आई, कृपया पुनः प्रयास करें।");
+    } finally {
+      setIsCompressing(false);
+      e.target.value = '';
     }
-    e.target.value = '';
   };
 
-  const analyzeImage = async () => {
-    if (!image) return;
+  // Handle Add More Images
+  const handleAddMoreUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const remainingSlots = MAX_PHOTOS - images.length;
+    if (remainingSlots <= 0) {
+      showToast(`⚠️ आप अधिकतम ${MAX_PHOTOS} फोटो ही जोड़ सकते हैं।`);
+      e.target.value = '';
+      return;
+    }
+
+    setIsCompressing(true);
+    try {
+      const fileList = Array.from(files).slice(0, remainingSlots);
+      const newCompressedList = await compressMultipleImageFiles(fileList, {
+        maxWidth: 1024,
+        maxHeight: 1024,
+        quality: 0.82
+      });
+
+      if (newCompressedList.length > 0) {
+        const updatedImages = [...images, ...newCompressedList];
+        setImages(updatedImages);
+        setActiveImageIndex(updatedImages.length - 1);
+        setAnalysisResult(null);
+        setActiveScanId(null);
+        setChatMessages([]);
+        showToast(`✅ ${newCompressedList.length} और फोटो जोड़ी गईं (${updatedImages.length}/${MAX_PHOTOS})`);
+      }
+    } catch (err) {
+      console.error("Add more images error:", err);
+      showToast("⚠️ फोटो जोड़ने में समस्या आई।");
+    } finally {
+      setIsCompressing(false);
+      e.target.value = '';
+    }
+  };
+
+  // Remove a specific photo
+  const handleRemoveImage = (indexToRemove: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const updated = images.filter((_, idx) => idx !== indexToRemove);
+    setImages(updated);
+    if (activeImageIndex >= updated.length) {
+      setActiveImageIndex(Math.max(0, updated.length - 1));
+    }
+    setAnalysisResult(null);
+    setActiveScanId(null);
+    setChatMessages([]);
+    showToast("🗑️ फोटो हटाई गई");
+  };
+
+  // Analyze Single or Multiple Images
+  const analyzeImages = async () => {
+    if (images.length === 0) return;
     if (appLoading) return;
 
     const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
@@ -202,7 +254,7 @@ const DiseaseDetection: React.FC = () => {
 
     setLoading(true);
     try {
-      const analysis = await detectDisease(image, effectiveApiKey);
+      const analysis = await detectDisease(images, effectiveApiKey);
       setAnalysisResult(analysis);
 
       // Create new Scan Record with unique ID and initial chat history
@@ -216,10 +268,12 @@ const DiseaseDetection: React.FC = () => {
         detectedTitle = analysis.keywords.slice(0, 2).join(', ');
       }
 
+      const photoCountText = images.length > 1 ? ` (${images.length} फोटो की संयुक्त जाँच)` : '';
+
       const welcomeMsg: DiseaseChatMessage = {
         id: `msg_welcome_${Date.now()}`,
         sender: 'ai',
-        text: `नमस्ते! मैं **फल्सावदिया कृषि बाज़ार** का AI कृषि विशेषज्ञ हूँ।\n\nआपकी **${detectedTitle}** जाँच रिपोर्ट तैयार है। इस बीमारी, डोज़ (मात्रा), टैंक मिक्स क्रम, सस्ते/ऑर्गेनिक विकल्प या छिड़काव समय के बारे में नीचे कोई भी सवाल पूछें!`,
+        text: `नमस्ते! मैं **फल्सावदिया कृषि बाज़ार** का AI कृषि विशेषज्ञ हूँ।\n\nआपकी **${detectedTitle}${photoCountText}** जाँच रिपोर्ट तैयार है। इस बीमारी, डोज़ (मात्रा), टैंक मिक्स क्रम, सस्ते/ऑर्गेनिक विकल्प या छिड़काव समय के बारे में नीचे कोई भी सवाल पूछें!`,
         timestamp: Date.now()
       };
 
@@ -227,7 +281,8 @@ const DiseaseDetection: React.FC = () => {
         id: newScanId,
         timestamp: Date.now(),
         dateStr,
-        image,
+        image: images[0], // primary
+        images: images,   // all photos
         cropName: detectedTitle,
         analysisResult: analysis,
         chatMessages: [welcomeMsg]
@@ -334,7 +389,9 @@ const DiseaseDetection: React.FC = () => {
   };
 
   const loadHistoryScan = (scan: DiseaseScanRecord) => {
-    setImage(scan.image);
+    const scanImages = scan.images && scan.images.length > 0 ? scan.images : (scan.image ? [scan.image] : []);
+    setImages(scanImages);
+    setActiveImageIndex(0);
     setAnalysisResult(scan.analysisResult);
     setActiveScanId(scan.id);
     setChatMessages(scan.chatMessages || []);
@@ -359,11 +416,14 @@ const DiseaseDetection: React.FC = () => {
   };
 
   const reset = () => {
-    setImage(null);
+    setImages([]);
+    setActiveImageIndex(0);
     setAnalysisResult(null);
     setActiveScanId(null);
     setChatMessages([]);
   };
+
+  const activeImage = images[activeImageIndex] || images[0] || null;
 
   return (
     <div className="space-y-6 pb-10">
@@ -373,16 +433,34 @@ const DiseaseDetection: React.FC = () => {
         message={errorMessage}
       />
 
+      {/* Floating Notification Toast */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[150] bg-gray-900 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 border border-white/20"
+          >
+            <span>{notification}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header & Scan History Button */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[#4A3728]">बीमारी की सटीक जाँच (AI Scan)</h2>
-          <p className="text-sm text-gray-500">फोटो अपलोड करें और रिपोर्ट के साथ AI से पूछें</p>
+          <h2 className="text-xl font-bold text-[#4A3728]">
+            बीमारी की सटीक जाँच (AI Scan)
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            फोटो अपलोड करें और रिपोर्ट के साथ AI से पूछें
+          </p>
         </div>
         {scanHistory.length > 0 && (
           <button
             onClick={() => setIsHistoryOpen(true)}
-            className="bg-[#2D5A27]/10 text-[#2D5A27] px-3.5 py-2 rounded-2xl text-xs font-bold flex items-center gap-1.5 hover:bg-[#2D5A27]/20 active:scale-95 transition-all shadow-sm border border-[#2D5A27]/20"
+            className="bg-[#2D5A27]/10 text-[#2D5A27] px-3 py-2 rounded-2xl text-xs font-bold flex items-center gap-1.5 hover:bg-[#2D5A27]/20 active:scale-95 transition-all shadow-sm border border-[#2D5A27]/20 shrink-0"
           >
             <History className="w-4 h-4" />
             <span>इतिहास ({scanHistory.length})</span>
@@ -390,88 +468,202 @@ const DiseaseDetection: React.FC = () => {
         )}
       </div>
 
-      {/* Scan Photo Container */}
-      <div className="relative aspect-square w-full max-w-[320px] mx-auto bg-white rounded-3xl border-4 border-dashed border-[#2D5A27]/20 flex flex-col items-center justify-center overflow-hidden shadow-xl transition-all">
-        {image && image !== "" ? (
-          <div className="relative w-full h-full group">
-            <img src={image} alt="Crop" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            <button 
-              onClick={reset}
-              className="absolute top-3 right-3 bg-black/50 text-white p-2 rounded-full backdrop-blur-sm active:scale-90 transition-transform flex items-center gap-1 text-xs px-3 font-medium"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span>नया फोटो</span>
-            </button>
-          </div>
-        ) : (
-          <div className="text-center p-8">
-            <div className="w-20 h-20 bg-[#F5F2ED] rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
-              <Camera className="w-10 h-10 text-[#2D5A27] opacity-40" />
+      {/* Hidden File Inputs */}
+      {/* 1. Initial Single/Multi Uploads */}
+      <input 
+        type="file" 
+        accept="image/*" 
+        capture="environment"
+        className="hidden" 
+        ref={cameraInputRef}
+        onChange={handleInitialUpload}
+      />
+      <input 
+        type="file" 
+        accept="image/*" 
+        multiple
+        className="hidden" 
+        ref={galleryInputRef}
+        onChange={handleInitialUpload}
+      />
+
+      {/* 2. Add More Inputs */}
+      <input 
+        type="file" 
+        accept="image/*" 
+        capture="environment"
+        className="hidden" 
+        ref={addMoreCameraRef}
+        onChange={handleAddMoreUpload}
+      />
+      <input 
+        type="file" 
+        accept="image/*" 
+        multiple
+        className="hidden" 
+        ref={addMoreGalleryRef}
+        onChange={handleAddMoreUpload}
+      />
+
+      {/* Main Photo Preview & Upload Area */}
+      <div className="bg-white rounded-3xl p-4 shadow-xl border border-gray-100 space-y-4">
+        {/* Large Main Photo Frame */}
+        <div className="relative aspect-square w-full max-w-[320px] mx-auto bg-gray-50 rounded-3xl border-4 border-dashed border-[#2D5A27]/20 flex flex-col items-center justify-center overflow-hidden shadow-inner transition-all">
+          {isCompressing ? (
+            <div className="text-center p-8 space-y-3">
+              <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin mx-auto" />
+              <p className="text-xs font-bold text-gray-700">फोटो तैयार (Compress) हो रही है...</p>
+              <p className="text-[10px] text-gray-400">कृपया एक क्षण प्रतीक्षा करें</p>
             </div>
-            <p className="text-sm text-gray-600 font-bold mb-1">कोई फोटो नहीं चुनी गई</p>
-            <p className="text-[11px] text-gray-400">पौधे के प्रभावित हिस्से की साफ़ फोटो अपलोड करें</p>
+          ) : activeImage ? (
+            <div className="relative w-full h-full group">
+              <img 
+                src={activeImage} 
+                alt="Crop Problem" 
+                className="w-full h-full object-cover" 
+                referrerPolicy="no-referrer" 
+              />
+              
+              {/* Photo Indicator Badge */}
+              <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-md">
+                <Layers className="w-3.5 h-3.5 text-yellow-300" />
+                <span>फोटो {activeImageIndex + 1} of {images.length}</span>
+              </div>
+
+              {/* Delete / Clear Action Buttons */}
+              <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                <button 
+                  onClick={() => handleRemoveImage(activeImageIndex)}
+                  className="bg-red-600/90 hover:bg-red-700 text-white p-2 rounded-full backdrop-blur-sm active:scale-90 transition-transform shadow-md"
+                  title="यह फोटो हटाएं"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+                <button 
+                  onClick={reset}
+                  className="bg-black/60 hover:bg-black/80 text-white p-2 rounded-full backdrop-blur-sm active:scale-90 transition-transform shadow-md"
+                  title="सभी हटाएं"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center p-6">
+              <div className="w-20 h-20 bg-[#F5F2ED] rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
+                <Camera className="w-10 h-10 text-[#2D5A27] opacity-40" />
+              </div>
+              <p className="text-sm text-gray-700 font-bold mb-1">कोई फोटो नहीं चुनी गई</p>
+              <p className="text-[11px] text-gray-500 leading-relaxed max-w-[240px] mx-auto">
+                पौधे के प्रभावित हिस्से की साफ़ फोटो अपलोड करें
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Multi-Photo Thumbnail Strip & 'Add More' Controls */}
+        {images.length > 0 && (
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs font-extrabold text-[#4A3728]">
+                चुनी गई Photos ({images.length}/{MAX_PHOTOS}):
+              </span>
+              {images.length < MAX_PHOTOS && !analysisResult && (
+                <span className="text-[10px] font-bold text-[#2D5A27] bg-[#2D5A27]/10 px-2 py-0.5 rounded-full">
+                  +{MAX_PHOTOS - images.length} और जोड़ सकते हैं
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2.5 overflow-x-auto pb-2 pt-1 px-1 scrollbar-none">
+              {images.map((img, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => setActiveImageIndex(idx)}
+                  className={`relative w-16 h-16 rounded-2xl overflow-hidden shrink-0 cursor-pointer transition-all border-2 ${
+                    activeImageIndex === idx
+                      ? 'border-[#2D5A27] ring-2 ring-[#2D5A27]/30 scale-105 shadow-md'
+                      : 'border-gray-200 opacity-80 hover:opacity-100'
+                  }`}
+                >
+                  <img src={img} alt={`Crop thumb ${idx + 1}`} className="w-full h-full object-cover" />
+                </div>
+              ))}
+
+              {/* Add More Thumbnail Tile (Clean '+' Only) */}
+              {images.length < MAX_PHOTOS && !analysisResult && (
+                <button
+                  onClick={() => setIsAddPhotoPickerOpen(true)}
+                  disabled={isCompressing}
+                  className="w-16 h-16 rounded-2xl border-2 border-dashed border-[#2D5A27]/50 bg-emerald-50/70 hover:bg-emerald-100/70 text-[#2D5A27] flex items-center justify-center shrink-0 active:scale-95 transition-all shadow-sm group cursor-pointer"
+                  title="और फोटो जोड़ें (Add Photo)"
+                >
+                  <div className="w-8 h-8 rounded-full bg-[#2D5A27] text-white flex items-center justify-center shadow-xs group-hover:scale-110 transition-transform">
+                    <Plus className="w-5 h-5 stroke-[2.5]" />
+                  </div>
+                </button>
+              )}
+            </div>
           </div>
         )}
-        
-        {/* Hidden Inputs */}
-        <input 
-          type="file" 
-          accept="image/*" 
-          capture="environment"
-          className="hidden" 
-          ref={cameraInputRef}
-          onChange={handleImageUpload}
-        />
-        <input 
-          type="file" 
-          accept="image/*" 
-          className="hidden" 
-          ref={galleryInputRef}
-          onChange={handleImageUpload}
-        />
+
+        {/* Initial Upload Action Buttons (when no photos) */}
+        {images.length === 0 && !analysisResult && (
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <button 
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={isCompressing}
+              className="bg-white border-2 border-[#2D5A27] text-[#2D5A27] py-4 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-sm active:scale-95 transition-all hover:bg-emerald-50/40"
+            >
+              <Camera className="w-6 h-6" />
+              <span className="text-xs">कैमरा (Camera)</span>
+            </button>
+            <button 
+              onClick={() => galleryInputRef.current?.click()}
+              disabled={isCompressing}
+              className="bg-white border-2 border-[#2D5A27] text-[#2D5A27] py-4 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-sm active:scale-95 transition-all hover:bg-emerald-50/40"
+            >
+              <ImageIcon className="w-6 h-6" />
+              <span className="text-xs">गैलरी (Gallery)</span>
+            </button>
+          </div>
+        )}
+
+        {/* Analyze Action Button */}
+        {images.length > 0 && !analysisResult && (
+          <motion.button 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={analyzeImages}
+            disabled={loading || isCompressing}
+            className="w-full bg-[#2D5A27] hover:bg-green-800 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg disabled:opacity-50 active:scale-95 transition-transform"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-6 h-6 animate-spin" />
+                <span>
+                  {images.length > 1 
+                    ? `AI सभी ${images.length} फोटो की संयुक्त जाँच कर रहा है...`
+                    : 'AI जाँच हो रही है...'}
+                </span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-6 h-6" />
+                <span>
+                  {images.length > 1 
+                    ? `सभी ${images.length} Photos की संयुक्त जाँच करें (AI Scan)`
+                    : 'जाँच करें (Analyze Now)'}
+                </span>
+              </>
+            )}
+          </motion.button>
+        )}
       </div>
 
-      {!analysisResult && (
-        <div className="grid grid-cols-2 gap-3">
-          <button 
-            onClick={() => cameraInputRef.current?.click()}
-            className="bg-white border-2 border-[#2D5A27] text-[#2D5A27] py-4 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 shadow-sm active:scale-95 transition-transform"
-          >
-            <Camera className="w-6 h-6" />
-            <span className="text-xs">कैमरा (Camera)</span>
-          </button>
-          <button 
-            onClick={() => galleryInputRef.current?.click()}
-            className="bg-white border-2 border-[#2D5A27] text-[#2D5A27] py-4 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 shadow-sm active:scale-95 transition-transform"
-          >
-            <ImageIcon className="w-6 h-6" />
-            <span className="text-xs">गैलरी (Gallery)</span>
-          </button>
-        </div>
-      )}
-
-      {image && !analysisResult && (
-        <motion.button 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          onClick={analyzeImage}
-          disabled={loading}
-          className="w-full bg-[#2D5A27] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg disabled:opacity-50 active:scale-95 transition-transform"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-6 h-6 animate-spin" />
-              <span>जाँच हो रही है...</span>
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="w-6 h-6" />
-              <span>जाँच करें (Analyze Now)</span>
-            </>
-          )}
-        </motion.button>
-      )}
-
+      {/* ============================================================ */}
+      {/* AI ANALYSIS REPORT & ACTIONS */}
+      {/* ============================================================ */}
       <AnimatePresence>
         {analysisResult && (
           <div className="space-y-6">
@@ -487,19 +679,14 @@ const DiseaseDetection: React.FC = () => {
                     <AlertCircle className="w-5 h-5 text-[#2D5A27]" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-[#4A3728]">जाँच का परिणाम (AI Result)</h3>
+                    <h3 className="font-bold text-[#4A3728]">
+                      जाँच का परिणाम (AI Result)
+                    </h3>
                     {activeScanId && (
                       <p className="text-[10px] text-gray-400 font-medium">रिपोर्ट ID: {activeScanId}</p>
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={reset}
-                  className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 bg-gray-50 px-2.5 py-1 rounded-lg"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>नया स्कैन</span>
-                </button>
               </div>
 
               <div className="prose prose-sm max-w-none">
@@ -511,7 +698,9 @@ const DiseaseDetection: React.FC = () => {
               <div className="pt-4 space-y-3">
                 <div className="bg-blue-50 p-3 rounded-xl flex items-start gap-2">
                   <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-blue-700 font-medium">यह जानकारी AI द्वारा दी गई है। बड़े पैमाने पर छिड़काव से पहले कृषि विशेषज्ञ की सलाह अवश्य लें।</p>
+                  <p className="text-[10px] text-blue-700 font-medium">
+                    यह जानकारी AI द्वारा {images.length > 1 ? `${images.length} तस्वीरों के आधार पर` : 'दी गई है'}। बड़े पैमाने पर छिड़काव से पहले कृषि विशेषज्ञ की सलाह अवश्य लें।
+                  </p>
                 </div>
                 
                 <div className="flex gap-2">
@@ -524,7 +713,7 @@ const DiseaseDetection: React.FC = () => {
                   <a 
                     href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
                       `नमस्ते फल्सावदिया कृषि बाज़ार विशेषज्ञ,\n\n` +
-                      `मैंने अभी ऐप के माध्यम से अपनी फसल की जाँच की है।\n\n` +
+                      `मैंने अभी ऐप के माध्यम से अपनी फसल की जाँच की है (${images.length} फोटो स्कैन)।\n\n` +
                       `*AI द्वारा दी गई जाँच रिपोर्ट:*\n${analysisResult.analysis}\n\n` +
                       `*मेरा सवाल:* कृपया इस रिपोर्ट को देखें और मुझे सही दवा और मात्रा के बारे में विस्तार से बताएं।\n\n` +
                       `धन्यवाद!`
@@ -628,7 +817,7 @@ const DiseaseDetection: React.FC = () => {
                       <Sparkles className="w-4 h-4 text-yellow-300 animate-spin" style={{ animationDuration: '4s' }} />
                     </h3>
                     <p className="text-[11px] text-green-100 font-medium opacity-90">
-                      इसी फसल रिपोर्ट के संदर्भ (Context) में सीधा समाधान
+                      इसी फसल रिपोर्ट ({images.length} Photos) के संदर्भ में सीधा समाधान
                     </p>
                   </div>
                 </div>
@@ -775,11 +964,18 @@ const DiseaseDetection: React.FC = () => {
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <img
-                          src={scan.image}
-                          alt="Scan Thumb"
-                          className="w-14 h-14 object-cover rounded-xl shrink-0 border border-gray-200"
-                        />
+                        <div className="relative w-14 h-14 shrink-0 rounded-xl overflow-hidden border border-gray-200">
+                          <img
+                            src={scan.image || scan.images?.[0]}
+                            alt="Scan Thumb"
+                            className="w-full h-full object-cover"
+                          />
+                          {(scan.images?.length || 0) > 1 && (
+                            <span className="absolute bottom-0.5 right-0.5 bg-black/75 text-white text-[8px] font-bold px-1 rounded">
+                              {scan.images?.length} 📷
+                            </span>
+                          )}
+                        </div>
                         <div className="min-w-0">
                           <h4 className="font-bold text-gray-900 text-sm truncate">
                             {scan.cropName || 'फसल बीमारी रिपोर्ट'}
@@ -814,6 +1010,85 @@ const DiseaseDetection: React.FC = () => {
                 className="w-full bg-gray-100 text-gray-600 py-3 rounded-2xl font-bold text-xs active:scale-95 transition-all mt-2"
               >
                 बंद करें (Close)
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Add Photo Picker Modal / Action Sheet */}
+      <AnimatePresence>
+        {isAddPhotoPickerOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddPhotoPickerOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[120]"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm bg-white rounded-3xl z-[121] shadow-2xl p-6 border border-gray-100 space-y-4"
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="bg-[#2D5A27]/10 p-2 rounded-2xl text-[#2D5A27]">
+                    <Plus className="w-5 h-5 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-[#4A3728] text-base">फोटो जोड़ें (Add Photo)</h3>
+                    <p className="text-[11px] text-gray-400 font-medium">
+                      उपलब्ध स्लॉट: {MAX_PHOTOS - images.length} (अधिकतम {MAX_PHOTOS})
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAddPhotoPickerOpen(false)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 bg-gray-100 rounded-full"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <button
+                  onClick={() => {
+                    setIsAddPhotoPickerOpen(false);
+                    setTimeout(() => addMoreCameraRef.current?.click(), 100);
+                  }}
+                  className="bg-emerald-50/60 hover:bg-emerald-50 border-2 border-[#2D5A27] text-[#2D5A27] py-4 px-3 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-xs">
+                    <Camera className="w-6 h-6 text-[#2D5A27]" />
+                  </div>
+                  <span className="text-xs font-extrabold">कैमरा (Camera)</span>
+                  <span className="text-[9px] text-gray-500 font-medium text-center">सीधा फोटो खींचें</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsAddPhotoPickerOpen(false);
+                    setTimeout(() => addMoreGalleryRef.current?.click(), 100);
+                  }}
+                  className="bg-emerald-50/60 hover:bg-emerald-50 border-2 border-[#2D5A27] text-[#2D5A27] py-4 px-3 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-xs">
+                    <ImageIcon className="w-6 h-6 text-[#2D5A27]" />
+                  </div>
+                  <span className="text-xs font-extrabold">गैलरी (Gallery)</span>
+                  <span className="text-[9px] text-gray-500 font-medium text-center">गैलरी से चुनें</span>
+                </button>
+              </div>
+
+              <button
+                onClick={() => setIsAddPhotoPickerOpen(false)}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 py-2.5 rounded-xl text-xs font-bold transition-colors"
+              >
+                रद्द करें (Cancel)
               </button>
             </motion.div>
           </>

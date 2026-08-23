@@ -16,12 +16,36 @@ export interface DiseaseAnalysis {
   keywords: string[];
 }
 
-export async function detectDisease(base64Image: string, userApiKey?: string): Promise<DiseaseAnalysis> {
+export async function detectDisease(base64Image: string | string[], userApiKey?: string): Promise<DiseaseAnalysis> {
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
     
-    const prompt = `You are an expert Indian agricultural scientist and plant pathologist. 
+    const imageList: string[] = Array.isArray(base64Image) ? base64Image : [base64Image];
+    if (imageList.length === 0) {
+      throw new Error("NO_IMAGE_PROVIDED");
+    }
+
+    const isMultiple = imageList.length > 1;
+
+    const prompt = isMultiple
+      ? `You are an expert Indian agricultural scientist and plant pathologist. 
+            You are provided with ${imageList.length} different photos of the same crop/plant problem (which may include full plant view, close-up of affected leaves, stem, flower/fruit, or insect/pest). 
+            
+            Perform a combined, comprehensive, and highly accurate diagnosis by cross-referencing ALL ${imageList.length} attached photos.
+            
+            Identify:
+            1. **Crop Name (फसल का नाम)**
+            2. **Disease or Pest Type (बीमारी या कीट का प्रकार)**: Identify if it is a fungal/bacterial/viral disease, a Sucking Pest, Chewing Pest, or Nutrient Deficiency.
+            3. **Specific Name (नाम)**: Name of the disease or specific pest.
+            4. **Symptoms (लक्षण)**: Detailed symptoms observed across the provided photos.
+            5. **Recommended Treatment (उपचार)**: Detailed chemical and organic solutions with dosage (per 15L/20L pump and per Bigha/Acre).
+            6. **Prevention & Precautions (बचाव एवं सावधानियां)**: Long-term prevention tips and spray recommendations.
+            
+            FORMATTING INSTRUCTIONS:
+            1. Provide the analysis in CLEAR, SIMPLE, RESPECTFUL HINDI with English scientific/technical terms in brackets.
+            2. At the very end of your response, provide a list of search keywords (active ingredients or pesticide categories) separated by commas that can be used to search for real products in a store.`
+      : `You are an expert Indian agricultural scientist and plant pathologist. 
             Analyze this photo of a crop leaf or plant. 
             
             Identify:
@@ -36,32 +60,46 @@ export async function detectDisease(base64Image: string, userApiKey?: string): P
             1. Provide the analysis in CLEAR, SIMPLE HINDI with English terms in brackets.
             2. At the very end of your response, provide a list of search keywords (active ingredients or pesticide categories) separated by commas that can be used to search for real products in a store.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: {
-        parts: [
-          { text: prompt },
-          {
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: base64Image.split(',')[1] || base64Image
-            }
-          }
-        ]
-      },
-      config: {
-        systemInstruction: "You are an expert plant pathologist representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar). Located in Shamgarh, MP. Our shop is located at Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Our shop timings are 8:00 AM to 8:00 PM every day (सुबह 8:00 बजे से रात 8:00 बजे तक). Always provide detailed analysis in Hindi, mention that recommended products are available at our shop 'फल्सावदिया कृषि बाज़ार'. STRICT RULE: ONLY use 'फल्सावदिया' for the name. Never use 'फालसावदिया' (no extra aa matra). Return structured JSON.",
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT" as any,
-          properties: {
-            analysis: { type: "STRING" },
-            keywords: { type: "ARRAY" as any, items: { type: "STRING" } }
-          },
-          required: ["analysis", "keywords"]
+    const parts: any[] = [{ text: prompt }];
+
+    imageList.forEach((img) => {
+      const cleanData = img.split(',')[1] || img;
+      parts.push({
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: cleanData
         }
-      }
+      });
     });
+
+    const config = {
+      systemInstruction: "You are an expert plant pathologist representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar). Located in Shamgarh, MP. Our shop is located at Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Our shop timings are 8:00 AM to 8:00 PM every day (सुबह 8:00 बजे से रात 8:00 बजे तक). Always provide detailed analysis in Hindi, mention that recommended products are available at our shop 'फल्सावदिया कृषि बाज़ार'. STRICT RULE: ONLY use 'फल्सावदिया' for the name. Never use 'फालसावदिया' (no extra aa matra). Return structured JSON.",
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT" as any,
+        properties: {
+          analysis: { type: "STRING" },
+          keywords: { type: "ARRAY" as any, items: { type: "STRING" } }
+        },
+        required: ["analysis", "keywords"]
+      }
+    };
+
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: { parts },
+        config
+      });
+    } catch (modelErr) {
+      console.warn("Primary model attempt failed, retrying with fallback model...", modelErr);
+      response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: { parts },
+        config
+      });
+    }
 
     return cleanAndParseJson<DiseaseAnalysis>(response.text);
   } catch (error: any) {
