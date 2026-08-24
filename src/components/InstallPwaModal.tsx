@@ -99,7 +99,7 @@ const InstallPwaModal: React.FC = () => {
               मोबाइल ऐप इंस्टॉल करें
             </h3>
             <p className="text-sm text-gray-500 mb-8 leading-relaxed">
-              बेहतर अनुभव और सीधी पहुंच के लिए {appContent?.branding?.name || 'कृषि बाज़ार'} को अपने फोन पर इंस्टॉल करें।
+              बेहतर अनुभव और सीधी पहुंच के लिए {appContent?.branding?.name || 'कृषि बाजार'} को अपने फोन पर इंस्टॉल करें।
             </p>
 
             <div className="space-y-4 text-left bg-gray-50 p-4 rounded-2xl mb-8">

@@ -30,7 +30,7 @@ const Header: React.FC = () => {
   };
 
   const branding = appContent?.branding || {
-    name: 'फल्सावदिया कृषि बाज़ार',
+    name: 'फल्सावदिया कृषि बाजार',
     tagline: 'किसान का भरोसा, हमारी पहचान',
     logo: ''
   };
@@ -214,7 +214,7 @@ const Header: React.FC = () => {
                   </button>
                 </div>
                 <h2 className="text-xl font-bold">नमस्ते, किसान भाई!</h2>
-                <p className="text-xs text-white/70 mt-1">फल्सावदिया कृषि बाज़ार में आपका स्वागत है</p>
+                <p className="text-xs text-white/70 mt-1">फल्सावदिया कृषि बाजार में आपका स्वागत है</p>
               </div>
 
               <div className="flex-1 overflow-y-auto p-4">

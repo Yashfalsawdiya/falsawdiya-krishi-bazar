@@ -80,7 +80,7 @@ const CartPage: React.FC = () => {
             <div>
               <h3 className="font-bold text-gray-700 text-lg">आपका कार्ट खाली है</h3>
               <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
-                कृपया कृषि बाज़ार से बीज, खाद या दवाइयां अपने कार्ट में जोड़ें।
+                कृपया कृषि बाजार से बीज, खाद या दवाइयां अपने कार्ट में जोड़ें।
               </p>
             </div>
             <button

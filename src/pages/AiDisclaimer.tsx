@@ -25,7 +25,7 @@ const AiDisclaimer: React.FC = () => {
   const { appContent } = useAppContext();
 
   const branding = appContent?.branding || {
-    name: 'फल्सावदिया कृषि बाज़ार',
+    name: 'फल्सावदिया कृषि बाजार',
     tagline: 'किसान का भरोसा, हमारी पहचान'
   };
 

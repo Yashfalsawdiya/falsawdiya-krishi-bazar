@@ -14,8 +14,8 @@ export default defineConfig(({mode}) => {
         registerType: 'autoUpdate',
         includeAssets: [],
         manifest: {
-          name: 'फल्सावदिया कृषि बाज़ार',
-          short_name: 'कृषि बाज़ार',
+          name: 'फल्सावदिया कृषि बाजार',
+          short_name: 'कृषि बाजार',
           description: 'मध्यप्रदेश के किसानों के लिए मंडी भाव, समाचार और योजनाओं की जानकारी',
           theme_color: '#2D5A27',
           background_color: '#F5F2ED',
@@ -57,7 +57,7 @@ export default defineConfig(({mode}) => {
           ],
           shortcuts: [
             {
-              name: 'बाज़ार',
+              name: 'बाजार',
               url: '/products',
               icons: [{ src: '/icon-192.png', sizes: '192x192' }]
             },

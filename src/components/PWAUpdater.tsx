@@ -12,8 +12,8 @@ const PWAUpdater: React.FC = () => {
     if (!appContent) return;
 
     const { branding } = appContent;
-    const name = branding?.name || 'फल्सावदिया कृषि बाज़ार';
-    const shortName = 'कृषि बाज़ार';
+    const name = branding?.name || 'फल्सावदिया कृषि बाजार';
+    const shortName = 'कृषि बाजार';
     
     // Extract string URL from potentially complex branding icons
     const getIconUrl = (source: string | ImageSource | undefined) => {

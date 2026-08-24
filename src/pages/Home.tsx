@@ -587,7 +587,7 @@ const Home: React.FC = () => {
             if (whatsappSection.mode === 'group' && whatsappSection.groupLink) {
               window.open(whatsappSection.groupLink, '_blank');
             } else {
-              const message = encodeURIComponent("नमस्ते फल्सावदिया कृषि बाज़ार, मुझे खेती के बारे में जानकारी चाहिए।");
+              const message = encodeURIComponent("नमस्ते फल्सावदिया कृषि बाजार, मुझे खेती के बारे में जानकारी चाहिए।");
               window.open(`https://wa.me/${contactInfo.whatsapp}?text=${message}`, '_blank');
             }
           }}

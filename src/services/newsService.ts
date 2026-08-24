@@ -237,7 +237,7 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
         model: "gemini-3.5-flash",
         contents: prompt,
         config: {
-          systemInstruction: "You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar). Always search for and return authentic, high-quality agricultural news with real publication dates. Do NOT return duplicate news and do NOT forge today's date if the news is old.",
+          systemInstruction: "You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Always search for and return authentic, high-quality agricultural news with real publication dates. Do NOT return duplicate news and do NOT forge today's date if the news is old.",
           tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           responseSchema: {
@@ -266,7 +266,7 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
         model: "gemini-3.5-flash",
         contents: prompt,
         config: {
-          systemInstruction: "You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाज़ार'. Return authentic, high-quality agricultural news with real publication dates. Since Google Search is currently unavailable, use your latest knowledge base up to 2026. Do NOT invent fake news.",
+          systemInstruction: "You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार'. Return authentic, high-quality agricultural news with real publication dates. Since Google Search is currently unavailable, use your latest knowledge base up to 2026. Do NOT invent fake news.",
           responseMimeType: "application/json",
           responseSchema: {
             type: "ARRAY" as any,

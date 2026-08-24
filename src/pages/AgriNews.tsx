@@ -170,7 +170,7 @@ ${item.source || "कृषि जागरण"}
 
 ━━━━━━━━━━━━━━━
 
-*फल्सावदिया कृषि बाज़ार*`;
+*फल्सावदिया कृषि बाजार*`;
   };
 
   // Handle Clipboard Copy
@@ -241,7 +241,7 @@ ${item.source || "कृषि जागरण"}
         </div>
         <h2 className="text-2xl font-black text-[#2D5A27] tracking-tight">कृषि समाचार (Agri News)</h2>
         <p className="text-xs text-gray-500 font-medium mt-1">
-          फल्सावदिया कृषि बाज़ार • खेती-किसानी की ताज़ा, प्रमाणित और दैनिक खबरें
+          फल्सावदिया कृषि बाजार • खेती-किसानी की ताज़ा, प्रमाणित और दैनिक खबरें
         </p>
 
         <div className="flex items-center justify-center gap-2 mt-4">

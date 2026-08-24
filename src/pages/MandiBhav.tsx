@@ -163,7 +163,7 @@ const MandiBhav: React.FC = () => {
 
   // Generate WhatsApp Share string
   const getWhatsAppShareLink = (mandiName: string, item: MandiItem) => {
-    const text = `🌾 *फल्सावदिया कृषि बाज़ार* 🌾\n📍 *मंडी:* ${mandiName}\n📌 *फसल:* ${item.commodity}\n💰 *मॉडल भाव:* ₹${item.avgPrice}/-\n📈 *रेंज:* ₹${item.minPrice} - ₹${item.maxPrice}\n📦 *आवक:* ${item.arrival || "सामान्य"}\n✨ *गुणवत्ता:* ${item.quality || "सामान्य"}\n🕒 *अपडेट:* ${item.lastUpdated}\n\n👉 *ताज़ा भावों के लिए फल्सावदिया कृषि बाज़ार ऐप देखें!*`;
+    const text = `🌾 *फल्सावदिया कृषि बाजार* 🌾\n📍 *मंडी:* ${mandiName}\n📌 *फसल:* ${item.commodity}\n💰 *मॉडल भाव:* ₹${item.avgPrice}/-\n📈 *रेंज:* ₹${item.minPrice} - ₹${item.maxPrice}\n📦 *आवक:* ${item.arrival || "सामान्य"}\n✨ *गुणवत्ता:* ${item.quality || "सामान्य"}\n🕒 *अपडेट:* ${item.lastUpdated}\n\n👉 *ताज़ा भावों के लिए फल्सावदिया कृषि बाजार ऐप देखें!*`;
     return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
   };
 
@@ -235,7 +235,7 @@ const MandiBhav: React.FC = () => {
         </div>
         <h2 className="text-2xl font-black text-[#2D5A27] tracking-tight">मंडी भाव (Mandi Pulse)</h2>
         <p className="text-xs text-gray-500 font-medium mt-1">
-          फल्सावदिया कृषि बाज़ार • सभी मंडियों और फसलों के ताज़ा लाइव दाम
+          फल्सावदिया कृषि बाजार • सभी मंडियों और फसलों के ताज़ा लाइव दाम
         </p>
 
         <div className="flex items-center justify-center gap-2 mt-3.5">
@@ -625,7 +625,7 @@ const MandiBhav: React.FC = () => {
                 <div className="space-y-1">
                   <p className="text-[11px] font-black text-gray-700">मंडी भाव चेतावनी एवं अस्वीकरण (*Disclaimer):</p>
                   <p className="text-[10px] text-gray-600 font-medium leading-relaxed">
-                    दिखाए गए मंडी भाव इंटरनेट स्रोतों (Mandi Pulse, Agmarknet) एवं विश्वसनीय स्थानीय रिपोर्टर्स से संकलित हैं। बाज़ार उतार-चढ़ाव के कारण कीमतें हर मिनट बदल सकती हैं। मंडी में फसल बेचने से पहले स्थानीय रूप से भावों की पुष्टि ज़रूर करें। हम किसी भी वित्तीय नुकसान के लिए उत्तरदायी नहीं हैं।
+                    दिखाए गए मंडी भाव इंटरनेट स्रोतों (Mandi Pulse, Agmarknet) एवं विश्वसनीय स्थानीय रिपोर्टर्स से संकलित हैं। बाजार उतार-चढ़ाव के कारण कीमतें हर मिनट बदल सकती हैं। मंडी में फसल बेचने से पहले स्थानीय रूप से भावों की पुष्टि ज़रूर करें। हम किसी भी वित्तीय नुकसान के लिए उत्तरदायी नहीं हैं।
                   </p>
                 </div>
               </div>
@@ -680,7 +680,7 @@ const MandiBhav: React.FC = () => {
             </div>
 
             <div className="bg-[#2D5A27]/5 border border-[#2D5A27]/10 rounded-2xl p-4 flex justify-between items-center text-xs">
-              <span className="font-bold text-gray-600">औसत बाज़ार मूल्य ({selectedDistrict} जिला):</span>
+              <span className="font-bold text-gray-600">औसत बाजार मूल्य ({selectedDistrict} जिला):</span>
               <span className="font-black text-[#2D5A27] text-sm font-mono">₹{averageComparePrice}/क्विंटल</span>
             </div>
           </div>

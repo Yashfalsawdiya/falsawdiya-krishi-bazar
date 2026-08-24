@@ -165,7 +165,7 @@ export async function fetchMandiBhav(
       model: "gemini-3.5-flash",
       contents: prompt,
       config: {
-        systemInstruction: "You are 'फल्सावदिया कृषि बाज़ार' (Falsawdiya Krishi Bazar) Mandi Reporter. Search the web for actual live Mandi rates on Mandi Pulse, Agmarknet, and regional news. Extract the rates precisely into JSON. If a crop is not found today, provide the most recent available price. Never hallucinate or use mock templates if real search data exists.",
+        systemInstruction: "You are 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar) Mandi Reporter. Search the web for actual live Mandi rates on Mandi Pulse, Agmarknet, and regional news. Extract the rates precisely into JSON. If a crop is not found today, provide the most recent available price. Never hallucinate or use mock templates if real search data exists.",
         tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
         responseSchema: schema
