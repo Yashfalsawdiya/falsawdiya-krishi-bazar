@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
-import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen } from 'lucide-react';
+import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen, Info, ChevronRight, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
@@ -615,6 +615,120 @@ const Home: React.FC = () => {
               {contactInfo.address}
             </p>
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <Link 
+            to="/about"
+            className="w-full bg-white border border-emerald-100 hover:border-[#2D5A27]/40 rounded-2xl p-3 shadow-xs flex items-center justify-between active:scale-98 transition-all group"
+          >
+            <div className="flex items-center gap-2">
+              <div className="bg-emerald-50 text-[#2D5A27] p-1.5 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                <Info className="w-4 h-4" />
+              </div>
+              <div className="text-left overflow-hidden">
+                <p className="text-xs font-bold text-[#4A3728] truncate">About Us</p>
+                <p className="text-[10px] text-gray-500 font-medium truncate">हमारे बारे में</p>
+              </div>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-[#2D5A27] group-hover:translate-x-0.5 transition-transform shrink-0" />
+          </Link>
+
+          <Link 
+            to="/privacy"
+            className="w-full bg-white border border-blue-100 hover:border-blue-300 rounded-2xl p-3 shadow-xs flex items-center justify-between active:scale-98 transition-all group"
+          >
+            <div className="flex items-center gap-2">
+              <div className="bg-blue-50 text-blue-700 p-1.5 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div className="text-left overflow-hidden">
+                <p className="text-xs font-bold text-[#4A3728] truncate">Privacy Policy</p>
+                <p className="text-[10px] text-gray-500 font-medium truncate">गोपनीयता नीति</p>
+              </div>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-blue-600 group-hover:translate-x-0.5 transition-transform shrink-0" />
+          </Link>
+
+          <Link 
+            to="/terms"
+            className="w-full bg-white border border-amber-100 hover:border-amber-300 rounded-2xl p-3 shadow-xs flex items-center justify-between active:scale-98 transition-all group"
+          >
+            <div className="flex items-center gap-2">
+              <div className="bg-amber-50 text-amber-700 p-1.5 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div className="text-left overflow-hidden">
+                <p className="text-xs font-bold text-[#4A3728] truncate">Terms</p>
+                <p className="text-[10px] text-gray-500 font-medium truncate">नियम एवं शर्तें</p>
+              </div>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-amber-600 group-hover:translate-x-0.5 transition-transform shrink-0" />
+          </Link>
+
+          <Link 
+            to="/refund-policy"
+            className="w-full bg-white border border-rose-100 hover:border-rose-300 rounded-2xl p-3 shadow-xs flex items-center justify-between active:scale-98 transition-all group"
+          >
+            <div className="flex items-center gap-2">
+              <div className="bg-rose-50 text-rose-700 p-1.5 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                <RotateCcw className="w-4 h-4" />
+              </div>
+              <div className="text-left overflow-hidden">
+                <p className="text-xs font-bold text-[#4A3728] truncate">Refund Policy</p>
+                <p className="text-[10px] text-gray-500 font-medium truncate">वापसी व रिफंड</p>
+              </div>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-rose-600 group-hover:translate-x-0.5 transition-transform shrink-0" />
+          </Link>
+
+          <Link 
+            to="/disclaimer"
+            className="w-full bg-white border border-yellow-100 hover:border-yellow-300 rounded-2xl p-3 shadow-xs flex items-center justify-between active:scale-98 transition-all group"
+          >
+            <div className="flex items-center gap-2">
+              <div className="bg-yellow-50 text-yellow-700 p-1.5 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+              <div className="text-left overflow-hidden">
+                <p className="text-xs font-bold text-[#4A3728] truncate">AI Disclaimer</p>
+                <p className="text-[10px] text-gray-500 font-medium truncate">कृषि एवं AI अस्वीकरण</p>
+              </div>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-yellow-600 group-hover:translate-x-0.5 transition-transform shrink-0" />
+          </Link>
+
+          <Link 
+            to="/safety-guidelines"
+            className="w-full bg-white border border-red-100 hover:border-red-300 rounded-2xl p-3 shadow-xs flex items-center justify-between active:scale-98 transition-all group"
+          >
+            <div className="flex items-center gap-2">
+              <div className="bg-red-50 text-red-700 p-1.5 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                <ShieldAlert className="w-4 h-4" />
+              </div>
+              <div className="text-left overflow-hidden">
+                <p className="text-xs font-bold text-[#4A3728] truncate">Chemical Safety</p>
+                <p className="text-[10px] text-gray-500 font-medium truncate">रासायनिक सुरक्षा</p>
+              </div>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-red-600 group-hover:translate-x-0.5 transition-transform shrink-0" />
+          </Link>
+
+          <Link 
+            to="/contact"
+            className="w-full bg-white border border-emerald-100 hover:border-emerald-300 rounded-2xl p-3 shadow-xs flex items-center justify-between active:scale-98 transition-all group"
+          >
+            <div className="flex items-center gap-2">
+              <div className="bg-emerald-50 text-[#2D5A27] p-1.5 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                <PhoneCall className="w-4 h-4" />
+              </div>
+              <div className="text-left overflow-hidden">
+                <p className="text-xs font-bold text-[#4A3728] truncate">Contact Us</p>
+                <p className="text-[10px] text-gray-500 font-medium truncate">संपर्क करें</p>
+              </div>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-[#2D5A27] group-hover:translate-x-0.5 transition-transform shrink-0" />
+          </Link>
         </div>
       </div>
 

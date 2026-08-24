@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Menu, Sprout, X, Landmark, Phone, Newspaper, User, Calculator, PhoneCall, Bug, TrendingUp, ShoppingCart, Sparkles } from 'lucide-react';
+import { Search, Menu, Sprout, X, Landmark, Phone, Newspaper, User, Calculator, PhoneCall, Bug, TrendingUp, ShoppingCart, Sparkles, Info, ShieldCheck, FileText, RotateCcw, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
@@ -35,8 +35,23 @@ const Header: React.FC = () => {
     logo: ''
   };
 
-  const menuItems = [
+  interface MenuItem {
+    icon: React.ElementType;
+    label: string;
+    path: string;
+    color: string;
+    isExternal?: boolean;
+  }
+
+  const menuItems: MenuItem[] = [
     { icon: User, label: 'मेरा प्रोफाइल (Profile)', path: '/profile', color: 'text-purple-600' },
+    { icon: Info, label: 'हमारे बारे में (About Us)', path: '/about', color: 'text-emerald-700' },
+    { icon: ShieldCheck, label: 'गोपनीयता नीति (Privacy Policy)', path: '/privacy', color: 'text-blue-600' },
+    { icon: FileText, label: 'नियम एवं शर्तें (Terms & Conditions)', path: '/terms', color: 'text-amber-600' },
+    { icon: RotateCcw, label: 'वापसी एवं रिफंड नीति (Refund Policy)', path: '/refund-policy', color: 'text-rose-600' },
+    { icon: AlertTriangle, label: 'कृषि एवं AI अस्वीकरण (AI Disclaimer)', path: '/disclaimer', color: 'text-yellow-600' },
+    { icon: ShieldAlert, label: 'रासायनिक सुरक्षा निर्देश (Safety Guidelines)', path: '/safety-guidelines', color: 'text-red-600' },
+    { icon: PhoneCall, label: 'संपर्क करें (Contact Us)', path: '/contact', color: 'text-emerald-600' },
     { icon: Phone, label: 'AI कृषि विशेषज्ञ कॉल', path: '/ai-call', color: 'text-[#2D5A27]' },
     { icon: Sparkles, label: 'AI उत्पाद जानकारी (Knowledge)', path: '/ai-product-knowledge', color: 'text-amber-500' },
     { icon: TrendingUp, label: 'मंडी भाव (Mandi Bhav)', path: '/mandi', color: 'text-green-600' },
@@ -44,7 +59,6 @@ const Header: React.FC = () => {
     { icon: Landmark, label: 'सरकारी योजनाएं', path: '/schemes', color: 'text-blue-600' },
     { icon: Calculator, label: 'Calculator', path: '/calculator', color: 'text-orange-600' },
     { icon: PhoneCall, label: 'हेल्पलाइन डायरेक्टरी', path: '/helpline', color: 'text-cyan-600' },
-    { icon: Phone, label: 'संपर्क करें', path: 'tel:8982338046', color: 'text-red-600', isExternal: true },
   ];
 
   return (

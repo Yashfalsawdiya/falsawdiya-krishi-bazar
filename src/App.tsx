@@ -27,6 +27,13 @@ const AiProductKnowledge = lazy(() => import('./pages/AiProductKnowledge'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Profile = lazy(() => import('./pages/Profile'));
 const CartPage = lazy(() => import('./pages/CartPage'));
+const AboutUs = lazy(() => import('./pages/AboutUs'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsConditions = lazy(() => import('./pages/TermsConditions'));
+const ReturnRefundPolicy = lazy(() => import('./pages/ReturnRefundPolicy'));
+const AiDisclaimer = lazy(() => import('./pages/AiDisclaimer'));
+const ContactUs = lazy(() => import('./pages/ContactUs'));
+const ChemicalSafety = lazy(() => import('./pages/ChemicalSafety'));
 
 const PageLoader = () => (
   <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -72,6 +79,18 @@ export default function App() {
                 <Route path="admin" element={<Admin />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="cart" element={<CartPage />} />
+                <Route path="about" element={<AboutUs />} />
+                <Route path="privacy" element={<PrivacyPolicy />} />
+                <Route path="terms" element={<TermsConditions />} />
+                <Route path="refund-policy" element={<ReturnRefundPolicy />} />
+                <Route path="returns" element={<ReturnRefundPolicy />} />
+                <Route path="disclaimer" element={<AiDisclaimer />} />
+                <Route path="ai-disclaimer" element={<AiDisclaimer />} />
+                <Route path="contact" element={<ContactUs />} />
+                <Route path="contact-us" element={<ContactUs />} />
+                <Route path="safety-guidelines" element={<ChemicalSafety />} />
+                <Route path="chemical-safety" element={<ChemicalSafety />} />
+                <Route path="safety" element={<ChemicalSafety />} />
               </Route>
             </Routes>
           </Suspense>

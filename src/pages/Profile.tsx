@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Key, ExternalLink, Save, LogOut, LogIn, ChevronRight, Info, Youtube, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { User, Key, ExternalLink, Save, LogOut, LogIn, ChevronRight, Info, Youtube, RefreshCw, CheckCircle2, AlertCircle, Loader2, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { cn } from '../lib/utils';
 import SmartImage from '../components/SmartImage';
@@ -363,6 +364,121 @@ const Profile: React.FC = () => {
             </li>
           ))}
         </ul>
+      </div>
+
+      {/* About Us & Privacy Policy Cards */}
+      <div className="space-y-2.5">
+        <Link 
+          to="/about"
+          className="bg-white p-5 rounded-3xl border border-gray-100 flex items-center justify-between shadow-xs hover:border-[#2D5A27]/30 transition-all group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-[#2D5A27] flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+              <Info className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-[#4A3728] text-sm leading-tight">हमारे बारे में (About Us)</h4>
+              <p className="text-[11px] text-gray-500 font-medium mt-0.5">फल्सावदिया कृषि बाजार की जानकारी व सेवाएँ</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#2D5A27] group-hover:translate-x-0.5 transition-all" />
+        </Link>
+
+        <Link 
+          to="/privacy"
+          className="bg-white p-5 rounded-3xl border border-gray-100 flex items-center justify-between shadow-xs hover:border-[#2D5A27]/30 transition-all group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-100 group-hover:scale-105 transition-transform">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-[#4A3728] text-sm leading-tight">गोपनीयता नीति (Privacy Policy)</h4>
+              <p className="text-[11px] text-gray-500 font-medium mt-0.5">डेटा सुरक्षा एवं निजता नियम</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+        </Link>
+
+        <Link 
+          to="/terms"
+          className="bg-white p-5 rounded-3xl border border-gray-100 flex items-center justify-between shadow-xs hover:border-[#2D5A27]/30 transition-all group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-100 group-hover:scale-105 transition-transform">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-[#4A3728] text-sm leading-tight">नियम एवं शर्तें (Terms & Conditions)</h4>
+              <p className="text-[11px] text-gray-500 font-medium mt-0.5">उपयोग के नियम, ऑर्डर व डिलीवरी शर्तें</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
+        </Link>
+
+        <Link 
+          to="/refund-policy"
+          className="bg-white p-5 rounded-3xl border border-gray-100 flex items-center justify-between shadow-xs hover:border-[#2D5A27]/30 transition-all group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-100 group-hover:scale-105 transition-transform">
+              <RotateCcw className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-[#4A3728] text-sm leading-tight">वापसी एवं रिफंड नीति (Refund Policy)</h4>
+              <p className="text-[11px] text-gray-500 font-medium mt-0.5">वापसी, रिप्लेसमेंट व कैंसिलेशन नियम</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-rose-600 group-hover:translate-x-0.5 transition-all" />
+        </Link>
+
+        <Link 
+          to="/disclaimer"
+          className="bg-white p-5 rounded-3xl border border-gray-100 flex items-center justify-between shadow-xs hover:border-[#2D5A27]/30 transition-all group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-yellow-50 text-yellow-700 flex items-center justify-center border border-yellow-100 group-hover:scale-105 transition-transform">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-[#4A3728] text-sm leading-tight">कृषि एवं AI अस्वीकरण (AI Disclaimer)</h4>
+              <p className="text-[11px] text-gray-500 font-medium mt-0.5">सटीकता, खुराक एवं सुरक्षा अस्वीकरण</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-yellow-600 group-hover:translate-x-0.5 transition-all" />
+        </Link>
+
+        <Link 
+          to="/safety-guidelines"
+          className="bg-white p-5 rounded-3xl border border-gray-100 flex items-center justify-between shadow-xs hover:border-[#2D5A27]/30 transition-all group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-700 flex items-center justify-center border border-red-100 group-hover:scale-105 transition-transform">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-[#4A3728] text-sm leading-tight">रासायनिक सुरक्षा निर्देश (Safety Guidelines)</h4>
+              <p className="text-[11px] text-gray-500 font-medium mt-0.5">कीटनाशक छिड़काव, PPE एवं प्राथमिक चिकित्सा</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-red-600 group-hover:translate-x-0.5 transition-all" />
+        </Link>
+
+        <Link 
+          to="/contact"
+          className="bg-white p-5 rounded-3xl border border-gray-100 flex items-center justify-between shadow-xs hover:border-[#2D5A27]/30 transition-all group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-[#2D5A27] flex items-center justify-center border border-emerald-100 group-hover:scale-105 transition-transform">
+              <PhoneCall className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-[#4A3728] text-sm leading-tight">संपर्क करें (Contact Us)</h4>
+              <p className="text-[11px] text-gray-500 font-medium mt-0.5">कॉल, WhatsApp, ईमेल व पता</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#2D5A27] group-hover:translate-x-0.5 transition-all" />
+        </Link>
       </div>
 
       {/* Logout Button */}

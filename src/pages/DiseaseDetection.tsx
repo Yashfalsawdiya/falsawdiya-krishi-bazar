@@ -3,7 +3,8 @@ import {
   Camera, Upload, Loader2, AlertCircle, CheckCircle2, Image as ImageIcon, 
   RefreshCw, Info, ShoppingCart, ArrowRight, X, Tag, Wheat, Droplets, 
   MessageSquare, Send, Sparkles, Bot, History, Trash2, ChevronRight, 
-  RotateCcw, FileText, HelpCircle, Check, MessageCircle, Plus, Eye, Layers
+  RotateCcw, FileText, HelpCircle, Check, MessageCircle, Plus, Eye, Layers,
+  AlertTriangle
 } from 'lucide-react';
 import { detectDisease, DiseaseAnalysis, askDiseaseReportChat, ReportChatMessage } from '../services/gemini';
 import { fetchWeather } from '../services/weatherService';
@@ -14,6 +15,7 @@ import SmartImage from '../components/SmartImage';
 import Markdown from 'react-markdown';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
+import { Link } from 'react-router-dom';
 import ApiKeyModal from '../components/ApiKeyModal';
 import OrderModal from '../components/OrderModal';
 
@@ -907,6 +909,20 @@ const DiseaseDetection: React.FC = () => {
                   <Send className="w-4 h-4" />
                   <span>भेजें</span>
                 </button>
+              </div>
+
+              {/* AI Disclaimer Footer Note */}
+              <div className="pt-2">
+                <Link 
+                  to="/disclaimer" 
+                  className="bg-amber-50/90 border border-amber-200 hover:border-amber-300 rounded-2xl p-3 flex items-center justify-between text-amber-900 transition-all text-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span className="font-semibold text-[11px]">AI विश्लेषण व सलाह केवल सामान्य मार्गदर्शन हेतु है। पूरा अस्वीकरण पढ़ें।</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-amber-600 shrink-0" />
+                </Link>
               </div>
             </motion.div>
           </div>
