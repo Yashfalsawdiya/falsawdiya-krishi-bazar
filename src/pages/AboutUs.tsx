@@ -24,14 +24,33 @@ import {
   RotateCcw,
   AlertTriangle,
   PhoneCall,
-  ShieldAlert
+  ShieldAlert,
+  Compass,
+  Layers
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import SmartImage from '../components/SmartImage';
+import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
+
+const SERVICE_ICONS = [
+  Sprout, FlaskConical, ShieldCheck, BookOpen, Camera, Bug, Sparkles, Newspaper, ShoppingBag
+];
+
+const SERVICE_COLORS = [
+  'text-emerald-700 bg-emerald-50 border-emerald-200',
+  'text-blue-700 bg-blue-50 border-blue-200',
+  'text-amber-700 bg-amber-50 border-amber-200',
+  'text-purple-700 bg-purple-50 border-purple-200',
+  'text-green-700 bg-green-50 border-green-200',
+  'text-rose-700 bg-rose-50 border-rose-200',
+  'text-indigo-700 bg-indigo-50 border-indigo-200',
+  'text-cyan-700 bg-cyan-50 border-cyan-200',
+  'text-orange-700 bg-orange-50 border-orange-200'
+];
 
 const AboutUs: React.FC = () => {
-  const { appContent } = useAppContext();
+  const { appContent, legalPagesContent } = useAppContext();
 
   const branding = appContent?.branding || {
     name: 'फल्सावदिया कृषि बाजार',
@@ -39,62 +58,7 @@ const AboutUs: React.FC = () => {
     logo: ''
   };
 
-  const services = [
-    {
-      title: 'कृषि बीज एवं अन्य कृषि इनपुट',
-      desc: 'उत्तम अंकुरण और उच्च पैदावार वाले प्रमाणित बीज एवं आवश्यक इनपुट्स',
-      icon: Sprout,
-      color: 'text-emerald-700 bg-emerald-50 border-emerald-200'
-    },
-    {
-      title: 'उर्वरक एवं पोषक तत्व',
-      desc: 'फसल पोषण हेतु संतुलित माइक्रोन्यूट्रिएंट्स, जैविक व रासायनिक खाद',
-      icon: FlaskConical,
-      color: 'text-blue-700 bg-blue-50 border-blue-200'
-    },
-    {
-      title: 'कीटनाशक, फफूंदनाशक एवं खरपतवारनाशक',
-      desc: 'फसल सुरक्षा के लिए प्रभावी एवं प्रामाणिक दवाइयाँ',
-      icon: ShieldCheck,
-      color: 'text-amber-700 bg-amber-50 border-amber-200'
-    },
-    {
-      title: 'कृषि उत्पादों की जानकारी',
-      desc: 'उत्पाद की तकनीकी सामग्री, उपयोग विधि और सही डोज की सटीक जानकारी',
-      icon: BookOpen,
-      color: 'text-purple-700 bg-purple-50 border-purple-200'
-    },
-    {
-      title: 'AI आधारित पौधा/फसल जाँच',
-      desc: 'कैमरे से फोटो खींचकर बीमारी व समस्या की त्वरित डिजिटल स्कैनिंग',
-      icon: Camera,
-      color: 'text-green-700 bg-green-50 border-green-200'
-    },
-    {
-      title: 'रोग, कीट एवं पोषक तत्वों की संभावित पहचान',
-      desc: 'लक्षणों के आधार पर फसल रोगों और कीट प्रकोप की सटीक पहचान',
-      icon: Bug,
-      color: 'text-rose-700 bg-rose-50 border-rose-200'
-    },
-    {
-      title: 'AI आधारित कृषि सहायता',
-      desc: '24x7 स्मार्ट कृषि सहायक और AI वॉइस कॉल से कृषि समाधान',
-      icon: Sparkles,
-      color: 'text-indigo-700 bg-indigo-50 border-indigo-200'
-    },
-    {
-      title: 'कृषि समाचार एवं उपयोगी कृषि जानकारी',
-      desc: 'ताजा मौसम अपडेट, मंडी भाव, सरकारी योजनाएं व वैज्ञानिक सलाह',
-      icon: Newspaper,
-      color: 'text-cyan-700 bg-cyan-50 border-cyan-200'
-    },
-    {
-      title: 'ऑनलाइन उत्पाद ऑर्डर एवं डिजिटल भुगतान',
-      desc: 'आसान ऑर्डरिंग, होम डिलीवरी व सुरक्षित डिजिटल पेमेंट सुविधा',
-      icon: ShoppingBag,
-      color: 'text-orange-700 bg-orange-50 border-orange-200'
-    }
-  ];
+  const aboutData = legalPagesContent?.aboutUs || DEFAULT_LEGAL_PAGES_CONTENT.aboutUs;
 
   return (
     <div className="space-y-6 pb-8">
@@ -122,9 +86,13 @@ const AboutUs: React.FC = () => {
           <div>
             <div className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 mb-2">
               <Info className="w-3.5 h-3.5 text-[#EAB308]" />
-              <span className="text-[11px] font-bold text-white tracking-wide">हमारे बारे में (About Us)</span>
+              <span className="text-[11px] font-bold text-white tracking-wide">
+                {aboutData.bannerSubtitle || 'हमारे बारे में (About Us)'}
+              </span>
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-white">{branding.name}</h1>
+            <h1 className="text-2xl font-black tracking-tight text-white">
+              {aboutData.bannerTitle || branding.name}
+            </h1>
             <p className="text-sm font-semibold text-[#EAB308] mt-0.5">{branding.tagline}</p>
           </div>
         </div>
@@ -142,75 +110,142 @@ const AboutUs: React.FC = () => {
           <h2 className="text-base font-black text-[#4A3728]">परिचय (Introduction)</h2>
         </div>
 
-        <div className="space-y-3 text-sm text-gray-700 leading-relaxed font-normal">
-          <p>
-            <strong className="text-[#2D5A27] font-bold">फल्सावदिया कृषि बाजार (Falsawdiya Krishi Bazaar)</strong> एक कृषि-केंद्रित डिजिटल प्लेटफॉर्म और ऑनलाइन कृषि इनपुट स्टोर है, जिसका उद्देश्य किसानों को खेती से जुड़े आवश्यक उत्पाद, जानकारी और डिजिटल कृषि सुविधाएँ एक ही स्थान पर उपलब्ध कराना है।
-          </p>
-          <p>
-            हमारा उद्देश्य किसानों के लिए कृषि इनपुट की खरीद को आसान, सुविधाजनक और पारदर्शी बनाना है। हमारे प्लेटफॉर्म के माध्यम से किसान कृषि से संबंधित विभिन्न उत्पादों को देख सकते हैं, उनकी जानकारी प्राप्त कर सकते हैं और उपलब्ध उत्पादों के लिए ऑनलाइन ऑर्डर कर सकते हैं।
-          </p>
+        <div className="space-y-3 text-sm text-gray-700 leading-relaxed font-normal whitespace-pre-line">
+          {aboutData.introText ? (
+            <p>{aboutData.introText}</p>
+          ) : (
+            <>
+              <p>
+                <strong className="text-[#2D5A27] font-bold">फल्सावदिया कृषि बाजार (Falsawdiya Krishi Bazaar)</strong> एक कृषि-केंद्रित डिजिटल प्लेटफॉर्म और ऑनलाइन कृषि इनपुट स्टोर है, जिसका उद्देश्य किसानों को खेती से जुड़े आवश्यक उत्पाद, जानकारी और डिजिटल कृषि सुविधाएँ एक ही स्थान पर उपलब्ध कराना है।
+              </p>
+              <p>
+                हमारा उद्देश्य किसानों के लिए कृषि इनपुट की खरीद को आसान, सुविधाजनक और पारदर्शी बनाना है।
+              </p>
+            </>
+          )}
         </div>
       </motion.div>
 
       {/* Services Section */}
-      <motion.div 
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-        className="space-y-3"
-      >
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-6 bg-[#2D5A27] rounded-full" />
-            <h2 className="text-lg font-black text-[#4A3728]">हमारी सेवाएँ</h2>
+      {aboutData.services && aboutData.services.length > 0 && (
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="space-y-3"
+        >
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-6 bg-[#2D5A27] rounded-full" />
+              <h2 className="text-lg font-black text-[#4A3728]">हमारी सेवाएँ</h2>
+            </div>
+            <span className="text-xs text-[#2D5A27] font-extrabold bg-[#2D5A27]/10 px-2.5 py-0.5 rounded-full">
+              {aboutData.services.length} मुख्य सुविधाएँ
+            </span>
           </div>
-          <span className="text-xs text-[#2D5A27] font-extrabold bg-[#2D5A27]/10 px-2.5 py-0.5 rounded-full">
-            {services.length} मुख्य सुविधाएँ
-          </span>
-        </div>
 
-        <div className="grid grid-cols-1 gap-2.5">
-          {services.map((srv, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.05 * idx }}
-              className="bg-white rounded-2xl p-4 shadow-xs border border-gray-100 flex items-start gap-3.5 hover:border-[#2D5A27]/30 transition-all"
+          <div className="grid grid-cols-1 gap-2.5">
+            {aboutData.services.map((srv, idx) => {
+              const IconComp = SERVICE_ICONS[idx % SERVICE_ICONS.length];
+              const colorClass = SERVICE_COLORS[idx % SERVICE_COLORS.length];
+              return (
+                <motion.div
+                  key={srv.id || idx}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.04 * idx }}
+                  className="bg-white rounded-2xl p-4 shadow-xs border border-gray-100 flex items-start gap-3.5 hover:border-[#2D5A27]/30 transition-all"
+                >
+                  <div className={`p-2.5 rounded-2xl shrink-0 border ${colorClass}`}>
+                    <IconComp className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xs font-bold text-[#4A3728] leading-tight">
+                      {srv.title}
+                    </h3>
+                    <p className="text-[11px] text-gray-500 mt-1 leading-normal font-medium">
+                      {srv.desc}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Our Mission & Vision */}
+      {(aboutData.missionText || aboutData.visionText) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {aboutData.missionText && (
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-emerald-50/80 rounded-3xl p-5 border border-emerald-200 shadow-xs relative overflow-hidden"
             >
-              <div className={`p-2.5 rounded-2xl shrink-0 border ${srv.color}`}>
-                <srv.icon className="w-5 h-5" />
+              <div className="flex items-center gap-2 mb-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#2D5A27] text-white flex items-center justify-center shadow-sm">
+                  <Target className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm font-black text-[#2D5A27]">
+                  {aboutData.missionTitle || 'हमारा उद्देश्य (Mission)'}
+                </h2>
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-xs font-bold text-[#4A3728] leading-tight">
-                  {srv.title}
-                </h3>
-                <p className="text-[11px] text-gray-500 mt-1 leading-normal font-medium">
-                  {srv.desc}
-                </p>
-              </div>
+              <p className="text-xs font-medium text-[#4A3728] leading-relaxed bg-white/90 p-3.5 rounded-2xl border border-emerald-100">
+                {aboutData.missionText}
+              </p>
             </motion.div>
-          ))}
-        </div>
-      </motion.div>
+          )}
 
-      {/* Our Mission / हमारा उद्देश्य */}
-      <motion.div 
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-emerald-50/80 rounded-3xl p-6 border-2 border-[#2D5A27]/20 shadow-xs relative overflow-hidden"
-      >
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-9 h-9 rounded-xl bg-[#2D5A27] text-white flex items-center justify-center shadow-sm">
-            <Target className="w-5 h-5" />
-          </div>
-          <h2 className="text-base font-black text-[#2D5A27]">हमारा उद्देश्य</h2>
+          {aboutData.visionText && (
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.22 }}
+              className="bg-blue-50/80 rounded-3xl p-5 border border-blue-200 shadow-xs relative overflow-hidden"
+            >
+              <div className="flex items-center gap-2 mb-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-700 text-white flex items-center justify-center shadow-sm">
+                  <Compass className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm font-black text-blue-900">
+                  {aboutData.visionTitle || 'हमारा विज़न (Vision)'}
+                </h2>
+              </div>
+              <p className="text-xs font-medium text-[#4A3728] leading-relaxed bg-white/90 p-3.5 rounded-2xl border border-blue-100">
+                {aboutData.visionText}
+              </p>
+            </motion.div>
+          )}
         </div>
-        <p className="text-sm font-semibold text-[#4A3728] leading-relaxed italic bg-white/80 p-4 rounded-2xl border border-emerald-100 shadow-2xs">
-          “हमारा उद्देश्य तकनीक और कृषि ज्ञान का उपयोग करके किसानों को बेहतर निर्णय लेने में सहायता करना और कृषि उत्पादों की खरीद को अधिक सरल बनाना है।”
-        </p>
-      </motion.div>
+      )}
+
+      {/* Highlights / विशेषताएँ */}
+      {aboutData.highlights && aboutData.highlights.length > 0 && (
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.24 }}
+          className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-3"
+        >
+          <div className="flex items-center gap-2.5 text-[#2D5A27]">
+            <div className="w-8 h-8 rounded-xl bg-[#2D5A27]/10 flex items-center justify-center text-[#2D5A27]">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+            </div>
+            <h2 className="text-base font-black text-[#4A3728]">विशेषताएँ एवं मुख्य बिंदु</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+            {aboutData.highlights.map((hl, idx) => (
+              <div key={idx} className="flex items-start gap-2.5 p-2.5 bg-gray-50 rounded-2xl border border-gray-100">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span className="text-xs text-gray-700 font-medium">{hl}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Identity & Ownership / हमारी पहचान */}
       <motion.div 
@@ -223,25 +258,30 @@ const AboutUs: React.FC = () => {
           <div className="w-9 h-9 rounded-xl bg-[#2D5A27]/10 flex items-center justify-center text-[#2D5A27]">
             <Building2 className="w-5 h-5" />
           </div>
-          <h2 className="text-base font-black text-[#4A3728]">हमारी पहचान</h2>
+          <h2 className="text-base font-black text-[#4A3728]">हमारी पहचान व संपर्क</h2>
         </div>
 
         <div className="space-y-3.5 bg-[#F5F2ED]/60 p-4 rounded-2xl border border-[#4A3728]/10 text-xs">
           <div className="flex items-start gap-3">
             <CheckCircle2 className="w-4 h-4 text-[#2D5A27] shrink-0 mt-0.5" />
             <div>
-              <p className="font-extrabold text-[#4A3728] text-sm">फल्सावदिया कृषि बाजार</p>
+              <p className="font-extrabold text-[#4A3728] text-sm">{branding.name}</p>
               <p className="text-gray-500 font-medium mt-0.5">Falsawdiya Krishi Bazaar</p>
             </div>
           </div>
 
-          <div className="flex items-start gap-3 pt-2 border-t border-gray-200/60">
-            <UserCheck className="w-4 h-4 text-[#2D5A27] shrink-0 mt-0.5" />
-            <div>
-              <p className="font-bold text-gray-500">स्वामित्व (Ownership):</p>
-              <p className="font-extrabold text-[#4A3728] text-sm mt-0.5">यश फल्सावदिया (Proprietorship)</p>
+          {aboutData.founderName && (
+            <div className="flex items-start gap-3 pt-2 border-t border-gray-200/60">
+              <UserCheck className="w-4 h-4 text-[#2D5A27] shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-gray-500">{aboutData.founderRole || 'स्वामित्व (Ownership)'}:</p>
+                <p className="font-extrabold text-[#4A3728] text-sm mt-0.5">{aboutData.founderName}</p>
+                {aboutData.founderMessage && (
+                  <p className="text-[11px] text-gray-600 mt-1 italic font-medium">"{aboutData.founderMessage}"</p>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex items-start gap-3 pt-2 border-t border-gray-200/60">
             <MapPin className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
@@ -276,24 +316,38 @@ const AboutUs: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Our Effort for Farmers / किसानों के लिए हमारा प्रयास */}
-      <motion.div 
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-3"
-      >
-        <div className="flex items-center gap-2.5 text-[#2D5A27]">
-          <div className="w-9 h-9 rounded-xl bg-[#2D5A27]/10 flex items-center justify-center text-[#2D5A27]">
-            <HeartHandshake className="w-5 h-5" />
-          </div>
-          <h2 className="text-base font-black text-[#4A3728]">किसानों के लिए हमारा प्रयास</h2>
+      {/* Dynamic Sections from Admin */}
+      {aboutData.sections && aboutData.sections.length > 0 && (
+        <div className="space-y-4">
+          {aboutData.sections.map((sec, idx) => (
+            <motion.div
+              key={sec.id || idx}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.28 + idx * 0.05 }}
+              className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-3"
+            >
+              <div className="flex items-center gap-2 text-[#2D5A27]">
+                <Layers className="w-5 h-5" />
+                <h3 className="text-base font-black text-[#4A3728]">{sec.title}</h3>
+              </div>
+              <p className="text-xs text-gray-700 leading-relaxed font-normal whitespace-pre-line">
+                {sec.content}
+              </p>
+              {sec.bullets && sec.bullets.length > 0 && (
+                <ul className="space-y-1.5 pt-1">
+                  {sec.bullets.map((b, bIdx) => (
+                    <li key={bIdx} className="text-xs text-gray-700 flex items-start gap-2">
+                      <span className="text-[#2D5A27] font-bold">•</span>
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </motion.div>
+          ))}
         </div>
-
-        <p className="text-xs text-gray-700 leading-relaxed font-normal">
-          <strong className="font-bold text-[#2D5A27]">Falsawdiya Krishi Bazaar</strong> का मुख्य उद्देश्य और निरंतर प्रयास किसानों को उच्च गुणवत्ता वाले कृषि उत्पाद (Agricultural Products), उपयोगी एवं व्यावहारिक कृषि जानकारी (Useful Agricultural Information) और आधुनिक तकनीक-आधारित टूल्स (Technology-based Tools) एक ही डिजिटल प्लेटफॉर्म पर उपलब्ध कराना है, जिससे खेती से जुड़े दैनिक निर्णयों और कृषि आदानों की खरीदारी को अधिक सुगम, सटीक और समयबद्ध बनाया जा सके।
-        </p>
-      </motion.div>
+      )}
 
       {/* Quick Navigation Footer Links */}
       <div className="pt-2 flex flex-col gap-2">

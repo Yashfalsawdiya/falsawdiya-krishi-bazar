@@ -43,15 +43,9 @@ const Header: React.FC = () => {
     isExternal?: boolean;
   }
 
-  const menuItems: MenuItem[] = [
+  const mainMenuItems: MenuItem[] = [
     { icon: User, label: 'मेरा प्रोफाइल (Profile)', path: '/profile', color: 'text-purple-600' },
     { icon: Info, label: 'हमारे बारे में (About Us)', path: '/about', color: 'text-emerald-700' },
-    { icon: ShieldCheck, label: 'गोपनीयता नीति (Privacy Policy)', path: '/privacy', color: 'text-blue-600' },
-    { icon: FileText, label: 'नियम एवं शर्तें (Terms & Conditions)', path: '/terms', color: 'text-amber-600' },
-    { icon: RotateCcw, label: 'वापसी एवं रिफंड नीति (Refund Policy)', path: '/refund-policy', color: 'text-rose-600' },
-    { icon: AlertTriangle, label: 'कृषि एवं AI अस्वीकरण (AI Disclaimer)', path: '/disclaimer', color: 'text-yellow-600' },
-    { icon: ShieldAlert, label: 'रासायनिक सुरक्षा निर्देश (Safety Guidelines)', path: '/safety-guidelines', color: 'text-red-600' },
-    { icon: PhoneCall, label: 'संपर्क करें (Contact Us)', path: '/contact', color: 'text-emerald-600' },
     { icon: Phone, label: 'AI कृषि विशेषज्ञ कॉल', path: '/ai-call', color: 'text-[#2D5A27]' },
     { icon: Sparkles, label: 'AI उत्पाद जानकारी (Knowledge)', path: '/ai-product-knowledge', color: 'text-amber-500' },
     { icon: TrendingUp, label: 'मंडी भाव (Mandi Bhav)', path: '/mandi', color: 'text-green-600' },
@@ -59,6 +53,15 @@ const Header: React.FC = () => {
     { icon: Landmark, label: 'सरकारी योजनाएं', path: '/schemes', color: 'text-blue-600' },
     { icon: Calculator, label: 'Calculator', path: '/calculator', color: 'text-orange-600' },
     { icon: PhoneCall, label: 'हेल्पलाइन डायरेक्टरी', path: '/helpline', color: 'text-cyan-600' },
+  ];
+
+  const legalMenuItems: MenuItem[] = [
+    { icon: ShieldCheck, label: 'Privacy Policy (गोपनीयता नीति)', path: '/privacy', color: 'text-blue-600' },
+    { icon: FileText, label: 'Terms (नियम एवं शर्तें)', path: '/terms', color: 'text-amber-600' },
+    { icon: RotateCcw, label: 'Refund Policy (वापसी व रिफंड)', path: '/refund-policy', color: 'text-rose-600' },
+    { icon: AlertTriangle, label: 'AI Disclaimer (कृषि एवं AI अस्वीकरण)', path: '/disclaimer', color: 'text-yellow-600' },
+    { icon: ShieldAlert, label: 'Chemical Safety (रासायनिक सुरक्षा)', path: '/safety-guidelines', color: 'text-red-600' },
+    { icon: PhoneCall, label: 'Contact Us (संपर्क करें)', path: '/contact', color: 'text-emerald-600' },
   ];
 
   return (
@@ -217,9 +220,10 @@ const Header: React.FC = () => {
                 <p className="text-xs text-white/70 mt-1">फल्सावदिया कृषि बाजार में आपका स्वागत है</p>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4">
-                <div className="space-y-2">
-                  {menuItems.map((item, idx) => (
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {/* Main Navigation Items */}
+                <div className="space-y-1">
+                  {mainMenuItems.map((item, idx) => (
                     <button
                       key={idx}
                       onClick={() => {
@@ -234,12 +238,34 @@ const Header: React.FC = () => {
                         }
                         setIsMenuOpen(false);
                       }}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-2xl transition-colors text-left"
+                      className="w-full flex items-center gap-3.5 p-3 hover:bg-gray-50 rounded-2xl transition-colors text-left"
                     >
-                      <div className={`p-2 rounded-xl bg-gray-100 ${item.color}`}>
-                        <item.icon className="w-5 h-5" />
+                      <div className={`p-2 rounded-xl bg-gray-100 shrink-0 ${item.color}`}>
+                        <item.icon className="w-4 h-4" />
                       </div>
-                      <span className="font-bold text-gray-700">{item.label}</span>
+                      <span className="font-bold text-xs text-gray-700">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Legal & Policy Pages - Shifted to Bottom */}
+                <div className="pt-2 border-t border-gray-100 space-y-1">
+                  <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider px-3 mb-1">
+                    नीतियां व सहायता (Legal & Info)
+                  </p>
+                  {legalMenuItems.map((item, idx) => (
+                    <button
+                      key={`legal-${idx}`}
+                      onClick={() => {
+                        navigate(item.path);
+                        setIsMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3.5 p-2.5 hover:bg-emerald-50/50 rounded-2xl transition-colors text-left group"
+                    >
+                      <div className={`p-1.5 rounded-lg bg-gray-50 border border-gray-100 shrink-0 ${item.color}`}>
+                        <item.icon className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="font-semibold text-xs text-gray-600 group-hover:text-[#2D5A27] transition-colors">{item.label}</span>
                     </button>
                   ))}
                 </div>

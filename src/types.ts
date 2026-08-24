@@ -117,3 +117,105 @@ export interface AgriTradeNotice {
   createdAt: number; // timestamp
 }
 
+export interface PageSectionItem {
+  id: string;
+  title: string;
+  content: string;
+  bullets?: string[];
+  iconName?: string;
+  badge?: string;
+}
+
+export interface AboutUsPageData {
+  bannerTitle: string;
+  bannerSubtitle: string;
+  introText: string;
+  missionTitle: string;
+  missionText: string;
+  visionTitle: string;
+  visionText: string;
+  storyTitle: string;
+  storyText: string;
+  services: { id: string; title: string; desc: string }[];
+  highlights: string[];
+  founderName: string;
+  founderRole: string;
+  founderMessage: string;
+  sections: PageSectionItem[];
+}
+
+export interface PrivacyPolicyPageData {
+  bannerTitle: string;
+  bannerSubtitle: string;
+  lastUpdated: string;
+  introText: string;
+  sections: PageSectionItem[];
+  contactEmail: string;
+  contactPhone: string;
+}
+
+export interface TermsConditionsPageData {
+  bannerTitle: string;
+  bannerSubtitle: string;
+  lastUpdated: string;
+  introText: string;
+  sections: PageSectionItem[];
+  governingLaw: string;
+}
+
+export interface RefundPolicyPageData {
+  bannerTitle: string;
+  bannerSubtitle: string;
+  lastUpdated: string;
+  introText: string;
+  returnWindowText: string;
+  nonReturnableConditions: string[];
+  sections: PageSectionItem[];
+  refundProcessText: string;
+}
+
+export interface AiDisclaimerPageData {
+  bannerTitle: string;
+  bannerSubtitle: string;
+  lastUpdated: string;
+  introText: string;
+  emergencyNotice: string;
+  sections: PageSectionItem[];
+}
+
+export interface ChemicalSafetyPageData {
+  bannerTitle: string;
+  bannerSubtitle: string;
+  lastUpdated: string;
+  introText: string;
+  emergencyNumbers: { title: string; number: string; desc: string }[];
+  dosList: string[];
+  dontsList: string[];
+  sections: PageSectionItem[];
+}
+
+export interface ContactUsPageData {
+  bannerTitle: string;
+  bannerSubtitle: string;
+  introText: string;
+  phone: string;
+  whatsapp: string;
+  email: string;
+  address: string;
+  timings: string;
+  deliveryArea: string;
+  emergencySupportText: string;
+  customNotes?: string;
+  sections: PageSectionItem[];
+}
+
+export interface LegalPagesContent {
+  aboutUs?: AboutUsPageData;
+  privacyPolicy?: PrivacyPolicyPageData;
+  termsConditions?: TermsConditionsPageData;
+  refundPolicy?: RefundPolicyPageData;
+  aiDisclaimer?: AiDisclaimerPageData;
+  chemicalSafety?: ChemicalSafetyPageData;
+  contactUs?: ContactUsPageData;
+}
+

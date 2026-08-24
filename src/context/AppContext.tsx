@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline } from '../types';
+import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent } from '../types';
 import { PRODUCTS, CROP_ADVICE, CATEGORIES } from '../data/mockData';
+import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { cn, getDirectImageURL, getHighResImageURL } from '../lib/utils';
 import { 
@@ -69,6 +70,7 @@ interface AppContextType {
   agriIssues: AgriIssue[];
   helplines: Helpline[];
   appContent: AppContent | null;
+  legalPagesContent: Required<LegalPagesContent>;
   user: FirebaseUser | null;
   isAdmin: boolean;
   userSettings: UserSettings | null;
@@ -92,6 +94,8 @@ interface AppContextType {
   updateHelpline: (helpline: Helpline) => Promise<void>;
   deleteHelpline: (id: string) => Promise<void>;
   updateAppContent: (content: AppContent) => Promise<void>;
+  updateLegalPagesContent: (content: LegalPagesContent) => Promise<void>;
+  resetLegalPageContent: (pageKey: keyof LegalPagesContent) => Promise<void>;
   updateUserSettings: (settings: UserSettings) => Promise<void>;
   updateUserStatus: (uid: string, isBlocked: boolean) => Promise<void>;
   login: () => Promise<void>;
@@ -116,6 +120,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [agriIssues, setAgriIssues] = useState<AgriIssue[]>([]);
   const [helplines, setHelplines] = useState<Helpline[]>([]);
   const [appContent, setAppContent] = useState<AppContent | null>(null);
+
+  const mergeLegalPages = (saved?: Partial<LegalPagesContent> | null): Required<LegalPagesContent> => {
+    if (!saved) return DEFAULT_LEGAL_PAGES_CONTENT;
+    return {
+      aboutUs: { ...DEFAULT_LEGAL_PAGES_CONTENT.aboutUs, ...(saved.aboutUs || {}) },
+      privacyPolicy: { ...DEFAULT_LEGAL_PAGES_CONTENT.privacyPolicy, ...(saved.privacyPolicy || {}) },
+      termsConditions: { ...DEFAULT_LEGAL_PAGES_CONTENT.termsConditions, ...(saved.termsConditions || {}) },
+      refundPolicy: { ...DEFAULT_LEGAL_PAGES_CONTENT.refundPolicy, ...(saved.refundPolicy || {}) },
+      aiDisclaimer: { ...DEFAULT_LEGAL_PAGES_CONTENT.aiDisclaimer, ...(saved.aiDisclaimer || {}) },
+      chemicalSafety: { ...DEFAULT_LEGAL_PAGES_CONTENT.chemicalSafety, ...(saved.chemicalSafety || {}) },
+      contactUs: { ...DEFAULT_LEGAL_PAGES_CONTENT.contactUs, ...(saved.contactUs || {}) },
+    };
+  };
+
+  const [legalPagesContent, setLegalPagesContent] = useState<Required<LegalPagesContent>>(() => {
+    try {
+      const cached = localStorage.getItem('agri_cache_legal_pages');
+      if (cached) {
+        return mergeLegalPages(JSON.parse(cached));
+      }
+    } catch (e) {
+      console.error("Error reading cached legal pages:", e);
+    }
+    return DEFAULT_LEGAL_PAGES_CONTENT;
+  });
+
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
@@ -468,6 +498,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribeContent();
   }, [isAdmin]);
 
+  // Dedicated effect for legal & static pages content
+  useEffect(() => {
+    const cached = localStorage.getItem('agri_cache_legal_pages');
+    if (cached) {
+      try {
+        setLegalPagesContent(mergeLegalPages(JSON.parse(cached)));
+      } catch (e) {
+        console.error("Failed to parse cached legal pages:", e);
+      }
+    }
+
+    if (!isSyncNeeded() && cached) return;
+
+    const unsubscribeLegalPages = onSnapshot(doc(db, 'settings', 'legalPages'), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data() as Partial<LegalPagesContent>;
+        const merged = mergeLegalPages(data);
+        setLegalPagesContent(merged);
+        localStorage.setItem('agri_cache_legal_pages', JSON.stringify(data));
+      }
+    }, (error) => {
+      const err = handleFirestoreError(error, OperationType.GET, 'settings/legalPages');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
+      }
+    });
+
+    return () => unsubscribeLegalPages();
+  }, [isAdmin]);
+
   // Additional effect to listen for all users if admin
   useEffect(() => {
     if (isAdmin) {
@@ -631,6 +691,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateLegalPagesContent = async (content: LegalPagesContent) => {
+    try {
+      await setDoc(doc(db, 'settings', 'legalPages'), content, { merge: true });
+      const merged = mergeLegalPages(content);
+      setLegalPagesContent(merged);
+      localStorage.setItem('agri_cache_legal_pages', JSON.stringify(merged));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'settings/legalPages');
+    }
+  };
+
+  const resetLegalPageContent = async (pageKey: keyof LegalPagesContent) => {
+    try {
+      const updated: Required<LegalPagesContent> = {
+        ...legalPagesContent,
+        [pageKey]: DEFAULT_LEGAL_PAGES_CONTENT[pageKey]
+      };
+      await setDoc(doc(db, 'settings', 'legalPages'), updated);
+      setLegalPagesContent(updated);
+      localStorage.setItem('agri_cache_legal_pages', JSON.stringify(updated));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'settings/legalPages');
+    }
+  };
+
   const updateUserSettings = async (settings: UserSettings) => {
     if (!user) return;
     try {
@@ -673,6 +758,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       agriIssues,
       helplines,
       appContent,
+      legalPagesContent,
       user, 
       isAdmin, 
       userSettings,
@@ -696,6 +782,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateHelpline,
       deleteHelpline,
       updateAppContent,
+      updateLegalPagesContent,
+      resetLegalPageContent,
       updateUserSettings,
       updateUserStatus,
       login,

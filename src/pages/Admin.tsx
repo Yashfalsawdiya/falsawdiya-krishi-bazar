@@ -7,7 +7,7 @@ import {
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
   Youtube as YoutubeIcon, Layout, Phone, Key, Star, ArrowUp, ArrowDown,
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle,
-  Truck
+  Truck, FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
@@ -15,6 +15,7 @@ import { AppContent } from '../context/AppContext';
 import { ImageSource } from '../types';
 import DualImageInput from '../components/DualImageInput';
 import SmartImage from '../components/SmartImage';
+import AdminPagesManager from '../components/AdminPagesManager';
 
 const Admin: React.FC = () => {
   const { 
@@ -43,7 +44,7 @@ const Admin: React.FC = () => {
     }
   }, [isAdmin]);
   
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users' | 'featured' | 'delivery' | 'categoryInfo'>('content');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users' | 'featured' | 'delivery' | 'categoryInfo' | 'legalPages'>('content');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
   const [productSearchQuery, setProductSearchQuery] = useState<string>('');
@@ -634,6 +635,17 @@ const Admin: React.FC = () => {
           )}
         >
           <Truck className="w-4 h-4" /> डिलीवरी प्रबंधन (Delivery)
+        </button>
+        <button 
+          onClick={() => setActiveTab('legalPages')}
+          className={cn(
+            "flex-1 min-w-[130px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all border",
+            activeTab === 'legalPages' 
+              ? "bg-[#2D5A27] text-white shadow-md font-extrabold border-emerald-600" 
+              : "text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/70 border-emerald-200"
+          )}
+        >
+          <FileText className="w-4 h-4 text-emerald-600 activeTab:text-white" /> 📜 नीतियां व पेज (Legal & Info)
         </button>
       </div>
 
@@ -1637,6 +1649,8 @@ const Admin: React.FC = () => {
             </div>
           </div>
         </div>
+      ) : activeTab === 'legalPages' ? (
+        <AdminPagesManager />
       ) : (
         <form onSubmit={handleContentSubmit} className="space-y-8">
           {/* Branding Settings */}
