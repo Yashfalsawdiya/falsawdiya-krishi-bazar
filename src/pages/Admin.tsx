@@ -645,7 +645,7 @@ const Admin: React.FC = () => {
               : "text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/70 border-emerald-200"
           )}
         >
-          <FileText className="w-4 h-4 text-emerald-600 activeTab:text-white" /> 📜 नीतियां व पेज (Legal & Info)
+          <FileText className="w-4 h-4 text-emerald-600 activeTab:text-white" /> नीतियां (Legal & Info)
         </button>
       </div>
 

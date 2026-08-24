@@ -179,15 +179,6 @@ export const AdminPagesManager: React.FC = () => {
             </Link>
 
             <button
-              onClick={() => handleResetPage(selectedPage)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl text-xs font-bold border border-rose-200 transition-colors"
-              title="इस पेज को मूल डिफ़ॉल्ट पर रीसेट करें"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span>डिफ़ॉल्ट रीसेट</span>
-            </button>
-
-            <button
               onClick={handleSave}
               disabled={isSaving}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#2D5A27] hover:bg-[#23481f] text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"

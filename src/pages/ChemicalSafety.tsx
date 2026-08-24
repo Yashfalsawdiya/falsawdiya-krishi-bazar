@@ -47,25 +47,25 @@ const ChemicalSafety: React.FC = () => {
       <motion.div 
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-red-800 via-rose-900 to-red-950 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden"
+        className="bg-gradient-to-br from-[#2D5A27] via-[#24481f] to-[#1b3717] rounded-3xl p-6 text-white shadow-xl relative overflow-hidden"
       >
         <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-24 -mt-24 blur-2xl" />
-        <div className="absolute bottom-0 left-0 w-36 h-36 bg-amber-400/10 rounded-full -ml-18 -mb-18 blur-xl" />
+        <div className="absolute bottom-0 left-0 w-36 h-36 bg-[#EAB308]/10 rounded-full -ml-18 -mb-18 blur-xl" />
 
         <div className="relative z-10 flex flex-col items-center text-center space-y-2">
           <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/20 shadow-inner mb-1">
-            <ShieldAlert className="w-8 h-8 text-amber-300" />
+            <ShieldAlert className="w-8 h-8 text-[#EAB308]" />
           </div>
 
           <h1 className="text-2xl font-black tracking-tight text-white">
             {safetyData.bannerTitle || 'Agro-Chemical Safety Guidelines'}
           </h1>
-          <p className="text-sm font-semibold text-amber-300">
+          <p className="text-sm font-semibold text-[#EAB308]">
             {safetyData.bannerSubtitle || 'कीटनाशक व रासायनिक सुरक्षा निर्देश'}
           </p>
 
-          <div className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-[11px] font-medium text-rose-100 mt-2">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-300" />
+          <div className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-[11px] font-medium text-green-100 mt-2">
+            <AlertTriangle className="w-3.5 h-3.5 text-yellow-300" />
             <span>सुरक्षा ही सर्वोत्तम बचाव है • अंतिम अपडेट: {safetyData.lastUpdated || '24 August 2026'}</span>
           </div>
         </div>
@@ -183,10 +183,10 @@ const ChemicalSafety: React.FC = () => {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="bg-gradient-to-r from-red-600 to-rose-700 rounded-3xl p-6 text-white shadow-md space-y-3"
+          className="bg-gradient-to-br from-[#2D5A27] via-[#24481f] to-[#1b3717] rounded-3xl p-6 text-white shadow-md space-y-3"
         >
           <div className="flex items-center gap-2">
-            <HeartPulse className="w-5 h-5 text-amber-300" />
+            <HeartPulse className="w-5 h-5 text-[#EAB308]" />
             <h2 className="text-sm font-bold text-white uppercase tracking-wider">आपातकालीन सहायता (Emergency Assistance)</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
@@ -197,10 +197,10 @@ const ChemicalSafety: React.FC = () => {
                 className="bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl p-3 flex flex-col justify-between transition-colors active:scale-95"
               >
                 <div>
-                  <p className="text-[11px] font-bold text-amber-200">{em.title}</p>
-                  <p className="text-[10px] text-rose-100 mt-0.5">{em.desc}</p>
+                  <p className="text-[11px] font-bold text-yellow-300">{em.title}</p>
+                  <p className="text-[10px] text-green-100 mt-0.5">{em.desc}</p>
                 </div>
-                <div className="mt-2 flex items-center gap-1.5 text-xs font-black bg-white text-rose-700 py-1.5 px-3 rounded-xl w-fit">
+                <div className="mt-2 flex items-center gap-1.5 text-xs font-black bg-white text-[#2D5A27] py-1.5 px-3 rounded-xl w-fit">
                   <PhoneCall className="w-3.5 h-3.5" />
                   <span>{em.number}</span>
                 </div>
@@ -213,16 +213,16 @@ const ChemicalSafety: React.FC = () => {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="bg-gradient-to-r from-red-600 to-rose-700 rounded-3xl p-6 text-white shadow-md space-y-3"
+          className="bg-gradient-to-br from-[#2D5A27] via-[#24481f] to-[#1b3717] rounded-3xl p-6 text-white shadow-md space-y-3"
         >
           <div className="flex items-center gap-2">
-            <HeartPulse className="w-5 h-5 text-amber-300" />
+            <HeartPulse className="w-5 h-5 text-[#EAB308]" />
             <h2 className="text-sm font-bold text-white uppercase tracking-wider">आपातकालीन सहायता (Emergency Assistance)</h2>
           </div>
           <div className="pt-1 flex gap-2">
             <a 
               href="tel:108"
-              className="flex-1 bg-white text-rose-700 py-3 rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
+              className="flex-1 bg-white text-[#2D5A27] py-3 rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
             >
               <PhoneCall className="w-4 h-4" /> एम्बुलेंस 108
             </a>
