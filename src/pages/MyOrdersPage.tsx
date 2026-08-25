@@ -212,6 +212,11 @@ const MyOrdersPage: React.FC = () => {
                   <div>
                     <span className="text-[10px] text-gray-400 font-semibold">कुल राशि: </span>
                     <span className="text-sm font-black text-[#2D5A27]">₹{order.totalAmount}</span>
+                    {order.status === 'cancelled' && order.refundDetails && (
+                      <span className="ml-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        रिफंड: ₹{order.refundDetails.refundAmount}
+                      </span>
+                    )}
                   </div>
                   <span className="text-[#2D5A27] font-bold flex items-center gap-1 text-xs hover:underline">
                     ट्रैकिंग व विवरण <ChevronRight className="w-4 h-4" />

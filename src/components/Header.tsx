@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Menu, Sprout, X, Landmark, Phone, Newspaper, User, Calculator, PhoneCall, Bug, TrendingUp, ShoppingCart, Sparkles, Info, ShieldCheck, FileText, RotateCcw, AlertTriangle, ShieldAlert, HelpCircle, Truck, Scale, Award, Package } from 'lucide-react';
+import { Search, Menu, Sprout, X, Landmark, Phone, Newspaper, User, Calculator, PhoneCall, Bug, TrendingUp, ShoppingCart, Sparkles, Info, ShieldCheck, FileText, RotateCcw, AlertTriangle, ShieldAlert, HelpCircle, Truck, Scale, Award } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
@@ -44,7 +44,6 @@ const Header: React.FC = () => {
   }
 
   const mainMenuItems: MenuItem[] = [
-    { icon: Package, label: 'मेरे ऑर्डर (My Orders & Tracking)', path: '/orders', color: 'text-[#2D5A27] font-bold' },
     { icon: User, label: 'मेरा प्रोफाइल (Profile)', path: '/profile', color: 'text-purple-600' },
     { icon: Info, label: 'हमारे बारे में (About Us)', path: '/about', color: 'text-emerald-700' },
     { icon: Phone, label: 'AI कृषि विशेषज्ञ कॉल', path: '/ai-call', color: 'text-[#2D5A27]' },

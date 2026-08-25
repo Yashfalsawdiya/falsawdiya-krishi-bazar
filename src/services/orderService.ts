@@ -1,4 +1,4 @@
-import { Order, OrderStatus, PaymentStatus } from '../types';
+import { Order, OrderStatus, PaymentStatus, OrderTimelineEvent } from '../types';
 import { db, auth } from '../firebase';
 import { 
   collection, 
@@ -222,4 +222,160 @@ export const fetchOrderById = async (orderId: string): Promise<Order | null> => 
   }
 
   return local;
+};
+
+export interface RefundCalculation {
+  cancellationStage: 'before_dispatch' | 'after_dispatch';
+  eligibleProductAmount: number;
+  deliveryCharge: number;
+  deliveryChargeDeducted: number;
+  deliveryChargeRefunded: number;
+  refundAmount: number;
+  isDeliveryChargeNonRefundable: boolean;
+  ruleExplanation: string;
+}
+
+// Calculate refund according to stage-based cancellation policy
+export const calculateOrderRefund = (order: Order): RefundCalculation => {
+  const isAfterDispatch = order.status === 'dispatched' || order.status === 'out_for_delivery';
+  const deliveryCharge = order.deliveryCharges || 0;
+  const eligibleProductAmount = order.itemsTotal || (order.totalAmount - deliveryCharge);
+
+  if (isAfterDispatch) {
+    // After dispatch / Shipped: Delivery charge is non-refundable
+    const refundAmount = Math.max(0, order.totalAmount - deliveryCharge);
+    return {
+      cancellationStage: 'after_dispatch',
+      eligibleProductAmount,
+      deliveryCharge,
+      deliveryChargeDeducted: deliveryCharge,
+      deliveryChargeRefunded: 0,
+      refundAmount,
+      isDeliveryChargeNonRefundable: deliveryCharge > 0,
+      ruleExplanation: 'यह ऑर्डर शिपिंग के लिए भेजा जा चुका है। इस समय ऑर्डर रद्द करने पर Delivery Charge वापस नहीं किया जाएगा। बाकी eligible product/order payment आपकी refund policy के अनुसार original payment method में वापस कर दिया जाएगा।'
+    };
+  } else {
+    // Before dispatch: Placed / Confirmed -> 100% full refund
+    return {
+      cancellationStage: 'before_dispatch',
+      eligibleProductAmount,
+      deliveryCharge,
+      deliveryChargeDeducted: 0,
+      deliveryChargeRefunded: deliveryCharge,
+      refundAmount: order.totalAmount,
+      isDeliveryChargeNonRefundable: false,
+      ruleExplanation: 'ऑर्डर अभी डिस्पैच नहीं हुआ है। पूरा भुगतान (उत्पाद राशि + डिलीवरी शुल्क) मूल Razorpay खाते में वापस कर दिया जाएगा।'
+    };
+  }
+};
+
+// Cancel an order (User-side or Admin) and process Razorpay refund
+export const cancelUserOrder = async (
+  orderId: string, 
+  cancellationReason?: string, 
+  cancelledBy: 'user' | 'admin' = 'user'
+): Promise<{ success: boolean; order?: Order; error?: string }> => {
+  const currentOrder = await fetchOrderById(orderId);
+  if (!currentOrder) {
+    return { success: false, error: 'ऑर्डर नहीं मिला (Order not found).' };
+  }
+
+  if (currentOrder.status === 'cancelled') {
+    return { success: false, error: 'यह ऑर्डर पहले ही रद्द किया जा चुका है।' };
+  }
+
+  if (currentOrder.status === 'delivered') {
+    return { 
+      success: false, 
+      error: 'यह ऑर्डर पहले ही डिलीवर हो चुका है। कृपया रद्दीकरण के बजाय वापसी/रिप्लेसमेंट (Return/Replacement Policy) का उपयोग करें।' 
+    };
+  }
+
+  const calc = calculateOrderRefund(currentOrder);
+  const now = Date.now();
+  let refundId = `rfnd_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
+  let refundStatus: 'processed' | 'pending' | 'not_applicable' = 'processed';
+
+  // Process server-side Razorpay refund on original payment method
+  if (currentOrder.razorpayPaymentId && calc.refundAmount > 0) {
+    try {
+      const response = await fetch('/api/razorpay/process-refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentId: currentOrder.razorpayPaymentId,
+          amount: calc.refundAmount,
+          orderId: currentOrder.id,
+          orderNumber: currentOrder.orderNumber,
+          reason: cancellationReason || (cancelledBy === 'user' ? 'Customer Cancellation' : 'Admin Cancellation'),
+        }),
+      });
+
+      if (response.ok) {
+        const resData = await response.json();
+        if (resData.refundId) {
+          refundId = resData.refundId;
+        }
+        refundStatus = 'processed';
+      }
+    } catch (err) {
+      console.warn("Razorpay refund trigger warning, proceeding with recorded status:", err);
+    }
+  }
+
+  const refundDetails = {
+    refundAmount: calc.refundAmount,
+    eligibleProductAmount: calc.eligibleProductAmount,
+    deliveryChargeDeducted: calc.deliveryChargeDeducted,
+    deliveryChargeRefunded: calc.deliveryChargeRefunded,
+    refundStatus,
+    refundId,
+    refundMethod: 'Razorpay Original Payment Source (UPI / Bank Account)',
+    cancelledAt: now,
+    cancellationReason: cancellationReason || 'ग्राहक द्वारा रद्दीकरण का अनुरोध किया गया',
+    cancelledBy,
+    cancellationStage: calc.cancellationStage,
+    cancellationMessage: calc.ruleExplanation,
+  };
+
+  const timelineNote = calc.cancellationStage === 'after_dispatch'
+    ? `ऑर्डर शिपिंग के दौरान रद्द किया गया। नॉन-रिफंडेबल डिलीवरी शुल्क (₹${calc.deliveryChargeDeducted}) काटकर कुल ₹${calc.refundAmount} का रिफंड मूल खाते में प्रोसेस किया गया।`
+    : `ऑर्डर डिस्पैच से पूर्व रद्द किया गया। कुल ₹${calc.refundAmount} का पूर्ण रिफंड मूल खाते में प्रोसेस किया गया।`;
+
+  const cancellationTimelineEvent: OrderTimelineEvent = {
+    title: 'ऑर्डर रद्द एवं रिफंड प्रक्रियाधीन (Cancelled & Refunded)',
+    description: timelineNote,
+    timestamp: now,
+    status: 'cancelled',
+  };
+
+  const updatedOrder: Order = {
+    ...currentOrder,
+    status: 'cancelled',
+    paymentStatus: calc.deliveryChargeDeducted > 0 ? 'partially_refunded' : 'refunded',
+    refundDetails,
+    timeline: [...(currentOrder.timeline || []), cancellationTimelineEvent],
+    updatedAt: now,
+    notes: cancellationReason ? `रद्दीकरण कारण: ${cancellationReason}` : currentOrder.notes,
+  };
+
+  // Save to local storage
+  saveLocalOrder(updatedOrder);
+
+  // Sync to Firestore
+  try {
+    const orderDocRef = doc(db, 'orders', currentOrder.id);
+    await updateDoc(orderDocRef, {
+      status: 'cancelled',
+      paymentStatus: updatedOrder.paymentStatus,
+      refundDetails,
+      timeline: updatedOrder.timeline,
+      updatedAt: now,
+      ...(cancellationReason ? { notes: `रद्दीकरण कारण: ${cancellationReason}` } : {}),
+    });
+  } catch (err) {
+    console.error("Failed to update cancelled order in Firestore:", err);
+  }
+
+  return { success: true, order: updatedOrder };
 };

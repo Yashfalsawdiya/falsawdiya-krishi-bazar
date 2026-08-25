@@ -604,11 +604,11 @@ const Admin: React.FC = () => {
         <button 
           onClick={() => setActiveTab('categoryInfo')}
           className={cn(
-            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all border border-transparent",
-            activeTab === 'categoryInfo' ? "bg-[#2D5A27] text-white shadow-md font-extrabold border-amber-500/30" : "text-gray-500 hover:bg-gray-50"
+            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'categoryInfo' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
           )}
         >
-          <ShieldCheck className="w-4 h-4 text-amber-500" /> महत्वपूर्ण जानकारी (Category Info)
+          <ShieldCheck className="w-4 h-4" /> महत्वपूर्ण जानकारी (Category Info)
         </button>
         <button 
           onClick={() => setActiveTab('encyclopedia')}
@@ -649,35 +649,29 @@ const Admin: React.FC = () => {
         <button 
           onClick={() => setActiveTab('orders')}
           className={cn(
-            "flex-1 min-w-[130px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all border",
-            activeTab === 'orders' 
-              ? "bg-[#2D5A27] text-white shadow-md font-extrabold border-emerald-600" 
-              : "text-emerald-900 bg-emerald-100/60 hover:bg-emerald-200/60 border-emerald-300"
+            "flex-1 min-w-[130px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'orders' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
           )}
         >
-          <Package className="w-4 h-4 text-emerald-700" /> ऑर्डर्स (Orders)
+          <Package className="w-4 h-4" /> ऑर्डर्स (Orders)
         </button>
         <button 
           onClick={() => setActiveTab('razorpay')}
           className={cn(
-            "flex-1 min-w-[150px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all border",
-            activeTab === 'razorpay' 
-              ? "bg-[#2D5A27] text-white shadow-md font-extrabold border-blue-600" 
-              : "text-blue-900 bg-blue-50 hover:bg-blue-100 border-blue-200"
+            "flex-1 min-w-[130px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'razorpay' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
           )}
         >
-          <CreditCard className="w-4 h-4 text-blue-600" /> Razorpay गेटवे
+          <CreditCard className="w-4 h-4" /> Razorpay गेटवे
         </button>
         <button 
           onClick={() => setActiveTab('legalPages')}
           className={cn(
-            "flex-1 min-w-[130px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all border",
-            activeTab === 'legalPages' 
-              ? "bg-[#2D5A27] text-white shadow-md font-extrabold border-emerald-600" 
-              : "text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/70 border-emerald-200"
+            "flex-1 min-w-[130px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'legalPages' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
           )}
         >
-          <FileText className="w-4 h-4 text-emerald-600 activeTab:text-white" /> नीतियां (Legal & Info)
+          <FileText className="w-4 h-4" /> नीतियां (Legal & Info)
         </button>
       </div>
 

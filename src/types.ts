@@ -114,8 +114,24 @@ export interface OrderItem {
 }
 
 export type OrderStatus = 'placed' | 'confirmed' | 'dispatched' | 'out_for_delivery' | 'delivered' | 'cancelled';
-export type PaymentStatus = 'pending' | 'paid' | 'failed';
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
 export type PaymentMethod = 'online_razorpay' | 'upi_manual';
+export type RefundStatus = 'not_applicable' | 'pending' | 'processed' | 'failed';
+
+export interface RefundDetails {
+  refundAmount: number;
+  eligibleProductAmount: number;
+  deliveryChargeDeducted: number;
+  deliveryChargeRefunded: number;
+  refundStatus: RefundStatus;
+  refundId?: string;
+  refundMethod: string;
+  cancelledAt: number;
+  cancellationReason?: string;
+  cancelledBy: 'user' | 'admin';
+  cancellationStage: 'before_dispatch' | 'after_dispatch';
+  cancellationMessage?: string;
+}
 
 export interface OrderTimelineEvent {
   title: string;
@@ -148,6 +164,7 @@ export interface Order {
   razorpayPaymentId?: string;
   razorpayOrderId?: string;
   razorpayMode?: 'test' | 'live';
+  refundDetails?: RefundDetails;
   status: OrderStatus;
   trackingNumber?: string;
   courierPartner?: string;
