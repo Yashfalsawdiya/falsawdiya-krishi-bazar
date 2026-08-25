@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Key, ExternalLink, Save, LogOut, LogIn, ChevronRight, Info, Youtube, RefreshCw, CheckCircle2, AlertCircle, Loader2, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert } from 'lucide-react';
+import { User, Key, ExternalLink, Save, LogOut, LogIn, ChevronRight, Info, Youtube, RefreshCw, CheckCircle2, AlertCircle, Loader2, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Scale, Truck, HelpCircle } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { cn } from '../lib/utils';
 import SmartImage from '../components/SmartImage';
@@ -385,6 +385,25 @@ const Profile: React.FC = () => {
         </Link>
 
         <Link 
+          to="/licensing-disclaimer"
+          className="bg-emerald-50/70 p-5 rounded-3xl border border-emerald-200/80 flex items-center justify-between shadow-xs hover:border-emerald-400 transition-all group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center border border-emerald-500 group-hover:scale-105 transition-transform shadow-xs">
+              <Award className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h4 className="font-extrabold text-emerald-950 text-sm leading-tight">वैधानिक लाइसेंस एवं DAESI</h4>
+                <span className="bg-emerald-200 text-emerald-900 text-[9px] font-black px-1.5 py-0.5 rounded-full">Statutory</span>
+              </div>
+              <p className="text-[11px] text-emerald-800 font-medium mt-0.5">उर्वरक, बीज व कीटनाशक लाइसेंस एवं गुणवत्ता अस्वीकरण</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-emerald-700 group-hover:translate-x-0.5 transition-all" />
+        </Link>
+
+        <Link 
           to="/privacy"
           className="bg-white p-5 rounded-3xl border border-gray-100 flex items-center justify-between shadow-xs hover:border-[#2D5A27]/30 transition-all group"
         >
@@ -462,6 +481,22 @@ const Profile: React.FC = () => {
             </div>
           </div>
           <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-red-600 group-hover:translate-x-0.5 transition-all" />
+        </Link>
+
+        <Link 
+          to="/grievance"
+          className="bg-white p-5 rounded-3xl border border-gray-100 flex items-center justify-between shadow-xs hover:border-[#2D5A27]/30 transition-all group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-800 flex items-center justify-center border border-blue-100 group-hover:scale-105 transition-transform">
+              <Scale className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-[#4A3728] text-sm leading-tight">शिकायत अधिकारी (Grievance Officer)</h4>
+              <p className="text-[11px] text-gray-500 font-medium mt-0.5">उपभोक्ता शिकायत निवारण व नोडल अधिकारी</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-700 group-hover:translate-x-0.5 transition-all" />
         </Link>
 
         <Link 

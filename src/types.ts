@@ -209,6 +209,75 @@ export interface ContactUsPageData {
   sections: PageSectionItem[];
 }
 
+export interface FaqItem {
+  id: string;
+  question: string;
+  answer: string;
+  category?: string;
+}
+
+export interface FaqHelpCenterPageData {
+  bannerTitle: string;
+  bannerSubtitle: string;
+  lastUpdated: string;
+  introText: string;
+  supportPhone: string;
+  supportWhatsapp: string;
+  supportTimings: string;
+  faqs: FaqItem[];
+  sections: PageSectionItem[];
+}
+
+export interface ShippingDeliveryPolicyPageData {
+  bannerTitle: string;
+  bannerSubtitle: string;
+  lastUpdated: string;
+  introText: string;
+  deliveryAreas: string[];
+  estimatedTimeline: string;
+  freeDeliveryThreshold: string;
+  standardDeliveryFee: string;
+  heavyItemNote: string;
+  trackingInfo: string;
+  sections: PageSectionItem[];
+}
+
+export interface GrievanceRedressalPageData {
+  bannerTitle: string;
+  bannerSubtitle: string;
+  lastUpdated: string;
+  introText: string;
+  officerName: string;
+  officerDesignation: string;
+  officerEmail: string;
+  officerPhone: string;
+  officerAddress: string;
+  workingHours: string;
+  acknowledgmentHours: string;
+  resolutionDays: string;
+  jurisdiction: string;
+  sections: PageSectionItem[];
+}
+
+export interface LicensingDisclaimerPageData {
+  bannerTitle: string;
+  bannerSubtitle: string;
+  lastUpdated: string;
+  introText: string;
+  operatorName: string;
+  operatorPhotoUrl?: string;
+  qualification: string;
+  university: string;
+  daesiBatchYear: string;
+  licenseStatus: string;
+  applicationNote: string;
+  pesticideLicenseNo: string;
+  fertilizerLicenseNo: string;
+  seedLicenseNo: string;
+  issuingAuthority: string;
+  sections: PageSectionItem[];
+}
+
 export interface LegalPagesContent {
   aboutUs?: AboutUsPageData;
   privacyPolicy?: PrivacyPolicyPageData;
@@ -217,5 +286,10 @@ export interface LegalPagesContent {
   aiDisclaimer?: AiDisclaimerPageData;
   chemicalSafety?: ChemicalSafetyPageData;
   contactUs?: ContactUsPageData;
+  faqHelp?: FaqHelpCenterPageData;
+  shippingPolicy?: ShippingDeliveryPolicyPageData;
+  grievanceRedressal?: GrievanceRedressalPageData;
+  licensingDisclaimer?: LicensingDisclaimerPageData;
 }
+
 

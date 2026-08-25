@@ -26,7 +26,11 @@ import {
   PhoneCall,
   ShieldAlert,
   Compass,
-  Layers
+  Layers,
+  HelpCircle,
+  Truck,
+  Scale,
+  Award
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
@@ -359,6 +363,36 @@ const AboutUs: React.FC = () => {
         </Link>
         <div className="grid grid-cols-2 gap-2">
           <Link 
+            to="/licensing-disclaimer"
+            className="bg-emerald-50 border border-emerald-200 hover:border-emerald-400 text-emerald-900 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
+          >
+            <Award className="w-3.5 h-3.5 text-emerald-700 shrink-0" /> <span className="truncate">लाइसेंस एवं DAESI</span>
+          </Link>
+          <Link 
+            to="/shipping-policy"
+            className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
+          >
+            <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> <span className="truncate">डिलीवरी नीति</span>
+          </Link>
+          <Link 
+            to="/grievance"
+            className="bg-white border border-gray-200 hover:border-blue-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
+          >
+            <Scale className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">शिकायत अधिकारी</span>
+          </Link>
+          <Link 
+            to="/faq"
+            className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> <span className="truncate">FAQ / सहायता</span>
+          </Link>
+          <Link 
+            to="/contact"
+            className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
+          >
+            <PhoneCall className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">संपर्क करें</span>
+          </Link>
+          <Link 
             to="/privacy"
             className="bg-white border border-gray-200 hover:border-blue-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
@@ -377,22 +411,10 @@ const AboutUs: React.FC = () => {
             <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" /> <span className="truncate">वापसी नीति</span>
           </Link>
           <Link 
-            to="/disclaimer"
-            className="bg-white border border-gray-200 hover:border-yellow-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
-          >
-            <AlertTriangle className="w-3.5 h-3.5 text-yellow-600 shrink-0" /> <span className="truncate">AI अस्वीकरण</span>
-          </Link>
-          <Link 
             to="/safety-guidelines"
             className="bg-white border border-gray-200 hover:border-red-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
             <ShieldAlert className="w-3.5 h-3.5 text-red-600 shrink-0" /> <span className="truncate">सुरक्षा निर्देश</span>
-          </Link>
-          <Link 
-            to="/contact"
-            className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
-          >
-            <PhoneCall className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">संपर्क करें</span>
           </Link>
         </div>
         <Link 

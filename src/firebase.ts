@@ -9,8 +9,8 @@ import {
   setLogLevel
 } from 'firebase/firestore';
 
-// Set Firestore log level to error to prevent non-critical connection fallback warning logs
-setLogLevel('error');
+// Set Firestore log level to silent to prevent non-critical connection fallback warning logs
+setLogLevel('silent');
 
 // Try to load from JSON file, fallback to environment variables for Vercel/Production
 let firebaseConfig: any;
@@ -52,9 +52,10 @@ console.log("Final Firestore Database ID:", dbId);
 // to fix connectivity issues (code=unavailable) in proxy/sandboxed environments.
 let dbInstance: any;
 try {
-  // 1. Primary: force long polling + multiple tab local cache (best for sandboxed iframes)
+  // 1. Primary: force long polling + useFetchStreams: false + multiple tab local cache
   dbInstance = initializeFirestore(app, {
     experimentalForceLongPolling: true,
+    useFetchStreams: false,
     ignoreUndefinedProperties: true,
     localCache: persistentLocalCache({
       tabManager: persistentMultipleTabManager()
@@ -66,6 +67,7 @@ try {
     // 2. Fallback: force long polling + single tab cache
     dbInstance = initializeFirestore(app, {
       experimentalForceLongPolling: true,
+      useFetchStreams: false,
       ignoreUndefinedProperties: true,
       localCache: persistentLocalCache({})
     } as any, dbId);
@@ -75,6 +77,7 @@ try {
       // 3. Fallback: auto-detect long polling
       dbInstance = initializeFirestore(app, {
         experimentalAutoDetectLongPolling: true,
+        useFetchStreams: false,
         ignoreUndefinedProperties: true,
         localCache: persistentLocalCache({})
       } as any, dbId);

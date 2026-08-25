@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Building2, ShieldCheck, FileText, RotateCcw, AlertTriangle, 
   PhoneCall, ShieldAlert, Save, Plus, Trash2, Edit3, CheckCircle2, 
-  ExternalLink, Sparkles, RefreshCw, Layers, MapPin, Mail, Phone, Clock, Truck, ChevronDown, ChevronUp, Info, ArrowUp, ArrowDown
+  ExternalLink, Sparkles, RefreshCw, Layers, MapPin, Mail, Phone, Clock, Truck, ChevronDown, ChevronUp, Info, ArrowUp, ArrowDown, HelpCircle, MessageCircle, Scale, PackageCheck, UserCheck, Award, FlaskConical, Sprout, FileCheck2, Camera, Upload, User
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { 
@@ -14,12 +14,18 @@ import {
   AiDisclaimerPageData, 
   ChemicalSafetyPageData, 
   ContactUsPageData, 
+  FaqHelpCenterPageData,
+  FaqItem,
+  ShippingDeliveryPolicyPageData,
+  GrievanceRedressalPageData,
+  LicensingDisclaimerPageData,
   PageSectionItem 
 } from '../types';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
 import { Link } from 'react-router-dom';
 
-type PageKey = 'aboutUs' | 'privacyPolicy' | 'termsConditions' | 'refundPolicy' | 'aiDisclaimer' | 'chemicalSafety' | 'contactUs';
+type PageKey = 'aboutUs' | 'privacyPolicy' | 'termsConditions' | 'refundPolicy' | 'aiDisclaimer' | 'chemicalSafety' | 'contactUs' | 'faqHelp' | 'shippingPolicy' | 'grievanceRedressal' | 'licensingDisclaimer';
+
 
 interface PageMetaConfig {
   key: PageKey;
@@ -38,6 +44,38 @@ const PAGES_CONFIG: PageMetaConfig[] = [
     route: '/about',
     icon: Building2,
     badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
+  },
+  {
+    key: 'licensingDisclaimer',
+    label: 'Statutory Licensing',
+    hindiTitle: 'वैधानिक लाइसेंस एवं DAESI',
+    route: '/licensing-disclaimer',
+    icon: Award,
+    badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
+  },
+  {
+    key: 'faqHelp',
+    label: 'FAQ & Help',
+    hindiTitle: 'FAQ / सहायता केंद्र',
+    route: '/faq',
+    icon: HelpCircle,
+    badgeColor: 'bg-green-100 text-green-800 border-green-200'
+  },
+  {
+    key: 'shippingPolicy',
+    label: 'Shipping & Delivery',
+    hindiTitle: 'शिपिंग एवं डिलीवरी नीति',
+    route: '/shipping-policy',
+    icon: Truck,
+    badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
+  },
+  {
+    key: 'grievanceRedressal',
+    label: 'Grievance Officer',
+    hindiTitle: 'शिकायत निवारण अधिकारी',
+    route: '/grievance',
+    icon: Scale,
+    badgeColor: 'bg-blue-100 text-blue-800 border-blue-200'
   },
   {
     key: 'privacyPolicy',
@@ -225,6 +263,34 @@ export const AdminPagesManager: React.FC = () => {
           <AboutUsEditor 
             data={localContent.aboutUs} 
             onChange={updated => updatePage('aboutUs', () => updated)} 
+          />
+        )}
+
+        {selectedPage === 'licensingDisclaimer' && (
+          <LicensingDisclaimerEditor 
+            data={localContent.licensingDisclaimer || DEFAULT_LEGAL_PAGES_CONTENT.licensingDisclaimer}
+            onChange={updated => updatePage('licensingDisclaimer', () => updated)}
+          />
+        )}
+
+        {selectedPage === 'faqHelp' && (
+          <FaqHelpEditor 
+            data={localContent.faqHelp}
+            onChange={updated => updatePage('faqHelp', () => updated)}
+          />
+        )}
+
+        {selectedPage === 'shippingPolicy' && (
+          <ShippingPolicyEditor 
+            data={localContent.shippingPolicy}
+            onChange={updated => updatePage('shippingPolicy', () => updated)}
+          />
+        )}
+
+        {selectedPage === 'grievanceRedressal' && (
+          <GrievanceRedressalEditor 
+            data={localContent.grievanceRedressal}
+            onChange={updated => updatePage('grievanceRedressal', () => updated)}
           />
         )}
 
@@ -1400,6 +1466,834 @@ const ContactUsEditor: React.FC<{
 
       <SectionsListEditor 
         sections={data.sections || []} 
+        onChange={sections => onChange({ ...data, sections })} 
+      />
+    </div>
+  );
+};
+
+/** 7. FAQ & Help Center Editor **/
+const FaqHelpEditor: React.FC<{
+  data: FaqHelpCenterPageData;
+  onChange: (data: FaqHelpCenterPageData) => void;
+}> = ({ data, onChange }) => {
+  const [newQuestion, setNewQuestion] = useState('');
+  const [newAnswer, setNewAnswer] = useState('');
+  const [newCategory, setNewCategory] = useState('ऑर्डर व खरीदारी');
+
+  const addFaq = () => {
+    if (!newQuestion.trim() || !newAnswer.trim()) return;
+    const newItem: FaqItem = {
+      id: `faq_${Date.now()}`,
+      category: newCategory.trim() || 'सामान्य प्रश्न',
+      question: newQuestion.trim(),
+      answer: newAnswer.trim()
+    };
+    onChange({
+      ...data,
+      faqs: [...(data.faqs || []), newItem]
+    });
+    setNewQuestion('');
+    setNewAnswer('');
+  };
+
+  const removeFaq = (index: number) => {
+    const updated = [...(data.faqs || [])];
+    updated.splice(index, 1);
+    onChange({ ...data, faqs: updated });
+  };
+
+  const updateFaq = (index: number, field: keyof FaqItem, value: string) => {
+    const updated = [...(data.faqs || [])];
+    updated[index] = { ...updated[index], [field]: value };
+    onChange({ ...data, faqs: updated });
+  };
+
+  const moveFaq = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= (data.faqs || []).length) return;
+    const updated = [...(data.faqs || [])];
+    const temp = updated[index];
+    updated[index] = updated[targetIndex];
+    updated[targetIndex] = temp;
+    onChange({ ...data, faqs: updated });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header Info */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-gray-100 space-y-4">
+        <h3 className="text-sm font-extrabold text-[#4A3728] flex items-center gap-2">
+          <HelpCircle className="w-4 h-4 text-[#2D5A27]" />
+          <span>हेडर एवं सामान्य जानकारी</span>
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">पेज मुख्य शीर्षक (Title)</label>
+            <input
+              type="text"
+              value={data.bannerTitle || ''}
+              onChange={e => onChange({ ...data, bannerTitle: e.target.value })}
+              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-200"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">उपशीर्षक (Subtitle)</label>
+            <input
+              type="text"
+              value={data.bannerSubtitle || ''}
+              onChange={e => onChange({ ...data, bannerSubtitle: e.target.value })}
+              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-200"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-gray-700 mb-1">परिचय एवं मार्गदर्शन संदेश (Intro Text)</label>
+          <textarea
+            rows={2}
+            value={data.introText || ''}
+            onChange={e => onChange({ ...data, introText: e.target.value })}
+            className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-gray-100">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
+              <Phone className="w-3.5 h-3.5 text-[#2D5A27]" />
+              <span>हेल्पलाइन नंबर</span>
+            </label>
+            <input
+              type="text"
+              value={data.supportPhone || ''}
+              onChange={e => onChange({ ...data, supportPhone: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-bold"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
+              <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+              <span>WhatsApp सहायता</span>
+            </label>
+            <input
+              type="text"
+              value={data.supportWhatsapp || ''}
+              onChange={e => onChange({ ...data, supportWhatsapp: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-bold text-emerald-700"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              <span>सपोर्ट का समय</span>
+            </label>
+            <input
+              type="text"
+              value={data.supportTimings || ''}
+              onChange={e => onChange({ ...data, supportTimings: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* FAQs List */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-gray-100 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-extrabold text-[#4A3728] flex items-center gap-2">
+            <HelpCircle className="w-4 h-4 text-emerald-600" />
+            <span>अक्सर पूछे जाने वाले प्रश्न ({data.faqs?.length || 0})</span>
+          </h3>
+        </div>
+
+        <div className="space-y-4">
+          {(data.faqs || []).map((faq, index) => (
+            <div key={faq.id || index} className="p-4 bg-gray-50/80 rounded-2xl border border-gray-200/80 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-extrabold text-[#2D5A27] bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                  प्र. #{index + 1}
+                </span>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => moveFaq(index, 'up')}
+                    disabled={index === 0}
+                    className="p-1 text-gray-500 hover:text-[#2D5A27] hover:bg-white rounded-lg disabled:opacity-30"
+                    title="ऊपर ले जाएं"
+                  >
+                    <ArrowUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => moveFaq(index, 'down')}
+                    disabled={index === (data.faqs?.length || 0) - 1}
+                    className="p-1 text-gray-500 hover:text-[#2D5A27] hover:bg-white rounded-lg disabled:opacity-30"
+                    title="नीचे ले जाएं"
+                  >
+                    <ArrowDown className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => removeFaq(index)}
+                    className="p-1 text-rose-500 hover:bg-rose-50 rounded-lg ml-1"
+                    title="हटाएं"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <label className="block text-[11px] font-bold text-gray-600 mb-1">श्रेणी (Category)</label>
+                  <input
+                    type="text"
+                    value={faq.category || ''}
+                    onChange={e => updateFaq(index, 'category', e.target.value)}
+                    placeholder="उदा. डिलीवरी, भुगतान, रिफंड..."
+                    className="w-full px-3 py-1.5 text-xs bg-white rounded-xl border border-gray-200 font-semibold"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-bold text-gray-600 mb-1">प्रश्न (Question)</label>
+                  <input
+                    type="text"
+                    value={faq.question || ''}
+                    onChange={e => updateFaq(index, 'question', e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs bg-white rounded-xl border border-gray-200 font-bold text-[#4A3728]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-gray-600 mb-1">उत्तर (Answer)</label>
+                <textarea
+                  rows={2}
+                  value={faq.answer || ''}
+                  onChange={e => updateFaq(index, 'answer', e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs bg-white rounded-xl border border-gray-200 leading-relaxed font-normal"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Add New FAQ Form */}
+        <div className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200 space-y-3 pt-4">
+          <h4 className="text-xs font-bold text-[#2D5A27] flex items-center gap-1.5">
+            <Plus className="w-4 h-4" />
+            <span>नया प्रश्न व उत्तर जोड़ें (Add FAQ Item)</span>
+          </h4>
+
+          <div className="space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input
+                type="text"
+                placeholder="श्रेणी (उदा. ऑर्डर, डिलीवरी, रिफंड)"
+                value={newCategory}
+                onChange={e => setNewCategory(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-white rounded-xl border border-gray-200"
+              />
+              <input
+                type="text"
+                placeholder="प्रश्न लिखें (Question)..."
+                value={newQuestion}
+                onChange={e => setNewQuestion(e.target.value)}
+                className="sm:col-span-2 w-full px-3 py-2 text-xs bg-white rounded-xl border border-gray-200 font-medium"
+              />
+            </div>
+            <textarea
+              rows={2}
+              placeholder="सरल शब्दों में उत्तर लिखें (Answer)..."
+              value={newAnswer}
+              onChange={e => setNewAnswer(e.target.value)}
+              className="w-full px-3 py-2 text-xs bg-white rounded-xl border border-gray-200"
+            />
+            <button
+              onClick={addFaq}
+              disabled={!newQuestion.trim() || !newAnswer.trim()}
+              className="px-4 py-2 bg-[#2D5A27] text-white font-bold text-xs rounded-xl disabled:opacity-40 flex items-center gap-1.5 shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>नया सवाल जोड़ें</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <SectionsListEditor 
+        sections={data.sections || []} 
+        onChange={sections => onChange({ ...data, sections })} 
+      />
+    </div>
+  );
+};
+
+/** 8. Shipping & Delivery Policy Editor **/
+const ShippingPolicyEditor: React.FC<{
+  data: ShippingDeliveryPolicyPageData;
+  onChange: (data: ShippingDeliveryPolicyPageData) => void;
+}> = ({ data, onChange }) => {
+  const [newArea, setNewArea] = useState('');
+
+  const addArea = () => {
+    if (!newArea.trim()) return;
+    onChange({
+      ...data,
+      deliveryAreas: [...(data.deliveryAreas || []), newArea.trim()]
+    });
+    setNewArea('');
+  };
+
+  const removeArea = (index: number) => {
+    const updated = [...(data.deliveryAreas || [])];
+    updated.splice(index, 1);
+    onChange({ ...data, deliveryAreas: updated });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header Info */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-gray-100 space-y-4">
+        <h3 className="text-sm font-extrabold text-[#4A3728] flex items-center gap-2">
+          <Truck className="w-4 h-4 text-[#2D5A27]" />
+          <span>हेडर एवं डिलीवरी विवरण</span>
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">पेज मुख्य शीर्षक (Title)</label>
+            <input
+              type="text"
+              value={data.bannerTitle || ''}
+              onChange={e => onChange({ ...data, bannerTitle: e.target.value })}
+              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-200"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">उपशीर्षक (Subtitle)</label>
+            <input
+              type="text"
+              value={data.bannerSubtitle || ''}
+              onChange={e => onChange({ ...data, bannerSubtitle: e.target.value })}
+              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-200"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-gray-700 mb-1">परिचय संदेश (Intro Text)</label>
+          <textarea
+            rows={2}
+            value={data.introText || ''}
+            onChange={e => onChange({ ...data, introText: e.target.value })}
+            className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">अनुमानित डिलीवरी समय (Timeline)</label>
+            <input
+              type="text"
+              value={data.estimatedTimeline || ''}
+              onChange={e => onChange({ ...data, estimatedTimeline: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-semibold text-gray-800"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">मुफ्त डिलीवरी न्यूनतम सीमा (Free Delivery Threshold)</label>
+            <input
+              type="text"
+              value={data.freeDeliveryThreshold || ''}
+              onChange={e => onChange({ ...data, freeDeliveryThreshold: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-semibold text-emerald-700"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">सामान्य डिलीवरी शुल्क (Delivery Fee)</label>
+            <input
+              type="text"
+              value={data.standardDeliveryFee || ''}
+              onChange={e => onChange({ ...data, standardDeliveryFee: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">भारी पार्सल नोट (Heavy Item Note)</label>
+            <input
+              type="text"
+              value={data.heavyItemNote || ''}
+              onChange={e => onChange({ ...data, heavyItemNote: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 text-amber-800"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-gray-700 mb-1">ट्रैकिंग एवं सूचना नोट (Tracking Info)</label>
+          <input
+            type="text"
+            value={data.trackingInfo || ''}
+            onChange={e => onChange({ ...data, trackingInfo: e.target.value })}
+            className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+          />
+        </div>
+      </div>
+
+      {/* Serviceable Areas List */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-gray-100 space-y-4">
+        <h3 className="text-sm font-extrabold text-[#4A3728] flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-[#2D5A27]" />
+          <span>डिलीवरी क्षेत्र (Serviceable Areas - {data.deliveryAreas?.length || 0})</span>
+        </h3>
+
+        <div className="flex flex-wrap gap-2">
+          {(data.deliveryAreas || []).map((area, idx) => (
+            <div key={idx} className="flex items-center gap-1.5 bg-emerald-50 text-emerald-900 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-bold">
+              <span>{area}</span>
+              <button onClick={() => removeArea(idx)} className="text-rose-500 hover:text-rose-700 ml-1">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <input
+            type="text"
+            placeholder="नया डिलीवरी क्षेत्र जोड़ें (उदा. शामगढ़ ग्रामीण, गरोठ, सीतामऊ...)"
+            value={newArea}
+            onChange={e => setNewArea(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addArea()}
+            className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+          />
+          <button
+            onClick={addArea}
+            disabled={!newArea.trim()}
+            className="px-4 py-2 bg-[#2D5A27] text-white font-bold text-xs rounded-xl disabled:opacity-40 flex items-center gap-1 shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>जोड़ें</span>
+          </button>
+        </div>
+      </div>
+
+      <SectionsListEditor 
+        sections={data.sections || []} 
+        onChange={sections => onChange({ ...data, sections })} 
+      />
+    </div>
+  );
+};
+
+/** 9. Grievance Redressal Editor **/
+const GrievanceRedressalEditor: React.FC<{
+  data: GrievanceRedressalPageData;
+  onChange: (data: GrievanceRedressalPageData) => void;
+}> = ({ data, onChange }) => {
+  return (
+    <div className="space-y-6">
+      {/* Header Info */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-gray-100 space-y-4">
+        <h3 className="text-sm font-extrabold text-[#4A3728] flex items-center gap-2">
+          <Scale className="w-4 h-4 text-[#2D5A27]" />
+          <span>हेडर एवं कानूनी दायित्व</span>
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">पेज मुख्य शीर्षक (Title)</label>
+            <input
+              type="text"
+              value={data.bannerTitle || ''}
+              onChange={e => onChange({ ...data, bannerTitle: e.target.value })}
+              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-200"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">उपशीर्षक (Subtitle)</label>
+            <input
+              type="text"
+              value={data.bannerSubtitle || ''}
+              onChange={e => onChange({ ...data, bannerSubtitle: e.target.value })}
+              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-200"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-gray-700 mb-1">वैधानिक संदर्भ व परिचय संदेश (Intro Text)</label>
+          <textarea
+            rows={2}
+            value={data.introText || ''}
+            onChange={e => onChange({ ...data, introText: e.target.value })}
+            className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+          />
+        </div>
+      </div>
+
+      {/* Designated Grievance Officer Details */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-gray-100 space-y-4">
+        <h3 className="text-sm font-extrabold text-[#4A3728] flex items-center gap-2">
+          <UserCheck className="w-4 h-4 text-emerald-600" />
+          <span>नामित शिकायत अधिकारी विवरण (Grievance Officer Details)</span>
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">अधिकारी का नाम (Officer Name)</label>
+            <input
+              type="text"
+              value={data.officerName || ''}
+              onChange={e => onChange({ ...data, officerName: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-bold"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">पदनाम (Designation)</label>
+            <input
+              type="text"
+              value={data.officerDesignation || ''}
+              onChange={e => onChange({ ...data, officerDesignation: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">आधिकारिक ईमेल (Email)</label>
+            <input
+              type="email"
+              value={data.officerEmail || ''}
+              onChange={e => onChange({ ...data, officerEmail: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-bold text-blue-700"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">सीधा संपर्क फोन (Phone)</label>
+            <input
+              type="text"
+              value={data.officerPhone || ''}
+              onChange={e => onChange({ ...data, officerPhone: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-bold text-[#2D5A27]"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-gray-700 mb-1">कार्यालय का भौतिक पता (Physical Office Address)</label>
+          <input
+            type="text"
+            value={data.officerAddress || ''}
+            onChange={e => onChange({ ...data, officerAddress: e.target.value })}
+            className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">कार्य समय (Working Hours)</label>
+            <input
+              type="text"
+              value={data.workingHours || ''}
+              onChange={e => onChange({ ...data, workingHours: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">पावती समय (Acknowledgment Time)</label>
+            <input
+              type="text"
+              value={data.acknowledgmentHours || ''}
+              onChange={e => onChange({ ...data, acknowledgmentHours: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 text-emerald-800 font-semibold"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">समाधान समय (Resolution Timeline)</label>
+            <input
+              type="text"
+              value={data.resolutionDays || ''}
+              onChange={e => onChange({ ...data, resolutionDays: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 text-blue-800 font-semibold"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">न्यायिक क्षेत्राधिकार (Legal Jurisdiction)</label>
+            <input
+              type="text"
+              value={data.jurisdiction || ''}
+              onChange={e => onChange({ ...data, jurisdiction: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-bold text-gray-800"
+            />
+          </div>
+        </div>
+      </div>
+
+      <SectionsListEditor 
+        sections={data.sections || []} 
+        onChange={sections => onChange({ ...data, sections })} 
+      />
+    </div>
+  );
+};
+
+/** 10. Licensing & Statutory Disclaimer Editor **/
+const LicensingDisclaimerEditor: React.FC<{
+  data: LicensingDisclaimerPageData;
+  onChange: (data: LicensingDisclaimerPageData) => void;
+}> = ({ data, onChange }) => {
+  return (
+    <div className="space-y-6">
+      {/* Header Info */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-gray-100 space-y-4">
+        <h3 className="text-sm font-extrabold text-[#4A3728] flex items-center gap-2">
+          <Award className="w-4 h-4 text-[#2D5A27]" />
+          <span>हेडर एवं मुख्य परिचय</span>
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">पेज मुख्य शीर्षक (Title)</label>
+            <input
+              type="text"
+              value={data?.bannerTitle || ''}
+              onChange={e => onChange({ ...data, bannerTitle: e.target.value })}
+              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-200 font-bold"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">उपशीर्षक (Subtitle)</label>
+            <input
+              type="text"
+              value={data?.bannerSubtitle || ''}
+              onChange={e => onChange({ ...data, bannerSubtitle: e.target.value })}
+              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-200"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-gray-700 mb-1">परिचय एवं उद्देश्य (Intro Text)</label>
+          <textarea
+            rows={2}
+            value={data?.introText || ''}
+            onChange={e => onChange({ ...data, introText: e.target.value })}
+            className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+          />
+        </div>
+      </div>
+
+      {/* Operator DAESI Credentials */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-gray-100 space-y-4">
+        <h3 className="text-sm font-extrabold text-[#4A3728] flex items-center gap-2">
+          <Award className="w-4 h-4 text-emerald-600" />
+          <span>संचालक, पासपोर्ट फोटो एवं DAESI शैक्षणिक योग्यता विवरण</span>
+        </h3>
+
+        {/* Passport Photo Upload & Preview */}
+        <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 flex flex-col sm:flex-row items-center gap-4">
+          <div className="w-20 h-24 sm:w-22 sm:h-28 rounded-2xl border-2 border-emerald-500 bg-white overflow-hidden shadow-xs shrink-0 flex items-center justify-center relative group">
+            {data?.operatorPhotoUrl ? (
+              <img 
+                src={data.operatorPhotoUrl} 
+                alt="Passport Preview" 
+                className="w-full h-full object-cover object-top"
+              />
+            ) : (
+              <div className="text-center p-2 text-emerald-800">
+                <User className="w-6 h-6 mx-auto mb-1 text-emerald-600" />
+                <span className="text-[9px] font-bold block">पासपोर्ट फोटो नहीं है</span>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2 text-center sm:text-left flex-1">
+            <h4 className="text-xs font-bold text-gray-800">संचालक पासपोर्ट साइज फोटो (Passport Size Photo)</h4>
+            <p className="text-[11px] text-gray-500">यह फोटो DAESI बैच कार्ड के ठीक ऊपर दिखेगी। आप सीधे गैलरी से चुन सकते हैं।</p>
+            
+            <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start">
+              <label className="bg-[#2D5A27] hover:bg-[#23471f] text-white px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-transform active:scale-95">
+                <Camera className="w-3.5 h-3.5" />
+                <span>गैलरी से फोटो चुनें</span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                      const img = new Image();
+                      img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        const maxDimension = 600;
+                        if (width > height) {
+                          if (width > maxDimension) {
+                            height = Math.round((height * maxDimension) / width);
+                            width = maxDimension;
+                          }
+                        } else {
+                          if (height > maxDimension) {
+                            width = Math.round((width * maxDimension) / height);
+                            height = maxDimension;
+                          }
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                          ctx.drawImage(img, 0, 0, width, height);
+                          const compressed = canvas.toDataURL('image/jpeg', 0.85);
+                          onChange({ ...data, operatorPhotoUrl: compressed });
+                        }
+                      };
+                      img.src = event.target?.result as string;
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                />
+              </label>
+
+              {data?.operatorPhotoUrl && (
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...data, operatorPhotoUrl: '' })}
+                  className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>फोटो हटाएं</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">संचालक / विशेषज्ञ का नाम (Operator Name)</label>
+            <input
+              type="text"
+              value={data?.operatorName || ''}
+              onChange={e => onChange({ ...data, operatorName: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-bold"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">डिप्लोमा योग्यता (Qualification)</label>
+            <input
+              type="text"
+              value={data?.qualification || ''}
+              onChange={e => onChange({ ...data, qualification: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-semibold text-emerald-800"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">विश्वविद्यालय / संस्थान (University/Institute)</label>
+            <input
+              type="text"
+              value={data?.university || ''}
+              onChange={e => onChange({ ...data, university: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">बैच स्थिति / उपाधि स्थिति (DAESI Batch)</label>
+            <input
+              type="text"
+              value={data?.daesiBatchYear || ''}
+              onChange={e => onChange({ ...data, daesiBatchYear: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Licensing Application & Numbers */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-amber-200/80 space-y-4 bg-amber-50/20">
+        <h3 className="text-sm font-extrabold text-[#4A3728] flex items-center gap-2">
+          <FileCheck2 className="w-4 h-4 text-amber-600" />
+          <span>वैधानिक लाइसेंस स्थिति एवं क्रमांक (Statutory Licenses)</span>
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">लाइसेंस स्थिति (Current License Status Tag)</label>
+            <input
+              type="text"
+              value={data?.licenseStatus || ''}
+              onChange={e => onChange({ ...data, licenseStatus: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-bold text-amber-900 bg-amber-50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">लाइसेंसिंग प्राधिकारी (Issuing Authority)</label>
+            <input
+              type="text"
+              value={data?.issuingAuthority || ''}
+              onChange={e => onChange({ ...data, issuingAuthority: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-gray-700 mb-1">आवेदन विवरण एवं वैधानिक नोट (Application Details Note)</label>
+          <textarea
+            rows={2}
+            value={data?.applicationNote || ''}
+            onChange={e => onChange({ ...data, applicationNote: e.target.value })}
+            className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-amber-100">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">कीटनाशक लाइसेंस क्रमांक (Pesticides No.)</label>
+            <input
+              type="text"
+              value={data?.pesticideLicenseNo || ''}
+              onChange={e => onChange({ ...data, pesticideLicenseNo: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-semibold"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">उर्वरक लाइसेंस क्रमांक (Fertilizer No.)</label>
+            <input
+              type="text"
+              value={data?.fertilizerLicenseNo || ''}
+              onChange={e => onChange({ ...data, fertilizerLicenseNo: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-semibold"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">बीज लाइसेंस क्रमांक (Seeds No.)</label>
+            <input
+              type="text"
+              value={data?.seedLicenseNo || ''}
+              onChange={e => onChange({ ...data, seedLicenseNo: e.target.value })}
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-semibold"
+            />
+          </div>
+        </div>
+      </div>
+
+      <SectionsListEditor 
+        sections={data?.sections || []} 
         onChange={sections => onChange({ ...data, sections })} 
       />
     </div>

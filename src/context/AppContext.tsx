@@ -131,6 +131,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       aiDisclaimer: { ...DEFAULT_LEGAL_PAGES_CONTENT.aiDisclaimer, ...(saved.aiDisclaimer || {}) },
       chemicalSafety: { ...DEFAULT_LEGAL_PAGES_CONTENT.chemicalSafety, ...(saved.chemicalSafety || {}) },
       contactUs: { ...DEFAULT_LEGAL_PAGES_CONTENT.contactUs, ...(saved.contactUs || {}) },
+      faqHelp: { ...DEFAULT_LEGAL_PAGES_CONTENT.faqHelp, ...(saved.faqHelp || {}) },
+      shippingPolicy: { ...DEFAULT_LEGAL_PAGES_CONTENT.shippingPolicy, ...(saved.shippingPolicy || {}) },
+      grievanceRedressal: { ...DEFAULT_LEGAL_PAGES_CONTENT.grievanceRedressal, ...(saved.grievanceRedressal || {}) },
+      licensingDisclaimer: { ...DEFAULT_LEGAL_PAGES_CONTENT.licensingDisclaimer, ...(saved.licensingDisclaimer || {}) },
     };
   };
 

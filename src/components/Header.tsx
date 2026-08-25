@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Menu, Sprout, X, Landmark, Phone, Newspaper, User, Calculator, PhoneCall, Bug, TrendingUp, ShoppingCart, Sparkles, Info, ShieldCheck, FileText, RotateCcw, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Search, Menu, Sprout, X, Landmark, Phone, Newspaper, User, Calculator, PhoneCall, Bug, TrendingUp, ShoppingCart, Sparkles, Info, ShieldCheck, FileText, RotateCcw, AlertTriangle, ShieldAlert, HelpCircle, Truck, Scale, Award } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
@@ -56,12 +56,16 @@ const Header: React.FC = () => {
   ];
 
   const legalMenuItems: MenuItem[] = [
+    { icon: Award, label: 'Statutory Licensing (वैधानिक लाइसेंस व DAESI)', path: '/licensing-disclaimer', color: 'text-emerald-800 font-bold' },
+    { icon: HelpCircle, label: 'FAQ (सहायता व प्रश्नोत्तरी)', path: '/faq', color: 'text-emerald-600' },
+    { icon: Truck, label: 'Shipping & Delivery (डिलीवरी नीति)', path: '/shipping-policy', color: 'text-emerald-700' },
     { icon: ShieldCheck, label: 'Privacy Policy (गोपनीयता नीति)', path: '/privacy', color: 'text-blue-600' },
     { icon: FileText, label: 'Terms (नियम एवं शर्तें)', path: '/terms', color: 'text-amber-600' },
     { icon: RotateCcw, label: 'Refund Policy (वापसी व रिफंड)', path: '/refund-policy', color: 'text-rose-600' },
     { icon: AlertTriangle, label: 'AI Disclaimer (कृषि एवं AI अस्वीकरण)', path: '/disclaimer', color: 'text-yellow-600' },
     { icon: ShieldAlert, label: 'Chemical Safety (रासायनिक सुरक्षा)', path: '/safety-guidelines', color: 'text-red-600' },
-    { icon: PhoneCall, label: 'Contact Us (संपर्क करें)', path: '/contact', color: 'text-emerald-600' },
+    { icon: Scale, label: 'Grievance Officer (शिकायत अधिकारी)', path: '/grievance', color: 'text-blue-700' },
+    { icon: PhoneCall, label: 'Contact Us (संपर्क करें)', path: '/contact', color: 'text-teal-600' },
   ];
 
   return (

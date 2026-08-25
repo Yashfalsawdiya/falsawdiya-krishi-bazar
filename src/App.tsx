@@ -34,6 +34,11 @@ const ReturnRefundPolicy = lazy(() => import('./pages/ReturnRefundPolicy'));
 const AiDisclaimer = lazy(() => import('./pages/AiDisclaimer'));
 const ContactUs = lazy(() => import('./pages/ContactUs'));
 const ChemicalSafety = lazy(() => import('./pages/ChemicalSafety'));
+const HelpFaq = lazy(() => import('./pages/HelpFaq'));
+const ShippingDeliveryPolicy = lazy(() => import('./pages/ShippingDeliveryPolicy'));
+const GrievanceRedressal = lazy(() => import('./pages/GrievanceRedressal'));
+const LicensingDisclaimer = lazy(() => import('./pages/LicensingDisclaimer'));
+
 
 const PageLoader = () => (
   <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -91,6 +96,22 @@ export default function App() {
                 <Route path="safety-guidelines" element={<ChemicalSafety />} />
                 <Route path="chemical-safety" element={<ChemicalSafety />} />
                 <Route path="safety" element={<ChemicalSafety />} />
+                <Route path="faq" element={<HelpFaq />} />
+                <Route path="help" element={<HelpFaq />} />
+                <Route path="help-center" element={<HelpFaq />} />
+                <Route path="faqs" element={<HelpFaq />} />
+                <Route path="shipping-policy" element={<ShippingDeliveryPolicy />} />
+                <Route path="shipping" element={<ShippingDeliveryPolicy />} />
+                <Route path="delivery-policy" element={<ShippingDeliveryPolicy />} />
+                <Route path="delivery" element={<ShippingDeliveryPolicy />} />
+                <Route path="grievance" element={<GrievanceRedressal />} />
+                <Route path="grievance-redressal" element={<GrievanceRedressal />} />
+                <Route path="grievance-officer" element={<GrievanceRedressal />} />
+                <Route path="nodal-officer" element={<GrievanceRedressal />} />
+                <Route path="licensing-disclaimer" element={<LicensingDisclaimer />} />
+                <Route path="licensing" element={<LicensingDisclaimer />} />
+                <Route path="license" element={<LicensingDisclaimer />} />
+                <Route path="statutory-disclaimer" element={<LicensingDisclaimer />} />
               </Route>
             </Routes>
           </Suspense>
