@@ -49,6 +49,20 @@ export interface AppContent {
     mode: 'direct' | 'group';
     groupLink: string;
   };
+  facebookSection?: {
+    enabled?: boolean;
+    title?: string;
+    description?: string;
+    pageUrl?: string;
+    buttonText?: string;
+  };
+  instagramSection?: {
+    enabled?: boolean;
+    title?: string;
+    description?: string;
+    profileUrl?: string;
+    buttonText?: string;
+  };
   contactInfo: {
     whatsapp: string;
     address: string;

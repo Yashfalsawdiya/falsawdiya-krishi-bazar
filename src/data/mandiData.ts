@@ -102,19 +102,19 @@ export function generateFallbackMandiDetails(state: string, district: string, ma
     "सरसों (Mustard)": { base: 5200, range: 450, unit: "क्विंटल", arrivalBase: 65, qualities: ["42% कंडीशन", "मंडी क्वालिटी"] },
     "मक्का (Maize)": { base: 2050, range: 200, unit: "क्विंटल", arrivalBase: 150, qualities: ["पीली मक्का", "सफेद मक्का"] },
     "कपास (Cotton)": { base: 7100, range: 600, unit: "क्विंटल", arrivalBase: 90, qualities: ["सुपर क्वालिटी", "एवरेज"] },
-    "उड़द (Urad)": { base: 7200, range: 800, unit: "क्विंटal", arrivalBase: 40, qualities: ["चमकदार बोल्ड", "एवरेज"] },
+    "उड़द (Urad)": { base: 7200, range: 800, unit: "क्विंटल", arrivalBase: 40, qualities: ["चमकदार बोल्ड", "एवरेज"] },
     "मूंग (Moong)": { base: 7600, range: 700, unit: "क्विंटल", arrivalBase: 35, qualities: ["चमकीली मूंग", "साधारण मूंग"] },
     "प्याज़ (Onion)": { base: 1400, range: 600, unit: "क्विंटल", arrivalBase: 500, qualities: ["लाल नासिक", "सुपर ए-१", "मीडियम"] },
-    "लहसुन (Garlic)": { base: 11500, range: 6000, unit: "क्विंटal", arrivalBase: 150, qualities: ["ऊटी स्पेशल", "सुपर बोल्ड", "देशी मीडियम", "हल्का माल"] },
+    "लहसुन (Garlic)": { base: 11500, range: 6000, unit: "क्विंटल", arrivalBase: 150, qualities: ["ऊटी स्पेशल", "सुपर बोल्ड", "देशी मीडियम", "हल्का माल"] },
     "टमाटर (Tomato)": { base: 1500, range: 800, unit: "क्रिएट (25kg)", arrivalBase: 250, qualities: ["देसी हाइब्रिड", "सुपर फ्रेश"] },
     "आलू (Potato)": { base: 1200, range: 400, unit: "क्विंटल", arrivalBase: 400, qualities: ["चिप्सोना", "ज्योति", "नया आलू"] },
     "मिर्च (Chilli)": { base: 16000, range: 8000, unit: "क्विंटल", arrivalBase: 45, qualities: ["तेजा लाल", "साधारण लाल मिर्च"] },
-    "धनिया (Coriander)": { base: 6500, range: 1200, unit: "क्विंटal", arrivalBase: 110, qualities: ["ईगल क्वालिटी", "स्कूटर बोल्ड", "बदामी"] },
-    "मेथी (Fenugreek)": { base: 5600, range: 600, unit: "क्विंटal", arrivalBase: 55, qualities: ["बारीक दाना", "पीली मेथी"] },
+    "धनिया (Coriander)": { base: 6500, range: 1200, unit: "क्विंटल", arrivalBase: 110, qualities: ["ईगल क्वालिटी", "स्कूटर बोल्ड", "बदामी"] },
+    "मेथी (Fenugreek)": { base: 5600, range: 600, unit: "क्विंटल", arrivalBase: 55, qualities: ["बारीक दाना", "पीली मेथी"] },
     "मसूर (Lentil)": { base: 6100, range: 400, unit: "क्विंटल", arrivalBase: 50, qualities: ["देशी मसूर", "बोल्ड"] },
-    "मूंगफली (Peanut)": { base: 6200, range: 800, unit: "क्विंटal", arrivalBase: 70, qualities: ["G20 क्वालिटी", "साधारण"] },
-    "तुअर (Arhar/Tur)": { base: 9800, range: 1200, unit: "क्विंटal", arrivalBase: 30, qualities: ["मारुति", "सफेद तुअर"] },
-    "जौ (Barley)": { base: 1900, range: 250, unit: "क्विंटal", arrivalBase: 120, qualities: ["मल्टी क्वालिटी", "एवरेज"] }
+    "मूंगफली (Peanut)": { base: 6200, range: 800, unit: "क्विंटल", arrivalBase: 70, qualities: ["G20 क्वालिटी", "साधारण"] },
+    "तुअर (Arhar/Tur)": { base: 9800, range: 1200, unit: "क्विंटल", arrivalBase: 30, qualities: ["मारुति", "सफेद तुअर"] },
+    "जौ (Barley)": { base: 1900, range: 250, unit: "क्विंटल", arrivalBase: 120, qualities: ["मल्टी क्वालिटी", "एवरेज"] }
   };
 
   const items: MandiItem[] = [];
@@ -123,28 +123,25 @@ export function generateFallbackMandiDetails(state: string, district: string, ma
   const timeStr = `${hours < 10 ? '0' + hours : hours}:${now.getMinutes() < 10 ? '0' + now.getMinutes() : now.getMinutes()}`;
 
   Object.entries(basePrices).forEach(([cropName, config], index) => {
-    // Determine if this crop is sold in this mandi (simulate crop specialization)
-    const cropHash = (cropName.length + index + seed) % 10;
-    if (cropHash > 1) { // 80% chance of crop availability
-      const variation = ((index + seed) % 5) * (config.range / 4) - (config.range / 2);
-      const model = Math.round(config.base + variation);
-      const min = Math.round(model - (config.range / 2) - ((index % 3) * 50));
-      const max = Math.round(model + (config.range / 2) + ((index % 2) * 50));
-      
-      const arrivalVal = Math.round(config.arrivalBase * (1 + (seed - 5) / 10));
-      const qualityVal = config.qualities[(seed + index) % config.qualities.length];
+    // Generate stable realistic prices per mandi
+    const variation = ((index + seed) % 5) * (config.range / 4) - (config.range / 2);
+    const model = Math.round(config.base + variation);
+    const min = Math.max(50, Math.round(model - (config.range / 2)));
+    const max = Math.round(model + (config.range / 2));
+    
+    const arrivalVal = Math.max(10, Math.round(config.arrivalBase * (1 + (seed - 5) / 15)));
+    const qualityVal = config.qualities[(seed + index) % config.qualities.length];
 
-      items.push({
-        commodity: getHindiCropName(cropName),
-        minPrice: min.toString(),
-        maxPrice: max.toString(),
-        avgPrice: model.toString(),
-        unit: config.unit,
-        arrival: `${arrivalVal} ${config.unit === "क्रिएट (25kg)" ? "क्रिएट" : "बोरी"}`,
-        quality: qualityVal,
-        lastUpdated: `${dateStr} ${timeStr}`
-      });
-    }
+    items.push({
+      commodity: getHindiCropName(cropName),
+      minPrice: min.toString(),
+      maxPrice: max.toString(),
+      avgPrice: model.toString(),
+      unit: config.unit,
+      arrival: `${arrivalVal} ${config.unit === "क्रिएट (25kg)" ? "क्रिएट" : "बोरी"}`,
+      quality: qualityVal,
+      lastUpdated: `${dateStr} ${timeStr}`
+    });
   });
 
   return {

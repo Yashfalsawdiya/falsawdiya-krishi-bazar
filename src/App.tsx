@@ -9,35 +9,52 @@ import InstallPwaModal from './components/InstallPwaModal';
 import DesktopTouchSimulator from './components/DesktopTouchSimulator';
 import { Loader2 } from 'lucide-react';
 
+// Resilient lazy loader to handle network glitches or stale chunk URLs gracefully
+const safeLazy = (importFn: () => Promise<any>) =>
+  lazy(async () => {
+    try {
+      return await importFn();
+    } catch (error) {
+      console.warn('Dynamic import failed, retrying module load...', error);
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        return await importFn();
+      } catch (retryError) {
+        console.error('Module load failed after retry:', retryError);
+        throw retryError;
+      }
+    }
+  });
+
 // Lazy load pages
-const Home = lazy(() => import('./pages/Home'));
-const Products = lazy(() => import('./pages/Products'));
-const MandiBhav = lazy(() => import('./pages/MandiBhav'));
-const DiseaseDetection = lazy(() => import('./pages/DiseaseDetection'));
-const Weather = lazy(() => import('./pages/Weather'));
-const Schemes = lazy(() => import('./pages/Schemes'));
-const AgriNews = lazy(() => import('./pages/AgriNews'));
-const SoilTesting = lazy(() => import('./pages/SoilTesting'));
-const AgriCalculator = lazy(() => import('./pages/AgriCalculator'));
-const Helpline = lazy(() => import('./pages/Helpline'));
-const Encyclopedia = lazy(() => import('./pages/Encyclopedia'));
-const EncyclopediaDetail = lazy(() => import('./pages/EncyclopediaDetail'));
-const AiAgriExpert = lazy(() => import('./pages/AiAgriExpert'));
-const AiProductKnowledge = lazy(() => import('./pages/AiProductKnowledge'));
-const Admin = lazy(() => import('./pages/Admin'));
-const Profile = lazy(() => import('./pages/Profile'));
-const CartPage = lazy(() => import('./pages/CartPage'));
-const AboutUs = lazy(() => import('./pages/AboutUs'));
-const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
-const TermsConditions = lazy(() => import('./pages/TermsConditions'));
-const ReturnRefundPolicy = lazy(() => import('./pages/ReturnRefundPolicy'));
-const AiDisclaimer = lazy(() => import('./pages/AiDisclaimer'));
-const ContactUs = lazy(() => import('./pages/ContactUs'));
-const ChemicalSafety = lazy(() => import('./pages/ChemicalSafety'));
-const HelpFaq = lazy(() => import('./pages/HelpFaq'));
-const ShippingDeliveryPolicy = lazy(() => import('./pages/ShippingDeliveryPolicy'));
-const GrievanceRedressal = lazy(() => import('./pages/GrievanceRedressal'));
-const LicensingDisclaimer = lazy(() => import('./pages/LicensingDisclaimer'));
+const Home = safeLazy(() => import('./pages/Home'));
+const Products = safeLazy(() => import('./pages/Products'));
+const MandiBhav = safeLazy(() => import('./pages/MandiBhav'));
+const DiseaseDetection = safeLazy(() => import('./pages/DiseaseDetection'));
+const Weather = safeLazy(() => import('./pages/Weather'));
+const Schemes = safeLazy(() => import('./pages/Schemes'));
+const AgriNews = safeLazy(() => import('./pages/AgriNews'));
+const SoilTesting = safeLazy(() => import('./pages/SoilTesting'));
+const AgriCalculator = safeLazy(() => import('./pages/AgriCalculator'));
+const Helpline = safeLazy(() => import('./pages/Helpline'));
+const Encyclopedia = safeLazy(() => import('./pages/Encyclopedia'));
+const EncyclopediaDetail = safeLazy(() => import('./pages/EncyclopediaDetail'));
+const AiAgriExpert = safeLazy(() => import('./pages/AiAgriExpert'));
+const AiProductKnowledge = safeLazy(() => import('./pages/AiProductKnowledge'));
+const Admin = safeLazy(() => import('./pages/Admin'));
+const Profile = safeLazy(() => import('./pages/Profile'));
+const CartPage = safeLazy(() => import('./pages/CartPage'));
+const AboutUs = safeLazy(() => import('./pages/AboutUs'));
+const PrivacyPolicy = safeLazy(() => import('./pages/PrivacyPolicy'));
+const TermsConditions = safeLazy(() => import('./pages/TermsConditions'));
+const ReturnRefundPolicy = safeLazy(() => import('./pages/ReturnRefundPolicy'));
+const AiDisclaimer = safeLazy(() => import('./pages/AiDisclaimer'));
+const ContactUs = safeLazy(() => import('./pages/ContactUs'));
+const ChemicalSafety = safeLazy(() => import('./pages/ChemicalSafety'));
+const HelpFaq = safeLazy(() => import('./pages/HelpFaq'));
+const ShippingDeliveryPolicy = safeLazy(() => import('./pages/ShippingDeliveryPolicy'));
+const GrievanceRedressal = safeLazy(() => import('./pages/GrievanceRedressal'));
+const LicensingDisclaimer = safeLazy(() => import('./pages/LicensingDisclaimer'));
 
 
 const PageLoader = () => (

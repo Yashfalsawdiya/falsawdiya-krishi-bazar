@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
-import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen, Info, ChevronRight, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award } from 'lucide-react';
+import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen, Info, ChevronRight, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Facebook, Instagram } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
@@ -110,6 +110,22 @@ const Home: React.FC = () => {
     mode: 'direct',
     groupLink: ''
   };
+  const facebookSection = {
+    enabled: appContent?.facebookSection?.enabled !== false,
+    title: appContent?.facebookSection?.title || 'Facebook पर जुड़ें',
+    description: appContent?.facebookSection?.description || 'हमसे Facebook पर जुड़ें और अपडेट पाएं',
+    pageUrl: appContent?.facebookSection?.pageUrl || 'https://www.facebook.com',
+    buttonText: appContent?.facebookSection?.buttonText || 'पेज पर जाएं'
+  };
+
+  const instagramSection = {
+    enabled: appContent?.instagramSection?.enabled !== false,
+    title: appContent?.instagramSection?.title || 'Instagram पर जुड़ें',
+    description: appContent?.instagramSection?.description || 'हमसे Instagram पर जुड़ें और अपडेट पाएं',
+    profileUrl: appContent?.instagramSection?.profileUrl || 'https://www.instagram.com',
+    buttonText: appContent?.instagramSection?.buttonText || 'प्रोफाइल देखें'
+  };
+
   const contactInfo = appContent?.contactInfo || {
     whatsapp: '918982338046',
     address: 'डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)',
@@ -604,6 +620,64 @@ const Home: React.FC = () => {
             </div>
           </div>
         </button>
+
+        {/* Social Media Cards (Side by Side) */}
+        {(facebookSection.enabled || instagramSection.enabled) && (
+          <div className={cn(
+            "grid gap-3",
+            facebookSection.enabled && instagramSection.enabled ? "grid-cols-2" : "grid-cols-1"
+          )}>
+            {/* Facebook Card */}
+            {facebookSection.enabled && (
+              <button 
+                onClick={() => {
+                  const url = facebookSection.pageUrl.trim() || 'https://www.facebook.com';
+                  window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
+                }}
+                className="w-full bg-[#1877F2]/10 border-2 border-[#1877F2] rounded-2xl p-3 sm:p-4 flex flex-col justify-between items-start gap-2.5 active:scale-95 transition-transform text-left cursor-pointer shadow-xs"
+              >
+                <div className="flex items-center gap-2.5 w-full">
+                  <div className="bg-[#1877F2] p-2.5 rounded-full shrink-0 shadow-xs">
+                    <Facebook className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-xs sm:text-sm text-[#1877F2] truncate">{facebookSection.title}</h4>
+                    <p className="text-[10px] sm:text-xs text-gray-600 font-medium line-clamp-1">{facebookSection.description}</p>
+                  </div>
+                </div>
+                <div className="w-full pt-1.5 border-t border-[#1877F2]/20 flex items-center justify-between text-[10px] font-bold text-[#1877F2] uppercase">
+                  <span className="truncate">{facebookSection.buttonText}</span>
+                  <ArrowRight className="w-3 h-3 shrink-0" />
+                </div>
+              </button>
+            )}
+
+            {/* Instagram Card */}
+            {instagramSection.enabled && (
+              <button 
+                onClick={() => {
+                  const url = instagramSection.profileUrl.trim() || 'https://www.instagram.com';
+                  window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
+                }}
+                className="w-full bg-[#E1306C]/10 border-2 border-[#E1306C] rounded-2xl p-3 sm:p-4 flex flex-col justify-between items-start gap-2.5 active:scale-95 transition-transform text-left cursor-pointer shadow-xs"
+              >
+                <div className="flex items-center gap-2.5 w-full">
+                  <div className="bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] p-2.5 rounded-full shrink-0 shadow-xs">
+                    <Instagram className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-xs sm:text-sm text-[#C13584] truncate">{instagramSection.title}</h4>
+                    <p className="text-[10px] sm:text-xs text-gray-600 font-medium line-clamp-1">{instagramSection.description}</p>
+                  </div>
+                </div>
+                <div className="w-full pt-1.5 border-t border-[#E1306C]/20 flex items-center justify-between text-[10px] font-bold text-[#C13584] uppercase">
+                  <span className="truncate">{instagramSection.buttonText}</span>
+                  <ArrowRight className="w-3 h-3 shrink-0" />
+                </div>
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start gap-3">
           <div className="bg-[#F5F2ED] p-2 rounded-lg">

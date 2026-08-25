@@ -7,7 +7,7 @@ import {
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
   Youtube as YoutubeIcon, Layout, Phone, Key, Star, ArrowUp, ArrowDown,
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle,
-  Truck, FileText
+  Truck, FileText, Facebook, Instagram
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
@@ -164,6 +164,20 @@ const Admin: React.FC = () => {
           description: 'सीधे फोटो भेजें और घर बैठे सामान मंगाएं या दुकान पर आकर ले जाएं।',
           mode: 'direct',
           groupLink: ''
+        },
+        facebookSection: {
+          enabled: true,
+          title: 'Facebook पर जुड़ें',
+          description: 'हमसे Facebook पर जुड़ें और अपडेट पाएं',
+          pageUrl: '',
+          buttonText: 'पेज पर जाएं'
+        },
+        instagramSection: {
+          enabled: true,
+          title: 'Instagram पर जुड़ें',
+          description: 'हमसे Instagram पर जुड़ें और अपडेट पाएं',
+          profileUrl: '',
+          buttonText: 'प्रोफाइल देखें'
         },
         contactInfo: {
           whatsapp: '918982338046',
@@ -2107,6 +2121,222 @@ const Admin: React.FC = () => {
                   />
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Facebook Section Details */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-[#1877F2] flex items-center gap-2">
+                <Facebook className="w-5 h-5 text-[#1877F2]" />
+                Facebook कार्ड सेटिंग्स (Facebook Card Settings)
+              </h3>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">
+                  {contentForm?.facebookSection?.enabled !== false ? 'कार्ड चालू' : 'कार्ड बंद'}
+                </span>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (!contentForm) return;
+                    setContentForm({
+                      ...contentForm, 
+                      facebookSection: {
+                        ...(contentForm.facebookSection || {}),
+                        enabled: contentForm.facebookSection?.enabled !== false ? false : true
+                      }
+                    });
+                  }}
+                  className={cn(
+                    "w-12 h-6 rounded-full relative transition-colors duration-200",
+                    contentForm?.facebookSection?.enabled !== false ? "bg-[#1877F2]" : "bg-gray-300"
+                  )}
+                >
+                  <div className={cn(
+                    "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-200",
+                    contentForm?.facebookSection?.enabled !== false ? "left-7" : "left-1"
+                  )} />
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">मुख्य शीर्षक (Card Title)</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.facebookSection?.title ?? 'Facebook पर जुड़ें'}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({
+                      ...contentForm, 
+                      facebookSection: { ...(contentForm.facebookSection || {}), title: e.target.value }
+                    });
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#1877F2] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  placeholder="जैसे: Facebook पर जुड़ें"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">सबटाइटल/विवरण (Subtitle / Description)</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.facebookSection?.description ?? 'हमसे Facebook पर जुड़ें और अपडेट पाएं'}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({
+                      ...contentForm, 
+                      facebookSection: { ...(contentForm.facebookSection || {}), description: e.target.value }
+                    });
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#1877F2] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  placeholder="जैसे: हमसे Facebook पर जुड़ें और अपडेट पाएं"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Facebook पेज / प्रोफाइल URL (Link) *</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.facebookSection?.pageUrl ?? ''}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({
+                      ...contentForm, 
+                      facebookSection: { ...(contentForm.facebookSection || {}), pageUrl: e.target.value }
+                    });
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#1877F2] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  placeholder="जैसे: https://facebook.com/yourpage या https://www.facebook.com"
+                />
+                <p className="text-[10px] text-gray-400 ml-1">खाली रहने पर डिफॉल्ट Facebook लिंक खुलेगा।</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">बटन टेक्स्ट (Button / Action Text)</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.facebookSection?.buttonText ?? 'पेज पर जाएं'}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({
+                      ...contentForm, 
+                      facebookSection: { ...(contentForm.facebookSection || {}), buttonText: e.target.value }
+                    });
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#1877F2] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  placeholder="जैसे: पेज पर जाएं"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Instagram Section Details */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-[#E1306C] flex items-center gap-2">
+                <Instagram className="w-5 h-5 text-[#E1306C]" />
+                Instagram कार्ड सेटिंग्स (Instagram Card Settings)
+              </h3>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">
+                  {contentForm?.instagramSection?.enabled !== false ? 'कार्ड चालू' : 'कार्ड बंद'}
+                </span>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (!contentForm) return;
+                    setContentForm({
+                      ...contentForm, 
+                      instagramSection: {
+                        ...(contentForm.instagramSection || {}),
+                        enabled: contentForm.instagramSection?.enabled !== false ? false : true
+                      }
+                    });
+                  }}
+                  className={cn(
+                    "w-12 h-6 rounded-full relative transition-colors duration-200",
+                    contentForm?.instagramSection?.enabled !== false ? "bg-[#E1306C]" : "bg-gray-300"
+                  )}
+                >
+                  <div className={cn(
+                    "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-200",
+                    contentForm?.instagramSection?.enabled !== false ? "left-7" : "left-1"
+                  )} />
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">मुख्य शीर्षक (Card Title)</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.instagramSection?.title ?? 'Instagram पर जुड़ें'}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({
+                      ...contentForm, 
+                      instagramSection: { ...(contentForm.instagramSection || {}), title: e.target.value }
+                    });
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#E1306C] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  placeholder="जैसे: Instagram पर जुड़ें"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">सबटाइटल/विवरण (Subtitle / Description)</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.instagramSection?.description ?? 'हमसे Instagram पर जुड़ें और अपडेट पाएं'}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({
+                      ...contentForm, 
+                      instagramSection: { ...(contentForm.instagramSection || {}), description: e.target.value }
+                    });
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#E1306C] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  placeholder="जैसे: हमसे Instagram पर जुड़ें और अपडेट पाएं"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Instagram प्रोफाइल URL (Link) *</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.instagramSection?.profileUrl ?? ''}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({
+                      ...contentForm, 
+                      instagramSection: { ...(contentForm.instagramSection || {}), profileUrl: e.target.value }
+                    });
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#E1306C] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  placeholder="जैसे: https://instagram.com/yourprofile या https://www.instagram.com"
+                />
+                <p className="text-[10px] text-gray-400 ml-1">खाली रहने पर डिफॉल्ट Instagram लिंक खुलेगा।</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">बटन टेक्स्ट (Button / Action Text)</label>
+                <input 
+                  type="text" 
+                  value={contentForm?.instagramSection?.buttonText ?? 'प्रोफाइल देखें'}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({
+                      ...contentForm, 
+                      instagramSection: { ...(contentForm.instagramSection || {}), buttonText: e.target.value }
+                    });
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#E1306C] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
+                  placeholder="जैसे: प्रोफाइल देखें"
+                />
+              </div>
             </div>
           </div>
 

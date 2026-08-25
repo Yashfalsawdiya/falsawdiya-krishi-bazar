@@ -177,18 +177,43 @@ const MandiBhav: React.FC = () => {
       minPrice: string;
       maxPrice: string;
       avgPrice: string;
+      unit: string;
       arrival: string;
       quality: string;
       lastUpdated: string;
     }> = [];
 
-    // Gather fallback mandi data to make a rich comparative list
+    // Gather mandi data in district and sync with active and cached data
     const mandisInDistrict = STATE_MANDI_DATA[selectedState]?.[selectedDistrict] || [];
     
     mandisInDistrict.forEach(mandi => {
-      // Use local details generator to represent market rates
-      const details = generateFallbackMandiDetails(selectedState, selectedDistrict, mandi);
-      const cropItem = details.items.find(item => item.commodity === cropHindi);
+      let cropItem: MandiItem | undefined;
+
+      // 1. If this is currently selected mandi and data is loaded, use active data (100% sync)
+      if (mandi === selectedMandi && data && data.items && data.items.length > 0) {
+        cropItem = data.items.find(item => item.commodity === cropHindi);
+      }
+
+      // 2. Otherwise, check localStorage cache for this specific mandi
+      if (!cropItem) {
+        const cacheKey = `mandi_pulse_${selectedState}_${selectedDistrict}_${mandi}`.replace(/\s+/g, "_");
+        const cachedStr = localStorage.getItem(cacheKey);
+        if (cachedStr) {
+          try {
+            const parsed = JSON.parse(cachedStr);
+            if (parsed && parsed.items) {
+              cropItem = parsed.items.find((item: MandiItem) => item.commodity === cropHindi);
+            }
+          } catch (e) {}
+        }
+      }
+
+      // 3. Fallback to stable deterministic fallback details
+      if (!cropItem) {
+        const details = generateFallbackMandiDetails(selectedState, selectedDistrict, mandi);
+        cropItem = details.items.find(item => item.commodity === cropHindi);
+      }
+
       if (cropItem) {
         results.push({
           mandi,
@@ -197,6 +222,7 @@ const MandiBhav: React.FC = () => {
           minPrice: cropItem.minPrice,
           maxPrice: cropItem.maxPrice,
           avgPrice: cropItem.avgPrice,
+          unit: cropItem.unit || "क्विंटल",
           arrival: cropItem.arrival || "सामान्य आवक",
           quality: cropItem.quality || "FAQ",
           lastUpdated: cropItem.lastUpdated
@@ -206,7 +232,15 @@ const MandiBhav: React.FC = () => {
 
     // Sort by model price descending to show best mandi first
     return results.sort((a, b) => parseInt(b.avgPrice) - parseInt(a.avgPrice));
-  }, [compareCrop, selectedState, selectedDistrict]);
+  }, [compareCrop, selectedState, selectedDistrict, selectedMandi, data]);
+
+  // Dynamic Crop Unit for Comparison Summary
+  const compareCropUnit = useMemo(() => {
+    if (comparisonData.length > 0 && comparisonData[0].unit) {
+      return comparisonData[0].unit;
+    }
+    return "क्विंटल";
+  }, [comparisonData]);
 
   // Average comparison price across all mandis in current selection
   const averageComparePrice = useMemo(() => {
@@ -681,7 +715,7 @@ const MandiBhav: React.FC = () => {
 
             <div className="bg-[#2D5A27]/5 border border-[#2D5A27]/10 rounded-2xl p-4 flex justify-between items-center text-xs">
               <span className="font-bold text-gray-600">औसत बाजार मूल्य ({selectedDistrict} जिला):</span>
-              <span className="font-black text-[#2D5A27] text-sm font-mono">₹{averageComparePrice}/क्विंटल</span>
+              <span className="font-black text-[#2D5A27] text-sm font-mono">₹{averageComparePrice} / {compareCropUnit}</span>
             </div>
           </div>
 
@@ -717,7 +751,7 @@ const MandiBhav: React.FC = () => {
                       </div>
 
                       <div className="text-right">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight block">मॉडल भाव (Modal)</span>
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight block">मॉडल भाव ({item.unit})</span>
                         <span className="text-sm font-black text-[#2D5A27] font-mono">₹{item.avgPrice}</span>
                       </div>
                     </div>
