@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
-import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen, Info, ChevronRight, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Facebook, Instagram } from 'lucide-react';
+import { useCart } from '../context/CartContext';
+import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen, Info, ChevronRight, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Facebook, Instagram, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
@@ -61,7 +62,6 @@ const PARTNERS = [
 
 import { MONTHLY_TIPS } from '../data/seasonalTips';
 
-import OrderModal from '../components/OrderModal';
 import ImageZoomModal from '../components/ImageZoomModal';
 import ProductDetailModal from '../components/ProductDetailModal';
 import SmartImage from '../components/SmartImage';
@@ -69,6 +69,7 @@ import { Product, ImageSource } from '../types';
 
 const Home: React.FC = () => {
   const { products, categories, appContent, user, userSettings, loadProducts, loadCategoryData, loading: appLoading } = useAppContext();
+  const { addToCart } = useCart();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -94,7 +95,6 @@ const Home: React.FC = () => {
   const [chatResponse, setChatResponse] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showDetail, setShowDetail] = useState(false);
-  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [zoomImage, setZoomImage] = useState<{ src: string | ImageSource; alt: string } | null>(null);
 
   const banners = appContent?.banners || BANNERS;
@@ -242,12 +242,8 @@ const Home: React.FC = () => {
   };
 
   const handleBuyClick = (product: Product) => {
-    setSelectedProduct(product);
-    setIsOrderModalOpen(true);
-  };
-
-  const confirmOrder = () => {
-    setIsOrderModalOpen(false);
+    addToCart(product, product.variants?.[0]);
+    navigate('/cart');
   };
 
   return (
@@ -918,14 +914,6 @@ const Home: React.FC = () => {
         onClose={() => setShowDetail(false)}
         product={selectedProduct}
         onBuy={handleBuyClick}
-      />
-
-      <OrderModal 
-        isOpen={isOrderModalOpen}
-        onClose={() => setIsOrderModalOpen(false)}
-        onConfirm={confirmOrder}
-        product={selectedProduct}
-        orderSource="Home Page"
       />
 
       <ImageZoomModal

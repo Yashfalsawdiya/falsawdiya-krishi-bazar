@@ -1,22 +1,23 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
-import { ChevronLeft, Bug, Droplet, Sprout, ShoppingBag, MessageCircle, AlertCircle, Tag } from 'lucide-react';
+import { ChevronLeft, Bug, Droplet, Sprout, ShoppingBag, ShoppingCart, AlertCircle, Tag, Plus, ArrowRight } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useCart } from '../context/CartContext';
 import { ImageSource, Product } from '../types';
 import { cn } from '../lib/utils';
 import ImageZoomModal from '../components/ImageZoomModal';
 import ProductDetailModal from '../components/ProductDetailModal';
-import OrderModal from '../components/OrderModal';
 
 const EncyclopediaDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { agriIssues, products, appContent, loadAgriIssues, loadProducts } = useAppContext();
+  const { addToCart } = useCart();
   const navigate = useNavigate();
   const [zoomImage, setZoomImage] = React.useState<string | ImageSource | null>(null);
   const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(null);
-  const [orderModalProduct, setOrderModalProduct] = React.useState<Product | null>(null);
+  const [addedProductId, setAddedProductId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const unsubIssues = loadAgriIssues();
@@ -113,8 +114,9 @@ const EncyclopediaDetail: React.FC = () => {
     );
   }
 
-  const handleWhatsAppOrder = (product: Product) => {
-    setOrderModalProduct(product);
+  const handleDirectBuy = (product: Product) => {
+    addToCart(product, product.variants?.[0]);
+    navigate('/cart');
   };
 
   return (
@@ -257,16 +259,12 @@ const EncyclopediaDetail: React.FC = () => {
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (product.variants && product.variants.length > 0) {
-                            setSelectedProduct(product);
-                          } else {
-                            handleWhatsAppOrder(product);
-                          }
+                          handleDirectBuy(product);
                         }}
-                        className="flex-[1.5] bg-[#25D366] text-white py-2.5 rounded-2xl flex items-center justify-center gap-2 text-xs font-black shadow-lg shadow-green-100 active:scale-95 transition-all"
+                        className="flex-[1.5] bg-[#EAB308] text-[#2D5A27] hover:bg-amber-500 py-2.5 rounded-2xl flex items-center justify-center gap-2 text-xs font-black shadow-lg shadow-amber-500/10 active:scale-95 transition-all"
                       >
-                        <MessageCircle className="w-4 h-4 fill-white" />
-                        ऑर्डर करें
+                        <ShoppingCart className="w-4 h-4" />
+                        अभी खरीदें (Buy)
                       </button>
                     </div>
                   </div>
@@ -288,17 +286,7 @@ const EncyclopediaDetail: React.FC = () => {
           isOpen={!!selectedProduct}
           onClose={() => setSelectedProduct(null)}
           product={selectedProduct}
-          onBuy={(p) => handleWhatsAppOrder(p)}
-        />
-        <OrderModal 
-          isOpen={!!orderModalProduct}
-          onClose={() => setOrderModalProduct(null)}
-          onConfirm={() => {
-            setOrderModalProduct(null);
-            setSelectedProduct(null);
-          }}
-          product={orderModalProduct}
-          orderSource="Encyclopedia"
+          onBuy={(p) => handleDirectBuy(p)}
         />
       </AnimatePresence>
     </div>

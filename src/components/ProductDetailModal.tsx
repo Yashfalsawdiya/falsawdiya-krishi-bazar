@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ShoppingBag, Building2, Tag, Info, Wheat, Maximize2, Droplets, Plus, Minus } from 'lucide-react';
 import { Product } from '../types';
@@ -12,7 +13,7 @@ interface ProductDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product | null;
-  onBuy: (product: Product) => void;
+  onBuy?: (product: Product) => void;
   cartItemId?: string;
   onCartItemIdChange?: (newId: string) => void;
 }
@@ -25,6 +26,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   cartItemId,
   onCartItemIdChange
 }) => {
+  const navigate = useNavigate();
   const { categories } = useAppContext();
   const { addToCart, cartItems, updateQuantity, updateVariant } = useCart();
   const [isZoomOpen, setIsZoomOpen] = React.useState(false);
@@ -335,13 +337,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 disabled={product.inStock === false}
                 onClick={() => {
                   onClose();
-                  // Passing the selected variant's info in a clone for the order message
-                  const productWithSelection = {
-                    ...product,
-                    price: displayPrice || 0,
-                    unit: displayUnit || ''
-                  };
-                  onBuy(productWithSelection);
+                  addToCart(product, selectedVariant || undefined);
+                  navigate('/cart');
                 }}
                 className={cn(
                   "flex-[1.5] py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all text-xs",
@@ -351,7 +348,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 )}
               >
                 <ShoppingBag className="w-4 h-4" /> 
-                {product.inStock !== false ? 'खरीदें' : 'खत्म'}
+                {product.inStock !== false ? 'अभी खरीदें (Buy)' : 'खत्म'}
               </button>
             </div>
 

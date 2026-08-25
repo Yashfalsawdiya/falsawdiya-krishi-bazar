@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAppContext } from '../context/AppContext';
-import { Minus, Plus, Trash2, ArrowLeft, ShoppingCart, MessageSquare } from 'lucide-react';
+import { Minus, Plus, Trash2, ArrowLeft, ShoppingCart, CreditCard, ShieldCheck, Truck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
-import CartOrderModal from '../components/CartOrderModal';
 import ProductDetailModal from '../components/ProductDetailModal';
 
 const CartPage: React.FC = () => {
@@ -20,25 +19,13 @@ const CartPage: React.FC = () => {
   } = useCart();
   const { appContent } = useAppContext();
   const navigate = useNavigate();
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [activeCartItemId, setActiveCartItemId] = useState<string | null>(null);
 
   const activeCartItem = cartItems.find((item) => item.id === activeCartItemId);
   const activeProduct = activeCartItem ? activeCartItem.product : null;
 
-  const whatsappNumber = appContent?.contactInfo.whatsapp || '918982338046';
-
   const handleBack = () => {
     navigate('/products');
-  };
-
-  const handleSendOrder = () => {
-    if (cartItems.length === 0) return;
-    setIsConfirmOpen(true);
-  };
-
-  const handleConfirmOrder = () => {
-    setIsConfirmOpen(false);
   };
 
   return (
@@ -251,35 +238,49 @@ const CartPage: React.FC = () => {
                   </div>
                 </>
               ) : (
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-sm font-bold text-[#4A3728]">कुल देय राशि (Gross Amount)</span>
-                  <span className="text-xl font-black text-[#2D5A27]">₹{cartTotal}</span>
-                </div>
+                <>
+                  <div className="flex items-center justify-between text-xs text-gray-650 font-semibold">
+                    <span>उत्पाद मूल्य (Products Total)</span>
+                    <span className="font-bold">₹{cartTotal}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-gray-650 font-semibold border-b border-gray-200/50 pb-2">
+                    <span>डिलीवरी शुल्क (Delivery Charges)</span>
+                    <span className="font-bold text-emerald-700">मुफ़्त (₹0 / FREE)</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-sm font-bold text-[#4A3728]">कुल देय राशि (Final Total)</span>
+                    <span className="text-xl font-black text-[#2D5A27]">₹{cartTotal}</span>
+                  </div>
+                </>
               )}
             </div>
 
-            {/* Checkout via WhatsApp Floating / Sticky Button */}
-            <button
-              onClick={handleSendOrder}
-              className="w-full bg-[#25D366] text-white py-4.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-green-500/20 active:scale-95 transition-all mt-4"
-            >
-              <MessageSquare className="w-5 h-5 fill-white text-[#25D366]" />
-              Cart से Order करें (Order via WhatsApp)
-            </button>
+            {/* Delivery Suspended Warning if OFF */}
+            {appContent?.isDeliveryActive === false && (
+              <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center gap-3 shadow-sm">
+                <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0 text-amber-700">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div className="text-xs">
+                  <p className="font-bold text-amber-900">डिलीवरी सेवा अस्थायी रूप से बंद है</p>
+                  <p className="text-[11px] text-amber-700">वर्तमान में नए डिलीवरी ऑर्डर स्वीकार नहीं किए जा रहे हैं।</p>
+                </div>
+              </div>
+            )}
+
+            {/* Checkout Action: 100% Cart to Razorpay Checkout */}
+            <div className="mt-4">
+              <button
+                onClick={() => navigate('/checkout')}
+                className="w-full bg-[#2D5A27] hover:bg-[#2D5A27]/90 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-[#2D5A27]/20 active:scale-95 transition-all"
+              >
+                <CreditCard className="w-5 h-5 text-[#EAB308]" />
+                सुरक्षित ऑनलाइन ऑर्डर करें (Proceed to Checkout)
+              </button>
+            </div>
           </div>
         )}
       </AnimatePresence>
-
-      {/* Cart Confirmation Popup */}
-      <CartOrderModal
-        isOpen={isConfirmOpen}
-        onClose={() => setIsConfirmOpen(false)}
-        onConfirm={handleConfirmOrder}
-        cartItems={cartItems}
-        cartTotal={cartTotal}
-        cartCount={cartCount}
-        orderSource="Cart"
-      />
 
       {/* Product Detailed Popup */}
       <ProductDetailModal

@@ -15,9 +15,8 @@ import SmartImage from '../components/SmartImage';
 import Markdown from 'react-markdown';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import ApiKeyModal from '../components/ApiKeyModal';
-import OrderModal from '../components/OrderModal';
 
 export interface DiseaseChatMessage {
   id: string;
@@ -55,6 +54,7 @@ const SUGGESTED_QUESTIONS = [
 ];
 
 const DiseaseDetection: React.FC = () => {
+  const navigate = useNavigate();
   const { appContent, userSettings, products, categories, loading: appLoading } = useAppContext();
   const { addToCart } = useCart();
   
@@ -75,7 +75,6 @@ const DiseaseDetection: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
-  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   
   // Scan History & Chat States
   const [scanHistory, setScanHistory] = useState<DiseaseScanRecord[]>([]);
@@ -1249,10 +1248,21 @@ const DiseaseDetection: React.FC = () => {
                     {addedProductId === selectedProduct.id ? 'Added ✓' : 'Add To Cart'}
                   </button>
                   <button 
-                    onClick={() => setIsOrderModalOpen(true)}
-                    className="flex-1 bg-[#25D366] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-green-100 active:scale-95 transition-all text-xs outline-none"
+                    onClick={() => {
+                      if (!selectedProduct) return;
+                      const mappedProduct = {
+                        ...selectedProduct,
+                        price: displayPrice,
+                        unit: displayUnit
+                      };
+                      addToCart(mappedProduct, selectedVariant || undefined);
+                      setSelectedProduct(null);
+                      navigate('/cart');
+                    }}
+                    className="flex-1 bg-[#EAB308] text-[#2D5A27] hover:bg-amber-500 py-4 rounded-2xl font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/10 active:scale-95 transition-all text-xs outline-none"
                   >
-                    WhatsApp पर ऑर्डर करें
+                    <ArrowRight className="w-4 h-4" />
+                    अभी खरीदें (Buy Now)
                   </button>
                 </div>
                 <button 
@@ -1266,21 +1276,6 @@ const DiseaseDetection: React.FC = () => {
           </>
         )}
       </AnimatePresence>
-
-      <OrderModal 
-        isOpen={isOrderModalOpen}
-        onClose={() => setIsOrderModalOpen(false)}
-        onConfirm={() => {
-          setIsOrderModalOpen(false);
-          setSelectedProduct(null);
-        }}
-        product={selectedProduct ? {
-          ...selectedProduct,
-          price: displayPrice,
-          unit: displayUnit
-        } : null}
-        orderSource="Disease Detection"
-      />
     </div>
   );
 };

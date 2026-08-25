@@ -101,6 +101,91 @@ export interface CartItem {
   unit: string;
 }
 
+export interface OrderItem {
+  productId: string;
+  customId?: string;
+  name: string;
+  hindiName: string;
+  brand: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  image?: string | ImageSource;
+}
+
+export type OrderStatus = 'placed' | 'confirmed' | 'dispatched' | 'out_for_delivery' | 'delivered' | 'cancelled';
+export type PaymentStatus = 'pending' | 'paid' | 'failed';
+export type PaymentMethod = 'online_razorpay' | 'upi_manual';
+
+export interface OrderTimelineEvent {
+  title: string;
+  description: string;
+  timestamp: number;
+  status: OrderStatus;
+}
+
+export interface Order {
+  id: string;
+  orderNumber: string; // e.g. "FKB-2025-0801"
+  userId?: string;
+  userEmail?: string;
+  customerDetails: {
+    name: string;
+    phone: string;
+    addressHouse: string;
+    addressCity: string;
+    addressDistrict: string;
+    addressState: string;
+    addressPincode: string;
+  };
+  items: OrderItem[];
+  itemCount: number;
+  itemsTotal: number;
+  deliveryCharges: number;
+  totalAmount: number;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  razorpayPaymentId?: string;
+  razorpayOrderId?: string;
+  razorpayMode?: 'test' | 'live';
+  status: OrderStatus;
+  trackingNumber?: string;
+  courierPartner?: string;
+  estimatedDeliveryDate?: string;
+  notes?: string;
+  timeline: OrderTimelineEvent[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface RazorpayPublicConfig {
+  enabled: boolean;
+  mode: 'test' | 'live';
+  keyId: string;
+  isConfigured: boolean;
+  webhookEnabled?: boolean;
+}
+
+export interface RazorpayAdminSettings {
+  enabled: boolean;
+  mode: 'test' | 'live';
+  testKeyId: string;
+  liveKeyId: string;
+  hasTestSecret: boolean;
+  hasLiveSecret: boolean;
+  webhookSecret?: string;
+  hasWebhookSecret?: boolean;
+  webhookUrl: string;
+  lastUpdated: number;
+  lastPaymentStatus?: string;
+  lastTestResult?: {
+    success: boolean;
+    mode: 'test' | 'live';
+    message: string;
+    timestamp: number;
+  };
+}
+
 export interface AgriTradeNotice {
   id: string;
   title: string;

@@ -1,28 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { ShoppingBag, Building2, Tag, Plus, ShoppingCart } from 'lucide-react';
+import { ShoppingBag, Building2, Tag, Plus, ShoppingCart, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import SmartImage from '../components/SmartImage';
 import { cn } from '../lib/utils';
-import OrderModal from '../components/OrderModal';
 import ImageZoomModal from '../components/ImageZoomModal';
 import ProductDetailModal from '../components/ProductDetailModal';
 import { Product, ImageSource } from '../types';
 
 const Products: React.FC = () => {
-  const { products, categories, appContent, loadProducts, loadCategoryData } = useAppContext();
+  const navigate = useNavigate();
+  const { products, categories, loadProducts, loadCategoryData } = useAppContext();
   const { addToCart } = useCart();
   const [searchParams] = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [zoomImage, setZoomImage] = useState<{ src: string | ImageSource; alt: string } | null>(null);
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
-
-  const whatsappNumber = appContent?.contactInfo.whatsapp || '918982338046';
 
   useEffect(() => {
     const unsubProducts = loadProducts();
@@ -63,13 +60,9 @@ const Products: React.FC = () => {
       return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
     });
 
-  const handleBuyClick = (product: Product) => {
-    setSelectedProduct(product);
-    setIsModalOpen(true);
-  };
-
-  const confirmOrder = () => {
-    setIsModalOpen(false);
+  const handleDirectBuy = (product: Product) => {
+    addToCart(product, product.variants?.[0]);
+    navigate('/cart');
   };
 
   return (
@@ -100,7 +93,6 @@ const Products: React.FC = () => {
           </button>
         ))}
       </div>
-
 
       {/* Product List */}
       <div className="grid grid-cols-1 gap-4">
@@ -193,16 +185,16 @@ const Products: React.FC = () => {
                             price: displayPrice || 0,
                             unit: displayUnit || ''
                           };
-                          handleBuyClick(pWithPrice as Product);
+                          handleDirectBuy(pWithPrice as Product);
                         }}
                         className={cn(
                           "px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm flex items-center gap-1 active:scale-95 transition-all outline-none",
                           isInStock 
-                            ? "bg-[#EAB308] text-[#2D5A27]" 
+                            ? "bg-[#EAB308] text-[#2D5A27] hover:bg-amber-500" 
                             : "bg-gray-200 text-gray-400 cursor-not-allowed"
                         )}
                       >
-                        <ShoppingBag className="w-3 h-3" /> {isInStock ? 'खरीदें' : 'खत्म'}
+                        <ShoppingBag className="w-3 h-3" /> {isInStock ? 'अभी खरीदें' : 'खत्म'}
                       </button>
                     </div>
                   </div>
@@ -223,15 +215,7 @@ const Products: React.FC = () => {
         isOpen={showDetail}
         onClose={() => setShowDetail(false)}
         product={selectedProduct}
-        onBuy={handleBuyClick}
-      />
-
-      <OrderModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onConfirm={confirmOrder}
-        product={selectedProduct}
-        orderSource="Store"
+        onBuy={handleDirectBuy}
       />
 
       <ImageZoomModal

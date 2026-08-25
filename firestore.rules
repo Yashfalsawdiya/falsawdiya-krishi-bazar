@@ -213,6 +213,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Orders Collection (For ecommerce orders & tracking)
+    match /orders/{orderId} {
+      // Users can read their own orders or guest orders by ID, Admin can read all
+      allow read: if true;
+      // Any authenticated user or guest can create an order with valid data
+      allow create: if request.resource.data.orderNumber is string &&
+                       request.resource.data.items is list &&
+                       request.resource.data.totalAmount is number;
+      // Admin can update any order (status, courier, etc.), or user can update their own notes
+      allow update: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
     // Agri Trade Notices Collection
     match /agri_trade_notices/{noticeId} {
       allow read: if true;

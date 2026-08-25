@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Key, ExternalLink, Save, LogOut, LogIn, ChevronRight, Info, Youtube, RefreshCw, CheckCircle2, AlertCircle, Loader2, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Scale, Truck, HelpCircle } from 'lucide-react';
+import { User, Key, ExternalLink, Save, LogOut, LogIn, ChevronRight, Info, Youtube, RefreshCw, CheckCircle2, AlertCircle, Loader2, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Scale, Truck, HelpCircle, Package, ArrowRight } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { cn } from '../lib/utils';
 import SmartImage from '../components/SmartImage';
@@ -155,11 +155,30 @@ const Profile: React.FC = () => {
             <User className="w-8 h-8 text-gray-300" />
           )}
         </div>
-        <div>
+        <div className="flex-1">
           <h2 className="text-xl font-bold text-[#4A3728]">{user.displayName}</h2>
           <p className="text-xs text-gray-500 font-medium">{user.email}</p>
         </div>
       </div>
+
+      {/* Orders Quick Navigation */}
+      <Link
+        to="/orders"
+        className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-[#2D5A27]/30 transition-all group active:scale-98"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-[#2D5A27]/10 flex items-center justify-center text-[#2D5A27]">
+            <Package className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-gray-800 group-hover:text-[#2D5A27] transition-colors">
+              मेरे ऑनलाइन ऑर्डर (My Orders)
+            </h3>
+            <p className="text-[11px] text-gray-400">ऑर्डर स्थिति, लाइव ट्रैकिंग व रसीद देखें</p>
+          </div>
+        </div>
+        <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#2D5A27] group-hover:translate-x-0.5 transition-all" />
+      </Link>
 
       {/* API Key Section */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">

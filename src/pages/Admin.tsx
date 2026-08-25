@@ -7,7 +7,7 @@ import {
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
   Youtube as YoutubeIcon, Layout, Phone, Key, Star, ArrowUp, ArrowDown,
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle,
-  Truck, FileText, Facebook, Instagram
+  Truck, FileText, Facebook, Instagram, Package, CreditCard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
@@ -16,6 +16,8 @@ import { ImageSource } from '../types';
 import DualImageInput from '../components/DualImageInput';
 import SmartImage from '../components/SmartImage';
 import AdminPagesManager from '../components/AdminPagesManager';
+import AdminOrdersManager from '../components/AdminOrdersManager';
+import AdminRazorpayManager from '../components/AdminRazorpayManager';
 
 const Admin: React.FC = () => {
   const { 
@@ -44,7 +46,7 @@ const Admin: React.FC = () => {
     }
   }, [isAdmin]);
   
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users' | 'featured' | 'delivery' | 'categoryInfo' | 'legalPages'>('content');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'orders' | 'razorpay'>('content');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
   const [productSearchQuery, setProductSearchQuery] = useState<string>('');
@@ -182,7 +184,10 @@ const Admin: React.FC = () => {
         contactInfo: {
           whatsapp: '918982338046',
           address: 'डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश'
-        }
+        },
+        isDeliveryActive: true,
+        isDeliveryChargesEnabled: false,
+        deliveryChargesAmount: 40
       });
     }
   }, [appContent]);
@@ -642,13 +647,26 @@ const Admin: React.FC = () => {
           <Users className="w-4 h-4" /> यूज़र्स (Users)
         </button>
         <button 
-          onClick={() => setActiveTab('delivery')}
+          onClick={() => setActiveTab('orders')}
           className={cn(
-            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'delivery' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+            "flex-1 min-w-[130px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all border",
+            activeTab === 'orders' 
+              ? "bg-[#2D5A27] text-white shadow-md font-extrabold border-emerald-600" 
+              : "text-emerald-900 bg-emerald-100/60 hover:bg-emerald-200/60 border-emerald-300"
           )}
         >
-          <Truck className="w-4 h-4" /> डिलीवरी प्रबंधन (Delivery)
+          <Package className="w-4 h-4 text-emerald-700" /> ऑर्डर्स (Orders)
+        </button>
+        <button 
+          onClick={() => setActiveTab('razorpay')}
+          className={cn(
+            "flex-1 min-w-[150px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all border",
+            activeTab === 'razorpay' 
+              ? "bg-[#2D5A27] text-white shadow-md font-extrabold border-blue-600" 
+              : "text-blue-900 bg-blue-50 hover:bg-blue-100 border-blue-200"
+          )}
+        >
+          <CreditCard className="w-4 h-4 text-blue-600" /> Razorpay गेटवे
         </button>
         <button 
           onClick={() => setActiveTab('legalPages')}
@@ -1424,245 +1442,10 @@ const Admin: React.FC = () => {
             )}
           </div>
         </div>
-      ) : activeTab === 'delivery' ? (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-[#4A3728] text-lg flex items-center gap-2">
-              <Truck className="w-5 h-5 text-[#2D5A27]" />
-              डिलीवरी प्रबंधन (Delivery Management)
-            </h3>
-          </div>
-
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-6">
-            <div className="bg-[#FAF9F5] rounded-2xl p-4 border border-[#4A3728]/5">
-              <p className="text-xs text-[#4A3728]/80 font-medium leading-relaxed">
-                ℹ️ यहाँ से आप पूरे ऐप की ऑर्डर और डिलीवरी सिस्टम को प्रबंधित कर सकते हैं। आप डिलीवरी सेवा को चालू/बंद कर सकते हैं और व्हाट्सएप ऑर्डर प्राप्तकर्ता का मोबाइल नंबर बदल सकते हैं।
-              </p>
-            </div>
-
-            {/* Delivery Service Toggle */}
-            <div className="space-y-3 pb-6 border-b border-gray-100">
-              <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <div>
-                  <h4 className="text-sm font-bold text-gray-800">डिलीवरी सेवा स्थिति (Delivery Service Status)</h4>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {contentForm?.isDeliveryActive !== false 
-                      ? "डिलीवरी चालू है - ग्राहक आसानी से व्हाट्सएप पर ऑर्डर कर सकते हैं।" 
-                      : "डिलीवरी बंद है - ग्राहकों को 'डिलीवरी बंद है' का सुंदर पॉपअप दिखाई देगा और ऑर्डर बंद रहेगा।"}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!contentForm) return;
-                    const nextVal = contentForm.isDeliveryActive === false ? true : false;
-                    setContentForm({
-                      ...contentForm,
-                      isDeliveryActive: nextVal,
-                      deliveryServiceEnabled: nextVal
-                    });
-                  }}
-                  className={cn(
-                    "relative inline-flex h-7.5 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                    contentForm?.isDeliveryActive !== false ? "bg-[#2D5A27]" : "bg-gray-300"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "pointer-events-none inline-block h-6.5 w-6.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                      contentForm?.isDeliveryActive !== false ? "translate-x-6.5" : "translate-x-0"
-                    )}
-                  />
-                </button>
-              </div>
-
-              {/* Status Badge */}
-              <div className="flex items-center gap-2 px-1">
-                <span className="text-xs font-semibold text-gray-500">वर्तमान स्थिति (Current Status):</span>
-                {contentForm?.isDeliveryActive !== false ? (
-                  <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-[10px] font-bold uppercase tracking-wider border border-green-200 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-green-600 rounded-full animate-ping" />
-                    डिलीवरी चालू (Delivery ON)
-                  </span>
-                ) : (
-                  <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-[10px] font-bold uppercase tracking-wider border border-amber-200 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-amber-600 rounded-full" />
-                    डिलीवरी बंद (Delivery OFF)
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Order Receive WhatsApp Number Form */}
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
-                  व्हाट्सएप ऑर्डर प्राप्तकर्ता नंबर (Order Receive WhatsApp Number) *
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <span className="text-gray-400 font-bold text-xs.5">+</span>
-                  </div>
-                  <input 
-                    type="text" 
-                    placeholder="उदाँ: 918982338046"
-                    value={contentForm?.contactInfo?.whatsapp || ''}
-                    onChange={e => {
-                      if (!contentForm) return;
-                      const sanitizedPhone = e.target.value.replace(/\D/g, '');
-                      setContentForm({
-                        ...contentForm,
-                        contactInfo: {
-                          ...(contentForm.contactInfo || { whatsapp: '', address: '' }),
-                          whatsapp: sanitizedPhone
-                        }
-                      });
-                    }}
-                    className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl py-4 pl-8 pr-4 outline-none transition-all font-semibold text-sm"
-                  />
-                </div>
-                <p className="text-[10px] text-gray-400 ml-1 leading-relaxed">
-                  ⚠️ कृपया देश कोड के साथ 12 अंकों का पूरा नंबर डालें (जैसे भारत के लिए 918982338046)। इसमें कोई स्पेस, '+' या विशेष वर्ण न रखें।
-                </p>
-              </div>
-            </div>
-
-            {/* Delivery Charges Management Section */}
-            <div className="space-y-4 pt-6 mt-6 border-t border-gray-100">
-              <h4 className="text-xs font-black text-[#2D5A27] uppercase tracking-widest flex items-center gap-1.5">
-                <span>🚚</span> डिलीवरी शुल्क प्रबंधन (Delivery Charges Management)
-              </h4>
-
-              {/* Toggle row */}
-              <div className="flex justify-between items-center bg-[#FAF9F5] p-4 rounded-2xl border border-[#4A3728]/5">
-                <div>
-                  <h5 className="text-sm font-bold text-gray-800">डिलिवरी शुल्क लागू करें (Enable Delivery Charges)</h5>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {contentForm?.isDeliveryChargesEnabled 
-                      ? "डिलीवरी शुल्क लागू है - यह आटोमेटिक ऑर्डर्स और व्हाट्सएप रसीद में जुड़ जाएगा।" 
-                      : "डिलीवरी शुल्क बंद है - सभी आर्डर्स पर कोई डिलीवरी चार्ज नहीं जोड़ा जाएगा।"}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!contentForm) return;
-                    const nextVal = !contentForm.isDeliveryChargesEnabled;
-                    setContentForm({
-                      ...contentForm,
-                      isDeliveryChargesEnabled: nextVal
-                    });
-                  }}
-                  className={cn(
-                    "relative inline-flex h-7.5 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                    contentForm?.isDeliveryChargesEnabled ? "bg-[#2D5A27]" : "bg-gray-300"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "pointer-events-none inline-block h-6.5 w-6.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                      contentForm?.isDeliveryChargesEnabled ? "translate-x-6.5" : "translate-x-0"
-                    )}
-                  />
-                </button>
-              </div>
-
-              {/* Charges Input & Presets */}
-              {contentForm?.isDeliveryChargesEnabled && (
-                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-150 space-y-4 animate-in fade-in duration-200">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">
-                      डिलीवरी शुल्क राशि (Delivery Charges Amount in ₹) *
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <span className="text-gray-500 font-bold text-sm">₹</span>
-                      </div>
-                      <input 
-                        type="number" 
-                        min="0"
-                        placeholder="उदाँ: 40"
-                        value={contentForm?.deliveryChargesAmount !== undefined ? contentForm.deliveryChargesAmount : ''}
-                        onChange={e => {
-                          if (!contentForm) return;
-                          const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                          setContentForm({
-                            ...contentForm,
-                            deliveryChargesAmount: val
-                          });
-                        }}
-                        className="w-full bg-white border-2 border-gray-200 focus:border-[#2D5A27] rounded-xl py-3.5 pl-8 pr-4 outline-none transition-all font-semibold text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Presets */}
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">क्विक चयन प्रीसेट (Quick Presets)</span>
-                    <div className="flex flex-wrap gap-2">
-                      {[20, 40, 80, 100].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => {
-                            if (!contentForm) return;
-                            setContentForm({
-                              ...contentForm,
-                              deliveryChargesAmount: preset
-                            });
-                          }}
-                          className={cn(
-                            "px-4 py-2 text-xs font-bold rounded-xl transition-all border",
-                            contentForm?.deliveryChargesAmount === preset
-                              ? "bg-[#2D5A27] text-white border-transparent"
-                              : "bg-white text-gray-700 border-gray-200 hover:bg-gray-100 shadow-sm"
-                          )}
-                        >
-                          ₹{preset}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <p className="text-[10px] text-[#2D5A27] font-semibold">
-                    💡 भविष्य में विभिन्न क्षेत्रों (Area-wise) की डिलीवरी दरों के अनुसार आप शुल्क यहाँ से कभी भी बदल सकते हैं।
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Actions Panel */}
-            <div className="pt-4 flex gap-3">
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!contentForm) return;
-                  setIsSaving(true);
-                  try {
-                    await updateAppContent(contentForm);
-                    alert('डिलीवरी सेटिंग्स सुरक्षित कर दी गई हैं! (Delivery settings saved successfully!)');
-                  } catch (err) {
-                    console.error(err);
-                  } finally {
-                    setIsSaving(false);
-                  }
-                }}
-                disabled={isSaving}
-                className="flex-1 bg-[#2D5A27] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all text-sm.5 shadow-md shadow-[#2D5A27]/20 disabled:opacity-50"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> सुरक्षित किया जा रहा है...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" /> सेटिंग्स सुरक्षित करें (Save Settings)
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+      ) : activeTab === 'orders' ? (
+        <AdminOrdersManager />
+      ) : activeTab === 'razorpay' ? (
+        <AdminRazorpayManager />
       ) : activeTab === 'legalPages' ? (
         <AdminPagesManager />
       ) : (
@@ -2364,17 +2147,27 @@ const Admin: React.FC = () => {
             </div>
           </div>
 
-          {/* Delivery & Order Management */}
+          {/* Delivery & Order Management - Global Settings for Razorpay Orders */}
           <div className="space-y-4">
-            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
-              <Truck className="w-5 h-5 text-[#2D5A27]" />
-              डिलीवरी और ऑर्डर सेटिंग्स (Delivery & Order Control)
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+                <Truck className="w-5 h-5 text-[#2D5A27]" />
+                डिलीवरी और ऑर्डर सेटिंग्स (Delivery & Order Control)
+              </h3>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider bg-[#2D5A27]/10 text-[#2D5A27] px-2.5 py-1 rounded-lg">
+                ऑनलाइन चेकआउट पर लागू
+              </span>
+            </div>
+            
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-6">
+              {/* Delivery Service Status Toggle */}
               <div className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl border border-gray-105">
                 <div className="pr-4">
-                  <h4 className="text-xs font-bold text-gray-800">डिलिवरी सेवा चालू/बंद करें (Delivery Service Status)</h4>
-                  <p className="text-[10px] text-gray-400 mt-1">चालू होने पर ऑर्डर सीधे WhatsApp पर जाएंगे। बंद होने पर ग्राहकों को विनम्र सूचना पॉपअप दिखेगा।</p>
+                  <h4 className="text-xs font-bold text-gray-800">डिलीवरी सेवा चालू/बंद करें (Delivery Service Status)</h4>
+                  <p className="text-[10px] text-gray-500 mt-1 leading-relaxed">
+                    <strong>ON होने पर:</strong> कार्ट चेकआउट में ऑनलाइन डिलीवरी चालू रहेगी।<br/>
+                    <strong>OFF होने पर:</strong> चेकआउट में डिलीवरी अस्थायी रूप से ब्लॉक रहेगी और ग्राहकों को सूचना दिखेगी।
+                  </p>
                 </div>
                 <button 
                   type="button"
@@ -2395,18 +2188,19 @@ const Admin: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">वर्तमान स्थिति:</span>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">वर्तमान डिलीवरी स्थिति:</span>
                 <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
                   contentForm?.isDeliveryActive !== false 
                     ? "bg-green-50 text-green-700 border border-green-200" 
                     : "bg-amber-50 text-amber-750 border border-amber-200"
                 }`}>
-                  {contentForm?.isDeliveryActive !== false ? "● डिलीवरी चालू (Delivery ON)" : "○ डिलीवरी अस्थायी रूप से बंद (Delivery OFF)"}
+                  {contentForm?.isDeliveryActive !== false ? "● डिलीवरी चालू (Delivery Active)" : "○ डिलीवरी अस्थायी रूप से बंद (Delivery Suspended)"}
                 </span>
               </div>
 
+              {/* Order Receiver WhatsApp Number */}
               <div className="space-y-2.5 pt-4 border-t border-gray-100 font-sans">
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">ऑर्डर प्राप्त करने वाला WhatsApp नंबर (बिना + के)</label>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">दुकान / सपोर्ट WhatsApp नंबर (बिना + के)</label>
                 <div className="relative font-sans">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#2D5A27]">
                     <Phone className="w-4 h-4" />
@@ -2422,15 +2216,18 @@ const Admin: React.FC = () => {
                     placeholder="जैसे: 918982338046"
                   />
                 </div>
-                <p className="text-[10px] text-gray-400 ml-1">यहाँ डाला गया नंबर ही ऐप का मुख्य ऑर्डर रिसीवर नंबर होगा। जब आप चाहें इसे बदलकर डिलीवरी स्टाफ/लड़के का नंबर सेट कर सकते हैं।</p>
+                <p className="text-[10px] text-gray-400 ml-1">यहाँ डाला गया नंबर कस्टमर सपोर्ट और सहायता चैट के लिए उपयोग होगा।</p>
               </div>
 
-              {/* Delivery Charges inside Content tab */}
+              {/* Delivery Charges Toggle & Amount */}
               <div className="space-y-3 pt-4 border-t border-gray-100 font-sans">
                 <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-105">
                   <div className="pr-4">
                     <h4 className="text-xs font-bold text-gray-800">डिलिवरी शुल्क लागू करें (Enable Delivery Charges)</h4>
-                    <p className="text-[10px] text-gray-400 mt-1">चालू होने पर आटोमेटिक डिलीवरी शुल्क जोड़ा जाएगा और रसीद में दिखेगा।</p>
+                    <p className="text-[10px] text-gray-500 mt-1 leading-relaxed">
+                      <strong>ON होने पर:</strong> Razorpay ऑनलाइन चेकआउट में निर्धारित डिलीवरी शुल्क आटोमेटिक जुड़कर आएगा।<br/>
+                      <strong>OFF होने पर:</strong> ग्राहकों के लिए डिलीवरी शुल्क ₹0 (मुफ़्त / Free) रहेगा।
+                    </p>
                   </div>
                   <button 
                     type="button"
@@ -2469,8 +2266,9 @@ const Admin: React.FC = () => {
                       />
                     </div>
 
-                    <div className="flex gap-1.5 flex-wrap">
-                      {[20, 40, 80, 100].map(amt => (
+                    <div className="flex gap-1.5 flex-wrap items-center">
+                      <span className="text-[10px] font-bold text-gray-400 mr-1">त्वरित चयन (Presets):</span>
+                      {[20, 40, 60, 80, 100].map(amt => (
                         <button
                           key={amt}
                           type="button"
@@ -2480,7 +2278,7 @@ const Admin: React.FC = () => {
                           }}
                           className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-all ${
                             contentForm?.deliveryChargesAmount === amt
-                              ? 'bg-[#2D5A27] text-white border-transparent'
+                              ? 'bg-[#2D5A27] text-white border-transparent shadow-sm'
                               : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                           }`}
                         >
