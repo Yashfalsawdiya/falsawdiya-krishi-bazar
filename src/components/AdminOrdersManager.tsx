@@ -7,12 +7,15 @@ import { getLocalOrders } from '../services/orderService';
 import { 
   Package, Search, Filter, Clock, Truck, 
   CheckCircle2, AlertCircle, Eye, Phone, MapPin, 
-  ChevronDown, Edit3, Loader2, RefreshCw
+  ChevronDown, Edit3, Loader2, RefreshCw, Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from './SmartImage';
+import { generateOrderInvoicePDF } from '../utils/invoiceGenerator';
+import { useAppContext } from '../context/AppContext';
 
 const AdminOrdersManager: React.FC = () => {
+  const { appContent } = useAppContext();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -199,13 +202,29 @@ const AdminOrdersManager: React.FC = () => {
                     })}
                   </p>
                 </div>
-                <button
-                  onClick={() => handleOpenStatusModal(order)}
-                  className="px-3 py-1.5 bg-[#2D5A27]/10 hover:bg-[#2D5A27]/20 text-[#2D5A27] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>स्थिति बदलें ({order.status})</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => generateOrderInvoicePDF(order, {
+                      storeName: appContent?.branding?.name || 'फल्सावदिया कृषि बाजार',
+                      tagline: appContent?.branding?.tagline || 'किसान का भरोसा, हमारी पहचान',
+                      phone: appContent?.contactInfo?.whatsapp || '+91 89823 38046',
+                      address: appContent?.contactInfo?.address || 'मध्य प्रदेश (भारत)',
+                      logo: appContent?.branding?.logo,
+                    })}
+                    className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold flex items-center gap-1 transition-all"
+                    title="Invoice PDF Download"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>रसीद</span>
+                  </button>
+                  <button
+                    onClick={() => handleOpenStatusModal(order)}
+                    className="px-3 py-1.5 bg-[#2D5A27]/10 hover:bg-[#2D5A27]/20 text-[#2D5A27] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>स्थिति बदलें ({order.status})</span>
+                  </button>
+                </div>
               </div>
 
               {/* Customer and Shipping Details */}

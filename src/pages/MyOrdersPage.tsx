@@ -65,7 +65,6 @@ const MyOrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const loadOrders = async () => {
     setLoading(true);
@@ -80,12 +79,11 @@ const MyOrdersPage: React.FC = () => {
   }, [user]);
 
   const filteredOrders = orders.filter((order) => {
-    const matchesFilter = statusFilter === 'all' || order.status === statusFilter;
     const search = searchQuery.toLowerCase().trim();
     const matchesSearch = !search || 
       order.orderNumber.toLowerCase().includes(search) ||
       order.items.some(i => i.hindiName.toLowerCase().includes(search) || i.name.toLowerCase().includes(search));
-    return matchesFilter && matchesSearch;
+    return matchesSearch;
   });
 
   return (
@@ -106,8 +104,8 @@ const MyOrdersPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="space-y-2">
+      {/* Search Bar (if user has orders) */}
+      {orders.length > 0 && (
         <div className="relative">
           <input
             type="text"
@@ -118,30 +116,7 @@ const MyOrdersPage: React.FC = () => {
           />
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
         </div>
-
-        {/* Status Pills */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-          {[
-            { id: 'all', label: 'सभी (All)' },
-            { id: 'placed', label: 'दर्ज (Placed)' },
-            { id: 'confirmed', label: 'स्वीकृत (Confirmed)' },
-            { id: 'dispatched', label: 'रवाना (Dispatched)' },
-            { id: 'delivered', label: 'डिलीवर (Delivered)' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                statusFilter === tab.id
-                  ? 'bg-[#2D5A27] text-white shadow-sm'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* Orders List */}
       {loading ? (

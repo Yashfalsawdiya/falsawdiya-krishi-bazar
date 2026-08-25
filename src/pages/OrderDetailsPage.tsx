@@ -7,10 +7,12 @@ import {
   ArrowLeft, CheckCircle2, Clock, Truck, 
   MapPin, Phone, User, Package, Download, 
   AlertCircle, ShieldCheck, MessageSquare, 
-  ChevronRight, Calendar, Sparkles
+  ChevronRight, Calendar, Sparkles, Loader2, FileCheck,
+  ShoppingBag, ClipboardCheck, Check
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
+import { generateOrderInvoicePDF } from '../utils/invoiceGenerator';
 
 const OrderDetailsPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -20,6 +22,8 @@ const OrderDetailsPage: React.FC = () => {
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfMessage, setPdfMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const isJustPlaced = (location.state as any)?.justPlaced;
   const whatsappNumber = appContent?.contactInfo?.whatsapp || '918982338046';
@@ -68,8 +72,46 @@ const OrderDetailsPage: React.FC = () => {
     minute: '2-digit',
   });
 
-  const handleDownloadInvoice = () => {
-    window.print();
+  const handleDownloadInvoice = async () => {
+    if (!order || isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
+    setPdfMessage(null);
+
+    try {
+      const storeName = appContent?.branding?.name || 'फल्सावदिया कृषि बाजार';
+      const storeTagline = appContent?.branding?.tagline || 'उच्च गुणवत्ता युक्त कृषि उत्पाद एवं किसान समाधान केंद्र';
+      const phone = appContent?.contactInfo?.whatsapp || '+91 89823 38046';
+      const address = appContent?.contactInfo?.address || 'मध्य प्रदेश (भारत)';
+
+      const result = await generateOrderInvoicePDF(order, {
+        storeName,
+        tagline: storeTagline,
+        phone,
+        address,
+        logo: appContent?.branding?.logo,
+      });
+
+      if (result.success) {
+        setPdfMessage({
+          type: 'success',
+          text: `रसीद (${result.fileName}) सफलतापूर्वक डाउनलोड हो गई है।`,
+        });
+        setTimeout(() => setPdfMessage(null), 5000);
+      } else {
+        setPdfMessage({
+          type: 'error',
+          text: result.error || 'रसीद डाउनलोड करने में समस्या आई। कृपया पुनः प्रयास करें।',
+        });
+      }
+    } catch (err: any) {
+      console.error('Invoice download error:', err);
+      setPdfMessage({
+        type: 'error',
+        text: err.message || 'रसीद जनरेट करने में असमर्थ।',
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const handleOrderSupport = () => {
@@ -78,10 +120,30 @@ const OrderDetailsPage: React.FC = () => {
   };
 
   const timelineSteps = [
-    { key: 'placed', label: 'ऑर्डर दर्ज (Placed)' },
-    { key: 'confirmed', label: 'स्वीकृत (Confirmed)' },
-    { key: 'dispatched', label: 'रवाना (Shipped)' },
-    { key: 'delivered', label: 'डिलीवर (Delivered)' },
+    { 
+      key: 'placed', 
+      hindiTitle: 'ऑर्डर दर्ज', 
+      englishStatus: '(Placed)', 
+      icon: ShoppingBag 
+    },
+    { 
+      key: 'confirmed', 
+      hindiTitle: 'स्वीकृत', 
+      englishStatus: '(Confirmed)', 
+      icon: ClipboardCheck 
+    },
+    { 
+      key: 'dispatched', 
+      hindiTitle: 'रवाना', 
+      englishStatus: '(Shipped)', 
+      icon: Truck 
+    },
+    { 
+      key: 'delivered', 
+      hindiTitle: 'डिलीवर', 
+      englishStatus: '(Delivered)', 
+      icon: Check 
+    },
   ];
 
   const statusOrderIndex: Record<OrderStatus, number> = {
@@ -114,13 +176,58 @@ const OrderDetailsPage: React.FC = () => {
 
         <button
           onClick={handleDownloadInvoice}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all active:scale-95"
-          title="Print / Save Invoice"
+          disabled={isGeneratingPdf}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 ${
+            isGeneratingPdf
+              ? 'bg-[#2D5A27]/10 text-[#2D5A27] cursor-wait'
+              : 'bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90'
+          }`}
+          title="Download PDF Invoice"
         >
-          <Download className="w-3.5 h-3.5" />
-          <span>रसीद (Invoice)</span>
+          {isGeneratingPdf ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2D5A27]" />
+              <span>PDF तैयार हो रहा है...</span>
+            </>
+          ) : (
+            <>
+              <Download className="w-3.5 h-3.5" />
+              <span>रसीद (Invoice)</span>
+            </>
+          )}
         </button>
       </div>
+
+      {/* PDF Generation Status Alert */}
+      <AnimatePresence>
+        {pdfMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className={`p-3 rounded-2xl border text-xs font-bold flex items-center justify-between gap-2 shadow-sm ${
+              pdfMessage.type === 'success'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : 'bg-red-50 border-red-200 text-red-800'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {pdfMessage.type === 'success' ? (
+                <FileCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+              )}
+              <span>{pdfMessage.text}</span>
+            </div>
+            <button
+              onClick={() => setPdfMessage(null)}
+              className="text-[10px] uppercase font-bold text-gray-400 hover:text-gray-700 ml-2"
+            >
+              ✕
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Success Celebration Alert (Only if just placed) */}
       {isJustPlaced && (
@@ -140,58 +247,85 @@ const OrderDetailsPage: React.FC = () => {
       )}
 
       {/* Visual Live Tracking Timeline Card */}
-      <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">लाइव ट्रैकिंग स्थिति</span>
-            <h3 className="text-sm font-bold text-gray-800">
-              {order.status === 'delivered' ? 'सामान डिलीवर हो चुका है' : 'ऑर्डर प्रगति पर है (In Progress)'}
-            </h3>
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-gray-100 shadow-sm space-y-5">
+        {/* Section Title matching reference */}
+        <div className="text-center space-y-1">
+          <h3 className="text-lg sm:text-xl font-black text-[#2D5A27] tracking-tight">
+            अपना ऑर्डर ट्रैक करें
+          </h3>
+          <div className="flex items-center justify-center gap-2 text-xs">
+            <span className="text-gray-500 font-medium">वर्तमान स्थिति:</span>
+            <span className="font-bold text-[#2D5A27] bg-[#DCFCE7] px-2.5 py-0.5 rounded-full">
+              {order.status === 'delivered'
+                ? 'डिलीवर हो चुका है (Delivered)'
+                : order.status === 'dispatched'
+                ? 'पार्सल रवाना (Shipped)'
+                : order.status === 'confirmed'
+                ? 'स्वीकृत (Confirmed)'
+                : order.status === 'placed'
+                ? 'ऑर्डर दर्ज (Placed)'
+                : 'रद्द (Cancelled)'}
+            </span>
           </div>
-          {order.estimatedDeliveryDate && (
-            <div className="text-right">
-              <span className="text-[10px] text-gray-400 font-bold block">अनुमानित डिलीवरी</span>
-              <span className="text-xs font-bold text-[#2D5A27]">{order.estimatedDeliveryDate}</span>
-            </div>
-          )}
         </div>
 
-        {/* Horizontal Step Indicator */}
+        {/* Horizontal Step Indicator Matching Reference Design */}
         {order.status !== 'cancelled' ? (
-          <div className="relative py-2">
-            {/* Background Line */}
-            <div className="absolute top-1/2 left-4 right-4 h-1 bg-gray-100 -translate-y-1/2 rounded-full" />
-            {/* Active Line */}
-            <div
-              className="absolute top-1/2 left-4 h-1 bg-[#2D5A27] -translate-y-1/2 rounded-full transition-all duration-500"
-              style={{
-                width: `${Math.min(100, Math.max(0, (currentStepIdx / (timelineSteps.length - 1)) * 90))}%`,
-              }}
-            />
+          <div className="relative pt-2 pb-3">
+            {/* Background Line Connecting from first circle center (12.5%) to last circle center (87.5%) */}
+            <div className="absolute top-[32px] sm:top-[36px] left-[12.5%] right-[12.5%] h-1 bg-gray-200 -translate-y-1/2 rounded-full" />
+            
+            {/* Active Green Line */}
+            {currentStepIdx >= 0 && (
+              <div
+                className="absolute top-[32px] sm:top-[36px] left-[12.5%] h-1 bg-[#2D5A27] -translate-y-1/2 rounded-full transition-all duration-700 ease-out"
+                style={{
+                  width: `${Math.min(75, Math.max(0, (currentStepIdx / (timelineSteps.length - 1)) * 75))}%`,
+                }}
+              />
+            )}
 
-            <div className="relative flex justify-between">
+            {/* 4 Steps Grid */}
+            <div className="grid grid-cols-4 relative z-10">
               {timelineSteps.map((step, idx) => {
                 const isCompleted = idx <= currentStepIdx;
                 const isCurrent = idx === currentStepIdx;
+                const StepIcon = step.icon;
 
                 return (
-                  <div key={step.key} className="flex flex-col items-center text-center max-w-[70px]">
+                  <div key={step.key} className="flex flex-col items-center text-center px-0.5">
+                    {/* Circle Icon Container */}
                     <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-sm ${
+                      className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center transition-all duration-300 ${
                         isCompleted
-                          ? 'bg-[#2D5A27] text-white'
-                          : 'bg-white border-2 border-gray-200 text-gray-400'
-                      } ${isCurrent ? 'ring-4 ring-[#2D5A27]/20 scale-110' : ''}`}
-                    >
-                      {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
-                    </div>
-                    <span
-                      className={`text-[9px] mt-1.5 font-bold leading-tight ${
-                        isCompleted ? 'text-[#2D5A27]' : 'text-gray-400'
+                          ? 'bg-[#DCFCE7] border-2 border-[#2D5A27] text-[#2D5A27]'
+                          : 'bg-gray-50 border-2 border-gray-200 text-gray-400'
+                      } ${
+                        isCurrent
+                          ? 'ring-4 ring-[#2D5A27]/25 shadow-md scale-105'
+                          : ''
                       }`}
                     >
-                      {step.label}
-                    </span>
+                      <StepIcon className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.2]" />
+                    </div>
+
+                    {/* Hindi Title & English Status */}
+                    <div className="mt-2.5 sm:mt-3 text-center space-y-0.5 w-full">
+                      <p
+                        className={`text-xs sm:text-sm font-black leading-tight truncate px-0.5 ${
+                          isCompleted ? 'text-[#2D5A27]' : 'text-gray-400'
+                        }`}
+                      >
+                        {step.hindiTitle}
+                      </p>
+                      <p
+                        className={`text-[10px] sm:text-xs font-semibold leading-tight ${
+                          isCompleted ? 'text-[#2D5A27]/80' : 'text-gray-400'
+                        }`}
+                      >
+                        {step.englishStatus}
+                      </p>
+                    </div>
                   </div>
                 );
               })}
@@ -200,6 +334,17 @@ const OrderDetailsPage: React.FC = () => {
         ) : (
           <div className="bg-red-50 text-red-700 p-3 rounded-2xl text-xs font-bold text-center border border-red-200">
             यह ऑर्डर रद्द (Cancelled) कर दिया गया है।
+          </div>
+        )}
+
+        {/* Estimated Delivery Notice (if set) */}
+        {order.estimatedDeliveryDate && (
+          <div className="flex items-center justify-between bg-amber-50/70 border border-amber-200/70 px-3.5 py-2.5 rounded-2xl text-xs">
+            <div className="flex items-center gap-2 text-amber-900 font-bold">
+              <Calendar className="w-4 h-4 text-amber-700" />
+              <span>अनुमानित डिलीवरी तिथि:</span>
+            </div>
+            <span className="font-black text-[#2D5A27]">{order.estimatedDeliveryDate}</span>
           </div>
         )}
 

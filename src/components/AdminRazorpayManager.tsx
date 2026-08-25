@@ -192,13 +192,6 @@ const AdminRazorpayManager: React.FC = () => {
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <span className={`text-[11px] font-black px-3 py-1 rounded-full border ${
-            enabled 
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-              : 'bg-red-50 text-red-700 border-red-200'
-          }`}>
-            {enabled ? '● गेटवे चालू (ENABLED)' : '○ गेटवे बंद (DISABLED)'}
-          </span>
-          <span className={`text-[11px] font-black px-3 py-1 rounded-full border ${
             mode === 'live' 
               ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm' 
               : 'bg-amber-100 text-amber-900 border-amber-300'
@@ -236,35 +229,6 @@ const AdminRazorpayManager: React.FC = () => {
           </button>
         </motion.div>
       )}
-
-      {/* 1. Master ON/OFF Switch */}
-      <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="font-bold text-sm text-[#4A3728]">
-              Razorpay Payment Gateway: {enabled ? 'ON (सक्रिय)' : 'OFF (अक्रिय)'}
-            </h4>
-            <p className="text-xs text-gray-400">
-              {enabled
-                ? 'ग्राहक कार्ट से Razorpay के माध्यम से सुरक्षित ऑनलाइन भुगतान कर सकते हैं।'
-                : 'चेकआउट पृष्ठ पर ऑनलाइन भुगतान बंद रहेगा और ग्राहकों को सूचना दिखेगी।'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setEnabled(!enabled)}
-            className={`w-14 h-8 rounded-full relative transition-colors duration-200 cursor-pointer ${
-              enabled ? 'bg-[#2D5A27]' : 'bg-gray-300'
-            }`}
-          >
-            <div
-              className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-200 shadow-sm ${
-                enabled ? 'left-7' : 'left-1'
-              }`}
-            />
-          </button>
-        </div>
-      </div>
 
       {/* 2. Mode Selector: Test Mode vs Live Mode */}
       <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4">
@@ -339,9 +303,6 @@ const AdminRazorpayManager: React.FC = () => {
                 Test Mode Credentials
               </h4>
             </div>
-            <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
-              rzp_test_...
-            </span>
           </div>
 
           <div className="space-y-3">
@@ -403,9 +364,6 @@ const AdminRazorpayManager: React.FC = () => {
                 Live Mode Credentials
               </h4>
             </div>
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-              rzp_live_...
-            </span>
           </div>
 
           <div className="space-y-3">
