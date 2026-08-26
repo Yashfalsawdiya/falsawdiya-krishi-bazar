@@ -19,15 +19,17 @@ import {
   AlertTriangle, 
   PhoneCall, 
   ShieldAlert,
-  Layers
+  Layers,
+  ArrowLeft
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
 
 const ICONS = [RotateCcw, AlertCircle, Clock, Ban, PackageX, Truck, CreditCard, Phone];
 
 const ReturnRefundPolicy: React.FC = () => {
+  const navigate = useNavigate();
   const { appContent, legalPagesContent } = useAppContext();
 
   const branding = appContent?.branding || {
@@ -39,6 +41,17 @@ const ReturnRefundPolicy: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-8">
+      {/* Top Back Navigation Bar */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 active:scale-95 px-3.5 py-2 rounded-2xl shadow-xs border border-gray-200 transition-all cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4 text-[#2D5A27]" />
+          <span>वापस जाएँ (Back)</span>
+        </button>
+      </div>
+
       {/* Header Banner */}
       <motion.div 
         initial={{ opacity: 0, y: -10 }}

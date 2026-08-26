@@ -109,6 +109,10 @@ export default function App() {
                 <Route path="terms" element={<TermsConditions />} />
                 <Route path="refund-policy" element={<ReturnRefundPolicy />} />
                 <Route path="returns" element={<ReturnRefundPolicy />} />
+                <Route path="return-policy" element={<ReturnRefundPolicy />} />
+                <Route path="cancellation-policy" element={<ReturnRefundPolicy />} />
+                <Route path="legal/refund-policy" element={<ReturnRefundPolicy />} />
+                <Route path="legal/returns" element={<ReturnRefundPolicy />} />
                 <Route path="disclaimer" element={<AiDisclaimer />} />
                 <Route path="ai-disclaimer" element={<AiDisclaimer />} />
                 <Route path="contact" element={<ContactUs />} />

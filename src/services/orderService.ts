@@ -155,7 +155,12 @@ export const updateOrderStatus = async (
 };
 
 // Fetch all orders for current user (or match by phone / email / local cache)
-export const fetchUserOrders = async (userId?: string, userEmail?: string, userPhone?: string): Promise<Order[]> => {
+export const fetchUserOrders = async (
+  userId?: string, 
+  userEmail?: string, 
+  userPhone?: string,
+  limitCount: number = 20
+): Promise<Order[]> => {
   const localOrders = getLocalOrders();
   const remoteOrdersMap = new Map<string, Order>();
 
@@ -166,20 +171,32 @@ export const fetchUserOrders = async (userId?: string, userEmail?: string, userP
   }
 
   try {
-    let orderDocs: any[] = [];
+    let orderDocs: Order[] = [];
 
     if (userId) {
-      const q = query(collection(db, 'orders'), where('userId', '==', userId));
+      const q = query(
+        collection(db, 'orders'), 
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc')
+      );
       const snap = await getDocs(q);
       snap.forEach(d => orderDocs.push(d.data() as Order));
     } else if (userEmail) {
-      const q = query(collection(db, 'orders'), where('userEmail', '==', userEmail));
+      const q = query(
+        collection(db, 'orders'), 
+        where('userEmail', '==', userEmail),
+        orderBy('createdAt', 'desc')
+      );
       const snap = await getDocs(q);
       snap.forEach(d => orderDocs.push(d.data() as Order));
     }
 
     if (userPhone) {
-      const qPhone = query(collection(db, 'orders'), where('customerDetails.phone', '==', userPhone));
+      const qPhone = query(
+        collection(db, 'orders'), 
+        where('customerDetails.phone', '==', userPhone),
+        orderBy('createdAt', 'desc')
+      );
       const snapPhone = await getDocs(qPhone);
       snapPhone.forEach(d => orderDocs.push(d.data() as Order));
     }

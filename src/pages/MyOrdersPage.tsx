@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { fetchUserOrders } from '../services/orderService';
+import { fetchUserOrders, getLocalOrders } from '../services/orderService';
 import { Order, OrderStatus } from '../types';
 import { 
   Package, ArrowRight, ChevronRight, Clock, 
   CheckCircle2, Truck, AlertCircle, ShoppingBag, 
-  Search, RefreshCw, Eye
+  Search, RefreshCw, Eye, Sparkles, MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
@@ -62,9 +62,12 @@ const getStatusBadge = (status: OrderStatus) => {
 const MyOrdersPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAppContext();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Instant load from Local Cache (0ms delay, 0 initial Firestore reads)
+  const [orders, setOrders] = useState<Order[]>(() => getLocalOrders());
+  const [loading, setLoading] = useState(orders.length === 0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [displayLimit, setDisplayLimit] = useState(10);
 
   const loadOrders = async () => {
     setLoading(true);
@@ -86,6 +89,9 @@ const MyOrdersPage: React.FC = () => {
     return matchesSearch;
   });
 
+  const visibleOrders = filteredOrders.slice(0, displayLimit);
+  const hasMore = filteredOrders.length > displayLimit;
+
   return (
     <div className="space-y-4 pb-12">
       {/* Header */}
@@ -97,10 +103,10 @@ const MyOrdersPage: React.FC = () => {
         <button
           onClick={loadOrders}
           disabled={loading}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600 active:scale-95"
-          title="Refresh"
+          className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600 active:scale-95 cursor-pointer"
+          title="Refresh Orders"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-[#2D5A27]' : ''}`} />
         </button>
       </div>
 
@@ -115,11 +121,19 @@ const MyOrdersPage: React.FC = () => {
             className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-[#2D5A27]"
           />
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-2.5 text-xs text-gray-400 hover:text-gray-600 font-bold"
+            >
+              ✕
+            </button>
+          )}
         </div>
       )}
 
       {/* Orders List */}
-      {loading ? (
+      {loading && orders.length === 0 ? (
         <div className="py-12 text-center bg-white rounded-3xl border border-gray-100 shadow-sm space-y-3">
           <div className="w-8 h-8 border-3 border-[#2D5A27]/20 border-t-[#2D5A27] rounded-full animate-spin mx-auto" />
           <p className="text-xs text-gray-400 font-medium">ऑर्डर लोड हो रहे हैं...</p>
@@ -137,14 +151,14 @@ const MyOrdersPage: React.FC = () => {
           </div>
           <button
             onClick={() => navigate('/products')}
-            className="px-6 py-2.5 bg-[#2D5A27] text-white rounded-xl text-xs font-bold shadow-md hover:bg-[#2D5A27]/90 active:scale-95 transition-all"
+            className="px-6 py-2.5 bg-[#2D5A27] text-white rounded-xl text-xs font-bold shadow-md hover:bg-[#2D5A27]/90 active:scale-95 transition-all cursor-pointer"
           >
             उत्पाद देखें (Shop Now)
           </button>
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredOrders.map((order) => {
+          {visibleOrders.map((order) => {
             const badge = getStatusBadge(order.status);
             const BadgeIcon = badge.icon;
             const orderDate = new Date(order.createdAt).toLocaleDateString('hi-IN', {
@@ -159,7 +173,7 @@ const MyOrdersPage: React.FC = () => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 onClick={() => navigate(`/orders/${order.id}`)}
-                className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:border-[#2D5A27]/30 hover:shadow-md transition-all cursor-pointer space-y-3"
+                className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:border-[#2D5A27]/30 hover:shadow-md transition-all cursor-pointer space-y-3 active:scale-[0.99]"
               >
                 {/* Top Row: Order No, Date and Status */}
                 <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
@@ -202,7 +216,7 @@ const MyOrdersPage: React.FC = () => {
                       {order.items.map((i) => i.hindiName).join(', ')}
                     </p>
                     <p className="text-[10px] text-gray-400 mt-0.5">
-                      {order.items.length} उत्पाद ({order.itemCount} मात्रा) • ऑनलाइन UPI
+                      {order.items.length} उत्पाद ({order.itemCount} मात्रा) • ऑनलाइन UPI Paid
                     </p>
                   </div>
                 </div>
@@ -225,6 +239,18 @@ const MyOrdersPage: React.FC = () => {
               </motion.div>
             );
           })}
+
+          {/* Load More Button for Pagination */}
+          {hasMore && (
+            <div className="text-center pt-2">
+              <button
+                onClick={() => setDisplayLimit(prev => prev + 10)}
+                className="px-5 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 rounded-2xl text-xs font-bold text-gray-700 shadow-xs active:scale-95 transition-all cursor-pointer"
+              >
+                पुराने और ऑर्डर देखें ({filteredOrders.length - displayLimit} और)
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

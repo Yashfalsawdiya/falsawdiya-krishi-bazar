@@ -46,7 +46,7 @@ const Admin: React.FC = () => {
     }
   }, [isAdmin]);
   
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'encyclopedia' | 'helplines' | 'content' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'orders' | 'razorpay'>('content');
+  const [activeTab, setActiveTab] = useState<'orders' | 'content' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay'>('orders');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
   const [productSearchQuery, setProductSearchQuery] = useState<string>('');
@@ -575,6 +575,15 @@ const Admin: React.FC = () => {
       {/* Tabs */}
       <div className="flex gap-2 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto no-scrollbar">
         <button 
+          onClick={() => setActiveTab('orders')}
+          className={cn(
+            "flex-1 min-w-[130px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'orders' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <Package className="w-4 h-4" /> ऑर्डर्स (Orders)
+        </button>
+        <button 
           onClick={() => setActiveTab('content')}
           className={cn(
             "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
@@ -645,15 +654,6 @@ const Admin: React.FC = () => {
           )}
         >
           <Users className="w-4 h-4" /> यूज़र्स (Users)
-        </button>
-        <button 
-          onClick={() => setActiveTab('orders')}
-          className={cn(
-            "flex-1 min-w-[130px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'orders' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <Package className="w-4 h-4" /> ऑर्डर्स (Orders)
         </button>
         <button 
           onClick={() => setActiveTab('razorpay')}

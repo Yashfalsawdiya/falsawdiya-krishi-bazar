@@ -609,7 +609,7 @@ const OrderDetailsPage: React.FC = () => {
 
           <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-[10px] text-gray-400">
             <span>रिफंड नीति: Razorpay मूल खाता (24-48 घंटे)</span>
-            <Link to="/legal/refund-policy" className="text-[#2D5A27] font-bold hover:underline flex items-center gap-0.5">
+            <Link to="/refund-policy" className="text-[#2D5A27] font-bold hover:underline flex items-center gap-0.5">
               रिफंड नियम पढ़ें <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
@@ -634,14 +634,14 @@ const OrderDetailsPage: React.FC = () => {
           </div>
           <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
             <Link
-              to="/legal/refund-policy"
-              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-[11px] font-bold transition-all"
+              to="/refund-policy"
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-[11px] font-bold transition-all cursor-pointer inline-flex items-center active:scale-95"
             >
               वापसी नीति देखें
             </Link>
             <button
               onClick={handleOrderSupport}
-              className="px-3 py-1.5 bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90 rounded-xl text-[11px] font-bold flex items-center gap-1 transition-all"
+              className="px-3 py-1.5 bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90 rounded-xl text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95"
             >
               <MessageSquare className="w-3 h-3" />
               <span>वापसी के लिए संपर्क करें</span>
