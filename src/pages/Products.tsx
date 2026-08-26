@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
@@ -37,28 +37,93 @@ const Products: React.FC = () => {
     }
   }, [searchParams]);
 
-  const filteredProducts = products
-    .filter(p => {
-      const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
-      const searchQuery = searchParams.get('search')?.toLowerCase() || '';
-      const matchesSearch = !searchQuery || 
-        p.name.toLowerCase().includes(searchQuery) || 
-        p.hindiName.toLowerCase().includes(searchQuery) || 
+  // Standard comparator for customId / hindiName sorting
+  const sortProductHelper = (a: Product, b: Product) => {
+    const idA = a.customId || '';
+    const idB = b.customId || '';
+    if (!idA && !idB) {
+      return (a.hindiName || '').localeCompare(b.hindiName || '', 'hi');
+    }
+    if (!idA) return 1;
+    if (!idB) return -1;
+    return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+  };
+
+  const filteredProducts = useMemo(() => {
+    const searchQuery = searchParams.get('search')?.toLowerCase() || '';
+
+    const matchesSearch = (p: Product) => {
+      if (!searchQuery) return true;
+      return (
+        p.name.toLowerCase().includes(searchQuery) ||
+        p.hindiName.toLowerCase().includes(searchQuery) ||
         p.brand.toLowerCase().includes(searchQuery) ||
-        p.description?.toLowerCase().includes(searchQuery);
-      
-      return matchesCategory && matchesSearch;
-    })
-    .sort((a, b) => {
-      const idA = a.customId || '';
-      const idB = b.customId || '';
-      if (!idA && !idB) {
-        return (a.hindiName || '').localeCompare(b.hindiName || '', 'hi');
+        (p.description && p.description.toLowerCase().includes(searchQuery))
+      );
+    };
+
+    // If an individual category filter is active (not 'all'), preserve standard category view
+    if (selectedCategory !== 'all') {
+      return products
+        .filter(p => p.category === selectedCategory && matchesSearch(p))
+        .sort(sortProductHelper);
+    }
+
+    // When "सभी (All)" is active:
+    // 1. Filter all products matching the search query
+    const matchingProducts = products.filter(matchesSearch);
+    if (matchingProducts.length === 0) return [];
+
+    // 2. Group products by category
+    const categoryGroups = new Map<string, Product[]>();
+    matchingProducts.forEach(product => {
+      const catKey = product.category || 'other';
+      if (!categoryGroups.has(catKey)) {
+        categoryGroups.set(catKey, []);
       }
-      if (!idA) return 1;
-      if (!idB) return -1;
-      return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+      categoryGroups.get(catKey)!.push(product);
     });
+
+    // 3. Sort each category group internally (e.g. FERT-01, FERT-02)
+    categoryGroups.forEach(group => {
+      group.sort(sortProductHelper);
+    });
+
+    // 4. Build category sequence based on configured categories
+    const orderedCategoryKeys: string[] = [];
+    categories.forEach(cat => {
+      if (categoryGroups.has(cat.id)) {
+        orderedCategoryKeys.push(cat.id);
+      }
+    });
+    // Append any extra category keys not in the main categories list
+    categoryGroups.forEach((_, key) => {
+      if (!orderedCategoryKeys.includes(key)) {
+        orderedCategoryKeys.push(key);
+      }
+    });
+
+    // 5. Interleave in a round-robin mixed order (Fertilizer -> Seed -> Insecticide -> Fungicide -> Herbicide...)
+    const mixedProducts: Product[] = [];
+    let hasMore = true;
+    let round = 0;
+
+    while (hasMore) {
+      hasMore = false;
+      for (const catKey of orderedCategoryKeys) {
+        const group = categoryGroups.get(catKey);
+        if (group && round < group.length) {
+          mixedProducts.push(group[round]);
+          if (round + 1 < group.length) {
+            hasMore = true;
+          }
+        }
+      }
+      round++;
+    }
+
+    return mixedProducts;
+  }, [products, categories, selectedCategory, searchParams]);
 
   const handleDirectBuy = (product: Product) => {
     addToCart(product, product.variants?.[0]);

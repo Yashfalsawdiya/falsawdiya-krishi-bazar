@@ -11,6 +11,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
 import { getCustomerDetails } from '../utils/customerStorage';
+import { formatFullHindiDate } from '../lib/dateUtils';
 
 const getStatusBadge = (status: OrderStatus) => {
   switch (status) {
@@ -161,11 +162,7 @@ const MyOrdersPage: React.FC = () => {
           {visibleOrders.map((order) => {
             const badge = getStatusBadge(order.status);
             const BadgeIcon = badge.icon;
-            const orderDate = new Date(order.createdAt).toLocaleDateString('hi-IN', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            });
+            const orderDate = formatFullHindiDate(order.createdAt, false);
 
             return (
               <motion.div

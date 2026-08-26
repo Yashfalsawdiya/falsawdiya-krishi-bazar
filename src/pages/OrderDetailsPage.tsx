@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
 import { generateOrderInvoicePDF } from '../utils/invoiceGenerator';
+import { formatFullHindiDate } from '../lib/dateUtils';
 
 const CANCELLATION_REASONS = [
   'गलती से दूसरा उत्पाद या मात्रा ऑर्डर हो गई (Ordered by mistake)',
@@ -81,13 +82,7 @@ const OrderDetailsPage: React.FC = () => {
     );
   }
 
-  const orderDate = new Date(order.createdAt).toLocaleDateString('hi-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const orderDate = formatFullHindiDate(order.createdAt, true);
 
   const handleDownloadInvoice = async () => {
     if (!order || isGeneratingPdf) return;

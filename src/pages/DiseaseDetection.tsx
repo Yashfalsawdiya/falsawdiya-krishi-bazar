@@ -261,7 +261,7 @@ const DiseaseDetection: React.FC = () => {
       // Create new Scan Record with unique ID and initial chat history
       const newScanId = `scan_${Date.now()}`;
       const now = new Date();
-      const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'short', year: 'numeric' }) + 
+      const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' }) + 
                       ' ' + now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
 
       let detectedTitle = 'फसल रोग रिपोर्ट';

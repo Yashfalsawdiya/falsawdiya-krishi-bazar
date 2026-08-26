@@ -380,6 +380,146 @@ export interface LicensingDisclaimerPageData {
   sections: PageSectionItem[];
 }
 
+export interface InvoiceTemplateConfig {
+  // 1. Header & Branding
+  showLogo: boolean;
+  logoSize: number; // in px e.g. 52
+  logoBorderRadius: number; // in px e.g. 12
+  logoBackground: string; // e.g. '#ffffff'
+  customLogoUrl?: string;
+  businessName: string;
+  businessNameFontSize: number; // in px e.g. 21
+  businessNameFontWeight: 'normal' | 'medium' | 'semibold' | 'bold' | '900';
+  businessNameColor: string;
+  tagline: string;
+  taglineFontSize: number; // in px e.g. 11
+  taglineColor: string;
+  phone: string;
+  phoneLabel: string;
+  showPhone: boolean;
+  address: string;
+  addressLabel: string;
+  showAddress: boolean;
+  contactTextColor: string;
+  headerBgType: 'gradient' | 'solid';
+  headerBgColor: string;
+  headerBgGradientEnd: string;
+  headerPadding: number; // in px e.g. 20
+  receiptBadgeText: string;
+  receiptBadgeBg: string;
+  receiptBadgeTextColor: string;
+  receiptBadgeFontSize: number; // in px e.g. 11
+  receiptBadgeBorderRadius: number; // in px e.g. 999
+  showReceiptBadge: boolean;
+  orderNumberPrefix: string;
+  orderNumberColor: string;
+  orderNumberFontSize: number; // in px e.g. 15
+  dateLabel: string;
+  dateColor: string;
+  dateFontSize: number; // in px e.g. 10.5
+
+  // 2. Global Layout & Styling
+  primaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  containerPadding: number; // in px e.g. 28
+  outerBorderWidth: number; // in px e.g. 2
+  outerBorderColor: string;
+  outerBorderRadius: number; // in px e.g. 16
+  outerBorderStyle: 'solid' | 'dashed' | 'double' | 'none';
+  cardBorderRadius: number; // in px e.g. 12
+  cardBgColor: string;
+  cardBorderColor: string;
+  detailsSectionBg: string;
+  detailsSectionPadding: number; // in px e.g. 18
+  fontFamily: string;
+
+  // 3. Customer Details Section
+  showCustomerDetails: boolean;
+  customerDetailsHeading: string;
+  customerHeadingColor: string;
+  customerHeadingFontSize: number; // in px e.g. 11.5
+  customerCardBg: string;
+  customerCardBorderColor: string;
+  customerTextColor: string;
+  customerPhoneLabel: string;
+
+  // 4. Payment Details Section
+  showPaymentDetails: boolean;
+  paymentDetailsHeading: string;
+  paymentHeadingColor: string;
+  paymentHeadingFontSize: number; // in px e.g. 11.5
+  paymentCardBg: string;
+  paymentCardBorderColor: string;
+  showRazorpayId: boolean;
+  showCourierTracking: boolean;
+  paidBadgeBg: string;
+  paidBadgeTextColor: string;
+  paidBadgeBorderColor: string;
+  pendingBadgeBg: string;
+  pendingBadgeTextColor: string;
+  pendingBadgeBorderColor: string;
+
+  // 5. Products Table Section
+  showProductsTable: boolean;
+  tableHeading: string;
+  tableHeadingColor: string;
+  tableHeadingFontSize: number; // in px e.g. 12.5
+  tableHeaderBg: string;
+  tableHeaderTextColor: string;
+  tableBorderColor: string;
+  tableFontSize: number; // in px e.g. 13
+  colIndexTitle: string;
+  colProductTitle: string;
+  colUnitTitle: string;
+  colQtyTitle: string;
+  colRateTitle: string;
+  colTotalTitle: string;
+  tablePriceColor: string;
+  tableAlternateRowBg: boolean;
+  tableAlternateColor: string;
+
+  // 6. Terms & Notice Section
+  showTerms: boolean;
+  termsHeading: string;
+  termsHeadingColor: string;
+  termsLines: string[];
+  termsCardBg: string;
+  termsCardBorderColor: string;
+  termsCardBorderStyle: 'solid' | 'dashed' | 'dotted';
+  termsTextColor: string;
+  termsFontSize: number; // in px e.g. 11
+
+  // 7. Summary & Totals Section
+  showSummaryTotals: boolean;
+  subtotalLabel: string;
+  deliveryLabel: string;
+  freeDeliveryText: string;
+  freeDeliveryColor: string;
+  paidDeliveryColor: string;
+  grandTotalLabel: string;
+  grandTotalColor: string;
+  grandTotalFontSize: number; // in px e.g. 17
+  summaryCardBg: string;
+  summaryCardBorderColor: string;
+  summaryCardBorderWidth: number; // in px e.g. 1.5
+
+  // 8. Verified Badge & Footer Section
+  showVerifiedBadge: boolean;
+  verifiedBadgeText: string;
+  verifiedBadgeSubtext: string;
+  verifiedBadgeBg: string;
+  verifiedBadgeTextColor: string;
+  verifiedBadgeBorderColor: string;
+  showFooter: boolean;
+  thankYouMessage: string;
+  showStoreNameInFooter: boolean;
+  footerStoreNameColor: string;
+  footerBg: string;
+  footerBorderColor: string;
+  footerTextColor: string;
+}
+
 export interface LegalPagesContent {
   aboutUs?: AboutUsPageData;
   privacyPolicy?: PrivacyPolicyPageData;

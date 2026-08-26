@@ -279,6 +279,10 @@
       "schema": "AppContent",
       "description": "Global application content settings."
     },
+    "/settings/invoiceTemplate": {
+      "schema": "InvoiceTemplate",
+      "description": "Customizable invoice PDF design and layout configuration."
+    },
     "/categories/{categoryId}": {
       "schema": "Category",
       "description": "Collection of product categories."

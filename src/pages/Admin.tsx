@@ -18,6 +18,7 @@ import SmartImage from '../components/SmartImage';
 import AdminPagesManager from '../components/AdminPagesManager';
 import AdminOrdersManager from '../components/AdminOrdersManager';
 import AdminRazorpayManager from '../components/AdminRazorpayManager';
+import AdminInvoiceTemplateManager from '../components/AdminInvoiceTemplateManager';
 
 const Admin: React.FC = () => {
   const { 
@@ -46,7 +47,7 @@ const Admin: React.FC = () => {
     }
   }, [isAdmin]);
   
-  const [activeTab, setActiveTab] = useState<'orders' | 'content' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'content' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate'>('orders');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
   const [productSearchQuery, setProductSearchQuery] = useState<string>('');
@@ -663,6 +664,15 @@ const Admin: React.FC = () => {
           )}
         >
           <CreditCard className="w-4 h-4" /> Razorpay गेटवे
+        </button>
+        <button 
+          onClick={() => setActiveTab('invoiceTemplate')}
+          className={cn(
+            "flex-1 min-w-[150px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'invoiceTemplate' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <FileText className="w-4 h-4" /> इनवॉइस डिज़ाइन (Invoice PDF)
         </button>
         <button 
           onClick={() => setActiveTab('legalPages')}
@@ -1440,6 +1450,8 @@ const Admin: React.FC = () => {
         <AdminOrdersManager />
       ) : activeTab === 'razorpay' ? (
         <AdminRazorpayManager />
+      ) : activeTab === 'invoiceTemplate' ? (
+        <AdminInvoiceTemplateManager />
       ) : activeTab === 'legalPages' ? (
         <AdminPagesManager />
       ) : (

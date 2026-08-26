@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent } from '../types';
+import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig } from '../types';
 import { PRODUCTS, CROP_ADVICE, CATEGORIES } from '../data/mockData';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
+import { DEFAULT_INVOICE_TEMPLATE, mergeInvoiceTemplate } from '../data/defaultInvoiceTemplate';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { cn, getDirectImageURL, getHighResImageURL } from '../lib/utils';
 import { 
@@ -85,6 +86,7 @@ interface AppContextType {
   helplines: Helpline[];
   appContent: AppContent | null;
   legalPagesContent: Required<LegalPagesContent>;
+  invoiceTemplate: InvoiceTemplateConfig;
   user: FirebaseUser | null;
   isAdmin: boolean;
   userSettings: UserSettings | null;
@@ -110,6 +112,8 @@ interface AppContextType {
   updateAppContent: (content: AppContent) => Promise<void>;
   updateLegalPagesContent: (content: LegalPagesContent) => Promise<void>;
   resetLegalPageContent: (pageKey: keyof LegalPagesContent) => Promise<void>;
+  updateInvoiceTemplate: (template: InvoiceTemplateConfig) => Promise<void>;
+  resetInvoiceTemplate: () => Promise<void>;
   updateUserSettings: (settings: UserSettings) => Promise<void>;
   updateUserStatus: (uid: string, isBlocked: boolean) => Promise<void>;
   login: () => Promise<void>;
@@ -162,6 +166,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error("Error reading cached legal pages:", e);
     }
     return DEFAULT_LEGAL_PAGES_CONTENT;
+  });
+
+  const [invoiceTemplate, setInvoiceTemplate] = useState<InvoiceTemplateConfig>(() => {
+    try {
+      const cached = localStorage.getItem('agri_cache_invoice_template');
+      if (cached) {
+        return mergeInvoiceTemplate(JSON.parse(cached));
+      }
+    } catch (e) {
+      console.error("Error reading cached invoice template:", e);
+    }
+    return DEFAULT_INVOICE_TEMPLATE;
   });
 
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -546,6 +562,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribeLegalPages();
   }, [isAdmin]);
 
+  // Sync invoice template settings from Firestore
+  useEffect(() => {
+    const cached = localStorage.getItem('agri_cache_invoice_template');
+    if (cached) {
+      try {
+        setInvoiceTemplate(mergeInvoiceTemplate(JSON.parse(cached)));
+      } catch (e) {
+        console.error("Failed to parse cached invoice template:", e);
+      }
+    }
+
+    if (!isSyncNeeded() && cached) return;
+
+    const unsubscribeInvoiceTemplate = onSnapshot(doc(db, 'settings', 'invoiceTemplate'), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data() as Partial<InvoiceTemplateConfig>;
+        const merged = mergeInvoiceTemplate(data);
+        setInvoiceTemplate(merged);
+        localStorage.setItem('agri_cache_invoice_template', JSON.stringify(merged));
+      }
+    }, (error) => {
+      const err = handleFirestoreError(error, OperationType.GET, 'settings/invoiceTemplate');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
+      }
+    });
+
+    return () => unsubscribeInvoiceTemplate();
+  }, [isAdmin]);
+
   // Additional effect to listen for all users if admin
   useEffect(() => {
     if (isAdmin) {
@@ -734,6 +780,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateInvoiceTemplate = async (template: InvoiceTemplateConfig) => {
+    try {
+      await setDoc(doc(db, 'settings', 'invoiceTemplate'), template, { merge: true });
+      const merged = mergeInvoiceTemplate(template);
+      setInvoiceTemplate(merged);
+      localStorage.setItem('agri_cache_invoice_template', JSON.stringify(merged));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'settings/invoiceTemplate');
+      throw error;
+    }
+  };
+
+  const resetInvoiceTemplate = async () => {
+    try {
+      const defaults = DEFAULT_INVOICE_TEMPLATE;
+      await setDoc(doc(db, 'settings', 'invoiceTemplate'), defaults);
+      setInvoiceTemplate(defaults);
+      localStorage.setItem('agri_cache_invoice_template', JSON.stringify(defaults));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'settings/invoiceTemplate');
+      throw error;
+    }
+  };
+
   const updateUserSettings = async (settings: UserSettings) => {
     if (!user) return;
     try {
@@ -777,6 +847,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       helplines,
       appContent,
       legalPagesContent,
+      invoiceTemplate,
       user, 
       isAdmin, 
       userSettings,
@@ -802,6 +873,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateAppContent,
       updateLegalPagesContent,
       resetLegalPageContent,
+      updateInvoiceTemplate,
+      resetInvoiceTemplate,
       updateUserSettings,
       updateUserStatus,
       login,

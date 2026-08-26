@@ -13,6 +13,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { generateOrderInvoicePDF } from '../utils/invoiceGenerator';
 import { useAppContext } from '../context/AppContext';
+import { formatFullHindiDate } from '../lib/dateUtils';
 
 // Web Audio API Chime generator (Zero external files, 100% reliable)
 const playOrderChime = () => {
@@ -499,7 +500,7 @@ const AdminOrdersManager: React.FC = () => {
                 onClick={() => setStatusFilter(tab.id)}
                 className={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
                   statusFilter === tab.id
-                    ? 'bg-gray-900 text-white shadow-xs'
+                    ? 'bg-[#2D5A27] text-white shadow-xs'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -558,11 +559,6 @@ const AdminOrdersManager: React.FC = () => {
                 <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
                   <div className="flex items-center gap-2">
                     <span className="font-black text-xs text-[#2D5A27]">{order.orderNumber}</span>
-                    {isToday && (
-                      <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-black rounded-md uppercase">
-                        आज का ऑर्डर
-                      </span>
-                    )}
                     <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
                       order.status === 'placed' ? 'bg-blue-100 text-blue-800' :
                       order.status === 'confirmed' ? 'bg-amber-100 text-amber-800' :
@@ -644,13 +640,7 @@ const AdminOrdersManager: React.FC = () => {
                       ✓ Razorpay Paid {order.razorpayPaymentId ? `(${order.razorpayPaymentId})` : ''}
                     </p>
                     <p className="text-[10px] text-gray-400">
-                      {new Date(order.createdAt).toLocaleDateString('hi-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {formatFullHindiDate(order.createdAt, true)}
                     </p>
                   </div>
                 </div>
