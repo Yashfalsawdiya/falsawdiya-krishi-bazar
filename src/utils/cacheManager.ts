@@ -4,32 +4,42 @@
 
 const APP_VERSION_KEY = 'app-version';
 
-export const checkAppVersion = async () => {
-  const currentVersion = __APP_VERSION__;
-  const storedVersion = localStorage.getItem(APP_VERSION_KEY);
-
-  if (storedVersion && storedVersion !== currentVersion) {
-    console.log(`New version detected: ${currentVersion}. Clearing old caches...`);
-    
+export const checkAppVersion = async (): Promise<void> => {
+  try {
+    const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0';
+    let storedVersion: string | null = null;
     try {
-      // Clear Cache Storage
-      if ('caches' in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map(name => caches.delete(name)));
-      }
-
-      // Optional: Clear specific local storage keys or all
-      // We might want to keep some user preferences, but for a total "glitch clear" 
-      // we might clear most things. For now, let's just update the version.
-      localStorage.setItem(APP_VERSION_KEY, currentVersion);
-      
-      // Force reload to get fresh assets
-      window.location.reload();
-    } catch (error) {
-      console.error('Error during cache cleanup:', error);
+      storedVersion = localStorage.getItem(APP_VERSION_KEY);
+    } catch {
+      // Ignore localStorage access restrictions in private/sandboxed contexts
     }
-  } else if (!storedVersion) {
-    localStorage.setItem(APP_VERSION_KEY, currentVersion);
+
+    if (storedVersion && storedVersion !== currentVersion) {
+      console.log(`New version detected: ${currentVersion}. Clearing old caches...`);
+      
+      try {
+        // Clear Cache Storage if available
+        if (typeof window !== 'undefined' && 'caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map(name => caches.delete(name).catch(() => false)));
+        }
+
+        try {
+          localStorage.setItem(APP_VERSION_KEY, currentVersion);
+        } catch {}
+        
+        // Force reload to get fresh assets
+        window.location.reload();
+      } catch (error) {
+        console.warn('Error during cache cleanup:', error);
+      }
+    } else if (!storedVersion) {
+      try {
+        localStorage.setItem(APP_VERSION_KEY, currentVersion);
+      } catch {}
+    }
+  } catch (err) {
+    console.warn('checkAppVersion handled error:', err);
   }
 };
 
