@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  FileText, Save, RotateCcw, Download, Eye, Check, AlertCircle, 
+  FileText, Save, Download, Eye, Check, AlertCircle, 
   Sparkles, Palette, Building, UserCheck, Table, DollarSign, 
   FileCheck, Shield, HelpCircle, ChevronRight, Plus, Trash2,
   ZoomIn, ZoomOut, Maximize2, RefreshCw, Layers
@@ -24,7 +24,6 @@ export const AdminInvoiceTemplateManager: React.FC = () => {
   const { 
     invoiceTemplate, 
     updateInvoiceTemplate, 
-    resetInvoiceTemplate, 
     appContent 
   } = useAppContext();
 
@@ -41,7 +40,6 @@ export const AdminInvoiceTemplateManager: React.FC = () => {
   const [activeTab, setActiveTab] = useState<EditorTab>('header');
   const [isSaving, setIsSaving] = useState(false);
   const [isTestingPdf, setIsTestingPdf] = useState(false);
-  const [showResetModal, setShowResetModal] = useState(false);
   const [previewScale, setPreviewScale] = useState<number>(0.82);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -110,28 +108,6 @@ export const AdminInvoiceTemplateManager: React.FC = () => {
       setNotification({
         type: 'error',
         message: err?.message || 'टेम्पलेट सुरक्षित करने में समस्या आई। कृपया पुनः प्रयास करें।',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Reset to default
-  const handleConfirmReset = async () => {
-    setIsSaving(true);
-    setShowResetModal(false);
-    try {
-      await resetInvoiceTemplate();
-      setConfig(DEFAULT_INVOICE_TEMPLATE);
-      setNotification({
-        type: 'success',
-        message: 'इनवॉइस टेम्पलेट को डिफ़ॉल्ट सेटिंग्स पर रीसेट कर दिया गया है।',
-      });
-      setTimeout(() => setNotification(null), 5000);
-    } catch (err: any) {
-      setNotification({
-        type: 'error',
-        message: 'रीसेट करने में समस्या आई।',
       });
     } finally {
       setIsSaving(false);
@@ -217,15 +193,6 @@ export const AdminInvoiceTemplateManager: React.FC = () => {
 
         {/* Global Actions */}
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setShowResetModal(true)}
-            className="px-3.5 py-2 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
-            title="डिफ़ॉल्ट सेटिंग्स पर वापस जाएँ"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>डिफ़ॉल्ट रीसेट</span>
-          </button>
-
           <button
             onClick={handleDownloadTestPdf}
             disabled={isTestingPdf}
@@ -1471,58 +1438,21 @@ export const AdminInvoiceTemplateManager: React.FC = () => {
             <div 
               style={{ 
                 width: '794px',
+                minWidth: '794px',
+                maxWidth: '794px',
                 transform: `scale(${previewScale})`,
                 transformOrigin: 'top center',
                 transition: 'transform 0.15s ease-out',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                borderRadius: `${config.outerBorderRadius}px`
               }}
-              className="bg-white rounded-2xl shrink-0"
+              className="bg-white shrink-0 overflow-hidden"
               dangerouslySetInnerHTML={{ __html: previewHtml }}
             />
           </div>
         </div>
 
       </div>
-
-      {/* Reset Confirmation Modal */}
-      <AnimatePresence>
-        {showResetModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-100 space-y-4"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
-                <RotateCcw className="w-6 h-6" />
-              </div>
-              <div className="text-center space-y-1">
-                <h3 className="text-base font-bold text-gray-900">
-                  क्या आप इनवॉइस डिज़ाइन रीसेट करना चाहते हैं?
-                </h3>
-                <p className="text-xs text-gray-500">
-                  सभी कस्टम रंग, हेडर स्टाइल, फ़ॉन्ट साइज़ और नियम डिफ़ॉल्ट मूल सेटिंग्स पर वापस सेट हो जाएँगे।
-                </p>
-              </div>
-              <div className="flex items-center gap-3 pt-2">
-                <button
-                  onClick={() => setShowResetModal(false)}
-                  className="flex-1 py-2.5 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all cursor-pointer"
-                >
-                  रद्द करें
-                </button>
-                <button
-                  onClick={handleConfirmReset}
-                  className="flex-1 py-2.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all shadow-xs cursor-pointer"
-                >
-                  हाँ, रीसेट करें
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

@@ -28,7 +28,7 @@ const OrderDetailsPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { appContent } = useAppContext();
+  const { appContent, invoiceTemplate } = useAppContext();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,7 +101,7 @@ const OrderDetailsPage: React.FC = () => {
         phone,
         address,
         logo: appContent?.branding?.logo,
-      });
+      }, invoiceTemplate);
 
       if (result.success) {
         setPdfMessage({
@@ -710,8 +710,15 @@ const OrderDetailsPage: React.FC = () => {
               <span>उत्पाद मूल्य:</span>
               <span className="font-bold text-gray-800">₹{order.itemsTotal}</span>
             </div>
-            <div className="flex justify-between">
-              <span>डिलीवरी शुल्क:</span>
+            <div className="flex justify-between items-start">
+              <div>
+                <span>डिलीवरी शुल्क:</span>
+                {order.deliverySnapshot && (
+                  <p className="text-[10px] text-gray-500 font-medium">
+                    {order.deliverySnapshot.vehicleEmoji} {order.deliverySnapshot.vehicleNameHindi} • {order.deliverySnapshot.totalWeightKg} kg • {order.deliverySnapshot.distanceKm} km
+                  </p>
+                )}
+              </div>
               <span className="font-bold text-amber-800">
                 {order.deliveryCharges > 0 ? `+ ₹${order.deliveryCharges}` : 'मुफ़्त'}
               </span>

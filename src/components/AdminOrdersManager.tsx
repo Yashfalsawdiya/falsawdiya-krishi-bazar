@@ -67,7 +67,7 @@ const playOrderChime = () => {
 type DateFilterType = 'today' | 'yesterday' | 'this_week' | 'this_month' | 'all' | 'custom';
 
 const AdminOrdersManager: React.FC = () => {
-  const { appContent } = useAppContext();
+  const { appContent, invoiceTemplate } = useAppContext();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -580,7 +580,7 @@ const AdminOrdersManager: React.FC = () => {
                         phone: appContent?.contactInfo?.whatsapp || '+91 89823 38046',
                         address: appContent?.contactInfo?.address || 'मध्य प्रदेश (भारत)',
                         logo: appContent?.branding?.logo,
-                      })}
+                      }, invoiceTemplate)}
                       className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95"
                       title="Invoice PDF Download"
                     >
@@ -639,6 +639,13 @@ const AdminOrdersManager: React.FC = () => {
                     <p className="text-[10px] text-emerald-700 font-bold">
                       ✓ Razorpay Paid {order.razorpayPaymentId ? `(${order.razorpayPaymentId})` : ''}
                     </p>
+                    {order.deliverySnapshot ? (
+                      <div className="text-[10px] bg-emerald-50 text-emerald-900 px-2 py-0.5 rounded border border-emerald-200 inline-block font-semibold">
+                        {order.deliverySnapshot.vehicleEmoji} {order.deliverySnapshot.vehicleNameHindi} • {order.deliverySnapshot.totalWeightKg}kg • {order.deliverySnapshot.distanceKm}km (₹{order.deliveryCharges})
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-gray-500">डिलीवरी शुल्क: ₹{order.deliveryCharges || 0}</p>
+                    )}
                     <p className="text-[10px] text-gray-400">
                       {formatFullHindiDate(order.createdAt, true)}
                     </p>

@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAppContext } from '../context/AppContext';
 import { 
   ArrowLeft, ShieldCheck, Truck, CheckCircle2, 
   MapPin, Phone, User, AlertCircle, ShoppingBag, 
-  CreditCard, Loader2, Sparkles, MessageSquare, Info, RefreshCw
+  CreditCard, Loader2, Sparkles, MessageSquare, Info, RefreshCw,
+  Scale, Navigation, Zap
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import SmartImage from '../components/SmartImage';
@@ -13,11 +14,17 @@ import { getCustomerDetails, saveCustomerDetails } from '../utils/customerStorag
 import { createNewOrder } from '../services/orderService';
 import { initiateRazorpayPayment, fetchRazorpayPublicConfig } from '../services/razorpayService';
 import { OrderItem, RazorpayPublicConfig } from '../types';
+import { 
+  calculateCartWeight, 
+  calculateDynamicDeliveryCharge, 
+  createDeliverySnapshot, 
+  estimateDistanceByPincode 
+} from '../utils/deliveryCalculator';
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const { cartItems, cartTotal, cartCount, clearCart } = useCart();
-  const { appContent, user } = useAppContext();
+  const { appContent, deliveryConfig, user } = useAppContext();
 
   // Customer form state
   const [name, setName] = useState('');
@@ -28,6 +35,7 @@ const CheckoutPage: React.FC = () => {
   const [addressState, setAddressState] = useState('');
   const [addressPincode, setAddressPincode] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
+  const [distanceKm, setDistanceKm] = useState<number>(5);
 
   const [errorMsg, setErrorMsg] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -35,12 +43,33 @@ const CheckoutPage: React.FC = () => {
   const [gatewayConfig, setGatewayConfig] = useState<RazorpayPublicConfig | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
 
-  const deliveryCharges = (appContent?.isDeliveryChargesEnabled && appContent?.deliveryChargesAmount !== undefined)
-    ? appContent.deliveryChargesAmount
-    : 0;
+  // Dynamic Delivery Calculations
+  const totalCartWeightKg = useMemo(() => {
+    return calculateCartWeight(cartItems);
+  }, [cartItems]);
 
-  const finalPayableTotal = cartTotal + deliveryCharges;
+  const deliveryQuote = useMemo(() => {
+    return calculateDynamicDeliveryCharge(
+      totalCartWeightKg,
+      distanceKm,
+      deliveryConfig,
+      cartTotal
+    );
+  }, [totalCartWeightKg, distanceKm, deliveryConfig, cartTotal]);
+
+  const finalDeliveryCharges = deliveryQuote.finalDeliveryCharge;
+  const finalPayableTotal = cartTotal + finalDeliveryCharges;
   const whatsappNumber = appContent?.contactInfo?.whatsapp || '918982338046';
+
+  // Auto estimate distance when Pincode changes
+  useEffect(() => {
+    if (addressPincode && addressPincode.trim().length === 6) {
+      const estimated = estimateDistanceByPincode(addressPincode);
+      if (estimated) {
+        setDistanceKm(estimated);
+      }
+    }
+  }, [addressPincode]);
 
   // Load gateway config from server
   useEffect(() => {
@@ -146,12 +175,14 @@ const CheckoutPage: React.FC = () => {
       image: item.product.image,
     }));
 
+    const deliverySnapshot = createDeliverySnapshot(deliveryQuote);
+
     setIsProcessing(true);
     setPaymentFailedError(null);
 
     initiateRazorpayPayment({
       items: orderItems,
-      deliveryCharges: deliveryCharges,
+      deliveryCharges: finalDeliveryCharges,
       customerName: customerData.name,
       customerPhone: customerData.phone,
       customerEmail: customerEmail || user?.email || undefined,
@@ -165,8 +196,9 @@ const CheckoutPage: React.FC = () => {
             items: orderItems,
             itemCount: cartCount,
             itemsTotal: cartTotal,
-            deliveryCharges: deliveryCharges,
+            deliveryCharges: finalDeliveryCharges,
             totalAmount: finalPayableTotal,
+            deliverySnapshot: deliverySnapshot,
             paymentMethod: 'online_razorpay',
             paymentStatus: 'paid',
             razorpayPaymentId: paymentId,
@@ -453,7 +485,124 @@ const CheckoutPage: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/* Dynamic Delivery & Distance Estimator */}
+            <div className="pt-2 border-t border-gray-100 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-gray-700 flex items-center gap-1.5">
+                  <Navigation className="w-3.5 h-3.5 text-[#2D5A27]" />
+                  <span>डिलीवरी दूरी (दुकान/गोदाम से):</span>
+                </label>
+                <span className="text-xs font-black text-[#2D5A27] bg-[#ECFDF5] px-2 py-0.5 rounded-lg border border-emerald-200">
+                  {distanceKm} km
+                </span>
+              </div>
+
+              {/* Quick Distance Selector Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                {[
+                  { label: '5 km (शामगढ़ लोकल)', val: 5 },
+                  { label: '10 km', val: 10 },
+                  { label: '15 km', val: 15 },
+                  { label: '25 km', val: 25 },
+                  { label: '40 km', val: 40 },
+                  { label: '60 km', val: 60 },
+                ].map((item) => (
+                  <button
+                    key={item.val}
+                    type="button"
+                    onClick={() => setDistanceKm(item.val)}
+                    className={`px-2.5 py-1 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all border ${
+                      distanceKm === item.val
+                        ? 'bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs'
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Distance Slider for precision */}
+              <div className="flex items-center gap-3 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                <span className="text-[10px] font-bold text-gray-500">1 km</span>
+                <input
+                  type="range"
+                  min="1"
+                  max="80"
+                  step="1"
+                  value={distanceKm}
+                  onChange={(e) => setDistanceKm(Number(e.target.value))}
+                  className="flex-1 accent-[#2D5A27] cursor-pointer"
+                />
+                <span className="text-[10px] font-bold text-gray-500">80 km</span>
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* Smart Delivery Vehicle & Weight Calculation Card */}
+        <div className="bg-gradient-to-br from-emerald-50/80 to-teal-50/60 rounded-3xl p-4 sm:p-5 border border-emerald-200/80 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">{deliveryQuote.vehicleEmoji}</span>
+              <div>
+                <h4 className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
+                  <span>उपयुक्त वाहन: {deliveryQuote.vehicleNameHindi}</span>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-white/90 px-1.5 py-0.2 rounded border border-emerald-200">
+                    {deliveryQuote.vehicleType}
+                  </span>
+                </h4>
+                <p className="text-[10px] text-emerald-800">
+                  कुल वजन ({deliveryQuote.totalWeightKg} kg) व दूरी ({deliveryQuote.distanceKm} km) अनुसार गणना
+                </p>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <span className="text-xs font-black text-emerald-900">
+                {deliveryQuote.isFreeDelivery ? (
+                  <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full font-black text-[11px]">
+                    मुफ़्त (FREE)
+                  </span>
+                ) : (
+                  `₹${deliveryQuote.finalDeliveryCharge}`
+                )}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 text-center pt-2 border-t border-emerald-200/60 text-[10px]">
+            <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
+              <div className="flex items-center justify-center gap-1 text-gray-500 font-bold">
+                <Scale className="w-3 h-3 text-[#2D5A27]" />
+                <span>कुल वजन</span>
+              </div>
+              <p className="font-black text-xs text-gray-800 mt-0.5">{deliveryQuote.totalWeightKg} kg</p>
+            </div>
+            <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
+              <div className="flex items-center justify-center gap-1 text-gray-500 font-bold">
+                <Navigation className="w-3 h-3 text-[#2D5A27]" />
+                <span>दूरी</span>
+              </div>
+              <p className="font-black text-xs text-gray-800 mt-0.5">{deliveryQuote.distanceKm} km</p>
+            </div>
+            <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
+              <div className="flex items-center justify-center gap-1 text-gray-500 font-bold">
+                <Zap className="w-3 h-3 text-[#2D5A27]" />
+                <span>डिलीवरी शुल्क</span>
+              </div>
+              <p className="font-black text-xs text-emerald-700 mt-0.5">
+                {deliveryQuote.isFreeDelivery ? '₹0 (Free)' : `₹${deliveryQuote.finalDeliveryCharge}`}
+              </p>
+            </div>
+          </div>
+
+          {deliveryQuote.calculationNote && (
+            <p className="text-[10px] text-emerald-900 bg-white/70 p-2 rounded-xl border border-emerald-100">
+              💡 <strong>गणना विवरण:</strong> {deliveryQuote.calculationNote}
+            </p>
+          )}
         </div>
 
         {/* Price Breakdown Card */}
@@ -463,9 +612,11 @@ const CheckoutPage: React.FC = () => {
             <span className="font-bold text-gray-800">₹{cartTotal}</span>
           </div>
           <div className="flex justify-between text-gray-600 font-medium">
-            <span>डिलीवरी शुल्क (Delivery Charges):</span>
+            <span>
+              डिलीवरी शुल्क ({deliveryQuote.vehicleNameHindi} • {deliveryQuote.distanceKm} km):
+            </span>
             <span className="font-bold text-amber-700">
-              {deliveryCharges > 0 ? `+ ₹${deliveryCharges}` : 'मुफ़्त (FREE)'}
+              {finalDeliveryCharges > 0 ? `+ ₹${finalDeliveryCharges}` : 'मुफ़्त (FREE)'}
             </span>
           </div>
           <div className="flex justify-between items-center pt-2 border-t border-gray-300/40 text-sm font-bold text-[#4A3728]">

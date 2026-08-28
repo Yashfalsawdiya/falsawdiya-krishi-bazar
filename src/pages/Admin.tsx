@@ -19,6 +19,7 @@ import AdminPagesManager from '../components/AdminPagesManager';
 import AdminOrdersManager from '../components/AdminOrdersManager';
 import AdminRazorpayManager from '../components/AdminRazorpayManager';
 import AdminInvoiceTemplateManager from '../components/AdminInvoiceTemplateManager';
+import AdminDeliveryManager from '../components/AdminDeliveryManager';
 
 const Admin: React.FC = () => {
   const { 
@@ -47,7 +48,7 @@ const Admin: React.FC = () => {
     }
   }, [isAdmin]);
   
-  const [activeTab, setActiveTab] = useState<'orders' | 'content' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'delivery' | 'content' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate'>('orders');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
   const [productSearchQuery, setProductSearchQuery] = useState<string>('');
@@ -583,6 +584,15 @@ const Admin: React.FC = () => {
           )}
         >
           <Package className="w-4 h-4" /> ऑर्डर्स (Orders)
+        </button>
+        <button 
+          onClick={() => setActiveTab('delivery')}
+          className={cn(
+            "flex-1 min-w-[150px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'delivery' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <Truck className="w-4 h-4" /> डिलीवरी सेटिंग्स (Delivery)
         </button>
         <button 
           onClick={() => setActiveTab('content')}
@@ -1448,6 +1458,8 @@ const Admin: React.FC = () => {
         </div>
       ) : activeTab === 'orders' ? (
         <AdminOrdersManager />
+      ) : activeTab === 'delivery' ? (
+        <AdminDeliveryManager />
       ) : activeTab === 'razorpay' ? (
         <AdminRazorpayManager />
       ) : activeTab === 'invoiceTemplate' ? (

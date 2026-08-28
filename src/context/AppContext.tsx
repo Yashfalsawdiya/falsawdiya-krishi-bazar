@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig } from '../types';
+import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig } from '../types';
 import { PRODUCTS, CROP_ADVICE, CATEGORIES } from '../data/mockData';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
 import { DEFAULT_INVOICE_TEMPLATE, mergeInvoiceTemplate } from '../data/defaultInvoiceTemplate';
+import { DEFAULT_DELIVERY_CONFIG } from '../data/defaultDeliveryConfig';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { cn, getDirectImageURL, getHighResImageURL } from '../lib/utils';
 import { 
@@ -87,6 +88,7 @@ interface AppContextType {
   appContent: AppContent | null;
   legalPagesContent: Required<LegalPagesContent>;
   invoiceTemplate: InvoiceTemplateConfig;
+  deliveryConfig: DynamicDeliveryConfig;
   user: FirebaseUser | null;
   isAdmin: boolean;
   userSettings: UserSettings | null;
@@ -114,6 +116,8 @@ interface AppContextType {
   resetLegalPageContent: (pageKey: keyof LegalPagesContent) => Promise<void>;
   updateInvoiceTemplate: (template: InvoiceTemplateConfig) => Promise<void>;
   resetInvoiceTemplate: () => Promise<void>;
+  updateDeliveryConfig: (config: DynamicDeliveryConfig) => Promise<void>;
+  resetDeliveryConfig: () => Promise<void>;
   updateUserSettings: (settings: UserSettings) => Promise<void>;
   updateUserStatus: (uid: string, isBlocked: boolean) => Promise<void>;
   login: () => Promise<void>;
@@ -166,6 +170,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error("Error reading cached legal pages:", e);
     }
     return DEFAULT_LEGAL_PAGES_CONTENT;
+  });
+
+  const mergeDeliveryConfig = (saved?: Partial<DynamicDeliveryConfig> | null): DynamicDeliveryConfig => {
+    if (!saved) return DEFAULT_DELIVERY_CONFIG;
+    return {
+      ...DEFAULT_DELIVERY_CONFIG,
+      ...saved,
+      storeOrigin: { ...DEFAULT_DELIVERY_CONFIG.storeOrigin, ...(saved.storeOrigin || {}) },
+      vehicles: (saved.vehicles && saved.vehicles.length > 0) ? saved.vehicles : DEFAULT_DELIVERY_CONFIG.vehicles,
+      weightSlabs: (saved.weightSlabs && saved.weightSlabs.length > 0) ? saved.weightSlabs : DEFAULT_DELIVERY_CONFIG.weightSlabs,
+      distanceSlabs: (saved.distanceSlabs && saved.distanceSlabs.length > 0) ? saved.distanceSlabs : DEFAULT_DELIVERY_CONFIG.distanceSlabs,
+      rateMatrix: { ...DEFAULT_DELIVERY_CONFIG.rateMatrix, ...(saved.rateMatrix || {}) },
+      pincodeDistances: { ...DEFAULT_DELIVERY_CONFIG.pincodeDistances, ...(saved.pincodeDistances || {}) },
+    };
+  };
+
+  const [deliveryConfig, setDeliveryConfig] = useState<DynamicDeliveryConfig>(() => {
+    try {
+      const cached = localStorage.getItem('agri_cache_delivery_config');
+      if (cached) {
+        return mergeDeliveryConfig(JSON.parse(cached));
+      }
+    } catch (e) {
+      console.error("Error reading cached delivery config:", e);
+    }
+    return DEFAULT_DELIVERY_CONFIG;
   });
 
   const [invoiceTemplate, setInvoiceTemplate] = useState<InvoiceTemplateConfig>(() => {
@@ -592,6 +622,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribeInvoiceTemplate();
   }, [isAdmin]);
 
+  // Sync dynamic delivery charge config from Firestore
+  useEffect(() => {
+    const cached = localStorage.getItem('agri_cache_delivery_config');
+    if (cached) {
+      try {
+        setDeliveryConfig(mergeDeliveryConfig(JSON.parse(cached)));
+      } catch (e) {
+        console.error("Failed to parse cached delivery config:", e);
+      }
+    }
+
+    if (!isSyncNeeded() && cached) return;
+
+    const unsubscribeDeliveryConfig = onSnapshot(doc(db, 'settings', 'deliveryConfig'), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data() as Partial<DynamicDeliveryConfig>;
+        const merged = mergeDeliveryConfig(data);
+        setDeliveryConfig(merged);
+        localStorage.setItem('agri_cache_delivery_config', JSON.stringify(merged));
+      }
+    }, (error) => {
+      const err = handleFirestoreError(error, OperationType.GET, 'settings/deliveryConfig');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
+      }
+    });
+
+    return () => unsubscribeDeliveryConfig();
+  }, [isAdmin]);
+
   // Additional effect to listen for all users if admin
   useEffect(() => {
     if (isAdmin) {
@@ -804,6 +864,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateDeliveryConfig = async (config: DynamicDeliveryConfig) => {
+    try {
+      const payload = {
+        ...config,
+        lastUpdated: Date.now(),
+      };
+      await setDoc(doc(db, 'settings', 'deliveryConfig'), payload, { merge: true });
+      const merged = mergeDeliveryConfig(payload);
+      setDeliveryConfig(merged);
+      localStorage.setItem('agri_cache_delivery_config', JSON.stringify(merged));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'settings/deliveryConfig');
+      throw error;
+    }
+  };
+
+  const resetDeliveryConfig = async () => {
+    try {
+      const defaults = { ...DEFAULT_DELIVERY_CONFIG, lastUpdated: Date.now() };
+      await setDoc(doc(db, 'settings', 'deliveryConfig'), defaults);
+      setDeliveryConfig(defaults);
+      localStorage.setItem('agri_cache_delivery_config', JSON.stringify(defaults));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'settings/deliveryConfig');
+      throw error;
+    }
+  };
+
   const updateUserSettings = async (settings: UserSettings) => {
     if (!user) return;
     try {
@@ -848,6 +936,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       appContent,
       legalPagesContent,
       invoiceTemplate,
+      deliveryConfig,
       user, 
       isAdmin, 
       userSettings,
@@ -875,6 +964,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       resetLegalPageContent,
       updateInvoiceTemplate,
       resetInvoiceTemplate,
+      updateDeliveryConfig,
+      resetDeliveryConfig,
       updateUserSettings,
       updateUserStatus,
       login,

@@ -22,6 +22,7 @@ export interface Product {
   price?: number;
   hidePrice?: boolean;
   unit?: string;
+  weightInKg?: number; // explicit product weight in kg
   inStock?: boolean;
   image: string | ImageSource;
   description: string;
@@ -99,6 +100,7 @@ export interface CartItem {
   quantity: number;
   price: number;
   unit: string;
+  weightInKg?: number;
 }
 
 export interface OrderItem {
@@ -110,6 +112,7 @@ export interface OrderItem {
   quantity: number;
   unit: string;
   price: number;
+  weightInKg?: number;
   image?: string | ImageSource;
 }
 
@@ -158,6 +161,8 @@ export interface Order {
   itemCount: number;
   itemsTotal: number;
   deliveryCharges: number;
+  deliveryDetails?: OrderDeliverySnapshot;
+  deliverySnapshot?: OrderDeliverySnapshot;
   totalAmount: number;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
@@ -533,5 +538,105 @@ export interface LegalPagesContent {
   grievanceRedressal?: GrievanceRedressalPageData;
   licensingDisclaimer?: LicensingDisclaimerPageData;
 }
+
+// ==========================================
+// DYNAMIC DELIVERY CHARGE SYSTEM TYPES
+// ==========================================
+
+export type VehicleTypeId = 'bike' | 'e_rickshaw' | 'pickup' | 'tempo' | 'truck' | string;
+
+export interface VehicleConfig {
+  id: VehicleTypeId;
+  name: string; // e.g. "बाइक / मोटरसाइकिल"
+  shortName: string; // e.g. "Bike"
+  icon: string; // '🛵', '🛺', '🛻', '🚚', '🚛'
+  description: string; // e.g. "छोटे/हल्के Orders (0-10 kg)"
+  maxCapacityKg: number; // e.g. 10
+  isActive: boolean;
+  order: number;
+}
+
+export interface WeightSlab {
+  id: string;
+  minWeightKg: number; // inclusive, e.g. 0
+  maxWeightKg: number; // inclusive, e.g. 10 (or 99999 for highest)
+  vehicleId: VehicleTypeId;
+  label?: string; // e.g. "0–10 kg (Bike)"
+}
+
+export interface DistanceSlab {
+  id: string;
+  minDistanceKm: number; // e.g. 0
+  maxDistanceKm: number; // e.g. 5, 15, 30, 50, 99999
+  label: string; // "0–5 km", "5–15 km", etc.
+}
+
+export interface DeliveryRateMatrix {
+  // key format: `${vehicleId}_${distanceSlabId}`, value in ₹
+  [key: string]: number;
+}
+
+export interface StoreOriginLocation {
+  name: string;
+  address: string;
+  city: string;
+  district: string;
+  state: string;
+  pincode: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface DynamicDeliveryConfig {
+  isEnabled: boolean; // whether dynamic delivery mode is active
+  isDeliveryActive: boolean; // whether store delivery is accepted
+  defaultFixedCharge: number; // fallback fixed fee if dynamic is toggled off
+  enableFreeDelivery: boolean;
+  freeDeliveryThreshold: number; // Free delivery above this cart amount
+  storeOrigin: StoreOriginLocation;
+  vehicles: VehicleConfig[];
+  weightSlabs: WeightSlab[];
+  distanceSlabs: DistanceSlab[];
+  rateMatrix: DeliveryRateMatrix;
+  pincodeDistances?: { [pincode: string]: number };
+  lastUpdated: number;
+}
+
+export interface CalculatedDeliveryQuote {
+  totalWeightKg: number;
+  distanceKm: number;
+  vehicle: VehicleConfig;
+  vehicleEmoji: string;
+  vehicleNameHindi: string;
+  vehicleType: string;
+  weightSlab: WeightSlab;
+  distanceSlab: DistanceSlab;
+  baseCharge: number;
+  discount: number;
+  finalDeliveryCharge: number;
+  isFreeDelivery: boolean;
+  breakdownText: string;
+  calculationNote?: string;
+}
+
+export interface OrderDeliverySnapshot {
+  totalWeightKg: number;
+  distanceKm: number;
+  vehicleId: string;
+  vehicleName: string;
+  vehicleIcon: string;
+  vehicleEmoji: string;
+  vehicleNameHindi: string;
+  vehicleType: string;
+  distanceSlabLabel: string;
+  weightSlabLabel: string;
+  calculatedCharge: number;
+  finalCharge: number;
+  isFreeDelivery: boolean;
+  isManuallyOverridden?: boolean;
+  overrideReason?: string;
+  calculatedAt: number;
+}
+
 
 
