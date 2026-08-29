@@ -42,6 +42,7 @@ const AdminDeliveryManager: React.FC = () => {
   });
 
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
+  const [vehicleToDelete, setVehicleToDelete] = useState<VehicleConfig | null>(null);
   const [isAddingVehicle, setIsAddingVehicle] = useState(false);
   const [newVehicle, setNewVehicle] = useState<{
     name: string;
@@ -267,15 +268,22 @@ const AdminDeliveryManager: React.FC = () => {
     });
   };
 
-  const handleDeleteVehicle = (vehicleId: string) => {
+  const promptDeleteVehicle = (vehicle: VehicleConfig) => {
+    const activeCount = config.vehicles.filter(v => v.isActive !== false).length;
     if (config.vehicles.length <= 1) {
-      alert('कम से कम 1 वाहन होना आवश्यक है। इसे डिलीट नहीं किया जा सकता।');
+      alert('कम से कम 1 वाहन होना आवश्यक है। इसे हटाया नहीं जा सकता।');
       return;
     }
+    if (vehicle.isActive !== false && activeCount <= 1) {
+      alert('कम से कम 1 सक्रिय (Active) वाहन होना आवश्यक है ताकि ग्राहक ऑर्डर कर सकें।');
+      return;
+    }
+    setVehicleToDelete(vehicle);
+  };
 
-    if (!confirm('क्या आप इस वाहन और इसके सभी संबंधित रेट्स को हटाना चाहते हैं?')) {
-      return;
-    }
+  const confirmDeleteVehicle = () => {
+    if (!vehicleToDelete) return;
+    const vehicleId = vehicleToDelete.id;
 
     setConfig(prev => {
       const updatedVehicles = prev.vehicles.filter(v => v.id !== vehicleId);
@@ -296,6 +304,8 @@ const AdminDeliveryManager: React.FC = () => {
         rateMatrix: updatedRateMatrix,
       };
     });
+
+    setVehicleToDelete(null);
   };
 
   // ----------------------------------------------------
@@ -705,6 +715,14 @@ const AdminDeliveryManager: React.FC = () => {
                                 className="p-1.5 text-gray-400 hover:text-[#2D5A27] hover:bg-white rounded-lg transition-all"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                title="वाहन हटाएं"
+                                onClick={() => promptDeleteVehicle(v)}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 type="button"
@@ -1285,6 +1303,50 @@ const AdminDeliveryManager: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* ========================================================================= */}
+      {/* VEHICLE DELETE CONFIRMATION POPUP MODAL */}
+      {/* ========================================================================= */}
+      {vehicleToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-gray-100 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto text-2xl">
+              🗑️
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-base font-black text-gray-800">
+                क्या आप इस वाहन को हटाना चाहते हैं?
+              </h3>
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-50 border border-gray-200 rounded-xl text-xs font-black text-gray-700">
+                <span className="text-base">{vehicleToDelete.icon || '🚚'}</span>
+                <span>{vehicleToDelete.name}</span>
+                <span className="text-[10px] text-gray-500 font-bold">({vehicleToDelete.shortName})</span>
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed pt-1">
+                यह वाहन Delivery Rate Matrix से हट जाएगा और भविष्य की delivery calculation में इसका उपयोग नहीं होगा। इसके सभी संबंधित Weight Range व Delivery Rates भी हट जाएँगे।
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setVehicleToDelete(null)}
+                className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl text-xs font-bold transition-all"
+              >
+                रद्द करें
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteVehicle}
+                className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-xs font-black shadow-md shadow-red-600/20 transition-all flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> हटाएँ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
