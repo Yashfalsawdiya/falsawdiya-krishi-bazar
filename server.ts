@@ -561,6 +561,121 @@ app.get('/api/health', (_req: Request, res: Response) => {
 });
 
 // ==========================================
+// 2.5 DELIVERY ROUTE & DISTANCE SERVICES
+// ==========================================
+
+// Calculate real driving road route between Store Origin and Customer coordinates
+app.get('/api/delivery/calculate-route', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const originLat = parseFloat(req.query.originLat as string) || 24.1842;
+    const originLng = parseFloat(req.query.originLng as string) || 75.6431;
+    const destLat = parseFloat(req.query.destLat as string);
+    const destLng = parseFloat(req.query.destLng as string);
+
+    if (isNaN(destLat) || isNaN(destLng)) {
+      res.status(400).json({ success: false, error: 'Invalid destination coordinates' });
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=false`;
+    const osrmRes = await fetch(osrmUrl, {
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json' },
+    });
+    clearTimeout(timeoutId);
+
+    if (osrmRes.ok) {
+      const data = await osrmRes.json();
+      if (data.routes && data.routes.length > 0 && typeof data.routes[0].distance === 'number') {
+        const meters = data.routes[0].distance;
+        const durationSec = data.routes[0].duration || 0;
+        const distanceKm = Math.max(0.5, Math.round((meters / 1000) * 10) / 10);
+        const durationMins = Math.round(durationSec / 60);
+
+        res.json({
+          success: true,
+          distanceKm,
+          distanceMeters: meters,
+          durationMins,
+          source: 'osrm_road_routing',
+          routes: data.routes,
+        });
+        return;
+      }
+    }
+
+    // Geodesic fallback with road curve factor
+    const R = 6371;
+    const dLat = (destLat - originLat) * (Math.PI / 180);
+    const dLon = (destLng - originLng) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(originLat * (Math.PI / 180)) *
+        Math.cos(destLat * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const crowFlyKm = R * c;
+    const roadCurveFactor = crowFlyKm < 3 ? 1.20 : 1.26;
+    const fallbackKm = Math.max(0.5, Math.round(crowFlyKm * roadCurveFactor * 10) / 10);
+
+    res.json({
+      success: true,
+      distanceKm: fallbackKm,
+      distanceMeters: Math.round(fallbackKm * 1000),
+      durationMins: Math.round(fallbackKm * 2.5),
+      source: 'geodesic_road_estimate',
+    });
+  } catch (err: any) {
+    res.json({
+      success: false,
+      error: err.message || 'Routing calculation fallback',
+    });
+  }
+});
+
+// Geocode Indian address to coordinates
+app.get('/api/delivery/geocode', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const q = (req.query.q as string || '').trim();
+    if (!q || q.length < 3) {
+      res.status(400).json({ success: false, error: 'Query text too short' });
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=in&limit=1`;
+    const geoRes = await fetch(nominatimUrl, {
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json', 'User-Agent': 'FalsawdiyaKrishiBazaar/1.0' },
+    });
+    clearTimeout(timeoutId);
+
+    if (geoRes.ok) {
+      const data = await geoRes.json();
+      if (Array.isArray(data) && data.length > 0 && data[0].lat && data[0].lon) {
+        res.json({
+          success: true,
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon),
+          displayName: data[0].display_name,
+        });
+        return;
+      }
+    }
+
+    res.json({ success: false, error: 'Location not found' });
+  } catch (err: any) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// ==========================================
 // 3. VITE MIDDLEWARE & STATIC SERVING
 // ==========================================
 

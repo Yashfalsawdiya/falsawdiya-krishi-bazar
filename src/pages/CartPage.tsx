@@ -211,48 +211,31 @@ const CartPage: React.FC = () => {
               })}
             </div>
 
-            {/* Quote details */}
+            {/* Cart Summary details */}
             <div className="bg-[#F5F2ED] border border-[#4A3728]/10 rounded-2xl p-4 flex flex-col gap-2">
               <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
                 <span>कुल उत्पाद (Total Unique Items)</span>
                 <span>{cartItems.length}</span>
               </div>
-              <div className="flex items-center justify-between text-xs text-gray-500 font-semibold border-b border-gray-200/50 pb-2">
+              <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
                 <span>कुल मात्रा (Total Units)</span>
                 <span>{cartCount}</span>
               </div>
               
-              {appContent?.isDeliveryChargesEnabled && appContent?.deliveryChargesAmount !== undefined ? (
-                <>
-                  <div className="flex items-center justify-between text-xs text-gray-650 font-semibold">
-                    <span>उत्पाद मूल्य (Products Total)</span>
-                    <span className="font-bold">₹{cartTotal}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-gray-650 font-semibold border-b border-gray-200/50 pb-2">
-                    <span>डिलीवरी शुल्क (Delivery Charges)</span>
-                    <span className="font-bold text-amber-700">+ ₹{appContent.deliveryChargesAmount}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-sm font-bold text-[#4A3728]">कुल देय राशि (Final Total)</span>
-                    <span className="text-xl font-black text-[#2D5A27]">₹{cartTotal + appContent.deliveryChargesAmount}</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between text-xs text-gray-650 font-semibold">
-                    <span>उत्पाद मूल्य (Products Total)</span>
-                    <span className="font-bold">₹{cartTotal}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-gray-650 font-semibold border-b border-gray-200/50 pb-2">
-                    <span>डिलीवरी शुल्क (Delivery Charges)</span>
-                    <span className="font-bold text-emerald-700">मुफ़्त (₹0 / FREE)</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-sm font-bold text-[#4A3728]">कुल देय राशि (Final Total)</span>
-                    <span className="text-xl font-black text-[#2D5A27]">₹{cartTotal}</span>
-                  </div>
-                </>
-              )}
+              <div className="flex items-center justify-between text-xs text-gray-700 font-semibold border-t border-gray-200/60 pt-2">
+                <span>उत्पाद उप-योग (Products Subtotal)</span>
+                <span className="font-bold text-gray-900">₹{cartTotal}</span>
+              </div>
+              
+              <div className="flex items-center justify-between pt-2 border-t border-gray-300/60">
+                <span className="text-sm font-bold text-[#4A3728]">कुल उत्पाद राशि (Total Product Amount)</span>
+                <span className="text-xl font-black text-[#2D5A27]">₹{cartTotal}</span>
+              </div>
+
+              <div className="text-[10px] text-gray-500 bg-white/70 p-2 rounded-xl border border-gray-200/50 mt-1 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
+                <span>डिलीवरी शुल्क व वाहन चयन अगले चेकआउट पेज पर आपके पते के अनुसार निकाला जाएगा।</span>
+              </div>
             </div>
 
             {/* Delivery Suspended Warning if OFF */}
