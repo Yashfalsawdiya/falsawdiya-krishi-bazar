@@ -630,7 +630,17 @@ export const findWeightSlabAndVehicle = (
   config: DynamicDeliveryConfig
 ): { weightSlab: WeightSlab; vehicle: VehicleConfig } => {
   const safeWeight = Math.max(0.01, weightKg);
-  const sortedSlabs = [...(config.weightSlabs || [])].sort((a, b) => a.minWeightKg - b.minWeightKg);
+  
+  // Filter only active vehicles
+  const activeVehicles = (config.vehicles || []).filter(v => v.isActive !== false);
+  const activeVehicleIds = new Set(activeVehicles.map(v => v.id));
+  
+  // Get active weight slabs
+  const allWeightSlabs = (config.weightSlabs || []);
+  const activeWeightSlabs = allWeightSlabs.filter(ws => activeVehicleIds.has(ws.vehicleId));
+  const slabsToSearch = activeWeightSlabs.length > 0 ? activeWeightSlabs : allWeightSlabs;
+  
+  const sortedSlabs = [...slabsToSearch].sort((a, b) => a.minWeightKg - b.minWeightKg);
 
   let matchedSlab = sortedSlabs.find(
     slab => safeWeight >= slab.minWeightKg && safeWeight <= slab.maxWeightKg
