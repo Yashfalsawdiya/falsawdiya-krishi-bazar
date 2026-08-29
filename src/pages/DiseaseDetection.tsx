@@ -55,8 +55,9 @@ const SUGGESTED_QUESTIONS = [
 
 const DiseaseDetection: React.FC = () => {
   const navigate = useNavigate();
-  const { appContent, userSettings, products, categories, loading: appLoading } = useAppContext();
+  const { appContent, deliveryConfig, userSettings, products, categories, loading: appLoading } = useAppContext();
   const { addToCart } = useCart();
+  const isDeliveryActive = deliveryConfig?.isDeliveryActive !== false && appContent?.isDeliveryActive !== false;
   
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
   
@@ -1214,7 +1215,7 @@ const DiseaseDetection: React.FC = () => {
                   </div>
                 </div>
 
-                {!appContent?.isDeliveryActive && (
+                {!isDeliveryActive && (
                   <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3 flex items-start gap-2 shadow-sm">
                     <AlertCircle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
                     <p className="text-[10px] text-orange-800 font-black leading-tight">

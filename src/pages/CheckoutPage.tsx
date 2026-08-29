@@ -200,6 +200,40 @@ const CheckoutPage: React.FC = () => {
     if (user?.email) setCustomerEmail(user.email);
   }, [user]);
 
+  // If delivery is suspended, show courteous master control unavailable screen
+  const isDeliveryActive = deliveryConfig?.isDeliveryActive !== false && appContent?.isDeliveryActive !== false;
+
+  if (!isDeliveryActive && !isProcessing) {
+    return (
+      <div className="max-w-xl mx-auto space-y-4 py-8 px-4">
+        <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-xl text-center space-y-5">
+          <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto text-amber-600 border border-amber-100/80 shadow-xs">
+            <Truck className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-lg sm:text-xl font-black text-gray-800">
+              अभी होम डिलीवरी सेवा उपलब्ध नहीं है
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-600 leading-relaxed max-w-md mx-auto font-medium">
+              असुविधा के लिए खेद है। फिलहाल होम डिलीवरी सेवा अस्थायी रूप से बंद है। जल्द ही सेवा पुनः शुरू की जाएगी। कृपया कुछ समय बाद दोबारा प्रयास करें। आपके सहयोग के लिए धन्यवाद।
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => navigate('/cart')}
+              className="px-6 py-3.5 bg-[#2D5A27] text-white rounded-2xl text-xs sm:text-sm font-black shadow-md shadow-[#2D5A27]/20 hover:bg-[#2D5A27]/90 active:scale-95 transition-all"
+            >
+              ठीक है (कार्ट पर लौटें)
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // If cart is empty and not processing, allow quick redirect
   if (cartItems.length === 0 && !isProcessing) {
     return (
@@ -218,8 +252,8 @@ const CheckoutPage: React.FC = () => {
   }
 
   const validateForm = (): boolean => {
-    if (appContent?.isDeliveryActive === false) {
-      setErrorMsg('वर्तमान में डिलीवरी सेवा अस्थायी रूप से बंद है। आप अभी ऑर्डर नहीं कर सकते।');
+    if (!isDeliveryActive) {
+      setErrorMsg('असुविधा के लिए खेद है। फिलहाल होम डिलीवरी सेवा अस्थायी रूप से बंद है। जल्द ही सेवा पुनः शुरू की जाएगी।');
       return false;
     }
 
@@ -298,6 +332,7 @@ const CheckoutPage: React.FC = () => {
       customerPhone: customerData.phone,
       customerEmail: customerEmail || user?.email || undefined,
       appTitle: appContent?.branding?.name || 'फल्सावदिया कृषि बाजार',
+      isDeliveryActive,
       onSuccess: async ({ paymentId, razorpayOrderId, mode }) => {
         try {
           const createdOrder = await createNewOrder({
@@ -424,7 +459,7 @@ const CheckoutPage: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="उदाँ: रमेश पाटीदार / यश फलसावदिया"
+                  placeholder="उदा: किशोर पाटीदार / Kishore Patidar"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
@@ -441,7 +476,7 @@ const CheckoutPage: React.FC = () => {
                   type="tel"
                   required
                   maxLength={10}
-                  placeholder="उदाँ: 8982338046"
+                  placeholder="उदा: 9876543210"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                   className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
@@ -457,7 +492,7 @@ const CheckoutPage: React.FC = () => {
               <input
                 type="text"
                 required
-                placeholder="उदाँ: खाती मोहल्ला / रेलवे स्टेशन के पास / खसरा नं 45"
+                placeholder="उदा: मकान नं. 01, पाटीदार मोहल्ला"
                 value={addressHouse}
                 onChange={(e) => setAddressHouse(e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
@@ -471,7 +506,7 @@ const CheckoutPage: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="उदाँ: शामगढ़ / फल्सावदिया"
+                  placeholder="उदा: शामगढ़ / गरोठ / सुवासरा"
                   value={addressCity}
                   onChange={(e) => setAddressCity(e.target.value)}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
@@ -482,7 +517,7 @@ const CheckoutPage: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="उदाँ: मंदसौर"
+                  placeholder="उदा: मंदसौर"
                   value={addressDistrict}
                   onChange={(e) => setAddressDistrict(e.target.value)}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
@@ -497,7 +532,7 @@ const CheckoutPage: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="उदाँ: मध्यप्रदेश"
+                  placeholder="उदा: मध्य प्रदेश"
                   value={addressState}
                   onChange={(e) => setAddressState(e.target.value)}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
@@ -509,7 +544,7 @@ const CheckoutPage: React.FC = () => {
                   type="text"
                   required
                   maxLength={6}
-                  placeholder="उदाँ: 458883"
+                  placeholder="उदा: 458883"
                   value={addressPincode}
                   onChange={(e) => setAddressPincode(e.target.value.replace(/\D/g, ''))}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800 font-bold"
@@ -561,10 +596,7 @@ const CheckoutPage: React.FC = () => {
                     </div>
                     <div>
                       <h3 className="font-bold text-gray-800 text-xs flex items-center gap-1.5">
-                        <span>दुकान (फल्सावदिया) से डिलीवरी दूरी</span>
-                        <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                          सड़क मार्ग गणना
-                        </span>
+                        <span>दुकान से डिलीवरी दूरी</span>
                       </h3>
                       <p className="text-[10px] text-gray-400">
                         Store Origin: फल्सावदिया कृषि बाजार ({STORE_ORIGIN.pincode})
@@ -774,9 +806,9 @@ const CheckoutPage: React.FC = () => {
         {/* Step 4: Pay Online Button */}
         <button
           type="submit"
-          disabled={isProcessing || appContent?.isDeliveryActive === false || !isLocationValid}
+          disabled={isProcessing || !isDeliveryActive || !isLocationValid}
           className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2.5 shadow-lg active:scale-98 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
-            appContent?.isDeliveryActive === false || !isLocationValid
+            !isDeliveryActive || !isLocationValid
               ? "bg-gray-400 text-white shadow-none"
               : "bg-[#2D5A27] hover:bg-[#2D5A27]/90 text-white shadow-[#2D5A27]/25"
           }`}
@@ -786,7 +818,7 @@ const CheckoutPage: React.FC = () => {
               <Loader2 className="w-5 h-5 animate-spin" />
               सुरक्षित पेमेंट विंडो खुल रही है...
             </>
-          ) : appContent?.isDeliveryActive === false ? (
+          ) : !isDeliveryActive ? (
             <>
               <Truck className="w-5 h-5" />
               डिलीवरी सेवा बंद है (Delivery Suspended)

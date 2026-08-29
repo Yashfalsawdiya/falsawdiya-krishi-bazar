@@ -874,6 +874,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const merged = mergeDeliveryConfig(payload);
       setDeliveryConfig(merged);
       localStorage.setItem('agri_cache_delivery_config', JSON.stringify(merged));
+
+      // Synchronize with appContent so that any legacy consumers stay perfectly updated
+      if (appContent) {
+        const updatedAppContent = {
+          ...appContent,
+          isDeliveryActive: config.isDeliveryActive,
+        };
+        setAppContent(updatedAppContent);
+        localStorage.setItem('agri_cache_app_content', JSON.stringify(updatedAppContent));
+        try {
+          await setDoc(doc(db, 'settings', 'appContent'), { isDeliveryActive: config.isDeliveryActive }, { merge: true });
+        } catch (e) {
+          console.warn("Synced delivery active to appContent settings:", e);
+        }
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/deliveryConfig');
       throw error;

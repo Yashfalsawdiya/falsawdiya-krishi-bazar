@@ -124,7 +124,15 @@ app.post('/api/razorpay/create-order', async (req: Request, res: Response): Prom
       return;
     }
 
-    const { items, customerDetails, deliveryCharges = 0, notes = {} } = req.body;
+    const { items, customerDetails, deliveryCharges = 0, notes = {}, isDeliveryActive = true } = req.body;
+
+    if (isDeliveryActive === false) {
+      res.status(403).json({
+        success: false,
+        error: 'असुविधा के लिए खेद है। फिलहाल होम डिलीवरी सेवा अस्थायी रूप से बंद है। जल्द ही सेवा पुनः शुरू की जाएगी। कृपया कुछ समय बाद दोबारा प्रयास करें।',
+      });
+      return;
+    }
 
     if (!Array.isArray(items) || items.length === 0) {
       res.status(400).json({ success: false, error: 'कार्ट में कोई उत्पाद नहीं है (Empty Cart).' });

@@ -116,6 +116,7 @@ export const createRazorpayServerOrder = async (payload: {
   customerDetails: any;
   deliveryCharges?: number;
   notes?: Record<string, string>;
+  isDeliveryActive?: boolean;
 }): Promise<{
   success: boolean;
   razorpayOrderId: string;
@@ -198,6 +199,7 @@ export interface ProcessPaymentParams {
   customerPhone: string;
   customerEmail?: string;
   appTitle?: string;
+  isDeliveryActive?: boolean;
   onSuccess: (verificationResult: {
     paymentId: string;
     razorpayOrderId: string;
@@ -219,6 +221,7 @@ export const initiateRazorpayPayment = async ({
   customerPhone,
   customerEmail,
   appTitle = 'फल्सावदिया कृषि बाजार',
+  isDeliveryActive = true,
   onSuccess,
   onFailure,
   onDismiss,
@@ -239,6 +242,7 @@ export const initiateRazorpayPayment = async ({
         email: customerEmail,
       },
       deliveryCharges,
+      isDeliveryActive,
       notes: {
         orderNumber: orderNumber || '',
         appTitle,

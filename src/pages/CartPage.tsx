@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAppContext } from '../context/AppContext';
-import { Minus, Plus, Trash2, ArrowLeft, ShoppingCart, CreditCard, ShieldCheck, Truck } from 'lucide-react';
+import { Minus, Plus, Trash2, ArrowLeft, ShoppingCart, CreditCard, ShieldCheck, Truck, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
 import ProductDetailModal from '../components/ProductDetailModal';
@@ -17,15 +17,26 @@ const CartPage: React.FC = () => {
     cartCount, 
     clearCart 
   } = useCart();
-  const { appContent } = useAppContext();
+  const { appContent, deliveryConfig } = useAppContext();
   const navigate = useNavigate();
   const [activeCartItemId, setActiveCartItemId] = useState<string | null>(null);
+  const [showDeliveryBlockedModal, setShowDeliveryBlockedModal] = useState<boolean>(false);
+
+  const isDeliveryActive = deliveryConfig?.isDeliveryActive !== false && appContent?.isDeliveryActive !== false;
 
   const activeCartItem = cartItems.find((item) => item.id === activeCartItemId);
   const activeProduct = activeCartItem ? activeCartItem.product : null;
 
   const handleBack = () => {
     navigate('/products');
+  };
+
+  const handleProceedToCheckout = () => {
+    if (!isDeliveryActive) {
+      setShowDeliveryBlockedModal(true);
+      return;
+    }
+    navigate('/checkout');
   };
 
   return (
@@ -239,14 +250,16 @@ const CartPage: React.FC = () => {
             </div>
 
             {/* Delivery Suspended Warning if OFF */}
-            {appContent?.isDeliveryActive === false && (
-              <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center gap-3 shadow-sm">
-                <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0 text-amber-700">
+            {!isDeliveryActive && (
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3 shadow-sm">
+                <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0 text-amber-700 mt-0.5">
                   <Truck className="w-5 h-5" />
                 </div>
-                <div className="text-xs">
-                  <p className="font-bold text-amber-900">डिलीवरी सेवा अस्थायी रूप से बंद है</p>
-                  <p className="text-[11px] text-amber-700">वर्तमान में नए डिलीवरी ऑर्डर स्वीकार नहीं किए जा रहे हैं।</p>
+                <div className="text-xs space-y-1">
+                  <p className="font-black text-amber-900">अभी होम डिलीवरी सेवा उपलब्ध नहीं है</p>
+                  <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
+                    असुविधा के लिए खेद है। फिलहाल होम डिलीवरी सेवा अस्थायी रूप से बंद है। जल्द ही सेवा पुनः शुरू की जाएगी। कृपया कुछ समय बाद दोबारा प्रयास करें। आपके सहयोग के लिए धन्यवाद।
+                  </p>
                 </div>
               </div>
             )}
@@ -254,13 +267,52 @@ const CartPage: React.FC = () => {
             {/* Checkout Action: 100% Cart to Razorpay Checkout */}
             <div className="mt-4">
               <button
-                onClick={() => navigate('/checkout')}
+                type="button"
+                onClick={handleProceedToCheckout}
                 className="w-full bg-[#2D5A27] hover:bg-[#2D5A27]/90 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-[#2D5A27]/20 active:scale-95 transition-all"
               >
                 <CreditCard className="w-5 h-5 text-[#EAB308]" />
                 सुरक्षित ऑनलाइन ऑर्डर करें (Proceed to Checkout)
               </button>
             </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delivery Unavailable Professional Modal Popup */}
+      <AnimatePresence>
+        {showDeliveryBlockedModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 15 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-gray-100 text-center space-y-4"
+            >
+              <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto text-amber-600 border border-amber-100/80 shadow-xs">
+                <Truck className="w-8 h-8" />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-base sm:text-lg font-black text-gray-800">
+                  अभी होम डिलीवरी सेवा उपलब्ध नहीं है
+                </h3>
+                <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-medium">
+                  असुविधा के लिए खेद है। फिलहाल होम डिलीवरी सेवा अस्थायी रूप से बंद है। जल्द ही सेवा पुनः शुरू की जाएगी। कृपया कुछ समय बाद दोबारा प्रयास करें। आपके सहयोग के लिए धन्यवाद।
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeliveryBlockedModal(false)}
+                  className="w-full py-3.5 bg-[#2D5A27] hover:bg-[#2D5A27]/90 text-white rounded-2xl text-xs sm:text-sm font-black shadow-md shadow-[#2D5A27]/20 active:scale-95 transition-all"
+                >
+                  ठीक है
+                </button>
+              </div>
+            </motion.div>
           </div>
         )}
       </AnimatePresence>
