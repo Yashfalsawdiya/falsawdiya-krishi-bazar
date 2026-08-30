@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Key, ExternalLink, Save, LogOut, LogIn, ChevronRight, Info, Youtube, RefreshCw, CheckCircle2, AlertCircle, Loader2, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Scale, Truck, HelpCircle, Package, ArrowRight } from 'lucide-react';
+import { User, Key, ExternalLink, Save, LogOut, LogIn, ChevronRight, Info, Youtube, RefreshCw, CheckCircle2, AlertCircle, Loader2, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Scale, Truck, HelpCircle, Package, ArrowRight, Navigation } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { cn } from '../lib/utils';
 import SmartImage from '../components/SmartImage';
+import { DeliveryPartner } from '../types';
+import { listenDeliveryPartners, findDeliveryPartnerByUser } from '../services/deliveryPartnerService';
 
 const Profile: React.FC = () => {
   const { user, userSettings, updateUserSettings, login, logout, loading, appContent } = useAppContext();
@@ -14,6 +16,18 @@ const Profile: React.FC = () => {
   const [saveMessage, setSaveMessage] = useState('');
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [quotaStatus, setQuotaStatus] = useState<'idle' | 'checking' | 'available' | 'exhausted'>('idle');
+  
+  // Delivery Partner detection
+  const [partnerProfile, setPartnerProfile] = useState<DeliveryPartner | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsub = listenDeliveryPartners((partners) => {
+      const match = findDeliveryPartnerByUser(partners, user.email, user.phoneNumber);
+      setPartnerProfile(match);
+    });
+    return () => unsub();
+  }, [user]);
 
   useEffect(() => {
     if (userSettings) {
@@ -160,6 +174,38 @@ const Profile: React.FC = () => {
           <p className="text-xs text-gray-500 font-medium">{user.email}</p>
         </div>
       </div>
+
+      {/* Delivery Partner Portal - Orders for Delivery */}
+      <Link
+        to="/delivery-orders"
+        className="bg-gradient-to-r from-emerald-900 to-[#2D5A27] text-white p-4.5 rounded-3xl shadow-md border border-emerald-700/50 flex items-center justify-between hover:shadow-lg transition-all group active:scale-98 relative overflow-hidden"
+      >
+        <div className="flex items-center gap-3.5 relative z-10">
+          <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/20 backdrop-blur-xs flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
+            <Truck className="w-6 h-6 text-emerald-300" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-black text-white tracking-wide">
+                डिलीवरी हेतु ऑर्डर्स (Orders for Delivery)
+              </h3>
+              <span className="bg-emerald-400 text-emerald-950 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                पार्टनर पोर्टल
+              </span>
+            </div>
+            <p className="text-[11px] text-emerald-100/90 mt-0.5 font-medium">
+              {partnerProfile ? (
+                <span>पार्टनर: <b className="text-white">{partnerProfile.name}</b> ({partnerProfile.vehicleTypeName || partnerProfile.vehicleType}) • ऑर्डर स्वीकार/डिलीवर करें</span>
+              ) : (
+                <span>डिलीवरी पार्टनर हेतु सौंपे गए ऑर्डर्स की सूची व डिलीवरी स्थिति अपडेट</span>
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-emerald-200 group-hover:text-white group-hover:translate-x-1 transition-all">
+          <ChevronRight className="w-5 h-5" />
+        </div>
+      </Link>
 
       {/* Orders Quick Navigation */}
       <Link

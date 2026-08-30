@@ -143,6 +143,8 @@ export interface OrderTimelineEvent {
   status: OrderStatus;
 }
 
+export type PartnerAssignmentStatus = 'assigned' | 'accepted' | 'declined' | 'picked_up' | 'out_for_delivery' | 'delivered' | 'failed';
+
 export interface Order {
   id: string;
   orderNumber: string; // e.g. "FKB-2025-0801"
@@ -176,6 +178,19 @@ export interface Order {
   estimatedDeliveryDate?: string;
   notes?: string;
   timeline: OrderTimelineEvent[];
+  // Delivery Partner Assignment fields
+  assignedPartnerId?: string;
+  assignedPartnerName?: string;
+  assignedPartnerPhone?: string;
+  assignedPartnerEmail?: string;
+  assignedVehicleType?: string;
+  assignedVehicleNumber?: string;
+  partnerAssignmentStatus?: PartnerAssignmentStatus;
+  partnerAssignedAt?: number;
+  partnerAcceptedAt?: number;
+  partnerDeclineReason?: string;
+  partnerStatusNote?: string;
+  deliveryProofOtp?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -636,6 +651,33 @@ export interface OrderDeliverySnapshot {
   isManuallyOverridden?: boolean;
   overrideReason?: string;
   calculatedAt: number;
+}
+
+// ==========================================
+// DELIVERY PARTNER SYSTEM TYPES
+// ==========================================
+
+export type DeliveryPartnerAvailability = 'available' | 'on_delivery' | 'off_duty';
+
+export interface DeliveryPartner {
+  id: string;
+  name: string; // e.g. "राहुल पटेल"
+  phone: string; // 10-digit mobile number e.g. "9876543210"
+  email: string; // Google login Gmail e.g. "rahul@gmail.com"
+  vehicleType: string; // e.g. "bike", "pickup", "e_rickshaw", "tempo", "truck"
+  vehicleTypeName?: string; // e.g. "मोटरसाइकिल / बाइक (Bike)"
+  vehicleNumber?: string; // e.g. "MP-09-AB-1234"
+  isActive: boolean; // Admin toggle (सक्रिय / निष्क्रिय)
+  availabilityStatus: DeliveryPartnerAvailability; // Live availability status
+  assignedOrdersCount: number; // Current active assigned orders
+  completedDeliveriesCount: number; // Historical completed deliveries
+  currentOrderId?: string; // Currently active in-transit order ID
+  address?: string;
+  emergencyPhone?: string;
+  notes?: string;
+  joinedAt: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 

@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { db } from '../firebase';
 import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
-import { Order, OrderStatus } from '../types';
+import { Order, OrderStatus, DeliveryPartner } from '../types';
 import { updateOrderStatus, getLocalOrders } from '../services/orderService';
+import { 
+  fetchDeliveryPartners, 
+  listenDeliveryPartners, 
+  assignOrderToDeliveryPartner 
+} from '../services/deliveryPartnerService';
 import { 
   Package, Search, Filter, Clock, Truck, 
   CheckCircle2, AlertCircle, Eye, Phone, MapPin, 
   ChevronDown, Edit3, Loader2, RefreshCw, Download,
   Calendar, DollarSign, Send, Bell, BellRing, ChevronRight,
-  TrendingUp, AlertTriangle, ArrowUpRight, Check
+  TrendingUp, AlertTriangle, ArrowUpRight, Check, Users, UserPlus, UserCheck, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateOrderInvoicePDF } from '../utils/invoiceGenerator';
@@ -88,10 +93,25 @@ const AdminOrdersManager: React.FC = () => {
   const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('');
   const [isSavingStatus, setIsSavingStatus] = useState(false);
 
+  // Delivery Partners State & Assign Modal
+  const [deliveryPartners, setDeliveryPartners] = useState<DeliveryPartner[]>([]);
+  const [assigningOrder, setAssigningOrder] = useState<Order | null>(null);
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
+  const [adminAssignNote, setAdminAssignNote] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+
   // New Order Banner / Audio notification tracking
   const [newOrderAlert, setNewOrderAlert] = useState<Order | null>(null);
   const initialLoadDone = useRef(false);
   const previousOrderIds = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    // Listen to delivery partners
+    const unsubPartners = listenDeliveryPartners((list) => {
+      setDeliveryPartners(list);
+    });
+    return () => unsubPartners();
+  }, []);
 
   useEffect(() => {
     // Initial local orders for instant render (0ms delay)
@@ -295,6 +315,47 @@ const AdminOrdersManager: React.FC = () => {
       console.error("Failed to update status:", error);
     } finally {
       setIsSavingStatus(false);
+    }
+  };
+
+  const handleOpenAssignModal = (order: Order) => {
+    setAssigningOrder(order);
+    setSelectedPartnerId(order.assignedPartnerId || (deliveryPartners.find(p => p.isActive && p.availabilityStatus === 'available')?.id || deliveryPartners[0]?.id || ''));
+    setAdminAssignNote(order.partnerStatusNote || '');
+  };
+
+  const handleConfirmAssignPartner = async () => {
+    if (!assigningOrder || !selectedPartnerId) return;
+    const partner = deliveryPartners.find(p => p.id === selectedPartnerId);
+    if (!partner) return;
+
+    setIsAssigning(true);
+    try {
+      await assignOrderToDeliveryPartner(assigningOrder.id, partner, adminAssignNote);
+      // Update local order list instantly
+      setOrders(prev => prev.map(o => {
+        if (o.id === assigningOrder.id) {
+          return {
+            ...o,
+            assignedPartnerId: partner.id,
+            assignedPartnerName: partner.name,
+            assignedPartnerPhone: partner.phone,
+            assignedPartnerEmail: partner.email,
+            assignedVehicleType: partner.vehicleType,
+            assignedVehicleNumber: partner.vehicleNumber,
+            partnerAssignmentStatus: 'assigned',
+            partnerAssignedAt: Date.now(),
+            partnerStatusNote: adminAssignNote,
+            updatedAt: Date.now(),
+          };
+        }
+        return o;
+      }));
+      setAssigningOrder(null);
+    } catch (err) {
+      console.error("Failed to assign partner:", err);
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -665,6 +726,66 @@ const AdminOrdersManager: React.FC = () => {
                   ))}
                 </div>
 
+                {/* Delivery Partner Assignment Section */}
+                <div className="bg-emerald-50/40 border border-emerald-100/80 p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-white border border-emerald-200 flex items-center justify-center text-[#2D5A27] font-bold shrink-0 shadow-2xs">
+                      <Truck className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">डिलीवरी पार्टनर:</span>
+                        {order.assignedPartnerName ? (
+                          <span className="text-xs font-black text-emerald-950 flex items-center gap-1">
+                            {order.assignedPartnerName}
+                            {order.assignedPartnerPhone && (
+                              <a href={`tel:${order.assignedPartnerPhone}`} className="text-[#2D5A27] font-normal hover:underline ml-1">
+                                (+91 {order.assignedPartnerPhone})
+                              </a>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-amber-700 font-bold">अभी कोई पार्टनर असाइन नहीं है</span>
+                        )}
+                      </div>
+
+                      {order.assignedPartnerName && (
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
+                            order.partnerAssignmentStatus === 'delivered' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                            order.partnerAssignmentStatus === 'out_for_delivery' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                            order.partnerAssignmentStatus === 'picked_up' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                            order.partnerAssignmentStatus === 'accepted' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                            order.partnerAssignmentStatus === 'declined' ? 'bg-red-100 text-red-800 border-red-200' :
+                            'bg-amber-100 text-amber-800 border-amber-200'
+                          }`}>
+                            {order.partnerAssignmentStatus === 'delivered' ? '✓ सामान डिलीवर हुआ' :
+                             order.partnerAssignmentStatus === 'out_for_delivery' ? '🚚 रास्ते में है' :
+                             order.partnerAssignmentStatus === 'picked_up' ? '📦 वेयरहाउस से पिकअप' :
+                             order.partnerAssignmentStatus === 'accepted' ? '🟢 पार्टनर ने स्वीकार किया' :
+                             order.partnerAssignmentStatus === 'declined' ? '🔴 पार्टनर उपलब्ध नहीं' :
+                             '🟡 असाइन किया गया (प्रतीक्षारत)'}
+                          </span>
+                          {order.partnerDeclineReason && (
+                            <span className="text-[10px] text-red-600 font-medium truncate max-w-[200px]">
+                              कारण: {order.partnerDeclineReason}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAssignModal(order)}
+                    className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-[#2D5A27] border border-emerald-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all shrink-0 cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>{order.assignedPartnerName ? 'रीअसाइन / बदलें' : 'डिलीवरी पार्टनर असाइन करें'}</span>
+                  </button>
+                </div>
+
                 {/* Courier & Tracking Banner if present */}
                 {order.trackingNumber && (
                   <div className="bg-indigo-50 border border-indigo-100 p-2.5 rounded-xl text-[11px] text-indigo-900 flex flex-wrap justify-between items-center gap-1">
@@ -791,6 +912,145 @@ const AdminOrdersManager: React.FC = () => {
                   className="flex-1 py-2.5 bg-[#2D5A27] text-white font-bold rounded-xl text-xs hover:bg-[#2D5A27]/90 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
                 >
                   {isSavingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : 'सुरक्षित करें (Save)'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Assign Delivery Partner Modal */}
+        {assigningOrder && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-3">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setAssigningOrder(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              className="relative bg-white rounded-3xl p-5 w-full max-w-md shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-[#2D5A27] flex items-center justify-center font-black">
+                    <Truck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-sm">डिलीवरी पार्टनर असाइन करें</h3>
+                    <p className="text-[10px] text-gray-400 font-medium">
+                      ऑर्डर: <span className="font-bold text-[#2D5A27]">{assigningOrder.orderNumber}</span> • {assigningOrder.customerDetails.name}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setAssigningOrder(null)}
+                  className="p-1 hover:bg-gray-100 rounded-full text-gray-500 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Delivery Order Summary */}
+              <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100 space-y-1 text-xs">
+                <p className="font-bold text-gray-800">
+                  डिलीवरी स्थान: <span className="font-normal text-gray-600">{assigningOrder.customerDetails.addressHouse}, {assigningOrder.customerDetails.addressCity} ({assigningOrder.customerDetails.addressPincode})</span>
+                </p>
+                <p className="text-gray-500 text-[11px]">
+                  उत्पाद: <b>{assigningOrder.items.length} आयटम</b> • कुल राशि: <b>₹{assigningOrder.totalAmount}</b>
+                </p>
+              </div>
+
+              {/* Partner Selection List */}
+              <div className="space-y-2">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  उपलब्ध डिलीवरी पार्टनर चुनें ({deliveryPartners.filter(p => p.isActive).length} सक्रिय):
+                </label>
+
+                {deliveryPartners.length === 0 ? (
+                  <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-amber-800 text-xs text-center font-bold">
+                    कोई डिलीवरी पार्टनर पंजीकृत नहीं है। कृपया पहले Delivery Partners टैब में पार्टनर जोड़ें।
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {deliveryPartners.map((partner) => {
+                      const isSelected = selectedPartnerId === partner.id;
+                      const isAvailable = partner.isActive && partner.availabilityStatus === 'available';
+
+                      return (
+                        <div
+                          key={partner.id}
+                          onClick={() => partner.isActive && setSelectedPartnerId(partner.id)}
+                          className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                            !partner.isActive ? 'opacity-50 bg-gray-50 border-gray-200 cursor-not-allowed' :
+                            isSelected ? 'bg-emerald-50/80 border-[#2D5A27] ring-2 ring-[#2D5A27]/20' :
+                            'bg-white border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
+                              isSelected ? 'bg-[#2D5A27] text-white' : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {partner.vehicleType === 'truck' ? '🚛' : partner.vehicleType === 'pickup' ? '🛻' : partner.vehicleType === 'tempo' ? '🚚' : partner.vehicleType === 'e_rickshaw' ? '🛺' : '🛵'}
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-gray-900">{partner.name}</p>
+                              <p className="text-[10px] text-gray-500 font-medium">
+                                +91 {partner.phone} • {partner.vehicleTypeName || partner.vehicleType}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
+                              !partner.isActive ? 'bg-gray-200 text-gray-600 border-gray-300' :
+                              isAvailable ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                              partner.availabilityStatus === 'on_delivery' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                              'bg-gray-100 text-gray-600 border-gray-200'
+                            }`}>
+                              {!partner.isActive ? 'निष्क्रिय' : isAvailable ? '🟢 उपलब्ध' : partner.availabilityStatus === 'on_delivery' ? 'डिलीवरी पर' : 'ऑफ ड्यूटी'}
+                            </span>
+                            {isSelected && <Check className="w-4 h-4 text-[#2D5A27]" />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Admin Note / Special Instructions */}
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                  पार्टनर हेतु विशेष निर्देश (Special Note for Delivery Boy):
+                </label>
+                <input
+                  type="text"
+                  placeholder="उदा. दोपहर 3 बजे से पहले पहुँचाएँ, ग्राहक से मिलकर ओटीपी लें"
+                  value={adminAssignNote}
+                  onChange={(e) => setAdminAssignNote(e.target.value)}
+                  className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-[#2D5A27]"
+                />
+              </div>
+
+              {/* Modal Action Buttons */}
+              <div className="flex gap-2 pt-2 border-t border-gray-100">
+                <button
+                  onClick={() => setAssigningOrder(null)}
+                  className="flex-1 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-200 active:scale-95 transition-all cursor-pointer"
+                >
+                  रद्द करें
+                </button>
+                <button
+                  onClick={handleConfirmAssignPartner}
+                  disabled={isAssigning || !selectedPartnerId}
+                  className="flex-1 py-2.5 bg-[#2D5A27] text-white font-bold rounded-xl text-xs hover:bg-[#2D5A27]/90 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                >
+                  {isAssigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
+                  <span>असाइन करें (Assign)</span>
                 </button>
               </div>
             </motion.div>

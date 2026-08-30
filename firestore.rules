@@ -127,6 +127,18 @@ service cloud.firestore {
              (!('geminiApiKey' in data) || (data.geminiApiKey is string && data.geminiApiKey.size() < 500));
     }
 
+    function isValidDeliveryPartner(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.phone is string && data.phone.size() >= 10 && data.phone.size() <= 15 &&
+             data.email is string && data.email.size() > 0 && data.email.size() < 200 &&
+             data.vehicleType is string && data.vehicleType.size() > 0 &&
+             (!('vehicleNumber' in data) || data.vehicleNumber is string) &&
+             (!('isActive' in data) || data.isActive is bool) &&
+             (!('availabilityStatus' in data) || data.availabilityStatus in ['available', 'on_delivery', 'off_duty']) &&
+             (!('assignedOrdersCount' in data) || data.assignedOrdersCount is number) &&
+             (!('completedDeliveriesCount' in data) || data.completedDeliveriesCount is number);
+    }
+
     function isValidAppContent(data) {
       return data.banners is list &&
              data.videos is list &&
@@ -215,14 +227,25 @@ service cloud.firestore {
 
     // Orders Collection (For ecommerce orders & tracking)
     match /orders/{orderId} {
-      // Users can read their own orders or guest orders by ID, Admin can read all
+      // Users can read their own orders or guest orders by ID, Admin & Delivery partners can read orders
       allow read: if true;
       // Any authenticated user or guest can create an order with valid data
       allow create: if request.resource.data.orderNumber is string &&
                        request.resource.data.items is list &&
                        request.resource.data.totalAmount is number;
-      // Admin can update any order (status, courier, etc.), or user can update their own notes
-      allow update: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      // Admin, order owner, or assigned delivery partner can update order
+      allow update: if isAdmin() || 
+                       (isAuthenticated() && resource.data.userId == request.auth.uid) ||
+                       (isAuthenticated() && resource.data.assignedPartnerEmail == request.auth.token.get('email', ''));
+      allow delete: if isAdmin();
+    }
+
+    // Delivery Partners Collection
+    match /deliveryPartners/{partnerId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidDeliveryPartner(request.resource.data);
+      allow update: if (isAdmin() && isValidDeliveryPartner(request.resource.data)) ||
+                       (isAuthenticated() && resource.data.email == request.auth.token.get('email', '') && isValidDeliveryPartner(request.resource.data));
       allow delete: if isAdmin();
     }
 

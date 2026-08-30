@@ -9,8 +9,9 @@ import {
 import { 
   Truck, Save, MapPin, Scale, Navigation, 
   Info, CheckCircle2, IndianRupee, Plus, Trash2, Edit2, 
-  AlertCircle, Check, X, Sliders
+  AlertCircle, Check, X, Sliders, Users
 } from 'lucide-react';
+import { AdminDeliveryPartnersManager } from './AdminDeliveryPartnersManager';
 
 const COMMON_EMOJIS = ['🛵', '🛺', '🛻', '🚚', '🚛', '🚜', '🚐', '📦', '🚲', '🚗'];
 
@@ -29,7 +30,7 @@ const AdminDeliveryManager: React.FC = () => {
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [activeSection, setActiveSection] = useState<'matrix' | 'store'>('matrix');
+  const [activeSection, setActiveSection] = useState<'matrix' | 'store' | 'partners'>('matrix');
   const [validationError, setValidationError] = useState<string | null>(null);
 
   // Modal / Inline Edit States
@@ -604,6 +605,16 @@ const AdminDeliveryManager: React.FC = () => {
 
         <button
           type="button"
+          onClick={() => setActiveSection('partners')}
+          className={`flex-1 min-w-[160px] py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all ${
+            activeSection === 'partners' ? 'bg-[#2D5A27] text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Users className="w-3.5 h-3.5" /> डिलीवरी पार्टनर्स (Delivery Boys)
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveSection('store')}
           className={`flex-1 min-w-[160px] py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all ${
             activeSection === 'store' ? 'bg-[#2D5A27] text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'
@@ -872,6 +883,13 @@ const AdminDeliveryManager: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SECTION 3: DELIVERY PARTNERS MANAGEMENT */}
+      {/* ========================================================================= */}
+      {activeSection === 'partners' && (
+        <AdminDeliveryPartnersManager availableVehicles={config.vehicles} />
       )}
 
       {/* ========================================================================= */}

@@ -58,6 +58,7 @@ const LicensingDisclaimer = safeLazy(() => import('./pages/LicensingDisclaimer')
 const CheckoutPage = safeLazy(() => import('./pages/CheckoutPage'));
 const MyOrdersPage = safeLazy(() => import('./pages/MyOrdersPage'));
 const OrderDetailsPage = safeLazy(() => import('./pages/OrderDetailsPage'));
+const DeliveryOrdersPage = safeLazy(() => import('./pages/DeliveryOrdersPage'));
 
 
 const PageLoader = () => (
@@ -141,6 +142,10 @@ export default function App() {
                 <Route path="my-orders" element={<MyOrdersPage />} />
                 <Route path="orders/:orderId" element={<OrderDetailsPage />} />
                 <Route path="order/:orderId" element={<OrderDetailsPage />} />
+                <Route path="delivery-orders" element={<DeliveryOrdersPage />} />
+                <Route path="orders-for-delivery" element={<DeliveryOrdersPage />} />
+                <Route path="delivery-boy" element={<DeliveryOrdersPage />} />
+                <Route path="delivery-partner" element={<DeliveryOrdersPage />} />
               </Route>
             </Routes>
           </Suspense>

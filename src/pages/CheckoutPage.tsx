@@ -565,7 +565,7 @@ const CheckoutPage: React.FC = () => {
                 ) : (
                   <LocateFixed className="w-3.5 h-3.5 text-[#2D5A27]" />
                 )}
-                <span>📍 वर्तमान GPS लोकेशन से सटीक दूरी निकालें</span>
+                <span>वर्तमान GPS लोकेशन से सटीक दूरी निकालें</span>
               </button>
 
               {userCoords && (
@@ -632,7 +632,7 @@ const CheckoutPage: React.FC = () => {
                     <span className="text-3xl">{deliveryQuote.vehicleEmoji}</span>
                     <div>
                       <h4 className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
-                        <span>🚚 डिलीवरी वाहन: {deliveryQuote.vehicleNameHindi}</span>
+                        <span>डिलीवरी वाहन: {deliveryQuote.vehicleNameHindi}</span>
                         <span className="text-[10px] font-bold text-emerald-700 bg-white/90 px-1.5 py-0.2 rounded border border-emerald-200">
                           {deliveryQuote.vehicleType}
                         </span>
@@ -661,7 +661,7 @@ const CheckoutPage: React.FC = () => {
                   <div className="bg-white/85 p-2 rounded-xl border border-emerald-100 shadow-2xs">
                     <div className="flex items-center justify-center gap-1 text-gray-500 font-bold">
                       <Scale className="w-3 h-3 text-[#2D5A27]" />
-                      <span>📦 कुल वजन</span>
+                      <span>कुल वजन</span>
                     </div>
                     <p className="font-black text-xs text-gray-800 mt-0.5">लगभग {totalCartWeightKg} kg</p>
                   </div>
@@ -669,7 +669,7 @@ const CheckoutPage: React.FC = () => {
                   <div className="bg-white/85 p-2 rounded-xl border border-emerald-100 shadow-2xs">
                     <div className="flex items-center justify-center gap-1 text-gray-500 font-bold">
                       <Navigation className="w-3 h-3 text-[#2D5A27]" />
-                      <span>📍 दूरी</span>
+                      <span>दूरी</span>
                     </div>
                     <p className="font-black text-xs text-gray-800 mt-0.5">{deliveryQuote.distanceKm} km</p>
                   </div>
@@ -677,7 +677,7 @@ const CheckoutPage: React.FC = () => {
                   <div className="bg-white/85 p-2 rounded-xl border border-emerald-100 shadow-2xs">
                     <div className="flex items-center justify-center gap-1 text-gray-500 font-bold">
                       <Zap className="w-3 h-3 text-[#2D5A27]" />
-                      <span>💰 डिलीवरी शुल्क</span>
+                      <span>डिलीवरी शुल्क</span>
                     </div>
                     <p className="font-black text-xs text-emerald-700 mt-0.5">
                       {deliveryQuote.isFreeDelivery ? '₹0 (मुफ़्त)' : `₹${deliveryQuote.finalDeliveryCharge}`}
@@ -745,7 +745,7 @@ const CheckoutPage: React.FC = () => {
                 <span>⚠️ डिलीवरी दूरी निर्धारित नहीं हो सकी (Location Unresolved)</span>
               </div>
               <p className="text-[11px] text-red-700 leading-relaxed">
-                {distanceInfo?.errorMessage || 'दर्ज किए गए पते या पिनकोड से सटीक लोकेशन नहीं मिल पाई है। गलत डिलीवरी शुल्क से बचने के लिए कृपया मान्य 6-अंकीय पिनकोड और पूरा पता दर्ज करें या ऊपर दिए गए "📍 वर्तमान GPS लोकेशन से सटीक दूरी निकालें" बटन को दबाएं।'}
+                {distanceInfo?.errorMessage || 'दर्ज किए गए पते या पिनकोड से सटीक लोकेशन नहीं मिल पाई है। गलत डिलीवरी शुल्क से बचने के लिए कृपया मान्य 6-अंकीय पिनकोड और पूरा पता दर्ज करें या ऊपर दिए गए "वर्तमान GPS लोकेशन से सटीक दूरी निकालें" बटन को दबाएं।'}
               </p>
             </div>
           )

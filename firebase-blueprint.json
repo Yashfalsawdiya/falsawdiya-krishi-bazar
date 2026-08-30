@@ -256,6 +256,29 @@
         "createdAt": { "type": "number" }
       },
       "required": ["title", "category", "summary"]
+    },
+    "DeliveryPartner": {
+      "title": "DeliveryPartner",
+      "description": "Delivery boy and driver partner records for order fulfillment.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "vehicleType": { "type": "string" },
+        "vehicleNumber": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "availabilityStatus": { "type": "string", "enum": ["available", "on_delivery", "off_duty"] },
+        "assignedOrdersCount": { "type": "number" },
+        "completedDeliveriesCount": { "type": "number" },
+        "currentOrderId": { "type": "string" },
+        "address": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["name", "phone", "email", "vehicleType"]
     }
   },
   "firestore": {
@@ -298,6 +321,10 @@
     "/agri_trade_notices/{noticeId}": {
       "schema": "AgriTradeNotice",
       "description": "Collection of official trade notices and regulatory updates."
+    },
+    "/deliveryPartners/{partnerId}": {
+      "schema": "DeliveryPartner",
+      "description": "Collection of delivery partner profiles and assignments."
     }
   }
 }
