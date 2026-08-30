@@ -16,10 +16,15 @@ import {
   updatePartnerAvailability 
 } from '../services/deliveryPartnerService';
 import { 
+  sendDeliveryOtp, 
+  verifyDeliveryOtp, 
+  getDeliveryOtpPublicConfig 
+} from '../services/deliveryOtpService';
+import { 
   Truck, Package, Phone, MapPin, CheckCircle2, 
   XCircle, AlertCircle, Clock, Navigation, Check, 
   X, RefreshCw, ChevronRight, User, Shield, ShieldAlert,
-  Power, ArrowLeft, Send, Sparkles, AlertTriangle
+  Power, ArrowLeft, Send, Sparkles, AlertTriangle, Key, Mail, ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -40,10 +45,33 @@ export const DeliveryOrdersPage: React.FC = () => {
   const [decliningOrder, setDecliningOrder] = useState<Order | null>(null);
   const [declineReason, setDeclineReason] = useState('गाड़ी में खराबी / उपलब्ध नहीं');
 
-  // Complete Delivery Modal
+  // Complete Delivery Modal & OTP states
   const [completingOrder, setCompletingOrder] = useState<Order | null>(null);
   const [deliveryNote, setDeliveryNote] = useState('');
   const [deliveryOtp, setDeliveryOtp] = useState('');
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpSentState, setOtpSentState] = useState<{
+    sent: boolean;
+    maskedEmail: string;
+    expiresAt?: number;
+    inAppOtp?: string;
+  }>({ sent: false, maskedEmail: '' });
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [resendTimer, setResendTimer] = useState<number>(0);
+
+  // Resend Timer Countdown
+  useEffect(() => {
+    let interval: NodeJS.Timeout | undefined;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer(prev => Math.max(0, prev - 1));
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [resendTimer]);
 
   // Issue / Fail Modal
   const [failingOrder, setFailingOrder] = useState<Order | null>(null);
@@ -171,6 +199,110 @@ export const DeliveryOrdersPage: React.FC = () => {
       }
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  const handleOpenCompleteModal = async (order: Order) => {
+    setDeliveryNote('');
+    setDeliveryOtp('');
+    setOtpError(null);
+    setOtpSentState({ sent: false, maskedEmail: '' });
+    setCompletingOrder(order);
+
+    // Auto-send OTP when opening modal for smooth delivery flow
+    setOtpSending(true);
+    try {
+      const res = await sendDeliveryOtp({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        customerEmail: order.customerDetails?.email || order.userId,
+        customerName: order.customerDetails?.name,
+        partnerId: partnerProfile?.id,
+        partnerName: partnerProfile?.name,
+      });
+
+      if (res.success) {
+        setOtpSentState({
+          sent: true,
+          maskedEmail: res.maskedEmail || 'ग्राहक की ईमेल',
+          expiresAt: res.expiresAt,
+          inAppOtp: res.inAppOtp,
+        });
+        setResendTimer(res.resendCooldownSeconds || 60);
+      } else {
+        setOtpError(res.error || 'OTP भेजने में समस्या आई।');
+        if (res.resendCooldownSeconds) {
+          setResendTimer(res.resendCooldownSeconds);
+        }
+      }
+    } catch (err: any) {
+      setOtpError(err.message || 'OTP भेजने में असमर्थ');
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const handleManualResendOtp = async () => {
+    if (!completingOrder || resendTimer > 0 || otpSending) return;
+    setOtpSending(true);
+    setOtpError(null);
+    try {
+      const res = await sendDeliveryOtp({
+        orderId: completingOrder.id,
+        orderNumber: completingOrder.orderNumber,
+        customerEmail: completingOrder.customerDetails?.email || completingOrder.userId,
+        customerName: completingOrder.customerDetails?.name,
+        partnerId: partnerProfile?.id,
+        partnerName: partnerProfile?.name,
+      });
+
+      if (res.success) {
+        setOtpSentState({
+          sent: true,
+          maskedEmail: res.maskedEmail || 'ग्राहक की ईमेल',
+          expiresAt: res.expiresAt,
+          inAppOtp: res.inAppOtp,
+        });
+        setResendTimer(res.resendCooldownSeconds || 60);
+        showFeedback('नया OTP ग्राहक की ईमेल पर भेज दिया गया है!');
+      } else {
+        setOtpError(res.error || 'OTP भेजने में समस्या आई।');
+      }
+    } catch (err: any) {
+      setOtpError(err.message || 'OTP भेजने में असमर्थ');
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const handleVerifyAndDeliver = async () => {
+    if (!completingOrder || !partnerProfile) return;
+    if (!deliveryOtp.trim()) {
+      setOtpError('कृपया ग्राहक द्वारा दिया गया 6-अंकों का OTP कोड दर्ज करें।');
+      return;
+    }
+
+    setOtpVerifying(true);
+    setOtpError(null);
+
+    try {
+      const res = await verifyDeliveryOtp({
+        orderId: completingOrder.id,
+        otp: deliveryOtp.trim(),
+        partnerId: partnerProfile.id,
+        partnerName: partnerProfile.name,
+        deliveryNote: deliveryNote.trim(),
+      });
+
+      if (res.success) {
+        await handleUpdateProgress(completingOrder, 'delivered', deliveryNote.trim(), deliveryOtp.trim());
+      } else {
+        setOtpError(res.error || 'गलत OTP दर्ज किया गया है।');
+      }
+    } catch (err: any) {
+      setOtpError(err.message || 'OTP सत्यापन में समस्या आई।');
+    } finally {
+      setOtpVerifying(false);
     }
   };
 
@@ -594,22 +726,18 @@ export const DeliveryOrdersPage: React.FC = () => {
                           <button
                             type="button"
                             disabled={isLoading}
-                            onClick={() => {
-                              setDeliveryNote('');
-                              setDeliveryOtp('');
-                              setCompletingOrder(order);
-                            }}
-                            className="w-full bg-[#2D5A27] hover:bg-[#23461e] text-white py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm active:scale-98 transition-all disabled:opacity-50"
+                            onClick={() => handleOpenCompleteModal(order)}
+                            className="w-full bg-[#2D5A27] hover:bg-[#23461e] text-white py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm active:scale-98 transition-all disabled:opacity-50 cursor-pointer"
                           >
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span>सफलतापूर्वक डिलीवर हुआ (Mark Delivered)</span>
+                            <ShieldCheck className="w-4 h-4" />
+                            <span>OTP सत्यापन व डिलीवरी पूर्ण करें</span>
                           </button>
 
                           <button
                             type="button"
                             disabled={isLoading}
                             onClick={() => setFailingOrder(order)}
-                            className="w-full bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                            className="w-full bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
                           >
                             <AlertTriangle className="w-4 h-4" />
                             <span>डिलीवरी विफल / समस्या दर्ज करें</span>
@@ -695,7 +823,7 @@ export const DeliveryOrdersPage: React.FC = () => {
       </AnimatePresence>
 
       {/* ========================================================================= */}
-      {/* MODAL: MARK AS DELIVERED CONFIRMATION */}
+      {/* MODAL: SECURE DELIVERY OTP VERIFICATION */}
       {/* ========================================================================= */}
       <AnimatePresence>
         {completingOrder && (
@@ -703,26 +831,93 @@ export const DeliveryOrdersPage: React.FC = () => {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              exit={{ opacity: 0, scale: 1 }}
               className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 space-y-4"
             >
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto border border-emerald-100 shadow-2xs">
+                <ShieldCheck className="w-6 h-6" />
               </div>
 
               <div className="text-center space-y-1">
                 <h3 className="text-base font-black text-gray-900">
-                  डिलीवरी पूर्ण पुष्टि (Mark as Delivered)
+                  डिलीवरी OTP सत्यापन (Delivery Confirmation)
                 </h3>
                 <p className="text-xs text-gray-500">
                   ऑर्डर संख्या: <span className="font-bold text-gray-800">{completingOrder.orderNumber}</span>
                 </p>
-                <p className="text-xs text-gray-600 font-medium">
-                  ग्राहक: {completingOrder.customerDetails?.name}
+                <p className="text-xs text-gray-700 font-semibold">
+                  ग्राहक: {completingOrder.customerDetails?.name || 'किसान साथी'}
                 </p>
               </div>
 
+              {/* OTP Dispatch Banner */}
+              <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3 text-xs space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-950">
+                    <Mail className="w-3.5 h-3.5 text-[#2D5A27]" />
+                    <span>ईमेल पर भेजा गया 6-अंकों का OTP</span>
+                  </div>
+
+                  {otpSending ? (
+                    <span className="text-[11px] text-emerald-700 flex items-center gap-1 font-bold">
+                      <RefreshCw className="w-3 h-3 animate-spin" /> भेजा जा रहा है...
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={resendTimer > 0 || otpSending}
+                      onClick={handleManualResendOtp}
+                      className="text-[11px] font-bold text-[#2D5A27] hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
+                    >
+                      {resendTimer > 0 ? `पुनः भेजें (${resendTimer}s)` : 'पुनः भेजें'}
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-gray-600 text-[11px] leading-relaxed">
+                  {otpSentState.sent ? (
+                    <>
+                      OTP कोड ग्राहक की ईमेल <b>{otpSentState.maskedEmail || completingOrder.customerDetails?.email}</b> पर सफलतापूर्वक भेज दिया गया है।
+                    </>
+                  ) : otpSending ? (
+                    'कृपया प्रतीक्षा करें, ग्राहक की ईमेल पर OTP भेजा जा रहा है...'
+                  ) : (
+                    'ग्राहक से प्राप्त 6-अंकों का गुप्त कोड नीचे दर्ज करें।'
+                  )}
+                </p>
+              </div>
+
+              {/* In-app fallback note */}
+              <div className="p-2.5 bg-amber-50/70 rounded-xl border border-amber-200 text-amber-950 text-[11px] leading-relaxed">
+                💡 <b>धीमा इंटरनेट / नो ईमेल बैकअप:</b> किसान भाई अपने मोबाइल पर <b>"मेरे ऑनलाइन ऑर्डर"</b> पेज खोलकर भी लाइव डिलीवरी OTP देख सकते हैं।
+              </div>
+
+              {/* OTP Input Field */}
               <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-black text-gray-800 mb-1.5 flex items-center justify-between">
+                    <span>ग्राहक OTP कोड दर्ज करें (6 Digits) *</span>
+                    <span className="text-[10px] text-gray-400 font-normal">केवल संख्या दर्ज करें</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      pattern="[0-9]*"
+                      inputMode="numeric"
+                      value={deliveryOtp}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        setDeliveryOtp(val);
+                        if (otpError) setOtpError(null);
+                      }}
+                      placeholder="• • • • • •"
+                      className="w-full text-center tracking-[0.4em] font-mono text-xl font-black bg-gray-50 border-2 border-gray-200 rounded-2xl p-3 text-gray-900 outline-none focus:border-[#2D5A27] focus:bg-white transition-all placeholder:tracking-normal placeholder:font-sans placeholder:text-sm placeholder:text-gray-400"
+                    />
+                    <Key className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                  </div>
+                </div>
+
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">
                     डिलीवरी नोट / टिप्पणी (वैकल्पिक):
@@ -731,40 +926,44 @@ export const DeliveryOrdersPage: React.FC = () => {
                     type="text"
                     value={deliveryNote}
                     onChange={(e) => setDeliveryNote(e.target.value)}
-                    placeholder="उदा. किसान के हाथ में सामान सौंपा, सब सही पाया गया"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 font-medium text-gray-800 outline-none"
+                    placeholder="उदा. किसान के हाथ में सामान सौंपा, भुगतान प्राप्त हुआ"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 font-medium text-gray-800 outline-none focus:border-[#2D5A27]"
                   />
                 </div>
 
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">
-                    ग्राहक पुष्टि / फोन अंतिम 4 अंक (वैकल्पिक):
-                  </label>
-                  <input
-                    type="text"
-                    value={deliveryOtp}
-                    onChange={(e) => setDeliveryOtp(e.target.value)}
-                    placeholder="उदा. 4321 या मौखिक पुष्टि"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 font-medium text-gray-800 outline-none"
-                  />
-                </div>
+                {otpError && (
+                  <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold flex items-center gap-1.5 animate-shake">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{otpError}</span>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setCompletingOrder(null)}
-                  className="py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs"
+                  className="py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-2xl text-xs transition-all cursor-pointer"
                 >
                   रद्द करें
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleUpdateProgress(completingOrder, 'delivered', deliveryNote, deliveryOtp)}
-                  className="py-2.5 bg-[#2D5A27] hover:bg-[#23461e] text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5"
+                  disabled={otpVerifying || !deliveryOtp.trim()}
+                  onClick={handleVerifyAndDeliver}
+                  className="py-3 bg-[#2D5A27] hover:bg-[#23461e] text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-900/10 active:scale-98 transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  <Check className="w-4 h-4" />
-                  <span>डिलीवर चिह्नित करें</span>
+                  {otpVerifying ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>सत्यापित हो रहा है...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>OTP सत्यापित व डिलीवर</span>
+                    </>
+                  )}
                 </button>
               </div>
             </motion.div>

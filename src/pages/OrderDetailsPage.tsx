@@ -3,13 +3,14 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { fetchOrderById, cancelUserOrder, calculateOrderRefund } from '../services/orderService';
 import { useAppContext } from '../context/AppContext';
 import { Order, OrderStatus } from '../types';
+import { getInAppDeliveryOtp } from '../services/deliveryOtpService';
 import { 
   ArrowLeft, CheckCircle2, Clock, Truck, 
   MapPin, Phone, User, Package, Download, 
   AlertCircle, ShieldCheck, MessageSquare, 
   ChevronRight, Calendar, Sparkles, Loader2, FileCheck,
   ShoppingBag, ClipboardCheck, Bike, Check, XCircle,
-  AlertTriangle, RotateCcw, HelpCircle, FileText, Ban
+  AlertTriangle, RotateCcw, HelpCircle, FileText, Ban, Key, Mail
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
@@ -43,6 +44,10 @@ const OrderDetailsPage: React.FC = () => {
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelSuccessMsg, setCancelSuccessMsg] = useState<string | null>(null);
 
+  // In-App Delivery OTP States
+  const [inAppOtp, setInAppOtp] = useState<string | null>(null);
+  const [copiedOtp, setCopiedOtp] = useState(false);
+
   const isJustPlaced = (location.state as any)?.justPlaced;
   const whatsappNumber = appContent?.contactInfo?.whatsapp || '918982338046';
 
@@ -56,6 +61,23 @@ const OrderDetailsPage: React.FC = () => {
     };
     loadOrder();
   }, [orderId]);
+
+  // Fetch in-app delivery OTP if order is out for delivery or dispatched
+  useEffect(() => {
+    if (order && (order.status === 'out_for_delivery' || order.status === 'dispatched')) {
+      const fetchOtp = async () => {
+        try {
+          const res = await getInAppDeliveryOtp(order.id);
+          if (res.success && res.otp) {
+            setInAppOtp(res.otp);
+          }
+        } catch {
+          // silently ignore in-app otp fetch errors
+        }
+      };
+      fetchOtp();
+    }
+  }, [order?.id, order?.status]);
 
   if (loading) {
     return (
@@ -421,6 +443,84 @@ const OrderDetailsPage: React.FC = () => {
                 💡 <strong>नोट:</strong> रिफंड की राशि 24 से 48 घंटे के भीतर आपके उसी बैंक खाते या UPI में क्रेडिट हो जाएगी जिससे भुगतान किया गया था।
               </p>
             </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* =============================================================== */}
+      {/* LIVE SECURE DELIVERY OTP CARD (For Customer Verification) */}
+      {/* =============================================================== */}
+      {(order.status === 'out_for_delivery' || (order.partnerAssignmentStatus === 'out_for_delivery' && order.status !== 'delivered')) && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-gradient-to-br from-[#1b3d17] via-[#2D5A27] to-[#1e441a] text-white rounded-3xl p-5 sm:p-6 shadow-xl space-y-4 border-2 border-emerald-500/40 relative overflow-hidden"
+        >
+          {/* Decorative glow */}
+          <div className="absolute -top-12 -right-12 w-36 h-36 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="flex items-start justify-between gap-3 relative z-10">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-emerald-200 border border-white/20 shadow-inner">
+                <Key className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-base font-black text-white flex items-center gap-2">
+                  <span>डिलीवरी सुरक्षा OTP (Delivery OTP)</span>
+                </h4>
+                <p className="text-xs text-emerald-200 font-medium">
+                  सामान प्राप्त करने के बाद ही डिलीवरी साथी को यह कोड बताएँ
+                </p>
+              </div>
+            </div>
+
+            <div className="px-3 py-1 bg-emerald-500/30 border border-emerald-400/40 rounded-full text-[11px] font-black text-emerald-200 flex items-center gap-1.5 shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>सुरक्षित डिलीवरी</span>
+            </div>
+          </div>
+
+          {inAppOtp ? (
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/20 flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 shadow-sm">
+              <div className="text-center sm:text-left">
+                <p className="text-[11px] uppercase tracking-wider text-emerald-300 font-extrabold flex items-center justify-center sm:justify-start gap-1">
+                  <Sparkles className="w-3.5 h-3.5" /> आपका 6-अंकों का गुप्त OTP कोड
+                </p>
+                <div className="text-3xl sm:text-4xl font-black font-mono tracking-[0.35em] text-yellow-300 mt-1 select-all">
+                  {inAppOtp}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(inAppOtp);
+                  setCopiedOtp(true);
+                  setTimeout(() => setCopiedOtp(false), 2000);
+                }}
+                className="px-5 py-2.5 bg-white text-[#2D5A27] hover:bg-emerald-50 rounded-2xl text-xs font-black shadow-md flex items-center gap-2 active:scale-95 transition-all cursor-pointer"
+              >
+                {copiedOtp ? <Check className="w-4 h-4 text-emerald-700" /> : <ClipboardCheck className="w-4 h-4 text-[#2D5A27]" />}
+                <span>{copiedOtp ? 'कोड कॉपी हो गया!' : 'OTP कोड कॉपी करें'}</span>
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/15 text-xs text-emerald-100/95 leading-relaxed relative z-10 space-y-1.5">
+              <p className="flex items-center gap-2 font-bold text-white">
+                <Mail className="w-4 h-4 text-emerald-300" />
+                <span>ईमेल व एसएमएस पर सुरक्षित OTP</span>
+              </p>
+              <p className="text-[11px] text-emerald-200">
+                जब डिलीवरी साथी आपके दरवाजे पर सामान लेकर आएँगे और "डिलीवरी पूर्ण करें" दबाएँगे, तो 6-अंकों का OTP तुरंत आपकी ईमेल <b>{order.customerDetails?.email || 'Google Account'}</b> पर भेज दिया जाएगा।
+              </p>
+            </div>
+          )}
+
+          <div className="text-[11px] text-emerald-200/90 flex items-start gap-2 pt-1 border-t border-white/10">
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+            <span>
+              <strong>सुरक्षा निर्देश:</strong> जब तक आप पार्सल के सभी पैकेट सही सलामत प्राप्त न कर लें, तब तक किसी को भी यह OTP साझा न करें।
+            </span>
           </div>
         </motion.div>
       )}

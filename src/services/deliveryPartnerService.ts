@@ -455,6 +455,11 @@ export const partnerUpdateDeliveryProgress = async (
     partnerAssignmentStatus: progress,
     partnerStatusNote: note || '',
     ...(otp ? { deliveryProofOtp: otp } : {}),
+    ...(progress === 'delivered' ? {
+      deliveryOtpVerifiedAt: now,
+      deliveryOtpVerifiedBy: partnerId,
+      deliveryOtpNote: note || '',
+    } : {}),
     timeline: updatedTimeline,
     updatedAt: now,
   };
@@ -467,6 +472,11 @@ export const partnerUpdateDeliveryProgress = async (
       partnerAssignmentStatus: progress,
       partnerStatusNote: note || '',
       ...(otp ? { deliveryProofOtp: otp } : {}),
+      ...(progress === 'delivered' ? {
+        deliveryOtpVerifiedAt: now,
+        deliveryOtpVerifiedBy: partnerId,
+        deliveryOtpNote: note || '',
+      } : {}),
       timeline: updatedTimeline,
       updatedAt: now,
     });

@@ -9,9 +9,10 @@ import {
 import { 
   Truck, Save, MapPin, Scale, Navigation, 
   Info, CheckCircle2, IndianRupee, Plus, Trash2, Edit2, 
-  AlertCircle, Check, X, Sliders, Users
+  AlertCircle, Check, X, Sliders, Users, Mail, ShieldCheck
 } from 'lucide-react';
 import { AdminDeliveryPartnersManager } from './AdminDeliveryPartnersManager';
+import { AdminEmailOtpManager } from './AdminEmailOtpManager';
 
 const COMMON_EMOJIS = ['🛵', '🛺', '🛻', '🚚', '🚛', '🚜', '🚐', '📦', '🚲', '🚗'];
 
@@ -30,7 +31,7 @@ const AdminDeliveryManager: React.FC = () => {
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [activeSection, setActiveSection] = useState<'matrix' | 'store' | 'partners'>('matrix');
+  const [activeSection, setActiveSection] = useState<'matrix' | 'partners' | 'email_otp' | 'store'>('matrix');
   const [validationError, setValidationError] = useState<string | null>(null);
 
   // Modal / Inline Edit States
@@ -596,7 +597,7 @@ const AdminDeliveryManager: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveSection('matrix')}
-          className={`flex-1 min-w-[160px] py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all ${
+          className={`flex-1 min-w-[150px] py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
             activeSection === 'matrix' ? 'bg-[#2D5A27] text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
@@ -606,7 +607,7 @@ const AdminDeliveryManager: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveSection('partners')}
-          className={`flex-1 min-w-[160px] py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all ${
+          className={`flex-1 min-w-[150px] py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
             activeSection === 'partners' ? 'bg-[#2D5A27] text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
@@ -615,8 +616,18 @@ const AdminDeliveryManager: React.FC = () => {
 
         <button
           type="button"
+          onClick={() => setActiveSection('email_otp')}
+          className={`flex-1 min-w-[170px] py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeSection === 'email_otp' ? 'bg-[#2D5A27] text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Mail className="w-3.5 h-3.5" /> ईमेल व डिलीवरी OTP (SMTP)
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveSection('store')}
-          className={`flex-1 min-w-[160px] py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all ${
+          className={`flex-1 min-w-[150px] py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
             activeSection === 'store' ? 'bg-[#2D5A27] text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
@@ -890,6 +901,13 @@ const AdminDeliveryManager: React.FC = () => {
       {/* ========================================================================= */}
       {activeSection === 'partners' && (
         <AdminDeliveryPartnersManager availableVehicles={config.vehicles} />
+      )}
+
+      {/* ========================================================================= */}
+      {/* SECTION 4: EMAIL SMTP & DELIVERY OTP MANAGEMENT */}
+      {/* ========================================================================= */}
+      {activeSection === 'email_otp' && (
+        <AdminEmailOtpManager />
       )}
 
       {/* ========================================================================= */}

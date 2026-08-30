@@ -153,6 +153,7 @@ export interface Order {
   customerDetails: {
     name: string;
     phone: string;
+    email?: string;
     addressHouse: string;
     addressCity: string;
     addressDistrict: string;
@@ -191,6 +192,16 @@ export interface Order {
   partnerDeclineReason?: string;
   partnerStatusNote?: string;
   deliveryProofOtp?: string;
+  // Delivery OTP Verification Security fields
+  deliveryOtpRequired?: boolean;
+  deliveryOtpSentAt?: number;
+  deliveryOtpExpiresAt?: number;
+  deliveryOtpAttempts?: number;
+  deliveryOtpVerifiedAt?: number;
+  deliveryOtpVerifiedBy?: string;
+  deliveryOtpVerifierName?: string;
+  deliveryOtpNote?: string;
+  deliveryOtpInAppCode?: string; // Fallback in-app live code for low-connectivity rural areas
   createdAt: number;
   updatedAt: number;
 }
@@ -678,6 +689,38 @@ export interface DeliveryPartner {
   joinedAt: number;
   createdAt: number;
   updatedAt: number;
+}
+
+// ==========================================
+// EMAIL & DELIVERY OTP CONFIGURATION TYPES
+// ==========================================
+
+export interface EmailOtpServerConfig {
+  enabled: boolean;
+  senderEmail: string; // e.g. "yashfalsawdiya36@gmail.com" or "falsawdiyakrishibazaar@gmail.com"
+  appPassword: string; // Google 16-character App Password
+  senderName: string; // e.g. "फल्सावदिया कृषि बाजार (Falsawdiya Krishi Bazaar)"
+  otpLength: number; // 6
+  expiryMinutes: number; // 15
+  resendCooldownSeconds: number; // 60
+  maxAttempts: number; // 3
+  showInAppOtpFallback: boolean; // allow farmers to see OTP in My Orders for rural areas
+  lastUpdated: number;
+  lastTestResult?: {
+    success: boolean;
+    message: string;
+    timestamp: number;
+    testedEmail?: string;
+  };
+}
+
+export interface DeliveryOtpPublicConfig {
+  enabled: boolean;
+  isEmailConfigured: boolean;
+  senderEmailMasked?: string;
+  expiryMinutes: number;
+  resendCooldownSeconds: number;
+  showInAppOtpFallback: boolean;
 }
 
 
