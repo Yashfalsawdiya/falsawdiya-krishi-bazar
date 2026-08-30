@@ -116,7 +116,14 @@ const loadEmailConfig = () => {
     if (fs.existsSync(EMAIL_CONFIG_FILE)) {
       const raw = fs.readFileSync(EMAIL_CONFIG_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
-      emailConfig = { ...DEFAULT_EMAIL_CONFIG, ...parsed };
+      emailConfig = {
+        ...DEFAULT_EMAIL_CONFIG,
+        ...parsed,
+        // Fallback to process.env if parsed value is empty
+        senderEmail: parsed.senderEmail || process.env.GMAIL_SENDER_EMAIL || DEFAULT_EMAIL_CONFIG.senderEmail,
+        appPassword: parsed.appPassword || process.env.GMAIL_APP_PASSWORD || DEFAULT_EMAIL_CONFIG.appPassword,
+        senderName: parsed.senderName || process.env.GMAIL_SENDER_NAME || DEFAULT_EMAIL_CONFIG.senderName,
+      };
     } else {
       saveEmailConfig(DEFAULT_EMAIL_CONFIG);
     }
@@ -1000,7 +1007,8 @@ app.post('/api/delivery/send-otp', async (req: Request, res: Response): Promise<
       customerEmail, 
       customerName = 'किसान भाई', 
       partnerId, 
-      partnerName = 'डिलीवरी साथी' 
+      partnerName = 'डिलीवरी साथी',
+      forceResend = false,
     } = req.body;
 
     if (!orderId || typeof orderId !== 'string') {
@@ -1011,12 +1019,28 @@ app.post('/api/delivery/send-otp', async (req: Request, res: Response): Promise<
     const now = Date.now();
     const existing = activeOtps.get(orderId);
 
-    // Enforce Resend Cooldown
-    if (existing && (now - existing.sentAt) < (emailConfig.resendCooldownSeconds * 1000)) {
+    // If an OTP already exists, hasn't expired, and the partner is just opening the modal (not forceResend):
+    if (existing && existing.expiresAt > now && !forceResend) {
+      const waitSeconds = Math.max(0, Math.ceil(((emailConfig.resendCooldownSeconds * 1000) - (now - existing.sentAt)) / 1000));
+      res.json({
+        success: true,
+        alreadyActive: true,
+        message: 'सक्रिय OTP उपलब्ध है।',
+        emailSent: true,
+        maskedEmail: existing.customerEmail ? maskEmail(existing.customerEmail) : (customerEmail ? maskEmail(customerEmail) : 'ग्राहक की ईमेल'),
+        expiresAt: existing.expiresAt,
+        resendCooldownSeconds: waitSeconds,
+        inAppOtp: existing.plainOtpForInApp,
+      });
+      return;
+    }
+
+    // If forcing resend but cooldown is active:
+    if (existing && (now - existing.sentAt) < (emailConfig.resendCooldownSeconds * 1000) && forceResend) {
       const waitSeconds = Math.ceil(((emailConfig.resendCooldownSeconds * 1000) - (now - existing.sentAt)) / 1000);
-      res.status(429).json({
+      res.json({
         success: false,
-        error: `कृपया पुनः OTP भेजने के लिए ${waitSeconds} सेकंड प्रतीक्षा करें (Cooldown active).`,
+        error: `कृपया पुनः नया OTP भेजने के लिए ${waitSeconds} सेकंड प्रतीक्षा करें।`,
         remainingSeconds: waitSeconds,
       });
       return;
@@ -1034,7 +1058,7 @@ app.post('/api/delivery/send-otp', async (req: Request, res: Response): Promise<
       customerEmail: customerEmail || '',
       customerName,
       otpHash,
-      plainOtpForInApp: emailConfig.showInAppOtpFallback ? otp : undefined,
+      plainOtpForInApp: otp, // Always keep in-app plain OTP so customer tracking page works 100%
       expiresAt,
       sentAt: now,
       attempts: 0,
@@ -1053,7 +1077,7 @@ app.post('/api/delivery/send-otp', async (req: Request, res: Response): Promise<
       if (transporter) {
         try {
           const mailOptions = {
-            from: `"${emailConfig.senderName || 'फल्सावदिया कृषि बाजार'}" <${emailConfig.senderEmail}>`,
+            from: `"${emailConfig.senderName || 'फल्सावदिया कृषि बाजार'}" <${emailConfig.senderEmail || 'yashfalsawdiya36@gmail.com'}>`,
             to: customerEmail.trim(),
             subject: `🔐 डिलीवरी पुष्टि कोड [${otp}] - ऑर्डर #${orderNumber} (${emailConfig.senderName || 'फल्सावदिया कृषि बाजार'})`,
             html: `
@@ -1126,14 +1150,15 @@ app.post('/api/delivery/send-otp', async (req: Request, res: Response): Promise<
       success: true,
       message: emailSent 
         ? `ग्राहक (${maskEmail(customerEmail)}) के ईमेल पर 6-अंकों का OTP भेज दिया गया है।` 
-        : `OTP जनरेट हो गया है। (ईमेल: ${emailError || 'Not sent'})`,
+        : `OTP जनरेट हो गया है। किसान साथी अपने ऐप पर लाइव कोड देख सकते हैं।`,
       emailSent,
-      maskedEmail: customerEmail ? maskEmail(customerEmail) : 'ईमेल उपलब्ध नहीं',
+      maskedEmail: customerEmail ? maskEmail(customerEmail) : 'ग्राहक की ईमेल',
       expiresAt,
       resendCooldownSeconds: emailConfig.resendCooldownSeconds || 60,
-      inAppOtp: emailConfig.showInAppOtpFallback ? otp : undefined,
+      inAppOtp: otp,
     });
   } catch (err: any) {
+    console.error('send-otp fatal error:', err);
     res.status(500).json({ success: false, error: err.message || 'OTP भेजने में विफल' });
   }
 });

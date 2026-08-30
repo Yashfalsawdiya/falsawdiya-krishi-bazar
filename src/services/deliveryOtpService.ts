@@ -92,6 +92,7 @@ export async function sendDeliveryOtp(params: {
   customerName?: string;
   partnerId?: string;
   partnerName?: string;
+  forceResend?: boolean;
 }): Promise<SendOtpResult> {
   try {
     const res = await fetch('/api/delivery/send-otp', {

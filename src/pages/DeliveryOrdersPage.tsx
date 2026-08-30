@@ -209,7 +209,7 @@ export const DeliveryOrdersPage: React.FC = () => {
     setOtpSentState({ sent: false, maskedEmail: '' });
     setCompletingOrder(order);
 
-    // Auto-send OTP when opening modal for smooth delivery flow
+    // Auto-send or retrieve active OTP when opening modal for smooth delivery flow
     setOtpSending(true);
     try {
       const custEmail = (order.customerDetails?.email && order.customerDetails.email.includes('@')) 
@@ -225,6 +225,7 @@ export const DeliveryOrdersPage: React.FC = () => {
         customerName: order.customerDetails?.name || 'किसान साथी',
         partnerId: partnerProfile?.id,
         partnerName: partnerProfile?.name,
+        forceResend: false,
       });
 
       if (res.success) {
@@ -234,7 +235,9 @@ export const DeliveryOrdersPage: React.FC = () => {
           expiresAt: res.expiresAt,
           inAppOtp: res.inAppOtp,
         });
-        setResendTimer(res.resendCooldownSeconds || 60);
+        if (res.resendCooldownSeconds) {
+          setResendTimer(res.resendCooldownSeconds);
+        }
       } else {
         setOtpError(res.error || 'OTP भेजने में समस्या आई।');
         if (res.resendCooldownSeconds) {
@@ -242,7 +245,7 @@ export const DeliveryOrdersPage: React.FC = () => {
         }
       }
     } catch (err: any) {
-      setOtpError(err.message || 'OTP भेजने में असमर्थ');
+      setOtpError(err.message || 'OTP सेवा से संपर्क नहीं हो पाया');
     } finally {
       setOtpSending(false);
     }
@@ -266,6 +269,7 @@ export const DeliveryOrdersPage: React.FC = () => {
         customerName: completingOrder.customerDetails?.name || 'किसान साथी',
         partnerId: partnerProfile?.id,
         partnerName: partnerProfile?.name,
+        forceResend: true,
       });
 
       if (res.success) {
@@ -279,6 +283,9 @@ export const DeliveryOrdersPage: React.FC = () => {
         showFeedback('नया OTP ग्राहक की ईमेल पर भेज दिया गया है!');
       } else {
         setOtpError(res.error || 'OTP भेजने में समस्या आई।');
+        if (res.resendCooldownSeconds) {
+          setResendTimer(res.resendCooldownSeconds);
+        }
       }
     } catch (err: any) {
       setOtpError(err.message || 'OTP भेजने में असमर्थ');
