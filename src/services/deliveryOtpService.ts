@@ -96,10 +96,18 @@ export async function sendDeliveryOtp(params: {
   try {
     const res = await fetch('/api/delivery/send-otp', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(params),
     });
-    const data = await res.json();
+    
+    const text = await res.text();
+    let data: any;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { success: false, error: 'सर्वर से अमान्य उत्तर प्राप्त हुआ।' };
+    }
+
     if (!res.ok || !data.success) {
       return {
         success: false,
@@ -109,7 +117,8 @@ export async function sendDeliveryOtp(params: {
     }
     return data;
   } catch (err: any) {
-    return { success: false, error: err.message || 'Network failure sending OTP' };
+    console.error('sendDeliveryOtp error:', err);
+    return { success: false, error: err.message || 'OTP भेजने में नेटवर्क समस्या आई।' };
   }
 }
 
@@ -126,10 +135,18 @@ export async function verifyDeliveryOtp(params: {
   try {
     const res = await fetch('/api/delivery/verify-otp', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(params),
     });
-    const data = await res.json();
+
+    const text = await res.text();
+    let data: any;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { success: false, error: 'सर्वर से अमान्य उत्तर प्राप्त हुआ।' };
+    }
+
     if (!res.ok || !data.success) {
       return {
         success: false,
@@ -139,7 +156,8 @@ export async function verifyDeliveryOtp(params: {
     }
     return data;
   } catch (err: any) {
-    return { success: false, error: err.message || 'Network failure verifying OTP' };
+    console.error('verifyDeliveryOtp error:', err);
+    return { success: false, error: err.message || 'OTP सत्यापन में नेटवर्क समस्या आई।' };
   }
 }
 
@@ -148,9 +166,13 @@ export async function verifyDeliveryOtp(params: {
  */
 export async function getInAppDeliveryOtp(orderId: string): Promise<{ success: boolean; inAppAvailable: boolean; otp?: string; expiresAt?: number }> {
   try {
-    const res = await fetch(`/api/delivery/in-app-otp/${orderId}`);
+    const res = await fetch(`/api/delivery/in-app-otp/${orderId}`, {
+      headers: { 'Accept': 'application/json' }
+    });
     if (!res.ok) return { success: false, inAppAvailable: false };
-    return await res.json();
+    const text = await res.text();
+    if (!text) return { success: false, inAppAvailable: false };
+    return JSON.parse(text);
   } catch {
     return { success: false, inAppAvailable: false };
   }

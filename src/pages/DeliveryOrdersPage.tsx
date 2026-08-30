@@ -212,11 +212,17 @@ export const DeliveryOrdersPage: React.FC = () => {
     // Auto-send OTP when opening modal for smooth delivery flow
     setOtpSending(true);
     try {
+      const custEmail = (order.customerDetails?.email && order.customerDetails.email.includes('@')) 
+        ? order.customerDetails.email 
+        : (order.userId && order.userId.includes('@')) 
+          ? order.userId 
+          : '';
+
       const res = await sendDeliveryOtp({
         orderId: order.id,
         orderNumber: order.orderNumber,
-        customerEmail: order.customerDetails?.email || order.userId,
-        customerName: order.customerDetails?.name,
+        customerEmail: custEmail,
+        customerName: order.customerDetails?.name || 'किसान साथी',
         partnerId: partnerProfile?.id,
         partnerName: partnerProfile?.name,
       });
@@ -224,7 +230,7 @@ export const DeliveryOrdersPage: React.FC = () => {
       if (res.success) {
         setOtpSentState({
           sent: true,
-          maskedEmail: res.maskedEmail || 'ग्राहक की ईमेल',
+          maskedEmail: res.maskedEmail || custEmail || 'ग्राहक की ईमेल',
           expiresAt: res.expiresAt,
           inAppOtp: res.inAppOtp,
         });
@@ -247,11 +253,17 @@ export const DeliveryOrdersPage: React.FC = () => {
     setOtpSending(true);
     setOtpError(null);
     try {
+      const custEmail = (completingOrder.customerDetails?.email && completingOrder.customerDetails.email.includes('@')) 
+        ? completingOrder.customerDetails.email 
+        : (completingOrder.userId && completingOrder.userId.includes('@')) 
+          ? completingOrder.userId 
+          : '';
+
       const res = await sendDeliveryOtp({
         orderId: completingOrder.id,
         orderNumber: completingOrder.orderNumber,
-        customerEmail: completingOrder.customerDetails?.email || completingOrder.userId,
-        customerName: completingOrder.customerDetails?.name,
+        customerEmail: custEmail,
+        customerName: completingOrder.customerDetails?.name || 'किसान साथी',
         partnerId: partnerProfile?.id,
         partnerName: partnerProfile?.name,
       });
@@ -259,7 +271,7 @@ export const DeliveryOrdersPage: React.FC = () => {
       if (res.success) {
         setOtpSentState({
           sent: true,
-          maskedEmail: res.maskedEmail || 'ग्राहक की ईमेल',
+          maskedEmail: res.maskedEmail || custEmail || 'ग्राहक की ईमेल',
           expiresAt: res.expiresAt,
           inAppOtp: res.inAppOtp,
         });
