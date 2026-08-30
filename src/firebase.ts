@@ -5,12 +5,31 @@ import {
   getFirestore,
   doc, 
   persistentLocalCache, 
-  persistentMultipleTabManager,
+  persistentSingleTabManager,
+  memoryLocalCache,
   setLogLevel
 } from 'firebase/firestore';
 
 // Set Firestore log level to silent to prevent non-critical connection fallback warning logs
 setLogLevel('silent');
+
+// Clean up any stale multi-tab target indexes from localStorage to free up browser storage
+if (typeof window !== 'undefined' && window.localStorage) {
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('firestore_targets_') || key.startsWith('firestore_mutations_') || key.startsWith('firestore_clients_'))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(k => {
+      try { localStorage.removeItem(k); } catch (_) {}
+    });
+  } catch (e) {
+    console.warn("Storage cleanup warning:", e);
+  }
+}
 
 // Try to load from JSON file, fallback to environment variables for Vercel/Production
 let firebaseConfig: any;
@@ -50,36 +69,37 @@ console.log("Final Firestore Database ID:", dbId);
 
 // CRITICAL: Use initializeFirestore with experimentalForceLongPolling: true 
 // to fix connectivity issues (code=unavailable) in proxy/sandboxed environments.
+// We use persistentSingleTabManager to use IndexedDB instead of localStorage (which hits quota limits).
 let dbInstance: any;
 try {
-  // 1. Primary: force long polling + useFetchStreams: false + multiple tab local cache
+  // 1. Primary: force long polling + useFetchStreams: false + IndexedDB local cache (single tab manager to avoid localStorage quota issues)
   dbInstance = initializeFirestore(app, {
     experimentalForceLongPolling: true,
     useFetchStreams: false,
     ignoreUndefinedProperties: true,
     localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
+      tabManager: persistentSingleTabManager({})
     })
   } as any, dbId);
 } catch (e) {
-  console.warn("Firestore with multiple-tab local cache failed to initialize, trying basic cache fallback:", e);
+  console.warn("Firestore with IndexedDB local cache failed to initialize, trying memory cache fallback:", e);
   try {
-    // 2. Fallback: force long polling + single tab cache
+    // 2. Fallback: force long polling + memoryLocalCache (never touches storage quota)
     dbInstance = initializeFirestore(app, {
       experimentalForceLongPolling: true,
       useFetchStreams: false,
       ignoreUndefinedProperties: true,
-      localCache: persistentLocalCache({})
+      localCache: memoryLocalCache()
     } as any, dbId);
   } catch (e2) {
-    console.warn("Firestore with standard local cache failed, trying auto-detect long polling:", e2);
+    console.warn("Firestore with memory cache failed, trying auto-detect long polling:", e2);
     try {
-      // 3. Fallback: auto-detect long polling
+      // 3. Fallback: auto-detect long polling with memory cache
       dbInstance = initializeFirestore(app, {
         experimentalAutoDetectLongPolling: true,
         useFetchStreams: false,
         ignoreUndefinedProperties: true,
-        localCache: persistentLocalCache({})
+        localCache: memoryLocalCache()
       } as any, dbId);
     } catch (e3) {
       console.warn("Firestore custom initializations failed, falling back to memory/default firestore:", e3);

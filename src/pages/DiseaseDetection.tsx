@@ -290,7 +290,7 @@ const DiseaseDetection: React.FC = () => {
         chatMessages: [welcomeMsg]
       };
 
-      const updatedHistory = [newScanRecord, ...scanHistory];
+      const updatedHistory = [newScanRecord, ...scanHistory].slice(0, 8);
       setScanHistory(updatedHistory);
       setActiveScanId(newScanId);
       setChatMessages([welcomeMsg]);
@@ -298,7 +298,15 @@ const DiseaseDetection: React.FC = () => {
       try {
         localStorage.setItem('agri_disease_scans_history', JSON.stringify(updatedHistory));
       } catch (e) {
-        console.warn("Could not save scan history:", e);
+        console.warn("Could not save full scan history, attempting lightweight save:", e);
+        try {
+          // Fallback: save without extra secondary photos to conserve quota
+          const lightweight = updatedHistory.slice(0, 4).map(s => ({
+            ...s,
+            images: s.images && s.images.length > 0 ? [s.images[0]] : []
+          }));
+          localStorage.setItem('agri_disease_scans_history', JSON.stringify(lightweight));
+        } catch (_) {}
       }
     } catch (error: any) {
       console.error("Analysis failed:", error);

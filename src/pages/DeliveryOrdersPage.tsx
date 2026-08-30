@@ -18,7 +18,7 @@ import {
 import { 
   Truck, Package, Phone, MapPin, CheckCircle2, 
   XCircle, AlertCircle, Clock, Navigation, Check, 
-  X, RefreshCw, ChevronRight, User, Shield, 
+  X, RefreshCw, ChevronRight, User, Shield, ShieldAlert,
   Power, ArrowLeft, Send, Sparkles, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -26,7 +26,7 @@ import { cn } from '../lib/utils';
 import { formatFullHindiDate } from '../lib/dateUtils';
 
 export const DeliveryOrdersPage: React.FC = () => {
-  const { user, login, loading: authLoading } = useAppContext();
+  const { user, isAdmin, login, loading: authLoading } = useAppContext();
   const navigate = useNavigate();
 
   const [partnerProfile, setPartnerProfile] = useState<DeliveryPartner | null>(null);
@@ -55,6 +55,14 @@ export const DeliveryOrdersPage: React.FC = () => {
 
     const loadData = async () => {
       if (!user) {
+        setPartnerProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      // If user is Admin, do not attach partner listener
+      if (isAdmin) {
+        setPartnerProfile(null);
         setLoading(false);
         return;
       }
@@ -84,7 +92,7 @@ export const DeliveryOrdersPage: React.FC = () => {
     return () => {
       if (unsubscribeOrders) unsubscribeOrders();
     };
-  }, [user]);
+  }, [user, isAdmin]);
 
   const showFeedback = (text: string, type: 'success' | 'error' = 'success') => {
     setFeedback({ text, type });
@@ -185,7 +193,7 @@ export const DeliveryOrdersPage: React.FC = () => {
         </div>
         <h2 className="text-xl font-black text-gray-900 mb-2">डिलीवरी पार्टनर लॉगिन</h2>
         <p className="text-xs text-gray-500 mb-6 leading-relaxed">
-          आपको सौंपे गए कृषि उत्पाद डिलीवरी ऑर्डर्स देखने और स्टेटस बदलने के लिए अपने पंजीकृत Google खाते से लॉगिन करें।
+          यह पोर्टल केवल अधिकृत डिलीवरी पार्टनर्स के लिए है। अपने सौंपे गए डिलीवरी ऑर्डर्स देखने के लिए पंजीकृत Google खाते से लॉगिन करें।
         </p>
         <button
           onClick={login}
@@ -197,34 +205,68 @@ export const DeliveryOrdersPage: React.FC = () => {
     );
   }
 
-  // Logged in but not registered as a delivery partner
-  if (!partnerProfile) {
+  // RBAC Guard: Admin accounts are strictly restricted from delivery partner portal
+  if (isAdmin) {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto space-y-4">
-        <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-3xl flex items-center justify-center mx-auto border border-amber-200">
-          <AlertCircle className="w-8 h-8" />
+        <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-3xl flex items-center justify-center mx-auto border border-rose-200">
+          <ShieldAlert className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-black text-gray-900">डिलीवरी पार्टनर खाता नहीं मिला</h2>
+        <h2 className="text-xl font-black text-gray-900">पहुँच वर्जित: एडमिन खाता</h2>
         <p className="text-xs text-gray-600 leading-relaxed font-medium">
-          आपका ईमेल <b>{user.email}</b> अभी फल्सावदिया कृषि बाजार में डिलीवरी पार्टनर के रूप में पंजीकृत नहीं है।
+          यह पोर्टल केवल डिलीवरी पार्टनर्स (फील्ड डिलीवरी बॉयज़) के लिए आरक्षित है। एडमिन खाते से इस पेज का सीधा उपयोग प्रतिबंधित है।
         </p>
-        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200 text-left text-xs space-y-2">
-          <p className="font-bold text-gray-800">क्या करें?</p>
-          <ul className="list-disc list-inside text-gray-600 space-y-1 text-[11px]">
-            <li>कृपया स्टोर एडमिन से अपना मोबाइल नंबर और Gmail ID <b>Admin Panel → Delivery Partners</b> में जुड़वाएँ।</li>
-            <li>यदि आपने दूसरे Gmail से रजिस्ट्रेशन करवाया है, तो उस खाते से लॉगिन करें।</li>
-          </ul>
+        <div className="bg-rose-50/50 p-4 rounded-2xl border border-rose-100 text-left text-xs space-y-2">
+          <p className="font-bold text-rose-900">डिलीवरी प्रबंधन हेतु निर्देश:</p>
+          <p className="text-gray-600 text-[11px] leading-relaxed">
+            सभी डिलीवरी पार्टनर्स को मैनेज करने, नए पार्टनर जोड़ने, और ऑर्डर्स को डिलीवरी पार्टनर को असाइन करने के लिए कृपया <b>Admin Panel → Delivery Management</b> का उपयोग करें।
+          </p>
         </div>
         <div className="flex gap-3 w-full pt-2">
           <button
-            onClick={() => navigate('/profile')}
-            className="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-2xl text-xs hover:bg-gray-200"
+            onClick={() => navigate('/admin')}
+            className="flex-1 bg-[#2D5A27] text-white font-bold py-3 rounded-2xl text-xs hover:bg-[#23461e] shadow-sm active:scale-98 transition-all"
           >
-            मेरी प्रोफाइल
+            एडमिन पैनल खोलें
           </button>
           <button
             onClick={() => navigate('/')}
-            className="flex-1 bg-[#2D5A27] text-white font-bold py-3 rounded-2xl text-xs hover:bg-[#23461e]"
+            className="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-2xl text-xs hover:bg-gray-200"
+          >
+            होम पेज
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // RBAC Guard: Customer accounts (Non-delivery partner users or inactive accounts)
+  if (!partnerProfile || !partnerProfile.isActive) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto space-y-4">
+        <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-3xl flex items-center justify-center mx-auto border border-amber-200">
+          <AlertTriangle className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-black text-gray-900">पहुँच वर्जित: केवल डिलीवरी पार्टनर हेतु</h2>
+        <p className="text-xs text-gray-600 leading-relaxed font-medium">
+          आपका खाता <b>{user.email}</b> डिलीवरी पार्टनर के रूप में सक्रिय नहीं है। यह पेज केवल अधिकृत डिलीवरी पार्टनर्स के लिए आरक्षित है।
+        </p>
+        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200 text-left text-xs space-y-2">
+          <p className="font-bold text-gray-800">किसान भाईयों हेतु निर्देश:</p>
+          <p className="text-gray-600 text-[11px] leading-relaxed">
+            यदि आप कृषि उत्पाद ऑर्डर कर चुके हैं और अपने पार्सल की लाइव स्थिति देखना चाहते हैं, तो कृपया नीचे दिए बटन से <b>मेरे ऑनलाइन ऑर्डर (My Orders)</b> पेज पर जाएँ।
+          </p>
+        </div>
+        <div className="flex gap-3 w-full pt-2">
+          <button
+            onClick={() => navigate('/orders')}
+            className="flex-1 bg-[#2D5A27] text-white font-bold py-3 rounded-2xl text-xs hover:bg-[#23461e] shadow-sm active:scale-98 transition-all"
+          >
+            मेरे ऑनलाइन ऑर्डर
+          </button>
+          <button
+            onClick={() => navigate('/')}
+            className="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-2xl text-xs hover:bg-gray-200"
           >
             होम पेज
           </button>
