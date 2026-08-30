@@ -3,6 +3,8 @@ import { DeliveryOtpPublicConfig, EmailOtpServerConfig } from '../types';
 export interface SendOtpResult {
   success: boolean;
   message?: string;
+  emailSent?: boolean;
+  emailError?: string;
   maskedEmail?: string;
   expiresAt?: number;
   resendCooldownSeconds?: number;

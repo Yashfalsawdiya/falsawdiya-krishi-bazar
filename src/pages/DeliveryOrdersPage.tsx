@@ -53,6 +53,7 @@ export const DeliveryOrdersPage: React.FC = () => {
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [otpSentState, setOtpSentState] = useState<{
     sent: boolean;
+    emailSent?: boolean;
     maskedEmail: string;
     expiresAt?: number;
     inAppOtp?: string;
@@ -212,11 +213,13 @@ export const DeliveryOrdersPage: React.FC = () => {
     // Auto-send or retrieve active OTP when opening modal for smooth delivery flow
     setOtpSending(true);
     try {
-      const custEmail = (order.customerDetails?.email && order.customerDetails.email.includes('@')) 
-        ? order.customerDetails.email 
-        : (order.userId && order.userId.includes('@')) 
-          ? order.userId 
-          : '';
+      // Find customer email from order customerDetails or userId
+      let custEmail = '';
+      if (order.customerDetails?.email && order.customerDetails.email.includes('@')) {
+        custEmail = order.customerDetails.email.trim();
+      } else if (order.userId && order.userId.includes('@')) {
+        custEmail = order.userId.trim();
+      }
 
       const res = await sendDeliveryOtp({
         orderId: order.id,
@@ -231,6 +234,7 @@ export const DeliveryOrdersPage: React.FC = () => {
       if (res.success) {
         setOtpSentState({
           sent: true,
+          emailSent: res.emailSent,
           maskedEmail: res.maskedEmail || custEmail || 'ग्राहक की ईमेल',
           expiresAt: res.expiresAt,
           inAppOtp: res.inAppOtp,
@@ -239,7 +243,7 @@ export const DeliveryOrdersPage: React.FC = () => {
           setResendTimer(res.resendCooldownSeconds);
         }
       } else {
-        setOtpError(res.error || 'OTP भेजने में समस्या आई।');
+        setOtpError(res.error || 'OTP जनरेट करने में समस्या आई।');
         if (res.resendCooldownSeconds) {
           setResendTimer(res.resendCooldownSeconds);
         }
@@ -256,11 +260,12 @@ export const DeliveryOrdersPage: React.FC = () => {
     setOtpSending(true);
     setOtpError(null);
     try {
-      const custEmail = (completingOrder.customerDetails?.email && completingOrder.customerDetails.email.includes('@')) 
-        ? completingOrder.customerDetails.email 
-        : (completingOrder.userId && completingOrder.userId.includes('@')) 
-          ? completingOrder.userId 
-          : '';
+      let custEmail = '';
+      if (completingOrder.customerDetails?.email && completingOrder.customerDetails.email.includes('@')) {
+        custEmail = completingOrder.customerDetails.email.trim();
+      } else if (completingOrder.userId && completingOrder.userId.includes('@')) {
+        custEmail = completingOrder.userId.trim();
+      }
 
       const res = await sendDeliveryOtp({
         orderId: completingOrder.id,
@@ -275,12 +280,13 @@ export const DeliveryOrdersPage: React.FC = () => {
       if (res.success) {
         setOtpSentState({
           sent: true,
+          emailSent: res.emailSent,
           maskedEmail: res.maskedEmail || custEmail || 'ग्राहक की ईमेल',
           expiresAt: res.expiresAt,
           inAppOtp: res.inAppOtp,
         });
         setResendTimer(res.resendCooldownSeconds || 60);
-        showFeedback('नया OTP ग्राहक की ईमेल पर भेज दिया गया है!');
+        showFeedback(res.emailSent ? 'नया OTP ग्राहक की ईमेल पर भेज दिया गया है!' : 'नया OTP सफलतापूर्वक जनरेट हो गया है!');
       } else {
         setOtpError(res.error || 'OTP भेजने में समस्या आई।');
         if (res.resendCooldownSeconds) {
@@ -906,9 +912,38 @@ export const DeliveryOrdersPage: React.FC = () => {
                 </p>
               </div>
 
-              {/* In-app fallback note */}
-              <div className="p-2.5 bg-amber-50/70 rounded-xl border border-amber-200 text-amber-950 text-[11px] leading-relaxed">
-                💡 <b>धीमा इंटरनेट / नो ईमेल बैकअप:</b> किसान भाई अपने मोबाइल पर <b>"मेरे ऑनलाइन ऑर्डर"</b> पेज खोलकर भी लाइव डिलीवरी OTP देख सकते हैं।
+              {/* In-app fallback note & Test Mode Helper */}
+              <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200 text-amber-950 text-xs space-y-2">
+                <div className="flex items-start gap-2 leading-relaxed">
+                  <span className="text-base">💡</span>
+                  <div>
+                    <span className="font-bold">किसान भाई को OTP कहाँ दिखेगा?</span>
+                    <p className="text-[11px] text-amber-900 mt-0.5">
+                      1. ग्राहक की <b>ईमेल आईडी</b> पर।<br />
+                      2. किसान के मोबाइल में <b>"मेरे ऑनलाइन ऑर्डर" (My Orders)</b> पेज पर लाइव।
+                    </p>
+                  </div>
+                </div>
+
+                {/* Instant Fill Helper for Demo / Testing */}
+                {otpSentState.inAppOtp && (
+                  <div className="pt-2 border-t border-amber-200/70 flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-bold text-emerald-800 flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      लाइव OTP: <code className="bg-white px-2 py-0.5 rounded-lg border border-emerald-300 font-mono font-bold text-emerald-900 text-xs">{otpSentState.inAppOtp}</code>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeliveryOtp(otpSentState.inAppOtp || '');
+                        if (otpError) setOtpError(null);
+                      }}
+                      className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[10px] font-black transition-all shadow-xs cursor-pointer"
+                    >
+                      ऑटो-भरें (Auto-Fill)
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* OTP Input Field */}
