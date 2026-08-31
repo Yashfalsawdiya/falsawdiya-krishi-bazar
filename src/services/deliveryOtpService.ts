@@ -1,5 +1,22 @@
 import { DeliveryOtpPublicConfig, EmailOtpServerConfig } from '../types';
 
+export function toSafeString(val: any, fallback = ''): string {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (typeof val === 'object') {
+    if (typeof val.message === 'string') return val.message;
+    if (typeof val.error === 'string') return val.error;
+    if (typeof val.code === 'string') return `त्रुटि (${val.code}): ${typeof val.message === 'string' ? val.message : 'सर्वर समस्या'}`;
+    try {
+      return JSON.stringify(val);
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+}
+
 export interface SendOtpResult {
   success: boolean;
   message?: string;
@@ -162,10 +179,10 @@ export async function getAdminOtpConfig(): Promise<EmailOtpServerConfig & { appP
     if (parsed.ok && parsed.data) {
       return parsed.data;
     }
-    throw new Error(parsed.error || `सर्वर त्रुटि (${res.status})`);
+    throw new Error(toSafeString(parsed.error, `सर्वर त्रुटि (${res.status})`));
   } catch (err: any) {
     console.error('getAdminOtpConfig error:', err);
-    throw err;
+    throw new Error(toSafeString(err?.message || err, 'कॉन्फ़िगरेशन लोड नहीं हो सका'));
   }
 }
 
@@ -187,18 +204,18 @@ export async function saveAdminOtpConfig(config: Partial<EmailOtpServerConfig>):
     if (parsed.data) {
       return {
         success: Boolean(parsed.data.success),
-        message: parsed.data.message,
-        error: parsed.data.error,
+        message: toSafeString(parsed.data.message, parsed.data.success ? 'ईमेल एवं OTP सेटिंग्स सफलतापूर्वक सहेजी गईं।' : undefined),
+        error: !parsed.data.success ? toSafeString(parsed.data.error || parsed.data.message, 'सेटिंग्स सहेजने में विफल') : undefined,
         config: parsed.data.config,
       };
     }
     return {
       success: false,
-      error: parsed.error || `सेटिंग्स सहेजने में विफल (HTTP ${res.status})`,
+      error: toSafeString(parsed.error, `सेटिंग्स सहेजने में विफल (HTTP ${res.status})`),
     };
   } catch (err: any) {
     console.error('saveAdminOtpConfig error:', err);
-    return { success: false, error: err.message || 'नेटवर्क त्रुटि: सेटिंग्स सेव नहीं हो सकीं।' };
+    return { success: false, error: toSafeString(err?.message || err, 'नेटवर्क त्रुटि: सेटिंग्स सेव नहीं हो सकीं।') };
   }
 }
 
@@ -220,18 +237,18 @@ export async function sendAdminTestEmail(recipientEmail?: string): Promise<{ suc
     if (parsed.data) {
       return {
         success: Boolean(parsed.data.success),
-        message: parsed.data.message || (parsed.data.success ? 'टेस्ट ईमेल सफलतापूर्वक भेजा गया!' : undefined),
-        error: parsed.data.error || (!parsed.data.success ? 'टेस्ट ईमेल भेजने में विफल।' : undefined),
+        message: toSafeString(parsed.data.message, parsed.data.success ? 'टेस्ट ईमेल सफलतापूर्वक भेजा गया!' : undefined),
+        error: !parsed.data.success ? toSafeString(parsed.data.error || parsed.data.message, 'टेस्ट ईमेल भेजने में विफल।') : undefined,
         testResult: parsed.data.testResult,
       };
     }
     return { 
       success: false, 
-      error: parsed.error || `सर्वर रिस्पांस त्रुटि (HTTP ${res.status})` 
+      error: toSafeString(parsed.error, `सर्वर रिस्पांस त्रुटि (HTTP ${res.status})`) 
     };
   } catch (err: any) {
     console.error('sendAdminTestEmail error:', err);
-    return { success: false, error: err.message || 'परीक्षण ईमेल भेजने में नेटवर्क समस्या आई।' };
+    return { success: false, error: toSafeString(err?.message || err, 'परीक्षण ईमेल भेजने में नेटवर्क समस्या आई।') };
   }
 }
 

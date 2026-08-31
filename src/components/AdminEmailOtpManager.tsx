@@ -11,7 +11,8 @@ import {
   saveAdminOtpConfig, 
   sendAdminTestEmail,
   checkBackendHealth,
-  BackendHealthStatus
+  BackendHealthStatus,
+  toSafeString
 } from '../services/deliveryOtpService';
 import { EmailOtpServerConfig } from '../types';
 
@@ -113,7 +114,7 @@ export const AdminEmailOtpManager: React.FC = () => {
       if (res && res.success) {
         setSaveFeedback({
           type: 'success',
-          text: res.message || 'ईमेल एवं OTP सेटिंग्स सफलतापूर्वक सहेजी गईं।',
+          text: toSafeString(res.message, 'ईमेल एवं OTP सेटिंग्स सफलतापूर्वक सहेजी गईं।'),
         });
         if (rawPassword && !rawPassword.includes('••••')) {
           setAppPasswordMasked(true);
@@ -123,14 +124,14 @@ export const AdminEmailOtpManager: React.FC = () => {
       } else {
         setSaveFeedback({
           type: 'error',
-          text: (res && res.error) ? res.error : 'सेटिंग्स सहेजी नहीं जा सकीं। कृपया दोबारा प्रयास करें।',
+          text: toSafeString(res?.error, 'सेटिंग्स सहेजी नहीं जा सकीं। कृपया दोबारा प्रयास करें।'),
         });
       }
     } catch (err: any) {
       console.error('Save error in handleSave:', err);
       setSaveFeedback({
         type: 'error',
-        text: err?.message || 'सेटिंग्स सहेजी नहीं जा सकीं। कृपया दोबारा प्रयास करें।',
+        text: toSafeString(err?.message || err, 'सेटिंग्स सहेजी नहीं जा सकीं। कृपया दोबारा प्रयास करें।'),
       });
     } finally {
       setSaving(false);
@@ -151,21 +152,21 @@ export const AdminEmailOtpManager: React.FC = () => {
 
     try {
       const res = await sendAdminTestEmail(testEmailRecipient.trim());
-      if (res.success) {
+      if (res && res.success) {
         setTestFeedback({
           type: 'success',
-          text: res.message || 'टेस्ट ईमेल सफलतापूर्वक भेजा गया! कृपया अपना इनबॉक्स या स्पैम फोल्डर देखें।',
+          text: toSafeString(res.message, 'टेस्ट ईमेल सफलतापूर्वक भेजा गया! कृपया अपना इनबॉक्स या स्पैम फोल्डर देखें।'),
         });
       } else {
         setTestFeedback({
           type: 'error',
-          text: res.error || 'टेस्ट ईमेल भेजने में विफल। कृपया 16-अंकों का Google App Password जांचें।',
+          text: toSafeString(res?.error, 'टेस्ट ईमेल भेजने में विफल। कृपया 16-अंकों का Google App Password जांचें।'),
         });
       }
     } catch (err: any) {
       setTestFeedback({
         type: 'error',
-        text: err.message || 'परीक्षण में नेटवर्क समस्या।',
+        text: toSafeString(err?.message || err, 'परीक्षण में नेटवर्क समस्या।'),
       });
     } finally {
       setTesting(false);
@@ -255,7 +256,7 @@ export const AdminEmailOtpManager: React.FC = () => {
           >
             <div className="flex items-center gap-2">
               {saveFeedback.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />}
-              <span>{saveFeedback.text}</span>
+              <span>{toSafeString(saveFeedback.text)}</span>
             </div>
             <button
               onClick={() => setSaveFeedback(null)}
@@ -541,7 +542,7 @@ export const AdminEmailOtpManager: React.FC = () => {
                   <p className="font-black text-xs">
                     {testFeedback.type === 'success' ? 'परीक्षण सफल!' : 'परीक्षण असफल:'}
                   </p>
-                  <p className="text-[11px] font-medium mt-0.5 leading-relaxed">{testFeedback.text}</p>
+                  <p className="text-[11px] font-medium mt-0.5 leading-relaxed">{toSafeString(testFeedback.text)}</p>
                 </div>
               </div>
             </motion.div>
