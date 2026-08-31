@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig } from '../types';
+import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig, DeliveryEmailTemplateConfig } from '../types';
 import { PRODUCTS, CROP_ADVICE, CATEGORIES } from '../data/mockData';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
 import { DEFAULT_INVOICE_TEMPLATE, mergeInvoiceTemplate } from '../data/defaultInvoiceTemplate';
+import { DEFAULT_DELIVERY_EMAIL_TEMPLATE, mergeDeliveryEmailTemplate } from '../data/defaultDeliveryEmailTemplate';
 import { DEFAULT_DELIVERY_CONFIG } from '../data/defaultDeliveryConfig';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { cn, getDirectImageURL, getHighResImageURL } from '../lib/utils';
@@ -98,6 +99,7 @@ interface AppContextType {
   appContent: AppContent | null;
   legalPagesContent: Required<LegalPagesContent>;
   invoiceTemplate: InvoiceTemplateConfig;
+  deliveryEmailTemplate: DeliveryEmailTemplateConfig;
   deliveryConfig: DynamicDeliveryConfig;
   user: FirebaseUser | null;
   isAdmin: boolean;
@@ -126,6 +128,8 @@ interface AppContextType {
   resetLegalPageContent: (pageKey: keyof LegalPagesContent) => Promise<void>;
   updateInvoiceTemplate: (template: InvoiceTemplateConfig) => Promise<void>;
   resetInvoiceTemplate: () => Promise<void>;
+  updateDeliveryEmailTemplate: (template: DeliveryEmailTemplateConfig) => Promise<void>;
+  resetDeliveryEmailTemplate: () => Promise<void>;
   updateDeliveryConfig: (config: DynamicDeliveryConfig) => Promise<void>;
   resetDeliveryConfig: () => Promise<void>;
   updateUserSettings: (settings: UserSettings) => Promise<void>;
@@ -133,6 +137,7 @@ interface AppContextType {
   login: () => Promise<void>;
   logout: () => Promise<void>;
 }
+
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -219,6 +224,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return DEFAULT_INVOICE_TEMPLATE;
   });
+
+  const [deliveryEmailTemplate, setDeliveryEmailTemplate] = useState<DeliveryEmailTemplateConfig>(() => {
+    try {
+      const cached = localStorage.getItem('agri_cache_delivery_email_template');
+      if (cached) {
+        return mergeDeliveryEmailTemplate(JSON.parse(cached));
+      }
+    } catch (e) {
+      console.error("Error reading cached delivery email template:", e);
+    }
+    return DEFAULT_DELIVERY_EMAIL_TEMPLATE;
+  });
+
 
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -636,6 +654,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribeInvoiceTemplate();
   }, [isAdmin]);
 
+  // Sync delivery email template from Firestore
+  useEffect(() => {
+    const cached = localStorage.getItem('agri_cache_delivery_email_template');
+    if (cached) {
+      try {
+        setDeliveryEmailTemplate(mergeDeliveryEmailTemplate(JSON.parse(cached)));
+      } catch (e) {
+        console.error("Failed to parse cached delivery email template:", e);
+      }
+    }
+
+    if (!isSyncNeeded() && cached) return;
+
+    const unsubscribeEmailTemplate = onSnapshot(doc(db, 'settings', 'deliveryEmailTemplate'), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data() as Partial<DeliveryEmailTemplateConfig>;
+        const merged = mergeDeliveryEmailTemplate(data);
+        setDeliveryEmailTemplate(merged);
+        safeLocalStorageSet('agri_cache_delivery_email_template', JSON.stringify(merged));
+      }
+    }, (error) => {
+      const err = handleFirestoreError(error, OperationType.GET, 'settings/deliveryEmailTemplate');
+      if (err?.error.toLowerCase().includes('quota')) {
+        setIsQuotaExceeded(true);
+      }
+    });
+
+    return () => unsubscribeEmailTemplate();
+  }, [isAdmin]);
+
+
   // Sync dynamic delivery charge config from Firestore
   useEffect(() => {
     const cached = localStorage.getItem('agri_cache_delivery_config');
@@ -904,6 +953,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateDeliveryEmailTemplate = async (template: DeliveryEmailTemplateConfig) => {
+    try {
+      const payload = {
+        ...template,
+        lastUpdated: Date.now(),
+      };
+      await setDoc(doc(db, 'settings', 'deliveryEmailTemplate'), payload, { merge: true });
+      const merged = mergeDeliveryEmailTemplate(payload);
+      setDeliveryEmailTemplate(merged);
+      localStorage.setItem('agri_cache_delivery_email_template', JSON.stringify(merged));
+
+      // Also notify local server if running
+      try {
+        await fetch('/api/admin/delivery/email-template', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(merged),
+        });
+      } catch (e) {
+        console.warn("Server email template sync notice:", e);
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'settings/deliveryEmailTemplate');
+      throw error;
+    }
+  };
+
+  const resetDeliveryEmailTemplate = async () => {
+    try {
+      const defaults = { ...DEFAULT_DELIVERY_EMAIL_TEMPLATE, lastUpdated: Date.now() };
+      await setDoc(doc(db, 'settings', 'deliveryEmailTemplate'), defaults);
+      setDeliveryEmailTemplate(defaults);
+      localStorage.setItem('agri_cache_delivery_email_template', JSON.stringify(defaults));
+
+      try {
+        await fetch('/api/admin/delivery/email-template', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(defaults),
+        });
+      } catch (e) {
+        console.warn("Server email template sync notice:", e);
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'settings/deliveryEmailTemplate');
+      throw error;
+    }
+  };
+
+
   const updateDeliveryConfig = async (config: DynamicDeliveryConfig) => {
     try {
       const payload = {
@@ -991,6 +1090,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       appContent,
       legalPagesContent,
       invoiceTemplate,
+      deliveryEmailTemplate,
       deliveryConfig,
       user, 
       isAdmin, 
@@ -1019,6 +1119,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       resetLegalPageContent,
       updateInvoiceTemplate,
       resetInvoiceTemplate,
+      updateDeliveryEmailTemplate,
+      resetDeliveryEmailTemplate,
       updateDeliveryConfig,
       resetDeliveryConfig,
       updateUserSettings,

@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { DeliveryPartner, DeliveryPartnerAvailability, Order, OrderStatus, PartnerAssignmentStatus } from '../types';
 import { getLocalOrders, saveLocalOrder, fetchOrderById } from './orderService';
+import { getVehicleDisplayLabel } from '../data/defaultDeliveryConfig';
 
 const LOCAL_PARTNERS_KEY = 'falsawdiya_delivery_partners_cache';
 
@@ -26,7 +27,7 @@ const DEFAULT_SEED_PARTNERS: DeliveryPartner[] = [
     phone: '9826012345',
     email: 'ramesh.delivery@gmail.com',
     vehicleType: 'bike',
-    vehicleTypeName: 'बाइक / मोटरसाइकिल (Bike)',
+    vehicleTypeName: 'मोटरसाइकिल (Bike)',
     vehicleNumber: 'MP-09-AB-1234',
     isActive: true,
     availabilityStatus: 'available',
@@ -43,7 +44,7 @@ const DEFAULT_SEED_PARTNERS: DeliveryPartner[] = [
     phone: '9826054321',
     email: 'sonu.driver@gmail.com',
     vehicleType: 'pickup',
-    vehicleTypeName: 'पिकअप / छोटा हाथी (Pickup)',
+    vehicleTypeName: 'पिकअप (Pickup)',
     vehicleNumber: 'MP-09-CD-5678',
     isActive: true,
     availabilityStatus: 'available',
@@ -306,7 +307,7 @@ export const assignOrderToDeliveryPartner = async (
     ...(order.timeline || []),
     {
       title: 'डिलीवरी पार्टनर असाइन हुआ (Partner Assigned)',
-      description: `यह ऑर्डर डिलीवरी हेतु ${partner.name} (${partner.vehicleTypeName || partner.vehicleType || 'वाहन'}) को सौंपा गया है। ${adminNote ? `नोट: ${adminNote}` : ''}`,
+      description: `यह ऑर्डर डिलीवरी हेतु ${partner.name} (${getVehicleDisplayLabel(partner.vehicleType, partner.vehicleTypeName)}) को सौंपा गया है। ${adminNote ? `नोट: ${adminNote}` : ''}`,
       timestamp: now,
       status: order.status,
     }

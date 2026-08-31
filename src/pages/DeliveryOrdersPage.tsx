@@ -29,6 +29,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { formatFullHindiDate } from '../lib/dateUtils';
+import { getVehicleDisplayLabel, getVehicleIcon } from '../data/defaultDeliveryConfig';
 
 export const DeliveryOrdersPage: React.FC = () => {
   const { user, isAdmin, login, loading: authLoading } = useAppContext();
@@ -477,7 +478,7 @@ export const DeliveryOrdersPage: React.FC = () => {
         <div className="bg-emerald-50/70 border border-emerald-100 p-4 rounded-2xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-white border border-emerald-200 text-[#2D5A27] flex items-center justify-center font-black text-lg shadow-2xs">
-              {partnerProfile.vehicleType === 'truck' ? '🚛' : partnerProfile.vehicleType === 'pickup' ? '🛻' : partnerProfile.vehicleType === 'tempo' ? '🚚' : partnerProfile.vehicleType === 'e_rickshaw' ? '🛺' : '🛵'}
+              {getVehicleIcon(partnerProfile.vehicleType)}
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -487,7 +488,7 @@ export const DeliveryOrdersPage: React.FC = () => {
                 </span>
               </div>
               <p className="text-[11px] font-bold text-emerald-800 flex items-center gap-1 mt-0.5">
-                <span>{partnerProfile.vehicleTypeName || partnerProfile.vehicleType}</span>
+                <span>{getVehicleDisplayLabel(partnerProfile.vehicleType, partnerProfile.vehicleTypeName)}</span>
                 {partnerProfile.vehicleNumber && (
                   <span className="font-mono text-emerald-700">({partnerProfile.vehicleNumber})</span>
                 )}

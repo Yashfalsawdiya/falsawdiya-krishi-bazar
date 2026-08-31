@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { generateOrderInvoicePDF } from '../utils/invoiceGenerator';
 import { useAppContext } from '../context/AppContext';
 import { formatFullHindiDate } from '../lib/dateUtils';
+import { getVehicleDisplayLabel, getVehicleIcon } from '../data/defaultDeliveryConfig';
 
 // Web Audio API Chime generator (Zero external files, 100% reliable)
 const playOrderChime = () => {
@@ -994,12 +995,12 @@ const AdminOrdersManager: React.FC = () => {
                             <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
                               isSelected ? 'bg-[#2D5A27] text-white' : 'bg-gray-100 text-gray-700'
                             }`}>
-                              {partner.vehicleType === 'truck' ? '🚛' : partner.vehicleType === 'pickup' ? '🛻' : partner.vehicleType === 'tempo' ? '🚚' : partner.vehicleType === 'e_rickshaw' ? '🛺' : '🛵'}
+                              {getVehicleIcon(partner.vehicleType)}
                             </div>
                             <div>
                               <p className="text-xs font-bold text-gray-900">{partner.name}</p>
                               <p className="text-[10px] text-gray-500 font-medium">
-                                +91 {partner.phone} • {partner.vehicleTypeName || partner.vehicleType}
+                                +91 {partner.phone} • {getVehicleDisplayLabel(partner.vehicleType, partner.vehicleTypeName)}
                               </p>
                             </div>
                           </div>

@@ -8,6 +8,13 @@ import {
   setRemoteFirestoreDoc, 
   deleteRemoteFirestoreDoc 
 } from './firestoreSync.js';
+import {
+  renderDeliveryOtpEmailHtml,
+  renderTestEmailHtml,
+  getAppLogoPath,
+  DeliveryEmailTemplateConfig,
+  DEFAULT_SERVER_DELIVERY_TEMPLATE,
+} from './emailTemplates.js';
 
 export const app = express();
 
@@ -15,6 +22,7 @@ export const app = express();
 const DATA_DIR = path.join(process.cwd(), 'data');
 const CONFIG_FILE = path.join(DATA_DIR, 'razorpay-config.json');
 const EMAIL_CONFIG_FILE = path.join(DATA_DIR, 'email-otp-config.json');
+const EMAIL_TEMPLATE_FILE = path.join(DATA_DIR, 'delivery-email-template.json');
 
 try {
   if (!fs.existsSync(DATA_DIR)) {
@@ -178,9 +186,62 @@ const saveEmailConfig = async (newConfig: Partial<EmailOtpServerConfig>) => {
   }
 };
 
+let deliveryEmailTemplate: DeliveryEmailTemplateConfig = { ...DEFAULT_SERVER_DELIVERY_TEMPLATE };
+
+const loadEmailTemplateConfig = async () => {
+  try {
+    if (fs.existsSync(EMAIL_TEMPLATE_FILE)) {
+      const raw = fs.readFileSync(EMAIL_TEMPLATE_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      deliveryEmailTemplate = {
+        ...DEFAULT_SERVER_DELIVERY_TEMPLATE,
+        ...parsed,
+      };
+    }
+  } catch (err) {
+    console.warn('[Server] Error loading local email template:', err);
+  }
+
+  try {
+    const remoteDoc = await getRemoteFirestoreDoc<Partial<DeliveryEmailTemplateConfig>>('settings', 'deliveryEmailTemplate');
+    if (remoteDoc) {
+      deliveryEmailTemplate = {
+        ...deliveryEmailTemplate,
+        ...remoteDoc,
+      };
+    }
+  } catch (err) {
+    console.warn('[Server] Error fetching remote email template:', err);
+  }
+};
+
+const saveEmailTemplateConfig = async (newTemplate: Partial<DeliveryEmailTemplateConfig>) => {
+  deliveryEmailTemplate = {
+    ...DEFAULT_SERVER_DELIVERY_TEMPLATE,
+    ...deliveryEmailTemplate,
+    ...newTemplate,
+    lastUpdated: Date.now(),
+  };
+
+  try {
+    if (fs.existsSync(DATA_DIR)) {
+      fs.writeFileSync(EMAIL_TEMPLATE_FILE, JSON.stringify(deliveryEmailTemplate, null, 2), 'utf-8');
+    }
+  } catch {
+    // Read-only fallback
+  }
+
+  try {
+    await setRemoteFirestoreDoc('settings', 'deliveryEmailTemplate', deliveryEmailTemplate);
+  } catch (err) {
+    console.warn('[Server] Failed to sync email template to Firestore:', err);
+  }
+};
+
 // Initial asynchronous load
 loadRazorpayConfig();
 loadEmailConfig();
+loadEmailTemplateConfig();
 
 export interface ActiveDeliveryOtp {
   orderId: string;
@@ -229,6 +290,7 @@ async function sendSmtpEmail(mailOptions: {
   subject: string;
   html: string;
   text?: string;
+  attachments?: any[];
 }): Promise<{ success: boolean; messageId?: string; error?: string }> {
   // Ensure we have latest credentials
   if (!emailConfig.senderEmail || !emailConfig.appPassword) {
@@ -244,6 +306,19 @@ async function sendSmtpEmail(mailOptions: {
 
   const senderDisplayName = emailConfig.senderName?.trim() || 'फल्सावदिया कृषि बाजार';
   const fromAddress = `"${senderDisplayName}" <${user}>`;
+
+  // Prepare attachments (including official app logo for CID if used in html)
+  const attachments = [...(mailOptions.attachments || [])];
+  if (mailOptions.html.includes('cid:falsawdiya-logo')) {
+    const logoPath = getAppLogoPath();
+    if (logoPath && !attachments.some((a) => a.cid === 'falsawdiya-logo')) {
+      attachments.push({
+        filename: 'falsawdiya-logo.png',
+        path: logoPath,
+        cid: 'falsawdiya-logo',
+      });
+    }
+  }
 
   // Attempt 1: Port 465 (SSL)
   try {
@@ -263,6 +338,7 @@ async function sendSmtpEmail(mailOptions: {
       subject: mailOptions.subject,
       html: mailOptions.html,
       text: mailOptions.text,
+      attachments,
     });
     console.log(`[SMTP] Email sent via port 465 to ${mailOptions.to}, ID: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
@@ -287,6 +363,7 @@ async function sendSmtpEmail(mailOptions: {
         subject: mailOptions.subject,
         html: mailOptions.html,
         text: mailOptions.text,
+        attachments,
       });
       console.log(`[SMTP] Email sent via port 587 to ${mailOptions.to}, ID: ${info.messageId}`);
       return { success: true, messageId: info.messageId };
@@ -875,42 +952,19 @@ app.post('/api/admin/delivery/test-email', async (req: Request, res: Response): 
       second: '2-digit'
     });
 
+    const storeDisplayName = emailConfig.senderName?.trim() || 'फल्सावदिया कृषि बाजार';
+
     const mailOptions = {
       to: targetEmail,
-      subject: `🧪 टेस्ट ईमेल सत्यापन: ${emailConfig.senderName || 'फल्सावदिया कृषि बाजार'}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 16px; overflow: hidden; background: #ffffff;">
-          <div style="background: #2D5A27; padding: 24px; text-align: center; color: #ffffff;">
-            <h1 style="margin: 0; font-size: 20px; font-weight: bold;">🌱 फल्सावदिया कृषि बाजार</h1>
-            <p style="margin: 6px 0 0 0; font-size: 13px; opacity: 0.9;">उच्च गुणवत्ता युक्त कृषि उत्पाद एवं किसान समाधान केंद्र</p>
-          </div>
-          <div style="padding: 24px; color: #374151; font-size: 14px; line-height: 1.6;">
-            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 16px; margin-bottom: 20px; text-align: center;">
-              <span style="font-size: 28px;">✅</span>
-              <h2 style="margin: 8px 0 4px 0; color: #065f46; font-size: 18px;">ईमेल SMTP कॉन्फ़िगरेशन सफल!</h2>
-              <p style="margin: 0; color: #047857; font-size: 13px;">आपका Gmail SMTP और App Password बिल्कुल सही तरीके से काम कर रहा है।</p>
-            </div>
-            <p>यह एक स्वचालित परीक्षण (Test) ईमेल है। जब डिलीवरी पार्टनर किसी ऑर्डर को डिलीवर करेंगे, तो ग्राहक को इसी प्रकार सुरक्षित OTP ईमेल प्राप्त होगा।</p>
-            <table style="width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px;">
-              <tr style="border-bottom: 1px solid #f3f4f6;">
-                <td style="padding: 8px 0; color: #6b7280;">प्रेषक ईमेल (Sender):</td>
-                <td style="padding: 8px 0; font-weight: bold; color: #111827;">${emailConfig.senderEmail || process.env.GMAIL_SENDER_EMAIL}</td>
-              </tr>
-              <tr style="border-bottom: 1px solid #f3f4f6;">
-                <td style="padding: 8px 0; color: #6b7280;">प्राप्तकर्ता (Recipient):</td>
-                <td style="padding: 8px 0; font-weight: bold; color: #111827;">${targetEmail}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280;">परीक्षण समय (IST):</td>
-                <td style="padding: 8px 0; color: #111827;">${testTime}</td>
-              </tr>
-            </table>
-          </div>
-          <div style="background: #f9fafb; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
-            © ${new Date().getFullYear()} फल्सावदिया कृषि बाजार • ग्राम फल्सावदिया, मध्य प्रदेश
-          </div>
-        </div>
-      `,
+      subject: `परीक्षण ईमेल सत्यापन - ${storeDisplayName}`,
+      html: renderTestEmailHtml({
+        senderEmail: emailConfig.senderEmail || process.env.GMAIL_SENDER_EMAIL || '',
+        recipientEmail: targetEmail,
+        testTime,
+        storeName: storeDisplayName,
+        storePhone: '+91 89823 38046',
+        logoCidOrUrl: 'cid:falsawdiya-logo',
+      }),
     };
 
     const sendResult = await sendSmtpEmail(mailOptions);
@@ -964,6 +1018,107 @@ app.post('/api/admin/delivery/test-email', async (req: Request, res: Response): 
     });
   }
 });
+
+// Admin Get Delivery Email Template
+app.get('/api/admin/delivery/email-template', async (req: Request, res: Response): Promise<void> => {
+  try {
+    await loadEmailTemplateConfig();
+    res.json({
+      success: true,
+      template: deliveryEmailTemplate,
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      error: err.message || 'टेम्पलेट लोड करने में विफल।',
+    });
+  }
+});
+
+// Admin Save Delivery Email Template
+app.post('/api/admin/delivery/email-template', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const newTemplate = req.body;
+    if (!newTemplate || typeof newTemplate !== 'object') {
+      res.status(400).json({ success: false, error: 'अमान्य टेम्पलेट डेटा।' });
+      return;
+    }
+    await saveEmailTemplateConfig(newTemplate);
+    res.json({
+      success: true,
+      message: 'ईमेल टेम्पलेट सफलतापूर्वक सहेजा गया।',
+      template: deliveryEmailTemplate,
+    });
+  } catch (err: any) {
+    console.error('[Server] Save email template error:', err);
+    res.status(500).json({
+      success: false,
+      error: err.message || 'टेम्पलेट सहेजने में विफल।',
+    });
+  }
+});
+
+// Admin Test Template Email Dispatch (Sends custom/current template to recipient for testing)
+app.post('/api/admin/delivery/test-template-email', async (req: Request, res: Response): Promise<void> => {
+  try {
+    await loadEmailConfig();
+    await loadEmailTemplateConfig();
+    const { recipientEmail, template } = req.body;
+    const targetEmail = (recipientEmail || emailConfig.senderEmail || process.env.GMAIL_SENDER_EMAIL || '').trim();
+
+    if (!targetEmail || !targetEmail.includes('@')) {
+      res.status(400).json({
+        success: false,
+        error: 'कृपया मान्य ईमेल पता दर्ज करें (Valid recipient email required).'
+      });
+      return;
+    }
+
+    const activeTemplate = template ? { ...DEFAULT_SERVER_DELIVERY_TEMPLATE, ...template } : deliveryEmailTemplate;
+    const storeDisplayName = activeTemplate.storeName || emailConfig.senderName?.trim() || 'फल्सावदिया कृषि बाजार';
+
+    const { subject, html } = renderDeliveryOtpEmailHtml({
+      orderNumber: 'FKB-2026-123456',
+      customerName: 'Ramesh Patidar',
+      partnerName: 'कमलेश पाटीदार',
+      otp: '596018',
+      expiryMinutes: emailConfig.expiryMinutes || 15,
+      orderStatus: 'Delivery in Progress',
+      storeName: storeDisplayName,
+      storePhone: activeTemplate.contactNumber || '+91 89823 38046',
+      logoCidOrUrl: 'cid:falsawdiya-logo',
+    }, activeTemplate);
+
+    const mailOptions = {
+      to: targetEmail,
+      subject: `[TEST PREVIEW] ${subject}`,
+      html,
+    };
+
+    const sendResult = await sendSmtpEmail(mailOptions);
+
+    if (!sendResult.success) {
+      const errorMessage = sendResult.error || 'SMTP Authentication Failed. कृपया 16-अक्षरों का Google App Password जांचें।';
+      res.status(500).json({
+        success: false,
+        error: errorMessage,
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: `परीक्षण ईमेल सफलतापूर्वक भेजा गया (${sendResult.messageId || 'OK'})! कृपया अपना Gmail इनबॉक्स / स्पैम फोल्डर देखें।`,
+    });
+  } catch (err: any) {
+    console.error('[Server] test-template-email error:', err);
+    res.status(500).json({
+      success: false,
+      error: err.message || 'परीक्षण ईमेल भेजने में त्रुटि आई।',
+    });
+  }
+});
+
 
 // Endpoint to Send Delivery OTP to customer
 app.post('/api/delivery/send-otp', async (req: Request, res: Response): Promise<void> => {
@@ -1049,61 +1204,23 @@ app.post('/api/delivery/send-otp', async (req: Request, res: Response): Promise<
     let emailError: string | null = null;
 
     if (customerEmail && customerEmail.includes('@')) {
+      const storeDisplayName = deliveryEmailTemplate.storeName || emailConfig.senderName?.trim() || 'फल्सावदिया कृषि बाजार';
+      const { subject, html } = renderDeliveryOtpEmailHtml({
+        orderNumber,
+        customerName: customerName || 'सम्मानित ग्राहक',
+        partnerName: partnerName || 'डिलीवरी साथी',
+        otp,
+        expiryMinutes: emailConfig.expiryMinutes || 15,
+        orderStatus: 'Delivery in Progress',
+        storeName: storeDisplayName,
+        storePhone: deliveryEmailTemplate.contactNumber || '+91 89823 38046',
+        logoCidOrUrl: 'cid:falsawdiya-logo',
+      }, deliveryEmailTemplate);
+
       const mailOptions = {
         to: customerEmail.trim(),
-        subject: `🔐 डिलीवरी पुष्टि कोड [${otp}] - ऑर्डर #${orderNumber} (${emailConfig.senderName || 'फल्सावदिया कृषि बाजार'})`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 20px; overflow: hidden; background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-            <div style="background: linear-gradient(135deg, #1e3e1a 0%, #2D5A27 100%); padding: 26px 20px; text-align: center; color: #ffffff;">
-              <h1 style="margin: 0; font-size: 22px; font-weight: bold; letter-spacing: 0.5px;">🌱 फल्सावदिया कृषि बाजार</h1>
-              <p style="margin: 6px 0 0 0; font-size: 13px; opacity: 0.9;">सुरक्षित ऑर्डर डिलीवरी सत्यापन प्रणाली</p>
-            </div>
-            
-            <div style="padding: 26px 22px; color: #374151; font-size: 14px; line-height: 1.6;">
-              <p style="font-size: 15px; margin-top: 0;">नमस्ते <b>${customerName}</b>,</p>
-              <p style="color: #4b5563;">
-                आपके ऑर्डर <b>#${orderNumber}</b> की डिलीवरी के लिए हमारे साथी <b>${partnerName}</b> आपके पते पर पहुँच रहे हैं।
-              </p>
-              
-              <div style="background: #f0fdf4; border: 2px dashed #22c55e; border-radius: 16px; padding: 22px; margin: 24px 0; text-align: center;">
-                <span style="color: #15803d; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">
-                  📦 आपका 6-अंकों का डिलीवरी OTP कोड:
-                </span>
-                <div style="font-size: 38px; font-weight: 900; letter-spacing: 8px; color: #14532d; font-family: 'Courier New', Courier, monospace; background: #ffffff; display: inline-block; padding: 8px 24px; border-radius: 12px; border: 1px solid #86efac; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
-                  ${otp}
-                </div>
-                <p style="margin: 12px 0 0 0; font-size: 11px; color: #166534; font-weight: 600;">
-                  ⏱️ यह कोड <b>${emailConfig.expiryMinutes || 15} मिनट</b> के लिए मान्य है।
-                </p>
-              </div>
-              
-              <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;">
-                <div style="display: flex; align-items: flex-start; gap: 8px;">
-                  <span style="font-size: 18px; line-height: 1;">⚠️</span>
-                  <p style="margin: 0; font-size: 12px; color: #92400e; line-height: 1.5; font-weight: 500;">
-                    <b>सुरक्षा निर्देश:</b> जब डिलीवरी साथी आपको कृषि उत्पाद सौंप दें और आप सामान की जाँच कर लें, केवल तभी यह OTP डिलीवरी साथी को बताएं।
-                  </p>
-                </div>
-              </div>
-              
-              <table style="width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; background: #f9fafb; border-radius: 10px; padding: 8px;">
-                <tr>
-                  <td style="padding: 10px 12px; color: #6b7280;">ऑर्डर क्रमांक:</td>
-                  <td style="padding: 10px 12px; font-weight: bold; color: #111827; text-align: right;">${orderNumber}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 10px 12px; color: #6b7280;">डिलीवरी साथी:</td>
-                  <td style="padding: 10px 12px; font-weight: bold; color: #111827; text-align: right;">${partnerName}</td>
-                </tr>
-              </table>
-            </div>
-            
-            <div style="background: #f3f4f6; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 11px; color: #6b7280;">
-              किसी भी सहायता के लिए संपर्क करें: WhatsApp <b>+91 89823 38046</b><br/>
-              © ${new Date().getFullYear()} फल्सावदिया कृषि बाजार • शुद्धता एवं विश्वास का प्रतीक
-            </div>
-          </div>
-        `,
+        subject,
+        html,
       };
 
       const sendRes = await sendSmtpEmail(mailOptions);

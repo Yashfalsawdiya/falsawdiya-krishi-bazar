@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   DeliveryPartner, 
   DeliveryPartnerAvailability, 
-  VehicleConfig 
+  VehicleConfig,
+  Order 
 } from '../types';
 import { 
   fetchDeliveryPartners, 
@@ -13,11 +14,15 @@ import {
   togglePartnerActiveStatus, 
   updatePartnerAvailability 
 } from '../services/deliveryPartnerService';
+import { getLocalOrders } from '../services/orderService';
+import { DEFAULT_VEHICLES, getVehicleDisplayLabel, getVehicleIcon } from '../data/defaultDeliveryConfig';
+import { db } from '../firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { 
   Users, UserPlus, Phone, Mail, Truck, Edit3, Trash2, 
   CheckCircle2, XCircle, AlertCircle, Search, Filter, 
   Plus, Check, X, Shield, Clock, MapPin, ChevronRight, 
-  RefreshCw, Power, Award, ArrowUpRight, AlertTriangle
+  RefreshCw, Power, Award, ArrowUpRight, AlertTriangle, Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -27,6 +32,10 @@ interface AdminDeliveryPartnersManagerProps {
 }
 
 export const AdminDeliveryPartnersManager: React.FC<AdminDeliveryPartnersManagerProps> = ({ availableVehicles }) => {
+  const vehicleOptions: VehicleConfig[] = (availableVehicles && availableVehicles.length > 0)
+    ? availableVehicles
+    : DEFAULT_VEHICLES;
+
   const [partners, setPartners] = useState<DeliveryPartner[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,7 +55,7 @@ export const AdminDeliveryPartnersManager: React.FC<AdminDeliveryPartnersManager
   const [formPhone, setFormPhone] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formVehicleType, setFormVehicleType] = useState('bike');
-  const [formVehicleTypeName, setFormVehicleTypeName] = useState('बाइक / मोटरसाइकिल (Bike)');
+  const [formVehicleTypeName, setFormVehicleTypeName] = useState('मोटरसाइकिल (Bike)');
   const [formVehicleNumber, setFormVehicleNumber] = useState('');
   const [formAddress, setFormAddress] = useState('');
   const [formEmergencyPhone, setFormEmergencyPhone] = useState('');
@@ -54,13 +63,85 @@ export const AdminDeliveryPartnersManager: React.FC<AdminDeliveryPartnersManager
   const [formIsActive, setFormIsActive] = useState(true);
   const [formAvailability, setFormAvailability] = useState<DeliveryPartnerAvailability>('available');
 
+  // Real-time Orders State for dynamic Delivery Partner Stats
+  const [allOrders, setAllOrders] = useState<Order[]>(() => getLocalOrders());
+
   useEffect(() => {
-    const unsubscribe = listenDeliveryPartners((list) => {
+    // 1. Listen to delivery partners
+    const unsubscribePartners = listenDeliveryPartners((list) => {
       setPartners(list);
       setLoading(false);
     });
-    return () => unsubscribe();
+
+    // 2. Real-time listener for all orders to compute actual assigned and successful counts
+    let unsubscribeOrders = () => {};
+    try {
+      const qOrders = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+      unsubscribeOrders = onSnapshot(qOrders, (snapshot) => {
+        const remoteList: Order[] = [];
+        snapshot.forEach((doc) => {
+          remoteList.push(doc.data() as Order);
+        });
+
+        // Merge remote and local for robust offline/online consistency
+        const local = getLocalOrders();
+        const mergedMap = new Map<string, Order>();
+        local.forEach(o => mergedMap.set(o.id, o));
+        remoteList.forEach(o => mergedMap.set(o.id, o));
+
+        setAllOrders(Array.from(mergedMap.values()));
+      }, (err) => {
+        console.warn("Orders listener fallback in partner manager:", err);
+        setAllOrders(getLocalOrders());
+      });
+    } catch (e) {
+      setAllOrders(getLocalOrders());
+    }
+
+    return () => {
+      unsubscribePartners();
+      unsubscribeOrders();
+    };
   }, []);
+
+  // Helper to calculate actual real-time Assigned & Successful delivery counts for any partner
+  const getPartnerOrderCounts = (partner: DeliveryPartner) => {
+    const cleanEmail = partner.email ? partner.email.trim().toLowerCase() : '';
+    const cleanPhone = partner.phone ? partner.phone.replace(/\D/g, '') : '';
+    
+    // Unique order tracking to avoid duplicate counting
+    const assignedOrderIds = new Set<string>();
+    const successfulOrderIds = new Set<string>();
+
+    allOrders.forEach((order) => {
+      const orderPartnerId = order.assignedPartnerId;
+      const orderPartnerEmail = order.assignedPartnerEmail ? order.assignedPartnerEmail.trim().toLowerCase() : '';
+      const orderPartnerPhone = order.assignedPartnerPhone ? order.assignedPartnerPhone.replace(/\D/g, '') : '';
+
+      // Match by partner ID, email or phone
+      const isAssigned = 
+        (orderPartnerId && orderPartnerId === partner.id) ||
+        (cleanEmail && orderPartnerEmail && orderPartnerEmail === cleanEmail) ||
+        (cleanPhone && orderPartnerPhone && orderPartnerPhone.endsWith(cleanPhone.slice(-10)));
+
+      if (isAssigned) {
+        assignedOrderIds.add(order.id);
+        // Successful only if delivered and not cancelled
+        if (order.status === 'delivered') {
+          successfulOrderIds.add(order.id);
+        }
+      } else if (order.status === 'delivered' && order.deliveryOtpVerifiedBy === partner.id) {
+        // Delivered & verified by this partner
+        assignedOrderIds.add(order.id);
+        successfulOrderIds.add(order.id);
+      }
+    });
+
+    return {
+      assignedCount: assignedOrderIds.size,
+      successfulCount: successfulOrderIds.size,
+    };
+  };
 
   const showFeedback = (text: string, type: 'success' | 'error' = 'success') => {
     setFeedbackMsg({ text, type });
@@ -73,7 +154,7 @@ export const AdminDeliveryPartnersManager: React.FC<AdminDeliveryPartnersManager
     setFormPhone('');
     setFormEmail('');
     setFormVehicleType('bike');
-    setFormVehicleTypeName('बाइक / मोटरसाइकिल (Bike)');
+    setFormVehicleTypeName(getVehicleDisplayLabel('bike', undefined, availableVehicles));
     setFormVehicleNumber('');
     setFormAddress('');
     setFormEmergencyPhone('');
@@ -89,7 +170,7 @@ export const AdminDeliveryPartnersManager: React.FC<AdminDeliveryPartnersManager
     setFormPhone(partner.phone);
     setFormEmail(partner.email);
     setFormVehicleType(partner.vehicleType);
-    setFormVehicleTypeName(partner.vehicleTypeName || partner.vehicleType);
+    setFormVehicleTypeName(getVehicleDisplayLabel(partner.vehicleType, partner.vehicleTypeName, availableVehicles));
     setFormVehicleNumber(partner.vehicleNumber || '');
     setFormAddress(partner.address || '');
     setFormEmergencyPhone(partner.emergencyPhone || '');
@@ -370,108 +451,122 @@ export const AdminDeliveryPartnersManager: React.FC<AdminDeliveryPartnersManager
           {filteredPartners.map((partner) => {
             const isAvailable = partner.isActive && partner.availabilityStatus === 'available';
             const isOnDelivery = partner.availabilityStatus === 'on_delivery';
+            const { assignedCount, successfulCount } = getPartnerOrderCounts(partner);
 
             return (
               <div
                 key={partner.id}
                 className={cn(
                   "bg-white rounded-3xl border p-5 shadow-sm transition-all relative overflow-hidden flex flex-col justify-between",
-                  !partner.isActive ? "border-gray-200 bg-gray-50/50 opacity-80" : "border-gray-100 hover:border-[#2D5A27]/30"
+                  !partner.isActive ? "border-gray-200 bg-gray-50/50 opacity-85" : "border-gray-100 hover:border-[#2D5A27]/40 hover:shadow-md"
                 )}
               >
-                {/* Status Indicator Bar */}
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-[#2D5A27]/10 flex items-center justify-center text-[#2D5A27] font-black text-lg border border-[#2D5A27]/20">
-                      {partner.vehicleType === 'truck' ? '🚛' : partner.vehicleType === 'pickup' ? '🛻' : partner.vehicleType === 'tempo' ? '🚚' : partner.vehicleType === 'e_rickshaw' ? '🛺' : '🛵'}
+                {/* Header: Avatar, Name, Vehicle & Status Badge */}
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-12 h-12 rounded-2xl bg-[#2D5A27]/10 flex items-center justify-center text-2xl border border-[#2D5A27]/20 shrink-0 shadow-2xs">
+                      {getVehicleIcon(partner.vehicleType, availableVehicles)}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-black text-gray-900">{partner.name}</h3>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-base font-black text-gray-900 tracking-tight leading-tight">{partner.name}</h3>
                         {!partner.isActive && (
-                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
+                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
                             निष्क्रिय
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] font-bold text-gray-500 flex items-center gap-1 mt-0.5">
-                        <Truck className="w-3 h-3 text-[#2D5A27]" />
-                        <span>{partner.vehicleTypeName || partner.vehicleType}</span>
+                      <div className="flex items-center flex-wrap gap-1.5 mt-1">
+                        <span className="text-xs font-bold text-gray-600 flex items-center gap-1">
+                          <Truck className="w-3.5 h-3.5 text-[#2D5A27]" />
+                          {getVehicleDisplayLabel(partner.vehicleType, partner.vehicleTypeName, availableVehicles)}
+                        </span>
                         {partner.vehicleNumber && (
-                          <span className="text-gray-400 font-mono">({partner.vehicleNumber})</span>
+                          <span className="bg-gray-100 border border-gray-300/80 text-gray-800 text-[11px] font-mono font-black px-2 py-0.5 rounded-md tracking-wider shadow-2xs whitespace-nowrap">
+                            {partner.vehicleNumber}
+                          </span>
                         )}
-                      </p>
+                      </div>
                     </div>
                   </div>
 
                   {/* Availability Badge */}
-                  <div className="flex flex-col items-end gap-1">
+                  <div className="shrink-0">
                     {partner.isActive ? (
                       <span className={cn(
-                        "text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 border",
+                        "text-[10.5px] font-black px-3 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs whitespace-nowrap",
                         isAvailable 
                           ? "bg-emerald-50 text-emerald-800 border-emerald-200" 
                           : isOnDelivery 
                           ? "bg-blue-50 text-blue-800 border-blue-200" 
-                          : "bg-gray-100 text-gray-600 border-gray-200"
+                          : "bg-gray-100 text-gray-700 border-gray-200"
                       )}>
                         <span className={cn(
-                          "w-1.5 h-1.5 rounded-full",
+                          "w-2 h-2 rounded-full",
                           isAvailable ? "bg-emerald-500 animate-pulse" : isOnDelivery ? "bg-blue-500" : "bg-gray-400"
                         )}></span>
                         {isAvailable ? 'उपलब्ध (Ready)' : isOnDelivery ? 'डिलीवरी पर' : 'ऑफ ड्यूटी'}
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">
-                        अक्षम (Disabled)
+                      <span className="text-[10.5px] font-black px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 whitespace-nowrap">
+                        निष्क्रिय
                       </span>
                     )}
                   </div>
                 </div>
 
                 {/* Contact & Assignment Stats */}
-                <div className="space-y-2 py-3 border-y border-gray-50 my-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-400 font-medium flex items-center gap-1.5">
-                      <Phone className="w-3.5 h-3.5 text-gray-400" /> मोबाइल:
+                <div className="space-y-2.5 py-3.5 border-y border-gray-100 my-2">
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="text-gray-500 font-semibold flex items-center gap-1.5 shrink-0">
+                      <Phone className="w-3.5 h-3.5 text-[#2D5A27]" /> मोबाइल:
                     </span>
                     <a
                       href={`tel:${partner.phone}`}
-                      className="font-bold text-[#2D5A27] hover:underline"
+                      className="font-black text-[#2D5A27] text-xs hover:underline tracking-wide"
                     >
                       +91 {partner.phone}
                     </a>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-400 font-medium flex items-center gap-1.5">
-                      <Mail className="w-3.5 h-3.5 text-gray-400" /> Google Gmail:
+                  <div className="flex items-start justify-between gap-2 text-xs">
+                    <span className="text-gray-500 font-semibold flex items-center gap-1.5 shrink-0 pt-0.5">
+                      <Mail className="w-3.5 h-3.5 text-[#2D5A27]" /> Google Gmail:
                     </span>
-                    <span className="font-mono text-gray-700 font-medium text-[11px] truncate max-w-[180px]">
+                    <span 
+                      className="font-medium text-gray-800 text-xs break-all text-right leading-snug select-all max-w-[220px]"
+                      title={partner.email}
+                    >
                       {partner.email}
                     </span>
                   </div>
 
                   {partner.address && (
-                    <div className="flex items-start justify-between text-xs pt-0.5">
-                      <span className="text-gray-400 font-medium flex items-center gap-1.5 shrink-0">
-                        <MapPin className="w-3.5 h-3.5 text-gray-400" /> पता:
+                    <div className="flex items-start justify-between gap-2 text-xs">
+                      <span className="text-gray-500 font-semibold flex items-center gap-1.5 shrink-0 pt-0.5">
+                        <MapPin className="w-3.5 h-3.5 text-[#2D5A27]" /> पता:
                       </span>
-                      <span className="text-gray-600 text-right text-[11px] truncate max-w-[200px]">
+                      <span className="text-gray-700 text-right text-xs leading-relaxed max-w-[220px]">
                         {partner.address}
                       </span>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between text-[11px] pt-1 bg-gray-50/80 p-2 rounded-xl">
-                    <span className="text-gray-500 font-bold">डिलीवरी रिकॉर्ड:</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-blue-700 font-bold">
-                        असाइन: <b>{partner.assignedOrdersCount || 0}</b>
-                      </span>
-                      <span className="text-emerald-700 font-bold">
-                        सफल: <b>{partner.completedDeliveriesCount || 0}</b>
-                      </span>
+                  {/* Real-time Dynamic Delivery Record */}
+                  <div className="mt-2.5 bg-gradient-to-r from-gray-50 via-emerald-50/20 to-gray-50 border border-gray-200/90 p-3 rounded-2xl flex items-center justify-between gap-2 shadow-2xs">
+                    <div className="flex items-center gap-1.5 text-gray-700 font-black text-xs">
+                      <Package className="w-3.5 h-3.5 text-[#2D5A27]" />
+                      <span>डिलीवरी रिकॉर्ड:</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="bg-blue-50 border border-blue-200/80 px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-xs shadow-2xs">
+                        <span className="text-blue-700 font-bold text-[11px]">असाइन:</span>
+                        <span className="text-blue-900 font-black text-xs">{assignedCount}</span>
+                      </div>
+                      <div className="bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-xs shadow-2xs">
+                        <span className="text-emerald-700 font-bold text-[11px]">सफल:</span>
+                        <span className="text-emerald-900 font-black text-xs">{successfulCount}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -483,13 +578,13 @@ export const AdminDeliveryPartnersManager: React.FC<AdminDeliveryPartnersManager
                     type="button"
                     onClick={() => togglePartnerActiveStatus(partner.id, !partner.isActive)}
                     className={cn(
-                      "text-[10px] font-black px-3 py-1.5 rounded-xl border transition-all flex items-center gap-1",
+                      "text-xs font-black px-3.5 py-2 rounded-xl border transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer",
                       partner.isActive 
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100" 
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100" 
                         : "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200"
                     )}
                   >
-                    <Power className="w-3 h-3" />
+                    <Power className="w-3.5 h-3.5" />
                     {partner.isActive ? 'सक्रिय है' : 'निष्क्रिय करें'}
                   </button>
 
@@ -497,11 +592,11 @@ export const AdminDeliveryPartnersManager: React.FC<AdminDeliveryPartnersManager
                     <button
                       type="button"
                       onClick={() => openEditModal(partner)}
-                      className="p-2 text-gray-600 hover:text-[#2D5A27] bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                      className="px-3 py-2 text-gray-700 hover:text-[#2D5A27] bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
                       title="एडिट करें"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
-                      <span className="text-[11px]">एडिट</span>
+                      <span className="text-xs">एडिट</span>
                     </button>
 
                     <button
@@ -510,7 +605,7 @@ export const AdminDeliveryPartnersManager: React.FC<AdminDeliveryPartnersManager
                         setDeleteErrorMessage(null);
                         setPartnerToDelete(partner);
                       }}
-                      className="p-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-xl text-xs font-bold transition-colors"
+                      className="p-2 text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
                       title="हटाएँ"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -618,37 +713,16 @@ export const AdminDeliveryPartnersManager: React.FC<AdminDeliveryPartnersManager
                       onChange={(e) => {
                         const vType = e.target.value;
                         setFormVehicleType(vType);
-                        const found = availableVehicles?.find(v => v.id === vType);
-                        if (found) {
-                          setFormVehicleTypeName(`${found.name} (${found.shortName})`);
-                        } else {
-                          const labels: Record<string, string> = {
-                            bike: 'बाइक / मोटरसाइकिल (Bike)',
-                            e_rickshaw: 'ई-रिक्शा (E-Rickshaw)',
-                            pickup: 'पिकअप / छोटा हाथी (Pickup)',
-                            tempo: 'टेंपो / 407 (Tempo)',
-                            truck: 'ट्रक / भारी वाहन (Truck)',
-                          };
-                          setFormVehicleTypeName(labels[vType] || vType);
-                        }
+                        const label = getVehicleDisplayLabel(vType, undefined, availableVehicles);
+                        setFormVehicleTypeName(label);
                       }}
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-[#2D5A27]"
                     >
-                      {availableVehicles && availableVehicles.length > 0 ? (
-                        availableVehicles.map(v => (
-                          <option key={v.id} value={v.id}>
-                            {v.icon} {v.name} ({v.shortName})
-                          </option>
-                        ))
-                      ) : (
-                        <>
-                          <option value="bike">🛵 बाइक / मोटरसाइकिल (0-10 kg)</option>
-                          <option value="e_rickshaw">🛺 ई-रिक्शा (10-50 kg)</option>
-                          <option value="pickup">🛻 पिकअप / छोटा हाथी (50-500 kg)</option>
-                          <option value="tempo">🚚 टेंपो / 407 (500-1500 kg)</option>
-                          <option value="truck">🚛 ट्रक (1500+ kg)</option>
-                        </>
-                      )}
+                      {vehicleOptions.map(v => (
+                        <option key={v.id} value={v.id}>
+                          {v.icon} {getVehicleDisplayLabel(v.id, v.name, availableVehicles)}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

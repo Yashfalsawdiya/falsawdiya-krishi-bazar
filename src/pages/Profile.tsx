@@ -8,6 +8,7 @@ import { cn } from '../lib/utils';
 import SmartImage from '../components/SmartImage';
 import { DeliveryPartner } from '../types';
 import { listenDeliveryPartners, findDeliveryPartnerByUser } from '../services/deliveryPartnerService';
+import { getVehicleDisplayLabel } from '../data/defaultDeliveryConfig';
 
 const Profile: React.FC = () => {
   const { user, isAdmin, userSettings, updateUserSettings, login, logout, loading, appContent } = useAppContext();
@@ -195,7 +196,7 @@ const Profile: React.FC = () => {
                 डिलीवरी हेतु ऑर्डर्स (Orders for Delivery)
               </h3>
               <p className="text-[11px] text-emerald-100/90 mt-0.5 font-medium">
-                <span>पार्टनर: <b className="text-white">{partnerProfile.name}</b> ({partnerProfile.vehicleTypeName || partnerProfile.vehicleType}) • ऑर्डर स्वीकार/डिलीवर करें</span>
+                <span>पार्टनर: <b className="text-white">{partnerProfile.name}</b> ({getVehicleDisplayLabel(partnerProfile.vehicleType, partnerProfile.vehicleTypeName)}) • ऑर्डर स्वीकार/डिलीवर करें</span>
               </p>
             </div>
           </div>

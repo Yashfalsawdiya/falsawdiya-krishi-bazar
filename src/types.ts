@@ -723,5 +723,75 @@ export interface DeliveryOtpPublicConfig {
   showInAppOtpFallback: boolean;
 }
 
+// ==========================================
+// DELIVERY EMAIL TEMPLATE CONFIGURATION
+// ==========================================
+
+export interface DeliveryEmailTemplateConfig {
+  // Content fields
+  subject: string;
+  headerTitle: string;
+  headerSubtitle: string;
+  storeName: string;
+  greeting: string;
+  deliveryInfoText: string;
+  otpHeroTitle: string;
+  otpExpiryNotice: string;
+  otpInstructions: string;
+  securityNoticeTitle: string;
+  securityNoticeText: string;
+  
+  // Order Table Labels
+  orderNumberLabel: string;
+  deliveryPartnerLabel: string;
+  orderStatusLabel: string;
+  orderStatusValue: string;
+  
+  // Agriculture Safety Section
+  safetySectionTitle: string;
+  safetyPoints: string[];
+  
+  // Footer & Contact
+  contactNumber: string;
+  footerContactText: string;
+  tagline: string;
+  copyrightText: string;
+  
+  // Design & Styling
+  logoUrl?: string;
+  showLogo: boolean;
+  headerBgColor: string;
+  headerTextColor: string;
+  headerSubtitleColor: string;
+  headerBorderColor: string;
+  outerBgColor: string;
+  cardBgColor: string;
+  cardBorderColor: string;
+  cardBorderRadius: number; // in px
+  primaryColor: string;
+  otpBoxBgColor: string;
+  otpBoxBorderColor: string;
+  otpCodeBgColor: string;
+  otpCodeBorderColor: string;
+  otpCodeTextColor: string;
+  otpHeadingColor: string;
+  securityNoticeBgColor: string;
+  securityNoticeBorderColor: string;
+  securityNoticeAccentColor: string;
+  securityNoticeTextColor: string;
+  safetyBoxBgColor: string;
+  safetyBoxBorderColor: string;
+  safetyBoxAccentColor: string;
+  footerBgColor: string;
+  footerTextColor: string;
+  headingFontSize: number; // in px
+  bodyFontSize: number; // in px
+  otpFontSize: number; // in px
+  textAlignment: 'center' | 'left';
+  
+  lastUpdated?: number;
+}
+
+
 
 

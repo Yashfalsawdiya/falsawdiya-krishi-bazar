@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Mail, Key, ShieldCheck, Send, CheckCircle2, 
   AlertCircle, RefreshCw, Eye, EyeOff, Save, 
   HelpCircle, Sparkles, Clock, Lock, Smartphone,
-  Info, Check, ExternalLink, ShieldAlert, AlertTriangle
+  Info, Check, ExternalLink, ShieldAlert, AlertTriangle,
+  Monitor, Smartphone as PhoneIcon, Code
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -14,9 +15,20 @@ import {
   BackendHealthStatus,
   toSafeString
 } from '../services/deliveryOtpService';
-import { EmailOtpServerConfig } from '../types';
+import { EmailOtpServerConfig, DeliveryEmailTemplateConfig } from '../types';
+import { useAppContext } from '../context/AppContext';
+import { 
+  DEFAULT_DELIVERY_EMAIL_TEMPLATE, 
+  DUMMY_EMAIL_PREVIEW_DATA, 
+  mergeDeliveryEmailTemplate, 
+  renderDeliveryEmailTemplateHtml,
+  replaceEmailPlaceholders 
+} from '../data/defaultDeliveryEmailTemplate';
+import { AdminDeliveryEmailTemplateEditor } from './AdminDeliveryEmailTemplateEditor';
 
 export const AdminEmailOtpManager: React.FC = () => {
+  const { deliveryEmailTemplate, appContent } = useAppContext();
+
   const [config, setConfig] = useState<EmailOtpServerConfig>({
     enabled: true,
     senderEmail: 'yashfalsawdiya36@gmail.com',
@@ -40,6 +52,28 @@ export const AdminEmailOtpManager: React.FC = () => {
   const [testFeedback, setTestFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showHelpGuide, setShowHelpGuide] = useState(false);
   const [backendHealth, setBackendHealth] = useState<BackendHealthStatus | null>(null);
+
+  // Live preview template state synced with AppContext / Editor
+  const [previewTemplate, setPreviewTemplate] = useState<DeliveryEmailTemplateConfig>(() => {
+    return mergeDeliveryEmailTemplate(deliveryEmailTemplate, {
+      storeName: appContent?.branding?.name || 'फल्सावदिया कृषि बाजार',
+      contactNumber: appContent?.contactInfo?.whatsapp || '+91 89823 38046',
+    });
+  });
+
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
+  const [previewViewMode, setPreviewViewMode] = useState<'visual' | 'html'>('visual');
+
+  // Update preview template when context updates
+  useEffect(() => {
+    if (deliveryEmailTemplate) {
+      setPreviewTemplate(mergeDeliveryEmailTemplate(deliveryEmailTemplate));
+    }
+  }, [deliveryEmailTemplate]);
+
+  const liveHtmlCode = useMemo(() => {
+    return renderDeliveryEmailTemplateHtml(previewTemplate, DUMMY_EMAIL_PREVIEW_DATA);
+  }, [previewTemplate]);
 
   const fetchConfig = async () => {
     try {
@@ -503,7 +537,7 @@ export const AdminEmailOtpManager: React.FC = () => {
             type="button"
             onClick={handleTestEmail}
             disabled={testing || !isConfigured}
-            className="px-6 py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-xs active:scale-98 transition-all disabled:opacity-50 cursor-pointer shrink-0"
+            className="px-6 py-3 bg-[#2D5A27] hover:bg-[#23461e] text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-xs active:scale-98 transition-all disabled:opacity-50 cursor-pointer shrink-0"
           >
             {testing ? (
               <>
@@ -550,7 +584,309 @@ export const AdminEmailOtpManager: React.FC = () => {
         </AnimatePresence>
       </div>
 
-      {/* SECTION 4: STEP-BY-STEP HELP GUIDE MODAL/COLLAPSIBLE */}
+      {/* SECTION 4: LIVE EMAIL TEMPLATE PREVIEW */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-gray-100 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+          <div className="space-y-0.5">
+            <h3 className="text-sm font-black text-gray-900 flex items-center gap-2">
+              <Mail className="w-4 h-4 text-[#2D5A27]" />
+              <span>डिलीवरी OTP ईमेल पूर्वावलोकन (Live Email Template Preview)</span>
+            </h3>
+            <p className="text-xs text-gray-500 font-medium">
+              यह वह आधुनिक, स्वच्छ एवं विश्वसनीय ईमेल डिज़ाइन है जो ग्राहक को डिलीवरी के समय प्राप्त होता है।
+            </p>
+          </div>
+          
+          {/* Controls: Device and Mode Switchers */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="bg-gray-100 p-1 rounded-xl flex items-center gap-1 border border-gray-200">
+              <button
+                type="button"
+                onClick={() => setPreviewDevice('desktop')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  previewDevice === 'desktop' ? 'bg-white text-[#2D5A27] shadow-xs' : 'text-gray-500 hover:text-gray-800'
+                }`}
+                title="डेस्कटॉप व्यू (580px)"
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Desktop</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewDevice('mobile')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  previewDevice === 'mobile' ? 'bg-white text-[#2D5A27] shadow-xs' : 'text-gray-500 hover:text-gray-800'
+                }`}
+                title="मोबाइल व्यू (360px)"
+              >
+                <PhoneIcon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Mobile</span>
+              </button>
+            </div>
+
+            <div className="bg-gray-100 p-1 rounded-xl flex items-center gap-1 border border-gray-200">
+              <button
+                type="button"
+                onClick={() => setPreviewViewMode('visual')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  previewViewMode === 'visual' ? 'bg-white text-[#2D5A27] shadow-xs' : 'text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Visual</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewViewMode('html')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  previewViewMode === 'html' ? 'bg-white text-[#2D5A27] shadow-xs' : 'text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                <Code className="w-3.5 h-3.5" />
+                <span>HTML</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Email Visual Mockup / HTML Preview Container */}
+        {previewViewMode === 'visual' ? (
+          <div className="bg-gray-100 p-3 sm:p-6 rounded-2xl flex justify-center overflow-x-auto">
+            <div 
+              style={{
+                maxWidth: previewDevice === 'mobile' ? '360px' : '540px',
+                borderRadius: `${previewTemplate.cardBorderRadius || 12}px`,
+                borderColor: previewTemplate.cardBorderColor || '#E2E8F0',
+                backgroundColor: previewTemplate.cardBgColor || '#FFFFFF',
+              }}
+              className="w-full bg-white shadow-md border overflow-hidden font-sans text-gray-800 transition-all duration-300"
+            >
+              
+              {/* Dynamic Header */}
+              <div 
+                style={{
+                  backgroundColor: previewTemplate.headerBgColor || '#2D5A27',
+                  borderBottomColor: previewTemplate.headerBorderColor || '#1E3E1A',
+                }}
+                className="text-white p-5 sm:p-6 text-center border-b-4"
+              >
+                {previewTemplate.showLogo !== false && (
+                  <div className="w-14 h-14 bg-white rounded-full p-1 mx-auto mb-3 shadow-md flex items-center justify-center">
+                    <img
+                      src={previewTemplate.logoUrl || '/icon-192.png'}
+                      alt={previewTemplate.storeName || 'स्टोर'}
+                      className="w-12 h-12 rounded-full object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+                
+                <h2 
+                  style={{
+                    color: previewTemplate.headerTextColor || '#FFFFFF',
+                    fontSize: `${previewTemplate.headingFontSize || 20}px`,
+                  }}
+                  className="font-bold tracking-tight m-0 leading-tight"
+                >
+                  {replaceEmailPlaceholders(previewTemplate.headerTitle || '{{storeName}}', DUMMY_EMAIL_PREVIEW_DATA)}
+                </h2>
+
+                {previewTemplate.headerSubtitle && (
+                  <p 
+                    style={{
+                      color: previewTemplate.headerSubtitleColor || '#E8F5E9',
+                    }}
+                    className="text-xs font-medium mt-1 mb-0 opacity-95"
+                  >
+                    {replaceEmailPlaceholders(previewTemplate.headerSubtitle, DUMMY_EMAIL_PREVIEW_DATA)}
+                  </p>
+                )}
+              </div>
+
+              {/* Dynamic Email Body */}
+              <div 
+                style={{
+                  backgroundColor: previewTemplate.cardBgColor || '#FFFFFF',
+                  fontSize: `${previewTemplate.bodyFontSize || 14}px`,
+                }}
+                className="p-5 sm:p-6 space-y-4"
+              >
+                <div>
+                  <p className="font-bold text-gray-900 mb-1">
+                    {replaceEmailPlaceholders(previewTemplate.greeting || 'नमस्ते {{customerName}},', DUMMY_EMAIL_PREVIEW_DATA)}
+                  </p>
+                  <p className="text-gray-600 leading-relaxed">
+                    {replaceEmailPlaceholders(
+                      previewTemplate.deliveryInfoText || 'आपके ऑर्डर #{{orderId}} की डिलीवरी के लिए हमारे Delivery Partner {{deliveryPartnerName}} पहुँच गए हैं।', 
+                      DUMMY_EMAIL_PREVIEW_DATA
+                    )}
+                  </p>
+                </div>
+
+                {/* OTP Hero Box */}
+                <div 
+                  style={{
+                    backgroundColor: previewTemplate.otpBoxBgColor || '#F8FAF8',
+                    borderColor: previewTemplate.otpBoxBorderColor || '#D1E7DD',
+                  }}
+                  className="border rounded-xl p-4 sm:p-5 text-center"
+                >
+                  <div 
+                    style={{ color: previewTemplate.otpHeadingColor || '#2D5A27' }}
+                    className="text-[11px] font-bold uppercase tracking-wider mb-2"
+                  >
+                    {replaceEmailPlaceholders(previewTemplate.otpHeroTitle || 'डिलीवरी सत्यापन कोड', DUMMY_EMAIL_PREVIEW_DATA)}
+                  </div>
+                  
+                  <div 
+                    style={{
+                      backgroundColor: previewTemplate.otpCodeBgColor || '#FFFFFF',
+                      borderColor: previewTemplate.otpCodeBorderColor || '#2D5A27',
+                    }}
+                    className="inline-block border-2 rounded-xl px-6 py-2 shadow-xs"
+                  >
+                    <span 
+                      style={{
+                        color: previewTemplate.otpCodeTextColor || '#1B4D21',
+                        fontSize: previewDevice === 'mobile' ? '26px' : `${previewTemplate.otpFontSize || 34}px`,
+                      }}
+                      className="font-mono font-extrabold tracking-[6px] pl-1.5"
+                    >
+                      596018
+                    </span>
+                  </div>
+
+                  <p 
+                    style={{ color: previewTemplate.otpCodeTextColor || '#1B4D21' }}
+                    className="text-xs font-bold mt-3 mb-1"
+                  >
+                    {replaceEmailPlaceholders(previewTemplate.otpExpiryNotice || 'यह कोड {{otpExpiry}} मिनट के लिए मान्य है।', {
+                      ...DUMMY_EMAIL_PREVIEW_DATA,
+                      otpExpiry: config.expiryMinutes || 15,
+                    })}
+                  </p>
+                  <p className="text-[11px] text-gray-500 m-0">
+                    {replaceEmailPlaceholders(previewTemplate.otpInstructions || 'सामान प्राप्त करने और उसकी जाँच करने के बाद ही यह OTP बताएं।', DUMMY_EMAIL_PREVIEW_DATA)}
+                  </p>
+                </div>
+
+                {/* Security Alert Box */}
+                {previewTemplate.securityNoticeText && (
+                  <div 
+                    style={{
+                      backgroundColor: previewTemplate.securityNoticeBgColor || '#FFFBEB',
+                      borderColor: previewTemplate.securityNoticeBorderColor || '#FDE68A',
+                      borderLeftColor: previewTemplate.securityNoticeAccentColor || '#D97706',
+                      color: previewTemplate.securityNoticeTextColor || '#92400E',
+                    }}
+                    className="border border-l-4 rounded-lg p-3 text-[11.5px] leading-relaxed"
+                  >
+                    {previewTemplate.securityNoticeTitle && (
+                      <b className="font-bold mr-1">
+                        {replaceEmailPlaceholders(previewTemplate.securityNoticeTitle, DUMMY_EMAIL_PREVIEW_DATA)}
+                      </b>
+                    )}
+                    {replaceEmailPlaceholders(previewTemplate.securityNoticeText, DUMMY_EMAIL_PREVIEW_DATA)}
+                  </div>
+                )}
+
+                {/* Order Info Table */}
+                <div className="border border-gray-200 rounded-lg overflow-hidden text-xs">
+                  <div className="flex justify-between p-2.5 bg-gray-50 border-b border-gray-200">
+                    <span className="text-gray-500">
+                      {replaceEmailPlaceholders(previewTemplate.orderNumberLabel || 'ऑर्डर क्रमांक:', DUMMY_EMAIL_PREVIEW_DATA)}
+                    </span>
+                    <span className="font-bold text-gray-900">#FKB-2026-123456</span>
+                  </div>
+                  <div className="flex justify-between p-2.5 bg-white border-b border-gray-200">
+                    <span className="text-gray-500">
+                      {replaceEmailPlaceholders(previewTemplate.deliveryPartnerLabel || 'डिलीवरी साथी:', DUMMY_EMAIL_PREVIEW_DATA)}
+                    </span>
+                    <span className="font-bold text-gray-900">कमलेश पाटीदार</span>
+                  </div>
+                  <div className="flex justify-between p-2.5 bg-gray-50">
+                    <span className="text-gray-500">
+                      {replaceEmailPlaceholders(previewTemplate.orderStatusLabel || 'ऑर्डर स्थिति:', DUMMY_EMAIL_PREVIEW_DATA)}
+                    </span>
+                    <span 
+                      style={{ color: previewTemplate.primaryColor || '#2D5A27' }}
+                      className="font-bold"
+                    >
+                      {replaceEmailPlaceholders(previewTemplate.orderStatusValue || 'Delivery in Progress', DUMMY_EMAIL_PREVIEW_DATA)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Safety Information Box */}
+                {(previewTemplate.safetyPoints || []).length > 0 && (
+                  <div 
+                    style={{
+                      backgroundColor: previewTemplate.safetyBoxBgColor || '#F8FAF8',
+                      borderColor: previewTemplate.safetyBoxBorderColor || '#E2E8F0',
+                      borderLeftColor: previewTemplate.safetyBoxAccentColor || '#2D5A27',
+                    }}
+                    className="border border-l-4 rounded-lg p-3.5 space-y-1.5"
+                  >
+                    <div 
+                      style={{ color: previewTemplate.safetyBoxAccentColor || '#2D5A27' }}
+                      className="font-bold text-xs"
+                    >
+                      {replaceEmailPlaceholders(previewTemplate.safetySectionTitle || 'कृषि उत्पाद सुरक्षा सूचना', DUMMY_EMAIL_PREVIEW_DATA)}
+                    </div>
+                    <ul className="list-disc list-inside text-[11px] text-gray-600 space-y-1 pl-1 leading-relaxed">
+                      {(previewTemplate.safetyPoints || []).map((pt, idx) => (
+                        <li key={idx}>
+                          {replaceEmailPlaceholders(pt, DUMMY_EMAIL_PREVIEW_DATA)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Dynamic Email Footer */}
+              <div 
+                style={{
+                  backgroundColor: previewTemplate.footerBgColor || '#F9FAFB',
+                  color: previewTemplate.footerTextColor || '#4B5563',
+                }}
+                className="p-4 text-center border-t border-gray-200 text-[11px] space-y-1"
+              >
+                {previewTemplate.footerContactText && (
+                  <p className="m-0">
+                    {replaceEmailPlaceholders(previewTemplate.footerContactText, DUMMY_EMAIL_PREVIEW_DATA)}
+                  </p>
+                )}
+                {previewTemplate.tagline && (
+                  <p className="m-0 font-medium text-gray-600">
+                    {previewTemplate.storeName || 'फल्सावदिया कृषि बाजार'} • {replaceEmailPlaceholders(previewTemplate.tagline, DUMMY_EMAIL_PREVIEW_DATA)}
+                  </p>
+                )}
+                {previewTemplate.copyrightText && (
+                  <p className="m-0 text-[10px] text-gray-400 mt-1">
+                    {replaceEmailPlaceholders(previewTemplate.copyrightText, DUMMY_EMAIL_PREVIEW_DATA)}
+                  </p>
+                )}
+              </div>
+
+            </div>
+          </div>
+        ) : (
+          <div className="bg-gray-900 rounded-2xl p-4 overflow-x-auto text-emerald-400 font-mono text-xs max-h-96">
+            <pre className="whitespace-pre-wrap">{liveHtmlCode}</pre>
+          </div>
+        )}
+      </div>
+
+      {/* SECTION 5: DEDICATED EDIT EMAIL TEMPLATE SECTION */}
+      <AdminDeliveryEmailTemplateEditor 
+        onTemplateChange={(updated) => setPreviewTemplate(updated)}
+        testEmailRecipient={testEmailRecipient}
+      />
+
+      {/* SECTION 5: STEP-BY-STEP HELP GUIDE MODAL/COLLAPSIBLE */}
       <div className="bg-gray-50 border border-gray-200 rounded-3xl p-5 space-y-3">
         <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowHelpGuide(!showHelpGuide)}>
           <div className="flex items-center gap-2 text-xs font-bold text-gray-800">
