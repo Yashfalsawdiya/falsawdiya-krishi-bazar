@@ -20,6 +20,7 @@ import AdminOrdersManager from '../components/AdminOrdersManager';
 import AdminRazorpayManager from '../components/AdminRazorpayManager';
 import AdminInvoiceTemplateManager from '../components/AdminInvoiceTemplateManager';
 import AdminDeliveryManager from '../components/AdminDeliveryManager';
+import { SafeErrorBoundary } from '../components/SafeErrorBoundary';
 
 const Admin: React.FC = () => {
   const { 
@@ -1459,7 +1460,9 @@ const Admin: React.FC = () => {
       ) : activeTab === 'orders' ? (
         <AdminOrdersManager />
       ) : activeTab === 'delivery' ? (
-        <AdminDeliveryManager />
+        <SafeErrorBoundary fallbackTitle="डिलीवरी व OTP प्रबंधक लोड करने में समस्या">
+          <AdminDeliveryManager />
+        </SafeErrorBoundary>
       ) : activeTab === 'razorpay' ? (
         <AdminRazorpayManager />
       ) : activeTab === 'invoiceTemplate' ? (

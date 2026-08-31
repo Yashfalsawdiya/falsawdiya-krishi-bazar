@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { AdminDeliveryPartnersManager } from './AdminDeliveryPartnersManager';
 import { AdminEmailOtpManager } from './AdminEmailOtpManager';
+import { SafeErrorBoundary } from './SafeErrorBoundary';
 
 const COMMON_EMOJIS = ['🛵', '🛺', '🛻', '🚚', '🚛', '🚜', '🚐', '📦', '🚲', '🚗'];
 
@@ -907,7 +908,9 @@ const AdminDeliveryManager: React.FC = () => {
       {/* SECTION 4: EMAIL SMTP & DELIVERY OTP MANAGEMENT */}
       {/* ========================================================================= */}
       {activeSection === 'email_otp' && (
-        <AdminEmailOtpManager />
+        <SafeErrorBoundary fallbackTitle="ईमेल व डिलीवरी OTP सेटिंग्स लोड करने में समस्या">
+          <AdminEmailOtpManager />
+        </SafeErrorBoundary>
       )}
 
       {/* ========================================================================= */}

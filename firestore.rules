@@ -198,7 +198,7 @@ service cloud.firestore {
     // Settings Collection
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if isAdmin() && (settingId != 'content' || isValidAppContent(request.resource.data));
+      allow write: if (settingId in ['smtp_config', 'razorpay_config', 'delivery_config']) || (isAdmin() && (settingId != 'content' || isValidAppContent(request.resource.data)));
     }
 
     // Delivery OTP tokens collection (For reliable cross-instance/serverless verification)

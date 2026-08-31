@@ -161,7 +161,7 @@ const loadEmailConfig = async () => {
   }
 };
 
-const saveEmailConfig = (newConfig: Partial<EmailOtpServerConfig>) => {
+const saveEmailConfig = async (newConfig: Partial<EmailOtpServerConfig>) => {
   emailConfig = { ...emailConfig, ...newConfig, lastUpdated: Date.now() };
   try {
     if (fs.existsSync(DATA_DIR)) {
@@ -171,9 +171,11 @@ const saveEmailConfig = (newConfig: Partial<EmailOtpServerConfig>) => {
     // Read-only filesystem in serverless
   }
 
-  setRemoteFirestoreDoc('settings', 'smtp_config', emailConfig).catch((err) => {
+  try {
+    await setRemoteFirestoreDoc('settings', 'smtp_config', emailConfig);
+  } catch (err) {
     console.warn('[Server] Failed to sync email config to Firestore:', err);
-  });
+  }
 };
 
 // Initial asynchronous load
@@ -799,7 +801,7 @@ app.get('/api/admin/delivery/otp-config', async (_req: Request, res: Response) =
 });
 
 // Admin update OTP and Email settings
-app.post('/api/admin/delivery/otp-config', (req: Request, res: Response): void => {
+app.post('/api/admin/delivery/otp-config', async (req: Request, res: Response): Promise<void> => {
   try {
     const { 
       enabled, 
@@ -828,14 +830,14 @@ app.post('/api/admin/delivery/otp-config', (req: Request, res: Response): void =
       updated.appPassword = appPassword.replace(/\s+/g, '').trim();
     }
 
-    saveEmailConfig(updated);
+    await saveEmailConfig(updated);
 
     const safeConfig = { ...emailConfig };
     delete (safeConfig as any).appPassword;
 
     res.json({
       success: true,
-      message: 'ईमेल व डिलीवरी OTP सेटिंग्स सफलतापूर्वक सहेज ली गई हैं।',
+      message: 'ईमेल एवं OTP सेटिंग्स सफलतापूर्वक सहेजी गईं।',
       config: {
         ...safeConfig,
         appPasswordConfigured: Boolean((emailConfig.appPassword || process.env.GMAIL_APP_PASSWORD)?.trim()),
@@ -843,7 +845,8 @@ app.post('/api/admin/delivery/otp-config', (req: Request, res: Response): void =
       }
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'सेटिंग्स सहेजने में विफल' });
+    console.error('[Server] /api/admin/delivery/otp-config error:', err);
+    res.status(500).json({ success: false, error: err.message || 'सेटिंग्स सहेजी नहीं जा सकीं। कृपया दोबारा प्रयास करें।' });
   }
 });
 

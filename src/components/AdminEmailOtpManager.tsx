@@ -42,21 +42,34 @@ export const AdminEmailOtpManager: React.FC = () => {
 
   const fetchConfig = async () => {
     try {
-      setLoading(true);
       const [healthRes, dataRes] = await Promise.allSettled([
         checkBackendHealth(),
         getAdminOtpConfig()
       ]);
 
-      if (healthRes.status === 'fulfilled') {
+      if (healthRes.status === 'fulfilled' && healthRes.value) {
         setBackendHealth(healthRes.value);
       }
 
-      if (dataRes.status === 'fulfilled') {
-        setConfig(dataRes.value);
-        setAppPasswordMasked(dataRes.value.appPasswordConfigured);
-        if (dataRes.value.senderEmail && !testEmailRecipient) {
-          setTestEmailRecipient(dataRes.value.senderEmail);
+      if (dataRes.status === 'fulfilled' && dataRes.value) {
+        const fetched = dataRes.value;
+        setConfig(prev => ({
+          ...prev,
+          enabled: fetched.enabled !== undefined ? Boolean(fetched.enabled) : prev.enabled,
+          senderEmail: typeof fetched.senderEmail === 'string' ? fetched.senderEmail : (prev.senderEmail || ''),
+          senderName: typeof fetched.senderName === 'string' ? fetched.senderName : (prev.senderName || 'फल्सावदिया कृषि बाजार (Falsawdiya Krishi Bazaar)'),
+          otpLength: Number(fetched.otpLength) || prev.otpLength || 6,
+          expiryMinutes: Number(fetched.expiryMinutes) || prev.expiryMinutes || 15,
+          resendCooldownSeconds: Number(fetched.resendCooldownSeconds) || prev.resendCooldownSeconds || 60,
+          maxAttempts: Number(fetched.maxAttempts) || prev.maxAttempts || 3,
+          showInAppOtpFallback: fetched.showInAppOtpFallback !== undefined ? Boolean(fetched.showInAppOtpFallback) : prev.showInAppOtpFallback,
+          lastUpdated: Number(fetched.lastUpdated) || Date.now(),
+          appPassword: prev.appPassword || '',
+        }));
+
+        setAppPasswordMasked(Boolean(fetched.appPasswordConfigured));
+        if (fetched.senderEmail && !testEmailRecipient) {
+          setTestEmailRecipient(fetched.senderEmail);
         }
       }
     } catch (err: any) {
@@ -76,40 +89,48 @@ export const AdminEmailOtpManager: React.FC = () => {
     setSaveFeedback(null);
 
     try {
+      const safeSenderEmail = (config.senderEmail || '').trim();
+      const safeSenderName = (config.senderName || '').trim();
+
       const payload: Partial<EmailOtpServerConfig> = {
-        enabled: config.enabled,
-        senderEmail: config.senderEmail.trim(),
-        senderName: config.senderName.trim(),
-        otpLength: config.otpLength || 6,
-        expiryMinutes: config.expiryMinutes || 15,
-        resendCooldownSeconds: config.resendCooldownSeconds || 60,
-        maxAttempts: config.maxAttempts || 3,
-        showInAppOtpFallback: config.showInAppOtpFallback,
+        enabled: Boolean(config.enabled),
+        senderEmail: safeSenderEmail,
+        senderName: safeSenderName || 'फल्सावदिया कृषि बाजार (Falsawdiya Krishi Bazaar)',
+        otpLength: Number(config.otpLength) || 6,
+        expiryMinutes: Number(config.expiryMinutes) || 15,
+        resendCooldownSeconds: Number(config.resendCooldownSeconds) || 60,
+        maxAttempts: Number(config.maxAttempts) || 3,
+        showInAppOtpFallback: Boolean(config.showInAppOtpFallback),
       };
 
-      // Only pass appPassword if user modified it
-      if (config.appPassword && !config.appPassword.includes('••••')) {
-        payload.appPassword = config.appPassword.replace(/\s+/g, '').trim();
+      // Only pass appPassword if user entered a new one
+      const rawPassword = (config.appPassword || '').trim();
+      if (rawPassword && !rawPassword.includes('••••')) {
+        payload.appPassword = rawPassword.replace(/\s+/g, '');
       }
 
       const res = await saveAdminOtpConfig(payload);
-      if (res.success) {
+      if (res && res.success) {
         setSaveFeedback({
           type: 'success',
-          text: 'ईमेल व डिलीवरी OTP सेटिंग्स सफलतापूर्वक सहेज ली गई हैं।',
+          text: res.message || 'ईमेल एवं OTP सेटिंग्स सफलतापूर्वक सहेजी गईं।',
         });
+        if (rawPassword && !rawPassword.includes('••••')) {
+          setAppPasswordMasked(true);
+        }
         await fetchConfig();
-        setTimeout(() => setSaveFeedback(null), 4000);
+        setTimeout(() => setSaveFeedback(null), 5000);
       } else {
         setSaveFeedback({
           type: 'error',
-          text: res.error || 'सेटिंग्स सहेजने में त्रुटि आई।',
+          text: (res && res.error) ? res.error : 'सेटिंग्स सहेजी नहीं जा सकीं। कृपया दोबारा प्रयास करें।',
         });
       }
     } catch (err: any) {
+      console.error('Save error in handleSave:', err);
       setSaveFeedback({
         type: 'error',
-        text: err.message || 'नेटवर्क त्रुटि।',
+        text: err?.message || 'सेटिंग्स सहेजी नहीं जा सकीं। कृपया दोबारा प्रयास करें।',
       });
     } finally {
       setSaving(false);
@@ -279,7 +300,7 @@ export const AdminEmailOtpManager: React.FC = () => {
               <div className="relative">
                 <input
                   type="email"
-                  value={config.senderEmail}
+                  value={config.senderEmail || ''}
                   onChange={(e) => setConfig({ ...config, senderEmail: e.target.value })}
                   placeholder="उदा. yashfalsawdiya36@gmail.com या falsawdiyakrishibazaar@gmail.com"
                   className="w-full bg-gray-50 border border-gray-200 rounded-2xl p-3 text-xs font-medium text-gray-900 focus:bg-white focus:border-[#2D5A27] outline-none transition-all"
@@ -313,7 +334,7 @@ export const AdminEmailOtpManager: React.FC = () => {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  value={config.appPassword}
+                  value={config.appPassword || ''}
                   onChange={(e) => {
                     setConfig({ ...config, appPassword: e.target.value });
                     setAppPasswordMasked(false);
@@ -340,7 +361,7 @@ export const AdminEmailOtpManager: React.FC = () => {
               </label>
               <input
                 type="text"
-                value={config.senderName}
+                value={config.senderName || ''}
                 onChange={(e) => setConfig({ ...config, senderName: e.target.value })}
                 placeholder="उदा. फल्सावदिया कृषि बाजार (Falsawdiya Krishi Bazaar)"
                 className="w-full bg-gray-50 border border-gray-200 rounded-2xl p-3 text-xs font-medium text-gray-900 focus:bg-white focus:border-[#2D5A27] outline-none transition-all"
