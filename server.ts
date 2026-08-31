@@ -905,10 +905,12 @@ app.get('/api/delivery/otp-config', (_req: Request, res: Response) => {
   });
 });
 
-// Admin OTP and Email settings: full config
+// Admin OTP and Email settings: full config (NEVER returns raw appPassword)
 app.get('/api/admin/delivery/otp-config', (_req: Request, res: Response) => {
+  const safeConfig = { ...emailConfig };
+  delete (safeConfig as any).appPassword;
   res.json({
-    ...emailConfig,
+    ...safeConfig,
     appPasswordConfigured: Boolean(emailConfig.appPassword?.trim()),
     appPasswordMasked: emailConfig.appPassword ? '••••••••••••••••' : '',
   });
@@ -940,18 +942,21 @@ app.post('/api/admin/delivery/otp-config', (req: Request, res: Response): void =
       showInAppOtpFallback: showInAppOtpFallback !== undefined ? Boolean(showInAppOtpFallback) : emailConfig.showInAppOtpFallback,
     };
 
-    // Only update appPassword if a new non-empty value was passed
+    // Only update appPassword if a new non-empty value was passed and not masked placeholder
     if (typeof appPassword === 'string' && appPassword.trim() && !appPassword.includes('••••')) {
       updated.appPassword = appPassword.replace(/\s+/g, '').trim();
     }
 
     saveEmailConfig(updated);
 
+    const safeConfig = { ...emailConfig };
+    delete (safeConfig as any).appPassword;
+
     res.json({
       success: true,
       message: 'ईमेल व डिलीवरी OTP सेटिंग्स सफलतापूर्वक सहेज ली गई हैं।',
       config: {
-        ...emailConfig,
+        ...safeConfig,
         appPasswordConfigured: Boolean(emailConfig.appPassword?.trim()),
         appPasswordMasked: emailConfig.appPassword ? '••••••••••••••••' : '',
       }
@@ -1381,6 +1386,34 @@ app.get('/api/delivery/in-app-otp/:orderId', (req: Request, res: Response): void
   } catch (err: any) {
     res.json({ success: false, inAppAvailable: false });
   }
+});
+
+// Health check endpoint for verifying production backend connectivity
+app.get('/api/health', (_req: Request, res: Response): void => {
+  res.json({
+    status: 'ok',
+    service: 'Falsawdiya Krishi Bazaar Backend',
+    timestamp: Date.now(),
+    uptime: Math.round(process.uptime()),
+    environment: process.env.NODE_ENV || 'development',
+    emailService: {
+      configured: Boolean(emailConfig.senderEmail?.trim() && emailConfig.appPassword?.trim()),
+      sender: emailConfig.senderEmail ? maskEmail(emailConfig.senderEmail) : 'not configured',
+    },
+    razorpayService: {
+      configured: Boolean(serverConfig.testKeyId || serverConfig.liveKeyId),
+      mode: serverConfig.mode,
+    }
+  });
+});
+
+// Catch-all 404 handler for unknown API routes to guarantee pure JSON response
+app.all('/api/*', (req: Request, res: Response): void => {
+  res.status(404).json({
+    success: false,
+    error: `API Route not found: ${req.method} ${req.path}`,
+    message: 'अमान्य API पाथ। कृपया सही एंडपॉइंट का उपयोग करें।',
+  });
 });
 
 // ==========================================

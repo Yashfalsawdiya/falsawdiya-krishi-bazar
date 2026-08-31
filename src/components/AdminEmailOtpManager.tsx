@@ -3,13 +3,15 @@ import {
   Mail, Key, ShieldCheck, Send, CheckCircle2, 
   AlertCircle, RefreshCw, Eye, EyeOff, Save, 
   HelpCircle, Sparkles, Clock, Lock, Smartphone,
-  Info, Check, ExternalLink, ShieldAlert
+  Info, Check, ExternalLink, ShieldAlert, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   getAdminOtpConfig, 
   saveAdminOtpConfig, 
-  sendAdminTestEmail 
+  sendAdminTestEmail,
+  checkBackendHealth,
+  BackendHealthStatus
 } from '../services/deliveryOtpService';
 import { EmailOtpServerConfig } from '../types';
 
@@ -36,15 +38,26 @@ export const AdminEmailOtpManager: React.FC = () => {
   const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [testFeedback, setTestFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showHelpGuide, setShowHelpGuide] = useState(false);
+  const [backendHealth, setBackendHealth] = useState<BackendHealthStatus | null>(null);
 
   const fetchConfig = async () => {
     try {
       setLoading(true);
-      const data = await getAdminOtpConfig();
-      setConfig(data);
-      setAppPasswordMasked(data.appPasswordConfigured);
-      if (data.senderEmail && !testEmailRecipient) {
-        setTestEmailRecipient(data.senderEmail);
+      const [healthRes, dataRes] = await Promise.allSettled([
+        checkBackendHealth(),
+        getAdminOtpConfig()
+      ]);
+
+      if (healthRes.status === 'fulfilled') {
+        setBackendHealth(healthRes.value);
+      }
+
+      if (dataRes.status === 'fulfilled') {
+        setConfig(dataRes.value);
+        setAppPasswordMasked(dataRes.value.appPasswordConfigured);
+        if (dataRes.value.senderEmail && !testEmailRecipient) {
+          setTestEmailRecipient(dataRes.value.senderEmail);
+        }
       }
     } catch (err: any) {
       console.error('Failed to load email OTP config:', err);
@@ -168,18 +181,43 @@ export const AdminEmailOtpManager: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {backendHealth?.isReachable ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black bg-emerald-400 text-emerald-950 shadow-xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-900 animate-pulse"></span>
+                <span>सर्वर ऑनलाइन (API Active)</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black bg-amber-400 text-amber-950 shadow-xs">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>बैकएंड: कनेक्टिविटी जांचें</span>
+              </span>
+            )}
+
             <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black shadow-xs ${
               isConfigured 
-                ? 'bg-emerald-400 text-emerald-950' 
-                : 'bg-amber-400 text-amber-950'
+                ? 'bg-white/20 text-white backdrop-blur-xs' 
+                : 'bg-red-400 text-red-950'
             }`}>
-              <span className={`w-2 h-2 rounded-full ${isConfigured ? 'bg-emerald-900 animate-pulse' : 'bg-amber-900'}`}></span>
-              <span>{isConfigured ? 'Gmail SMTP सक्रिय (Live)' : 'कॉन्फ़िगरेशन अधूरा'}</span>
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>{isConfigured ? 'Gmail SMTP एक्टिव' : 'क्रेडेंशियल अधूरे'}</span>
             </span>
           </div>
         </div>
       </div>
+
+      {/* Production Serverless/Environment Variables Advisory */}
+      {backendHealth && !backendHealth.isReachable && (
+        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-4 sm:p-5 flex items-start gap-3 shadow-xs">
+          <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+          <div className="space-y-1 text-xs text-amber-900">
+            <p className="font-black">प्रोडक्शन एनवायरनमेंट नोट (Production Deployment Notice):</p>
+            <p className="leading-relaxed font-medium">
+              यदि आप इस प्रोजेक्ट को GitHub से Vercel, Cloud Run या किसी अन्य होस्टिंग पर डिप्लॉय कर रहे हैं, तो अपने डिप्लॉयमेंट सेटिंग्स (Environment Variables) में <code className="bg-amber-100 font-mono px-1 py-0.5 rounded font-bold">GMAIL_SENDER_EMAIL</code> और <code className="bg-amber-100 font-mono px-1 py-0.5 rounded font-bold">GMAIL_APP_PASSWORD</code> अवश्य दर्ज करें।
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Save Feedback Alerts */}
       <AnimatePresence>

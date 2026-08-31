@@ -24,15 +24,122 @@ export interface VerifyOtpResult {
   remainingAttempts?: number;
 }
 
+export interface BackendHealthStatus {
+  isReachable: boolean;
+  status?: string;
+  environment?: string;
+  emailConfigured?: boolean;
+  senderEmail?: string;
+  error?: string;
+}
+
+/**
+ * Safe JSON parser that guards against empty strings, HTML 404s, and malformed inputs
+ */
+async function parseJsonResponse<T = any>(res: Response): Promise<{ ok: boolean; status: number; data: T | null; rawText: string; error?: string }> {
+  try {
+    const rawText = await res.text();
+    const contentType = res.headers.get('content-type') || '';
+
+    if (!rawText || rawText.trim() === '') {
+      return {
+        ok: false,
+        status: res.status,
+        data: null,
+        rawText: '',
+        error: `सर्वर से खाली उत्तर प्राप्त हुआ (HTTP ${res.status})।`,
+      };
+    }
+
+    // Check if the response is actually HTML (typical of static hosts like GitHub Pages or 404 fallback)
+    if (contentType.includes('text/html') || rawText.trim().startsWith('<!DOCTYPE') || rawText.trim().startsWith('<html')) {
+      return {
+        ok: false,
+        status: res.status,
+        data: null,
+        rawText,
+        error: 'लाइव बैकएंड API उपलब्ध नहीं है (Static Host/HTML response)। कृपया Node.js/Express सर्वर या Environment Variables जांचें।',
+      };
+    }
+
+    try {
+      const data = JSON.parse(rawText) as T;
+      return {
+        ok: res.ok,
+        status: res.status,
+        data,
+        rawText,
+      };
+    } catch {
+      return {
+        ok: false,
+        status: res.status,
+        data: null,
+        rawText,
+        error: `अमान्य रिस्पांस फॉर्मेट (HTTP ${res.status})।`,
+      };
+    }
+  } catch (err: any) {
+    return {
+      ok: false,
+      status: res.status,
+      data: null,
+      rawText: '',
+      error: err.message || 'नेटवर्क रिस्पांस पढ़ने में त्रुटि।',
+    };
+  }
+}
+
+/**
+ * Check backend server health
+ */
+export async function checkBackendHealth(): Promise<BackendHealthStatus> {
+  try {
+    const res = await fetch('/api/health', {
+      headers: { 'Accept': 'application/json' },
+    });
+    const parsed = await parseJsonResponse<any>(res);
+    if (parsed.ok && parsed.data?.status === 'ok') {
+      return {
+        isReachable: true,
+        status: 'online',
+        environment: parsed.data.environment,
+        emailConfigured: parsed.data.emailService?.configured,
+        senderEmail: parsed.data.emailService?.sender,
+      };
+    }
+    return {
+      isReachable: false,
+      error: parsed.error || `HTTP ${res.status}`,
+    };
+  } catch (err: any) {
+    return {
+      isReachable: false,
+      error: err.message || 'बैकएंड सर्वर से कनेक्शन नहीं हो सका।',
+    };
+  }
+}
+
 /**
  * Fetch Public Delivery OTP config
  */
 export async function getDeliveryOtpPublicConfig(): Promise<DeliveryOtpPublicConfig> {
   try {
-    const res = await fetch('/api/delivery/otp-config');
-    if (!res.ok) throw new Error('Failed to fetch OTP config');
-    return await res.json();
-  } catch (err) {
+    const res = await fetch('/api/delivery/otp-config', {
+      headers: { 'Accept': 'application/json' }
+    });
+    const parsed = await parseJsonResponse<DeliveryOtpPublicConfig>(res);
+    if (parsed.ok && parsed.data) {
+      return parsed.data;
+    }
+    return {
+      enabled: true,
+      isEmailConfigured: false,
+      expiryMinutes: 15,
+      resendCooldownSeconds: 60,
+      showInAppOtpFallback: true,
+    };
+  } catch {
     return {
       enabled: true,
       isEmailConfigured: false,
@@ -51,12 +158,11 @@ export async function getAdminOtpConfig(): Promise<EmailOtpServerConfig & { appP
     const res = await fetch('/api/admin/delivery/otp-config', {
       headers: { 'Accept': 'application/json' },
     });
-    const text = await res.text();
-    if (!text) {
-      throw new Error('सर्वर से कोई उत्तर प्राप्त नहीं हुआ।');
+    const parsed = await parseJsonResponse<EmailOtpServerConfig & { appPasswordConfigured: boolean; appPasswordMasked: string }>(res);
+    if (parsed.ok && parsed.data) {
+      return parsed.data;
     }
-    const data = JSON.parse(text);
-    return data;
+    throw new Error(parsed.error || `सर्वर त्रुटि (${res.status})`);
   } catch (err: any) {
     console.error('getAdminOtpConfig error:', err);
     throw err;
@@ -76,12 +182,20 @@ export async function saveAdminOtpConfig(config: Partial<EmailOtpServerConfig>):
       },
       body: JSON.stringify(config),
     });
-    const text = await res.text();
-    if (!text) {
-      return { success: res.ok, error: res.ok ? undefined : `सर्वर त्रुटि (${res.status})` };
+    
+    const parsed = await parseJsonResponse<any>(res);
+    if (parsed.data) {
+      return {
+        success: Boolean(parsed.data.success),
+        message: parsed.data.message,
+        error: parsed.data.error,
+        config: parsed.data.config,
+      };
     }
-    const data = JSON.parse(text);
-    return data;
+    return {
+      success: false,
+      error: parsed.error || `सेटिंग्स सहेजने में विफल (HTTP ${res.status})`,
+    };
   } catch (err: any) {
     console.error('saveAdminOtpConfig error:', err);
     return { success: false, error: err.message || 'नेटवर्क त्रुटि: सेटिंग्स सेव नहीं हो सकीं।' };
@@ -102,23 +216,19 @@ export async function sendAdminTestEmail(recipientEmail?: string): Promise<{ suc
       body: JSON.stringify({ recipientEmail }),
     });
     
-    const text = await res.text();
-    if (!text) {
-      return { 
-        success: false, 
-        error: `सर्वर से खाली रिस्पांस प्राप्त हुआ (HTTP ${res.status})। कृपया सुनिश्चित करें कि सर्वर चालू है।` 
+    const parsed = await parseJsonResponse<any>(res);
+    if (parsed.data) {
+      return {
+        success: Boolean(parsed.data.success),
+        message: parsed.data.message || (parsed.data.success ? 'टेस्ट ईमेल सफलतापूर्वक भेजा गया!' : undefined),
+        error: parsed.data.error || (!parsed.data.success ? 'टेस्ट ईमेल भेजने में विफल।' : undefined),
+        testResult: parsed.data.testResult,
       };
     }
-
-    try {
-      const data = JSON.parse(text);
-      return data;
-    } catch {
-      return { 
-        success: false, 
-        error: `अमान्य रिस्पांस फॉर्मेट (HTTP ${res.status}): ${text.substring(0, 100)}` 
-      };
-    }
+    return { 
+      success: false, 
+      error: parsed.error || `सर्वर रिस्पांस त्रुटि (HTTP ${res.status})` 
+    };
   } catch (err: any) {
     console.error('sendAdminTestEmail error:', err);
     return { success: false, error: err.message || 'परीक्षण ईमेल भेजने में नेटवर्क समस्या आई।' };
@@ -144,22 +254,21 @@ export async function sendDeliveryOtp(params: {
       body: JSON.stringify(params),
     });
     
-    const text = await res.text();
-    let data: any;
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch {
-      data = { success: false, error: 'सर्वर से अमान्य उत्तर प्राप्त हुआ।' };
+    const parsed = await parseJsonResponse<SendOtpResult & { remainingSeconds?: number }>(res);
+    if (parsed.data) {
+      if (!parsed.ok || !parsed.data.success) {
+        return {
+          success: false,
+          error: parsed.data.error || 'OTP भेजने में समस्या आई।',
+          resendCooldownSeconds: parsed.data.remainingSeconds,
+        };
+      }
+      return parsed.data;
     }
-
-    if (!res.ok || !data.success) {
-      return {
-        success: false,
-        error: data.error || 'OTP भेजने में समस्या आई।',
-        resendCooldownSeconds: data.remainingSeconds,
-      };
-    }
-    return data;
+    return {
+      success: false,
+      error: parsed.error || 'सर्वर से अमान्य उत्तर प्राप्त हुआ।',
+    };
   } catch (err: any) {
     console.error('sendDeliveryOtp error:', err);
     return { success: false, error: err.message || 'OTP भेजने में नेटवर्क समस्या आई।' };
@@ -183,22 +292,21 @@ export async function verifyDeliveryOtp(params: {
       body: JSON.stringify(params),
     });
 
-    const text = await res.text();
-    let data: any;
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch {
-      data = { success: false, error: 'सर्वर से अमान्य उत्तर प्राप्त हुआ।' };
+    const parsed = await parseJsonResponse<VerifyOtpResult>(res);
+    if (parsed.data) {
+      if (!parsed.ok || !parsed.data.success) {
+        return {
+          success: false,
+          error: parsed.data.error || 'OTP सत्यापन विफल रहा।',
+          remainingAttempts: parsed.data.remainingAttempts,
+        };
+      }
+      return parsed.data;
     }
-
-    if (!res.ok || !data.success) {
-      return {
-        success: false,
-        error: data.error || 'OTP सत्यापन विफल रहा।',
-        remainingAttempts: data.remainingAttempts,
-      };
-    }
-    return data;
+    return {
+      success: false,
+      error: parsed.error || 'OTP सत्यापन में विफल।',
+    };
   } catch (err: any) {
     console.error('verifyDeliveryOtp error:', err);
     return { success: false, error: err.message || 'OTP सत्यापन में नेटवर्क समस्या आई।' };
@@ -213,10 +321,11 @@ export async function getInAppDeliveryOtp(orderId: string): Promise<{ success: b
     const res = await fetch(`/api/delivery/in-app-otp/${orderId}`, {
       headers: { 'Accept': 'application/json' }
     });
-    if (!res.ok) return { success: false, inAppAvailable: false };
-    const text = await res.text();
-    if (!text) return { success: false, inAppAvailable: false };
-    return JSON.parse(text);
+    const parsed = await parseJsonResponse<{ success: boolean; inAppAvailable: boolean; otp?: string; expiresAt?: number }>(res);
+    if (parsed.ok && parsed.data) {
+      return parsed.data;
+    }
+    return { success: false, inAppAvailable: false };
   } catch {
     return { success: false, inAppAvailable: false };
   }
