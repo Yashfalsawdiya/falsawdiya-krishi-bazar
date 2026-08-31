@@ -7,7 +7,7 @@ import {
   getRemoteFirestoreDoc, 
   setRemoteFirestoreDoc, 
   deleteRemoteFirestoreDoc 
-} from './firestoreSync';
+} from './firestoreSync.js';
 
 export const app = express();
 
