@@ -47,9 +47,20 @@ export async function getDeliveryOtpPublicConfig(): Promise<DeliveryOtpPublicCon
  * Admin: Fetch full Email & Delivery OTP Server Config
  */
 export async function getAdminOtpConfig(): Promise<EmailOtpServerConfig & { appPasswordConfigured: boolean; appPasswordMasked: string }> {
-  const res = await fetch('/api/admin/delivery/otp-config');
-  if (!res.ok) throw new Error('Failed to fetch admin OTP config');
-  return await res.json();
+  try {
+    const res = await fetch('/api/admin/delivery/otp-config', {
+      headers: { 'Accept': 'application/json' },
+    });
+    const text = await res.text();
+    if (!text) {
+      throw new Error('सर्वर से कोई उत्तर प्राप्त नहीं हुआ।');
+    }
+    const data = JSON.parse(text);
+    return data;
+  } catch (err: any) {
+    console.error('getAdminOtpConfig error:', err);
+    throw err;
+  }
 }
 
 /**
@@ -59,12 +70,21 @@ export async function saveAdminOtpConfig(config: Partial<EmailOtpServerConfig>):
   try {
     const res = await fetch('/api/admin/delivery/otp-config', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
       body: JSON.stringify(config),
     });
-    return await res.json();
+    const text = await res.text();
+    if (!text) {
+      return { success: res.ok, error: res.ok ? undefined : `सर्वर त्रुटि (${res.status})` };
+    }
+    const data = JSON.parse(text);
+    return data;
   } catch (err: any) {
-    return { success: false, error: err.message || 'Network error saving OTP config' };
+    console.error('saveAdminOtpConfig error:', err);
+    return { success: false, error: err.message || 'नेटवर्क त्रुटि: सेटिंग्स सेव नहीं हो सकीं।' };
   }
 }
 
@@ -75,12 +95,33 @@ export async function sendAdminTestEmail(recipientEmail?: string): Promise<{ suc
   try {
     const res = await fetch('/api/admin/delivery/test-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
       body: JSON.stringify({ recipientEmail }),
     });
-    return await res.json();
+    
+    const text = await res.text();
+    if (!text) {
+      return { 
+        success: false, 
+        error: `सर्वर से खाली रिस्पांस प्राप्त हुआ (HTTP ${res.status})। कृपया सुनिश्चित करें कि सर्वर चालू है।` 
+      };
+    }
+
+    try {
+      const data = JSON.parse(text);
+      return data;
+    } catch {
+      return { 
+        success: false, 
+        error: `अमान्य रिस्पांस फॉर्मेट (HTTP ${res.status}): ${text.substring(0, 100)}` 
+      };
+    }
   } catch (err: any) {
-    return { success: false, error: err.message || 'Network error during test email' };
+    console.error('sendAdminTestEmail error:', err);
+    return { success: false, error: err.message || 'परीक्षण ईमेल भेजने में नेटवर्क समस्या आई।' };
   }
 }
 
