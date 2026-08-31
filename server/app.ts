@@ -1174,7 +1174,6 @@ app.post('/api/delivery/send-otp', async (req: Request, res: Response): Promise<
           maskedEmail: existing.customerEmail ? maskEmail(existing.customerEmail) : (customerEmail ? maskEmail(customerEmail) : 'ग्राहक की ईमेल'),
           expiresAt: existing.expiresAt,
           resendCooldownSeconds: waitSeconds,
-          inAppOtp: existing.plainOtpForInApp,
         });
         return;
       } else {
@@ -1264,7 +1263,6 @@ app.post('/api/delivery/send-otp', async (req: Request, res: Response): Promise<
       maskedEmail: customerEmail ? maskEmail(customerEmail) : 'ग्राहक की ईमेल',
       expiresAt,
       resendCooldownSeconds: emailConfig.resendCooldownSeconds || 60,
-      inAppOtp: otp,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message || 'OTP भेजने में विफल' });

@@ -57,7 +57,6 @@ export const DeliveryOrdersPage: React.FC = () => {
     emailSent?: boolean;
     maskedEmail: string;
     expiresAt?: number;
-    inAppOtp?: string;
   }>({ sent: false, maskedEmail: '' });
   const [otpError, setOtpError] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState<number>(0);
@@ -240,7 +239,6 @@ export const DeliveryOrdersPage: React.FC = () => {
           emailSent: res.emailSent,
           maskedEmail: res.maskedEmail || (custEmail ? custEmail : 'ग्राहक की ईमेल'),
           expiresAt: res.expiresAt,
-          inAppOtp: res.inAppOtp,
         });
         if (res.resendCooldownSeconds) {
           setResendTimer(res.resendCooldownSeconds);
@@ -288,7 +286,6 @@ export const DeliveryOrdersPage: React.FC = () => {
           emailSent: res.emailSent,
           maskedEmail: res.maskedEmail || (custEmail ? custEmail : 'ग्राहक की ईमेल'),
           expiresAt: res.expiresAt,
-          inAppOtp: res.inAppOtp,
         });
         setResendTimer(res.resendCooldownSeconds || 60);
         showFeedback(res.emailSent ? 'नया OTP ग्राहक की ईमेल पर भेज दिया गया है!' : 'नया OTP सफलतापूर्वक जनरेट हो गया है!');
@@ -912,43 +909,17 @@ export const DeliveryOrdersPage: React.FC = () => {
                   ) : otpSending ? (
                     'कृपया प्रतीक्षा करें, ग्राहक की ईमेल पर OTP भेजा जा रहा है...'
                   ) : (
-                    'ग्राहक से प्राप्त 6-अंकों का गुप्त कोड नीचे दर्ज करें।'
+                    'ग्राहक के पंजीकृत ईमेल पर 6-अंकों का OTP कोड भेजा जा रहा है।'
                   )}
                 </p>
               </div>
 
-              {/* In-app fallback note & Test Mode Helper */}
-              <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200 text-amber-950 text-xs space-y-2">
-                <div className="flex items-start gap-2 leading-relaxed">
-                  <span className="text-base">💡</span>
-                  <div>
-                    <span className="font-bold">किसान भाई को OTP कहाँ दिखेगा?</span>
-                    <p className="text-[11px] text-amber-900 mt-0.5">
-                      1. ग्राहक की <b>ईमेल आईडी</b> पर।<br />
-                      2. किसान के मोबाइल में <b>"मेरे ऑनलाइन ऑर्डर" (My Orders)</b> पेज पर लाइव।
-                    </p>
-                  </div>
-                </div>
-
-                {/* Instant Fill Helper for Demo / Testing */}
-                {otpSentState.inAppOtp && (
-                  <div className="pt-2 border-t border-amber-200/70 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-bold text-emerald-800 flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                      लाइव OTP: <code className="bg-white px-2 py-0.5 rounded-lg border border-emerald-300 font-mono font-bold text-emerald-900 text-xs">{otpSentState.inAppOtp}</code>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDeliveryOtp(otpSentState.inAppOtp || '');
-                        if (otpError) setOtpError(null);
-                      }}
-                      className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[10px] font-black transition-all shadow-xs cursor-pointer"
-                    >
-                      ऑटो-भरें (Auto-Fill)
-                    </button>
-                  </div>
-                )}
+              {/* Instruction Callout for Delivery Partner */}
+              <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-3 text-xs text-blue-950 flex items-center gap-2.5">
+                <Shield className="w-4 h-4 text-blue-700 shrink-0" />
+                <p className="text-xs font-semibold leading-relaxed text-blue-950">
+                  कृपया ग्राहक से प्राप्त 6-अंकों का OTP यहाँ दर्ज करें।
+                </p>
               </div>
 
               {/* OTP Input Field */}
