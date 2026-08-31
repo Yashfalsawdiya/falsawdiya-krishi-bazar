@@ -22,8 +22,18 @@ import {
   orderBy,
   Unsubscribe
 } from 'firebase/firestore';
-import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth';
+import { 
+  onAuthStateChanged, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut, 
+  setPersistence, 
+  browserSessionPersistence, 
+  inMemoryPersistence, 
+  User as FirebaseUser 
+} from 'firebase/auth';
 import { validateLoginEmail } from '../utils/security';
+import { safeLocalStorageSet, sanitizeProductForStorage, cleanupStorageQuota } from '../utils/cacheManager';
 
 export interface AppContent {
   branding: {
@@ -414,9 +424,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setCacheData = <T,>(key: string, data: T[]) => {
     try {
-      localStorage.setItem(`agri_cache_${key}`, JSON.stringify(data));
+      let payloadToStore = data;
+      if (key === 'products' && Array.isArray(data)) {
+        payloadToStore = (data as unknown as Product[]).map(sanitizeProductForStorage) as unknown as T[];
+      }
+      safeLocalStorageSet(`agri_cache_${key}`, JSON.stringify(payloadToStore));
     } catch (e) {
-      console.error(`Error saving cache for ${key}:`, e);
+      console.warn(`Error saving cache for ${key}:`, e);
     }
   };
 
@@ -549,7 +563,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (snapshot.exists()) {
         const data = snapshot.data() as AppContent;
         setAppContent(data);
-        localStorage.setItem('agri_cache_app_content', JSON.stringify(data));
+        safeLocalStorageSet('agri_cache_app_content', JSON.stringify(data));
         prefetchContentImages(data);
         markSyncDone();
       }
@@ -580,7 +594,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const data = snapshot.data() as Partial<LegalPagesContent>;
         const merged = mergeLegalPages(data);
         setLegalPagesContent(merged);
-        localStorage.setItem('agri_cache_legal_pages', JSON.stringify(data));
+        safeLocalStorageSet('agri_cache_legal_pages', JSON.stringify(data));
       }
     }, (error) => {
       const err = handleFirestoreError(error, OperationType.GET, 'settings/legalPages');
@@ -610,7 +624,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const data = snapshot.data() as Partial<InvoiceTemplateConfig>;
         const merged = mergeInvoiceTemplate(data);
         setInvoiceTemplate(merged);
-        localStorage.setItem('agri_cache_invoice_template', JSON.stringify(merged));
+        safeLocalStorageSet('agri_cache_invoice_template', JSON.stringify(merged));
       }
     }, (error) => {
       const err = handleFirestoreError(error, OperationType.GET, 'settings/invoiceTemplate');
@@ -640,7 +654,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const data = snapshot.data() as Partial<DynamicDeliveryConfig>;
         const merged = mergeDeliveryConfig(data);
         setDeliveryConfig(merged);
-        localStorage.setItem('agri_cache_delivery_config', JSON.stringify(merged));
+        safeLocalStorageSet('agri_cache_delivery_config', JSON.stringify(merged));
       }
     }, (error) => {
       const err = handleFirestoreError(error, OperationType.GET, 'settings/deliveryConfig');
@@ -671,10 +685,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const login = async () => {
     try {
+      // Free up storage quota proactively before Firebase Auth attempts to store auth token
+      cleanupStorageQuota();
+
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       
-      const result = await signInWithPopup(auth, provider);
+      let result;
+      try {
+        result = await signInWithPopup(auth, provider);
+      } catch (firstErr: any) {
+        const errMsg = String(firstErr?.message || firstErr || '').toLowerCase();
+        if (errMsg.includes('quota') || firstErr?.code === 'auth/network-request-failed') {
+          console.warn("Retrying login with emergency storage clearance & session persistence...");
+          cleanupStorageQuota();
+          try {
+            await setPersistence(auth, browserSessionPersistence);
+          } catch (_) {
+            try { await setPersistence(auth, inMemoryPersistence); } catch (_) {}
+          }
+          result = await signInWithPopup(auth, provider);
+        } else {
+          throw firstErr;
+        }
+      }
+
       const loggedUser = result.user;
 
       // Strict validation for newly logged in user
@@ -697,8 +732,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
     } catch (error: any) {
       console.error("Login Error:", error);
-      if (error.code !== 'auth/popup-closed-by-user') {
-        alert("लॉगिन में समस्या आई: " + (error.message || "अज्ञात त्रुटि"));
+      if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
+        const isNetworkOrQuota = error.code === 'auth/network-request-failed' || String(error.message || '').toLowerCase().includes('quota');
+        if (isNetworkOrQuota) {
+          alert("नेटवर्क या ब्राउज़र स्टोरेज सीमा के कारण समस्या आई। कृपया दोबारा लॉगिन करें। (Storage/Network issue resolved, please try logging in again)");
+        } else {
+          alert("लॉगिन में समस्या आई: " + (error.message || "अज्ञात त्रुटि"));
+        }
       }
     }
   };

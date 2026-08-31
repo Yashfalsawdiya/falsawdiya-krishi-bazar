@@ -298,6 +298,7 @@ const CheckoutPage: React.FC = () => {
     const customerData = {
       name: name.trim(),
       phone: cleanPhone,
+      email: customerEmail?.trim() || user?.email?.trim() || undefined,
       addressHouse: addressHouse.trim(),
       addressCity: addressCity.trim(),
       addressDistrict: addressDistrict.trim(),

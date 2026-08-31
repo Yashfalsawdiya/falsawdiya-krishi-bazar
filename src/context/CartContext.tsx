@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product, CartItem } from '../types';
+import { safeLocalStorageSet, sanitizeCartItemsForStorage } from '../utils/cacheManager';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -20,7 +21,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const stored = localStorage.getItem('falsawdiya_cart');
       return stored ? JSON.parse(stored) : [];
     } catch (e) {
-      console.error('Failed to parse cart items from localStorage on init', e);
+      console.warn('Failed to parse cart items from localStorage on init', e);
       return [];
     }
   });
@@ -28,9 +29,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Save cart to localStorage when changed
   useEffect(() => {
     try {
-      localStorage.setItem('falsawdiya_cart', JSON.stringify(cartItems));
+      const cleanItems = sanitizeCartItemsForStorage(cartItems);
+      safeLocalStorageSet('falsawdiya_cart', JSON.stringify(cleanItems));
     } catch (e) {
-      console.error('Failed to save cart items to localStorage', e);
+      console.warn('Safe cart save note:', e);
     }
   }, [cartItems]);
 

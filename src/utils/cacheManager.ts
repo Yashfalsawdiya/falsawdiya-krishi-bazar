@@ -1,22 +1,50 @@
 /**
- * Manages application caching and versioning to ensure users always have the latest version.
+ * Manages application caching, storage quotas, and versioning.
  */
+
+import { CartItem, Order, Product } from '../types';
 
 const APP_VERSION_KEY = 'app-version';
 
 /**
- * Proactively cleans up stale or bloated storage items to prevent QuotaExceededError
+ * Non-essential cache keys that can be safely evicted when storage quota is tight
+ */
+const DISPOSABLE_CACHE_KEYS = [
+  'agri_cache_products',
+  'agri_cache_categories',
+  'agri_cache_agriIssues',
+  'agri_cache_helplines',
+  'agri_cache_news',
+  'news_cache_time',
+  'mandi_rates_cache',
+  'pk_smart_cache',
+  'schemes_cache',
+  'calc_normal_history',
+  'agri_cache_legal_pages',
+  'agri_cache_app_content',
+  'agri_cache_delivery_config',
+  'agri_cache_invoice_template',
+  'last_agri_sync_date'
+];
+
+/**
+ * Proactively cleans up stale or bloated storage items to guarantee free space for Auth tokens and app state
  */
 export const cleanupStorageQuota = () => {
   if (typeof window === 'undefined' || !window.localStorage) return;
 
   try {
     const keysToRemove: string[] = [];
+    let totalEstimatedBytes = 0;
+
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (!key) continue;
       
-      // 1. Remove stale firestore multi-tab target indices
+      const val = localStorage.getItem(key) || '';
+      totalEstimatedBytes += (key.length + val.length) * 2;
+
+      // 1. Remove stale firestore multi-tab target indices and mutations
       if (
         key.startsWith('firestore_targets_') || 
         key.startsWith('firestore_mutations_') || 
@@ -24,14 +52,87 @@ export const cleanupStorageQuota = () => {
       ) {
         keysToRemove.push(key);
       }
+
+      // 2. Remove excessively huge items (> 100KB) unless it is authUser
+      if (val.length > 100000 && !key.startsWith('firebase:authUser')) {
+        keysToRemove.push(key);
+      }
     }
 
     keysToRemove.forEach(k => {
       try { localStorage.removeItem(k); } catch (_) {}
     });
+
+    // 3. If storage is getting tight (> 1MB), aggressively evict disposable caches
+    if (totalEstimatedBytes > 1000000) {
+      DISPOSABLE_CACHE_KEYS.forEach(k => {
+        try { localStorage.removeItem(k); } catch (_) {}
+      });
+    }
+
+    // 4. Test write capability to ensure room for Firebase Auth token
+    try {
+      const testKey = '__fkb_storage_test__';
+      localStorage.setItem(testKey, 'ok');
+      localStorage.removeItem(testKey);
+    } catch (quotaErr) {
+      console.warn("Storage quota full! Performing emergency clearance of all disposable caches...");
+      DISPOSABLE_CACHE_KEYS.forEach(k => {
+        try { localStorage.removeItem(k); } catch (_) {}
+      });
+    }
   } catch (e) {
     console.warn("cleanupStorageQuota warning:", e);
   }
+};
+
+/**
+ * Sanitize product to avoid storing massive base64 image strings or unnecessary fields in localStorage
+ */
+export const sanitizeProductForStorage = (prod: Product): Product => {
+  if (!prod) return prod;
+  const image = prod.image;
+  const cleanImage = (typeof image === 'string' && image.startsWith('data:') && image.length > 1000)
+    ? '' // Strip huge base64 strings to keep localStorage minimal
+    : image;
+
+  return {
+    ...prod,
+    image: cleanImage,
+  };
+};
+
+/**
+ * Sanitize Cart Items before storing in localStorage
+ */
+export const sanitizeCartItemsForStorage = (items: CartItem[]): CartItem[] => {
+  if (!Array.isArray(items)) return [];
+  return items.map(item => ({
+    id: item.id,
+    quantity: item.quantity,
+    price: item.price,
+    unit: item.unit,
+    weightInKg: item.weightInKg,
+    product: sanitizeProductForStorage(item.product),
+  }));
+};
+
+/**
+ * Sanitize Order object before caching in localStorage
+ */
+export const sanitizeOrderForStorage = (order: Order): Order => {
+  if (!order) return order;
+  return {
+    ...order,
+    items: Array.isArray(order.items) 
+      ? order.items.map(item => ({
+          ...item,
+          image: (typeof item.image === 'string' && item.image.startsWith('data:') && item.image.length > 1000)
+            ? ''
+            : item.image
+        }))
+      : [],
+  };
 };
 
 /**
@@ -50,25 +151,28 @@ export const safeLocalStorageSet = (key: string, value: string): boolean => {
       // 1. Purge firestore target keys
       cleanupStorageQuota();
 
-      // 2. Clear large non-critical cache keys
-      const disposableKeys = [
-        'agri_cache_news',
-        'news_cache_time',
-        'mandi_rates_cache',
-        'pk_smart_cache',
-        'schemes_cache',
-        'calc_normal_history'
-      ];
-
-      disposableKeys.forEach(k => {
-        try { localStorage.removeItem(k); } catch (_) {}
+      // 2. Clear non-critical cache keys
+      DISPOSABLE_CACHE_KEYS.forEach(k => {
+        if (k !== key) {
+          try { localStorage.removeItem(k); } catch (_) {}
+        }
       });
 
-      // 3. Retry setting
+      // 3. If saving orders cache, trim to only top 5 orders
+      if (key === 'falsawdiya_customer_orders_cache') {
+        try {
+          const parsed = JSON.parse(value);
+          if (Array.isArray(parsed) && parsed.length > 5) {
+            value = JSON.stringify(parsed.slice(0, 5));
+          }
+        } catch (_) {}
+      }
+
+      // 4. Retry setting
       localStorage.setItem(key, value);
       return true;
     } catch (retryError) {
-      console.error(`Failed to save "${key}" to localStorage even after quota cleanup:`, retryError);
+      console.warn(`Could not save "${key}" to localStorage due to strict quota limits:`, retryError);
       return false;
     }
   }

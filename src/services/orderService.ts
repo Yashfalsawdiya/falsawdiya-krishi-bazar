@@ -13,18 +13,21 @@ import {
   onSnapshot, 
   Unsubscribe 
 } from 'firebase/firestore';
+import { safeLocalStorageSet, sanitizeOrderForStorage } from '../utils/cacheManager';
 
 const LOCAL_ORDERS_KEY = 'falsawdiya_customer_orders_cache';
+const MAX_CACHED_ORDERS = 15;
 
 // Helper to save order locally for guest / offline fallback
 export const saveLocalOrder = (order: Order) => {
   try {
     const existing = getLocalOrders();
-    const filtered = existing.filter(o => o.id !== order.id);
-    const updated = [order, ...filtered];
-    localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(updated));
+    const filtered = existing.filter(o => o.id !== order.id && o.orderNumber !== order.orderNumber);
+    const cleanOrder = sanitizeOrderForStorage(order);
+    const updated = [cleanOrder, ...filtered].slice(0, MAX_CACHED_ORDERS);
+    safeLocalStorageSet(LOCAL_ORDERS_KEY, JSON.stringify(updated));
   } catch (e) {
-    console.error("Failed to cache local order:", e);
+    console.warn("Failed to cache local order safely:", e);
   }
 };
 
@@ -33,7 +36,7 @@ export const getLocalOrders = (): Order[] => {
     const stored = localStorage.getItem(LOCAL_ORDERS_KEY);
     return stored ? JSON.parse(stored) : [];
   } catch (e) {
-    console.error("Failed to read local orders:", e);
+    console.warn("Failed to read local orders:", e);
     return [];
   }
 };
@@ -203,8 +206,14 @@ export const fetchUserOrders = async (
 
     orderDocs.forEach(o => {
       remoteOrdersMap.set(o.id, o);
-      saveLocalOrder(o);
     });
+
+    const sortedOrders = Array.from(remoteOrdersMap.values()).sort((a, b) => b.createdAt - a.createdAt);
+    // Batch save only top 15 clean orders to avoid quota overflow
+    try {
+      const topCached = sortedOrders.slice(0, MAX_CACHED_ORDERS).map(sanitizeOrderForStorage);
+      safeLocalStorageSet(LOCAL_ORDERS_KEY, JSON.stringify(topCached));
+    } catch (_) {}
   } catch (err) {
     console.warn("Could not query firestore orders, using local cached orders:", err);
   }

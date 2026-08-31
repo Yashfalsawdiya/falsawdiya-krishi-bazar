@@ -213,10 +213,12 @@ export const DeliveryOrdersPage: React.FC = () => {
     // Auto-send or retrieve active OTP when opening modal for smooth delivery flow
     setOtpSending(true);
     try {
-      // Find customer email from order customerDetails or userId
+      // Find customer email from order customerDetails, userEmail, or userId
       let custEmail = '';
       if (order.customerDetails?.email && order.customerDetails.email.includes('@')) {
         custEmail = order.customerDetails.email.trim();
+      } else if (order.userEmail && order.userEmail.includes('@')) {
+        custEmail = order.userEmail.trim();
       } else if (order.userId && order.userId.includes('@')) {
         custEmail = order.userId.trim();
       }
@@ -235,7 +237,7 @@ export const DeliveryOrdersPage: React.FC = () => {
         setOtpSentState({
           sent: true,
           emailSent: res.emailSent,
-          maskedEmail: res.maskedEmail || custEmail || 'ग्राहक की ईमेल',
+          maskedEmail: res.maskedEmail || (custEmail ? custEmail : 'ग्राहक की ईमेल'),
           expiresAt: res.expiresAt,
           inAppOtp: res.inAppOtp,
         });
@@ -263,6 +265,8 @@ export const DeliveryOrdersPage: React.FC = () => {
       let custEmail = '';
       if (completingOrder.customerDetails?.email && completingOrder.customerDetails.email.includes('@')) {
         custEmail = completingOrder.customerDetails.email.trim();
+      } else if (completingOrder.userEmail && completingOrder.userEmail.includes('@')) {
+        custEmail = completingOrder.userEmail.trim();
       } else if (completingOrder.userId && completingOrder.userId.includes('@')) {
         custEmail = completingOrder.userId.trim();
       }
@@ -281,7 +285,7 @@ export const DeliveryOrdersPage: React.FC = () => {
         setOtpSentState({
           sent: true,
           emailSent: res.emailSent,
-          maskedEmail: res.maskedEmail || custEmail || 'ग्राहक की ईमेल',
+          maskedEmail: res.maskedEmail || (custEmail ? custEmail : 'ग्राहक की ईमेल'),
           expiresAt: res.expiresAt,
           inAppOtp: res.inAppOtp,
         });

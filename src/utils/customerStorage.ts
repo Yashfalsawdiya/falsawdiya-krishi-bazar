@@ -1,6 +1,9 @@
+import { safeLocalStorageSet } from './cacheManager';
+
 export interface CustomerDetails {
   name: string;
   phone: string;
+  email?: string;
   addressHouse: string;
   addressCity: string;
   addressDistrict: string;
@@ -17,7 +20,7 @@ export const getCustomerDetails = (): CustomerDetails => {
       return JSON.parse(stored);
     }
   } catch (error) {
-    console.error('Failed to parse customer details from localStorage', error);
+    console.warn('Failed to parse customer details from localStorage', error);
   }
   return {
     name: '',
@@ -32,8 +35,8 @@ export const getCustomerDetails = (): CustomerDetails => {
 
 export const saveCustomerDetails = (details: CustomerDetails): void => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(details));
+    safeLocalStorageSet(STORAGE_KEY, JSON.stringify(details));
   } catch (error) {
-    console.error('Failed to save customer details to localStorage', error);
+    console.warn('Failed to save customer details to localStorage', error);
   }
 };

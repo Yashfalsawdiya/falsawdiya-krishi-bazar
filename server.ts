@@ -156,6 +156,7 @@ interface ActiveDeliveryOtp {
   attempts: number;
   partnerId?: string;
   partnerName?: string;
+  emailSent?: boolean;
 }
 
 const activeOtps = new Map<string, ActiveDeliveryOtp>();
@@ -193,8 +194,80 @@ const createMailTransporter = () => {
     tls: {
       rejectUnauthorized: false,
     },
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
   });
 };
+
+// Robust SMTP email dispatcher with dual Port 465 (SSL) and Port 587 (STARTTLS) support
+async function sendSmtpEmail(mailOptions: {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const user = emailConfig.senderEmail?.trim();
+  const pass = (emailConfig.appPassword || '').replace(/\s+/g, '').trim();
+
+  if (!user || !pass) {
+    return { success: false, error: 'SMTP credentials not configured (senderEmail or appPassword missing).' };
+  }
+
+  const senderDisplayName = emailConfig.senderName?.trim() || 'फल्सावदिया कृषि बाजार';
+  const fromAddress = `"${senderDisplayName}" <${user}>`;
+
+  // Attempt 1: Port 465 (SSL)
+  try {
+    const transporter465 = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: { user, pass },
+      tls: { rejectUnauthorized: false },
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 10000,
+    });
+    const info = await transporter465.sendMail({
+      from: fromAddress,
+      to: mailOptions.to,
+      subject: mailOptions.subject,
+      html: mailOptions.html,
+      text: mailOptions.text,
+    });
+    console.log(`[SMTP] Email successfully sent via port 465 to ${mailOptions.to}, messageId: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
+  } catch (err465: any) {
+    console.warn(`[SMTP] Port 465 attempt failed (${err465.message}), attempting Port 587 STARTTLS fallback...`);
+    // Attempt 2: Port 587 (TLS / STARTTLS)
+    try {
+      const transporter587 = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        requireTLS: true,
+        auth: { user, pass },
+        tls: { rejectUnauthorized: false },
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 10000,
+      });
+      const info = await transporter587.sendMail({
+        from: fromAddress,
+        to: mailOptions.to,
+        subject: mailOptions.subject,
+        html: mailOptions.html,
+        text: mailOptions.text,
+      });
+      console.log(`[SMTP] Email successfully sent via port 587 to ${mailOptions.to}, messageId: ${info.messageId}`);
+      return { success: true, messageId: info.messageId };
+    } catch (err587: any) {
+      console.error(`[SMTP] Both Port 465 and Port 587 failed:`, err587);
+      return { success: false, error: err587.message || err465.message || 'SMTP sending failed' };
+    }
+  }
+}
 
 const hashDeliveryOtp = (orderId: string, otp: string): string => {
   return crypto.createHash('sha256').update(`${orderId.trim()}:${otp.trim()}:${OTP_SECRET_SALT}`).digest('hex');
@@ -902,18 +975,6 @@ app.post('/api/admin/delivery/test-email', async (req: Request, res: Response): 
       return;
     }
 
-    const transporter = createMailTransporter();
-    if (!transporter) {
-      res.status(400).json({
-        success: false,
-        error: 'ईमेल प्रेषक (Sender Gmail) या 16-अंकों का Google App Password कॉन्फ़िगर नहीं है। कृपया पहले सेटिंग्स भरें।'
-      });
-      return;
-    }
-
-    // Verify SMTP connection
-    await transporter.verify();
-
     const testTime = new Date().toLocaleString('hi-IN', {
       timeZone: 'Asia/Kolkata',
       day: 'numeric',
@@ -925,7 +986,6 @@ app.post('/api/admin/delivery/test-email', async (req: Request, res: Response): 
     });
 
     const mailOptions = {
-      from: `"${emailConfig.senderName || 'फल्सावदिया कृषि बाजार'}" <${emailConfig.senderEmail}>`,
       to: targetEmail,
       subject: `🧪 टेस्ट ईमेल सत्यापन: ${emailConfig.senderName || 'फल्सावदिया कृषि बाजार'}`,
       html: `
@@ -963,7 +1023,25 @@ app.post('/api/admin/delivery/test-email', async (req: Request, res: Response): 
       `,
     };
 
-    const sendResult = await transporter.sendMail(mailOptions);
+    const sendResult = await sendSmtpEmail(mailOptions);
+
+    if (!sendResult.success) {
+      const errorMessage = sendResult.error || 'SMTP Authentication Failed. कृपया 16-अंकों का Google App Password और Gmail ID दोबारा जांचें।';
+      const testResult = {
+        success: false,
+        message: errorMessage,
+        timestamp: Date.now(),
+        testedEmail: req.body.recipientEmail,
+      };
+      saveEmailConfig({ lastTestResult: testResult });
+
+      res.status(500).json({
+        success: false,
+        error: errorMessage,
+        testResult,
+      });
+      return;
+    }
 
     const testResult = {
       success: true,
@@ -1004,12 +1082,18 @@ app.post('/api/delivery/send-otp', async (req: Request, res: Response): Promise<
     const { 
       orderId, 
       orderNumber = 'Order', 
-      customerEmail, 
+      customerEmail: rawCustomerEmail, 
+      userEmail: rawUserEmail,
+      email: rawEmail,
       customerName = 'किसान भाई', 
       partnerId, 
       partnerName = 'डिलीवरी साथी',
       forceResend = false,
     } = req.body;
+
+    const customerEmail = (rawCustomerEmail || rawUserEmail || rawEmail || '').trim();
+
+    console.log(`[OTP Request] Order: ${orderId} (${orderNumber}), Customer: "${customerName}", Email: "${customerEmail}", ForceResend: ${forceResend}`);
 
     if (!orderId || typeof orderId !== 'string') {
       res.status(400).json({ success: false, error: 'Order ID is required' });
@@ -1019,139 +1103,152 @@ app.post('/api/delivery/send-otp', async (req: Request, res: Response): Promise<
     const now = Date.now();
     const existing = activeOtps.get(orderId);
 
-    // If an OTP already exists, hasn't expired, and the partner is just opening the modal (not forceResend):
+    let otp: string;
+    let expiresAt: number;
+    let isReused = false;
+
+    // If an OTP already exists and hasn't expired:
     if (existing && existing.expiresAt > now && !forceResend) {
-      const waitSeconds = Math.max(0, Math.ceil(((emailConfig.resendCooldownSeconds * 1000) - (now - existing.sentAt)) / 1000));
-      res.json({
-        success: true,
-        alreadyActive: true,
-        message: 'सक्रिय OTP उपलब्ध है।',
-        emailSent: true,
-        maskedEmail: existing.customerEmail ? maskEmail(existing.customerEmail) : (customerEmail ? maskEmail(customerEmail) : 'ग्राहक की ईमेल'),
-        expiresAt: existing.expiresAt,
-        resendCooldownSeconds: waitSeconds,
-        inAppOtp: existing.plainOtpForInApp,
-      });
-      return;
+      if (!existing.emailSent && customerEmail && customerEmail.includes('@')) {
+        otp = existing.plainOtpForInApp || Math.floor(100000 + Math.random() * 900000).toString();
+        expiresAt = existing.expiresAt;
+        isReused = true;
+      } else if (existing.emailSent) {
+        const waitSeconds = Math.max(0, Math.ceil(((emailConfig.resendCooldownSeconds * 1000) - (now - existing.sentAt)) / 1000));
+        res.json({
+          success: true,
+          alreadyActive: true,
+          message: 'सक्रिय OTP उपलब्ध है और ग्राहक की ईमेल पर भेजा जा चुका है।',
+          emailSent: true,
+          maskedEmail: existing.customerEmail ? maskEmail(existing.customerEmail) : (customerEmail ? maskEmail(customerEmail) : 'ग्राहक की ईमेल'),
+          expiresAt: existing.expiresAt,
+          resendCooldownSeconds: waitSeconds,
+          inAppOtp: existing.plainOtpForInApp,
+        });
+        return;
+      } else {
+        otp = existing.plainOtpForInApp || Math.floor(100000 + Math.random() * 900000).toString();
+        expiresAt = existing.expiresAt;
+        isReused = true;
+      }
+    } else {
+      // If forcing resend but cooldown is active:
+      if (existing && (now - existing.sentAt) < (emailConfig.resendCooldownSeconds * 1000) && forceResend) {
+        const waitSeconds = Math.ceil(((emailConfig.resendCooldownSeconds * 1000) - (now - existing.sentAt)) / 1000);
+        res.json({
+          success: false,
+          error: `कृपया पुनः नया OTP भेजने के लिए ${waitSeconds} सेकंड प्रतीक्षा करें।`,
+          remainingSeconds: waitSeconds,
+        });
+        return;
+      }
+
+      otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiryMs = (emailConfig.expiryMinutes || 15) * 60 * 1000;
+      expiresAt = now + expiryMs;
     }
 
-    // If forcing resend but cooldown is active:
-    if (existing && (now - existing.sentAt) < (emailConfig.resendCooldownSeconds * 1000) && forceResend) {
-      const waitSeconds = Math.ceil(((emailConfig.resendCooldownSeconds * 1000) - (now - existing.sentAt)) / 1000);
-      res.json({
-        success: false,
-        error: `कृपया पुनः नया OTP भेजने के लिए ${waitSeconds} सेकंड प्रतीक्षा करें।`,
-        remainingSeconds: waitSeconds,
-      });
-      return;
-    }
-
-    // Generate random secure 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpHash = hashDeliveryOtp(orderId, otp);
-    const expiryMs = (emailConfig.expiryMinutes || 15) * 60 * 1000;
-    const expiresAt = now + expiryMs;
-
-    const activeRecord: ActiveDeliveryOtp = {
-      orderId,
-      orderNumber,
-      customerEmail: customerEmail || '',
-      customerName,
-      otpHash,
-      plainOtpForInApp: otp, // Always keep in-app plain OTP so customer tracking page works 100%
-      expiresAt,
-      sentAt: now,
-      attempts: 0,
-      partnerId,
-      partnerName,
-    };
-
-    activeOtps.set(orderId, activeRecord);
 
     let emailSent = false;
     let emailError: string | null = null;
 
-    // Send email if customer has email and transporter is configured
+    // Send email if customer has a valid email address
     if (customerEmail && customerEmail.includes('@')) {
-      const transporter = createMailTransporter();
-      if (transporter) {
-        try {
-          const mailOptions = {
-            from: `"${emailConfig.senderName || 'फल्सावदिया कृषि बाजार'}" <${emailConfig.senderEmail || 'yashfalsawdiya36@gmail.com'}>`,
-            to: customerEmail.trim(),
-            subject: `🔐 डिलीवरी पुष्टि कोड [${otp}] - ऑर्डर #${orderNumber} (${emailConfig.senderName || 'फल्सावदिया कृषि बाजार'})`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 20px; overflow: hidden; background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                <div style="background: linear-gradient(135deg, #1e3e1a 0%, #2D5A27 100%); padding: 26px 20px; text-align: center; color: #ffffff;">
-                  <h1 style="margin: 0; font-size: 22px; font-weight: bold; letter-spacing: 0.5px;">🌱 फल्सावदिया कृषि बाजार</h1>
-                  <p style="margin: 6px 0 0 0; font-size: 13px; opacity: 0.9;">सुरक्षित ऑर्डर डिलीवरी सत्यापन प्रणाली</p>
+      const mailOptions = {
+        to: customerEmail.trim(),
+        subject: `🔐 डिलीवरी पुष्टि कोड [${otp}] - ऑर्डर #${orderNumber} (${emailConfig.senderName || 'फल्सावदिया कृषि बाजार'})`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 20px; overflow: hidden; background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+            <div style="background: linear-gradient(135deg, #1e3e1a 0%, #2D5A27 100%); padding: 26px 20px; text-align: center; color: #ffffff;">
+              <h1 style="margin: 0; font-size: 22px; font-weight: bold; letter-spacing: 0.5px;">🌱 फल्सावदिया कृषि बाजार</h1>
+              <p style="margin: 6px 0 0 0; font-size: 13px; opacity: 0.9;">सुरक्षित ऑर्डर डिलीवरी सत्यापन प्रणाली</p>
+            </div>
+            
+            <div style="padding: 26px 22px; color: #374151; font-size: 14px; line-height: 1.6;">
+              <p style="font-size: 15px; margin-top: 0;">नमस्ते <b>${customerName}</b>,</p>
+              <p style="color: #4b5563;">
+                आपके ऑर्डर <b>#${orderNumber}</b> की डिलीवरी के लिए हमारे साथी <b>${partnerName}</b> आपके पते पर पहुँच रहे हैं।
+              </p>
+              
+              <div style="background: #f0fdf4; border: 2px dashed #22c55e; border-radius: 16px; padding: 22px; margin: 24px 0; text-align: center;">
+                <span style="color: #15803d; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">
+                  📦 आपका 6-अंकों का डिलीवरी OTP कोड:
+                </span>
+                <div style="font-size: 38px; font-weight: 900; letter-spacing: 8px; color: #14532d; font-family: 'Courier New', Courier, monospace; background: #ffffff; display: inline-block; padding: 8px 24px; border-radius: 12px; border: 1px solid #86efac; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+                  ${otp}
                 </div>
-                
-                <div style="padding: 26px 22px; color: #374151; font-size: 14px; line-height: 1.6;">
-                  <p style="font-size: 15px; margin-top: 0;">नमस्ते <b>${customerName}</b>,</p>
-                  <p style="color: #4b5563;">
-                    आपके ऑर्डर <b>#${orderNumber}</b> की डिलीवरी के लिए हमारे साथी <b>${partnerName}</b> आपके पते पर पहुँच रहे हैं।
+                <p style="margin: 12px 0 0 0; font-size: 11px; color: #166534; font-weight: 600;">
+                  ⏱️ यह कोड <b>${emailConfig.expiryMinutes || 15} मिनट</b> के लिए मान्य है।
+                </p>
+              </div>
+              
+              <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: flex-start; gap: 8px;">
+                  <span style="font-size: 18px; line-height: 1;">⚠️</span>
+                  <p style="margin: 0; font-size: 12px; color: #92400e; line-height: 1.5; font-weight: 500;">
+                    <b>सुरक्षा निर्देश:</b> जब डिलीवरी साथी आपको कृषि उत्पाद सौंप दें और आप सामान की जाँच कर लें, केवल तभी यह OTP डिलीवरी साथी को बताएं।
                   </p>
-                  
-                  <div style="background: #f0fdf4; border: 2px dashed #22c55e; border-radius: 16px; padding: 22px; margin: 24px 0; text-align: center;">
-                    <span style="color: #15803d; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">
-                      📦 आपका 6-अंकों का डिलीवरी OTP कोड:
-                    </span>
-                    <div style="font-size: 38px; font-weight: 900; letter-spacing: 8px; color: #14532d; font-family: 'Courier New', Courier, monospace; background: #ffffff; display: inline-block; padding: 8px 24px; border-radius: 12px; border: 1px solid #86efac; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
-                      ${otp}
-                    </div>
-                    <p style="margin: 12px 0 0 0; font-size: 11px; color: #166534; font-weight: 600;">
-                      ⏱️ यह कोड <b>${emailConfig.expiryMinutes || 15} मिनट</b> के लिए मान्य है।
-                    </p>
-                  </div>
-                  
-                  <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;">
-                    <div style="display: flex; align-items: flex-start; gap: 8px;">
-                      <span style="font-size: 18px; line-height: 1;">⚠️</span>
-                      <p style="margin: 0; font-size: 12px; color: #92400e; line-height: 1.5; font-weight: 500;">
-                        <b>सुरक्षा निर्देश:</b> जब डिलीवरी साथी आपको कृषि उत्पाद सौंप दें और आप सामान की जाँच कर लें, केवल तभी यह OTP डिलीवरी साथी को बताएं।
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <table style="width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; background: #f9fafb; border-radius: 10px; padding: 8px;">
-                    <tr>
-                      <td style="padding: 10px 12px; color: #6b7280;">ऑर्डर क्रमांक:</td>
-                      <td style="padding: 10px 12px; font-weight: bold; color: #111827; text-align: right;">${orderNumber}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 10px 12px; color: #6b7280;">डिलीवरी साथी:</td>
-                      <td style="padding: 10px 12px; font-weight: bold; color: #111827; text-align: right;">${partnerName}</td>
-                    </tr>
-                  </table>
-                </div>
-                
-                <div style="background: #f3f4f6; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 11px; color: #6b7280;">
-                  किसी भी सहायता के लिए संपर्क करें: WhatsApp <b>+91 89823 38046</b><br/>
-                  © ${new Date().getFullYear()} फल्सावदिया कृषि बाजार • शुद्धता एवं विश्वास का प्रतीक
                 </div>
               </div>
-            `,
-          };
-          await transporter.sendMail(mailOptions);
-          emailSent = true;
-        } catch (err: any) {
-          console.error('Failed to send delivery OTP email:', err);
-          emailError = err.message;
-        }
+              
+              <table style="width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; background: #f9fafb; border-radius: 10px; padding: 8px;">
+                <tr>
+                  <td style="padding: 10px 12px; color: #6b7280;">ऑर्डर क्रमांक:</td>
+                  <td style="padding: 10px 12px; font-weight: bold; color: #111827; text-align: right;">${orderNumber}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 12px; color: #6b7280;">डिलीवरी साथी:</td>
+                  <td style="padding: 10px 12px; font-weight: bold; color: #111827; text-align: right;">${partnerName}</td>
+                </tr>
+              </table>
+            </div>
+            
+            <div style="background: #f3f4f6; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 11px; color: #6b7280;">
+              किसी भी सहायता के लिए संपर्क करें: WhatsApp <b>+91 89823 38046</b><br/>
+              © ${new Date().getFullYear()} फल्सावदिया कृषि बाजार • शुद्धता एवं विश्वास का प्रतीक
+            </div>
+          </div>
+        `,
+      };
+
+      const sendRes = await sendSmtpEmail(mailOptions);
+      if (sendRes.success) {
+        emailSent = true;
+        console.log(`[OTP] Successfully emailed OTP ${otp} to ${customerEmail}`);
       } else {
-        emailError = 'Gmail SMTP Transporter is not configured in Admin panel yet.';
+        emailError = sendRes.error || 'ईमेल भेजने में विफल';
+        console.error(`[OTP] Email dispatch failed for ${customerEmail}:`, emailError);
       }
     } else {
-      emailError = 'Customer has no valid registered email.';
+      emailError = 'ग्राहक का कोई पंजीकृत ईमेल नहीं मिला।';
+      console.warn(`[OTP] No valid customer email provided for order ${orderId}`);
     }
+
+    const activeRecord: ActiveDeliveryOtp = {
+      orderId,
+      orderNumber,
+      customerEmail: customerEmail || (existing?.customerEmail || ''),
+      customerName,
+      otpHash,
+      plainOtpForInApp: otp,
+      expiresAt,
+      sentAt: now,
+      attempts: isReused ? (existing?.attempts || 0) : 0,
+      partnerId,
+      partnerName,
+      emailSent,
+    };
+
+    activeOtps.set(orderId, activeRecord);
 
     res.json({
       success: true,
       message: emailSent 
-        ? `ग्राहक (${maskEmail(customerEmail)}) के ईमेल पर 6-अंकों का OTP भेज दिया गया है।` 
-        : `OTP जनरेट हो गया है। किसान साथी अपने ऐप पर लाइव कोड देख सकते हैं।`,
+        ? `ग्राहक (${maskEmail(customerEmail)}) के पंजीकृत ईमेल पर 6-अंकों का OTP भेज दिया गया है।` 
+        : (customerEmail ? `OTP जनरेट हुआ (${emailError || 'ईमेल नहीं भेजा जा सका'})` : `OTP जनरेट हुआ। ग्राहक के ऐप पर भी उपलब्ध है।`),
       emailSent,
+      emailError: emailError || undefined,
       maskedEmail: customerEmail ? maskEmail(customerEmail) : 'ग्राहक की ईमेल',
       expiresAt,
       resendCooldownSeconds: emailConfig.resendCooldownSeconds || 60,

@@ -1,5 +1,11 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { 
+  getAuth, 
+  setPersistence, 
+  browserLocalPersistence, 
+  browserSessionPersistence, 
+  inMemoryPersistence 
+} from 'firebase/auth';
 import { 
   initializeFirestore, 
   getFirestore,
@@ -9,25 +15,17 @@ import {
   memoryLocalCache,
   setLogLevel
 } from 'firebase/firestore';
+import { cleanupStorageQuota } from './utils/cacheManager';
 
 // Set Firestore log level to silent to prevent non-critical connection fallback warning logs
 setLogLevel('silent');
 
-// Clean up any stale multi-tab target indexes from localStorage to free up browser storage
+// Proactively free up storage space to ensure room for Auth tokens and app state
 if (typeof window !== 'undefined' && window.localStorage) {
   try {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith('firestore_targets_') || key.startsWith('firestore_mutations_') || key.startsWith('firestore_clients_'))) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach(k => {
-      try { localStorage.removeItem(k); } catch (_) {}
-    });
+    cleanupStorageQuota();
   } catch (e) {
-    console.warn("Storage cleanup warning:", e);
+    console.warn("Initial storage cleanup warning:", e);
   }
 }
 
@@ -122,9 +120,13 @@ export const db = dbInstance;
 
 export const auth = getAuth(app);
 
-// Explicitly set persistence to Local (Default but being safe for session longevity)
+// Explicitly set persistence to Local with graceful fallback to session/memory if storage is full
 setPersistence(auth, browserLocalPersistence).catch(err => {
-  console.error("Auth persistence error:", err);
+  console.warn("Local auth persistence failed, falling back to session persistence:", err);
+  setPersistence(auth, browserSessionPersistence).catch(sessionErr => {
+    console.warn("Session auth persistence failed, falling back to inMemory persistence:", sessionErr);
+    setPersistence(auth, inMemoryPersistence).catch(() => {});
+  });
 });
 
 export enum OperationType {
