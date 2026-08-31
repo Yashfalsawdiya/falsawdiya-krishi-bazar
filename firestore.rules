@@ -201,6 +201,11 @@ service cloud.firestore {
       allow write: if isAdmin() && (settingId != 'content' || isValidAppContent(request.resource.data));
     }
 
+    // Delivery OTP tokens collection (For reliable cross-instance/serverless verification)
+    match /delivery_otps/{orderId} {
+      allow read, write: if true;
+    }
+
     // Categories Collection
     match /categories/{categoryId} {
       allow read: if true;
