@@ -21,6 +21,8 @@ import AdminRazorpayManager from '../components/AdminRazorpayManager';
 import AdminInvoiceTemplateManager from '../components/AdminInvoiceTemplateManager';
 import AdminDeliveryManager from '../components/AdminDeliveryManager';
 import { SafeErrorBoundary } from '../components/SafeErrorBoundary';
+import { AccountingDashboard } from '../components/accounting/AccountingDashboard';
+import { Calculator } from 'lucide-react';
 
 const Admin: React.FC = () => {
   const { 
@@ -49,7 +51,7 @@ const Admin: React.FC = () => {
     }
   }, [isAdmin]);
   
-  const [activeTab, setActiveTab] = useState<'orders' | 'delivery' | 'content' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate'>('orders');
+  const [activeTab, setActiveTab] = useState<'accounting' | 'orders' | 'delivery' | 'content' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate'>('orders');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
   const [productSearchQuery, setProductSearchQuery] = useState<string>('');
@@ -577,6 +579,17 @@ const Admin: React.FC = () => {
 
       {/* Tabs */}
       <div className="flex gap-2 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto no-scrollbar">
+        <button 
+          onClick={() => setActiveTab('accounting')}
+          className={cn(
+            "flex-1 min-w-[170px] py-3 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'accounting' 
+              ? "bg-gradient-to-r from-emerald-700 to-[#2D5A27] text-white shadow-md shadow-emerald-200" 
+              : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+          )}
+        >
+          <Calculator className="w-4 h-4 text-amber-300" /> 📒 AI मुनीम जी (Accounting)
+        </button>
         <button 
           onClick={() => setActiveTab('orders')}
           className={cn(
@@ -1457,6 +1470,10 @@ const Admin: React.FC = () => {
             )}
           </div>
         </div>
+      ) : activeTab === 'accounting' ? (
+        <SafeErrorBoundary fallbackTitle="AI मुनीम जी (Accounting) लोड करने में समस्या आई">
+          <AccountingDashboard />
+        </SafeErrorBoundary>
       ) : activeTab === 'orders' ? (
         <AdminOrdersManager />
       ) : activeTab === 'delivery' ? (

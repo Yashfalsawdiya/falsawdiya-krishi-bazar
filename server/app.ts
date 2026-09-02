@@ -15,6 +15,7 @@ import {
   DeliveryEmailTemplateConfig,
   DEFAULT_SERVER_DELIVERY_TEMPLATE,
 } from './emailTemplates.js';
+import { handleScanBill, handleAccountingInsights } from './accountingRoutes.js';
 
 export const app = express();
 
@@ -1403,6 +1404,12 @@ app.get('/api/delivery/in-app-otp/:orderId', async (req: Request, res: Response)
     res.json({ success: false, inAppAvailable: false });
   }
 });
+
+// ==========================================
+// OFFLINE ACCOUNTING & AI SCANNER ROUTES
+// ==========================================
+app.post('/api/accounting/scan-bill', handleScanBill);
+app.post('/api/accounting/insights', handleAccountingInsights);
 
 // Health check endpoint
 app.get('/api/health', async (_req: Request, res: Response) => {

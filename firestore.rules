@@ -260,6 +260,70 @@ service cloud.firestore {
       allow create, update, delete: if isAuthenticated();
     }
 
+    // ===============================================================
+    // OFFLINE ACCOUNTING COLLECTIONS (ADMIN-ONLY ZERO-TRUST ACCESS)
+    // ===============================================================
+    
+    // Offline Inventory & Products
+    match /accounting_products/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Offline Sales Invoices
+    match /accounting_sales/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Customer Udhari Profiles
+    match /accounting_customers/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Customer Ledger Passbook
+    match /accounting_customer_ledger/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Wholesaler Inward Purchases
+    match /accounting_purchases/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Wholesalers & Distributors
+    match /accounting_suppliers/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Supplier Ledger Passbook
+    match /accounting_supplier_ledger/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Business Expenses
+    match /accounting_expenses/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Expense Categories
+    match /accounting_expense_categories/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Daily Cash Register (Galla)
+    match /accounting_cash_register/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Daily Aggregated Financial Summaries
+    match /accounting_daily_summaries/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Accounting General Settings & Preferences
+    match /accounting_settings/{id} {
+      allow read, write: if isAdmin();
+    }
+
     // Default deny-all (moved to end)
     match /{document=**} {
       allow read, write: if false;
