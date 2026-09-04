@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Users, Search, Plus, Phone, MapPin, IndianRupee, 
   AlertTriangle, CheckCircle2, MessageSquare, 
   Printer, ArrowUpRight, ArrowDownLeft, FileText, X,
-  Edit3, Eye, ChevronRight, Share2, ShoppingBag, ShieldCheck
+  Edit3, Eye, ChevronRight, Share2, ShoppingBag, ShieldCheck, Download
 } from 'lucide-react';
 import { 
   AccountingCustomer, 
@@ -18,6 +19,8 @@ import {
   fetchAccountingSaleById,
   fetchAccountingSaleByInvoiceNo
 } from '../../services/accountingService';
+import { PrintableSalesInvoice } from './PrintableSalesInvoice';
+import { downloadSalesInvoicePDF } from '../../utils/salesInvoicePdfGenerator';
 
 interface Props {
   initialCustomerId?: string;
@@ -56,6 +59,10 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId, o
 
   // Passbook Print Modal
   const [showPassbookModal, setShowPassbookModal] = useState(false);
+
+  // Active Print Document & PDF Generation State
+  const [activePrintDoc, setActivePrintDoc] = useState<'invoice' | 'passbook' | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const loadCustomers = async () => {
     setLoading(true);
@@ -339,40 +346,50 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
     setShowPassbookModal(true);
   };
 
-  const executePrint = () => {
-    window.print();
+  const handlePrintSaleInvoice = (sale: AccountingSale) => {
+    setActivePrintDoc('invoice');
+    document.body.classList.add('has-active-print');
+    // Allow React portal to mount and fonts to calculate before opening print dialog
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        document.body.classList.remove('has-active-print');
+        setActivePrintDoc(null);
+      }, 600);
+    }, 150);
+  };
+
+  const handlePrintPassbookDoc = () => {
+    setActivePrintDoc('passbook');
+    document.body.classList.add('has-active-print');
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        document.body.classList.remove('has-active-print');
+        setActivePrintDoc(null);
+      }, 600);
+    }, 150);
+  };
+
+  const handleDownloadSaleInvoicePdf = async (sale: AccountingSale) => {
+    setIsDownloadingPdf(true);
+    try {
+      const res = await downloadSalesInvoicePDF(
+        sale,
+        selectedCustomer?.currentOutstanding || 0
+      );
+      if (!res.success && res.error) {
+        alert('PDF जनरेट करने में त्रुटि: ' + res.error);
+      }
+    } catch (err: any) {
+      alert('PDF डाउनलोड करने में त्रुटि: ' + err.message);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Dynamic Print Stylesheet to guarantee ONLY the passbook prints without page clutter */}
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-customer-passbook, #printable-customer-passbook * {
-            visibility: visible !important;
-          }
-          #printable-customer-passbook {
-            position: fixed !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 24px !important;
-            background: white !important;
-            color: black !important;
-            z-index: 9999999 !important;
-            display: block !important;
-            box-shadow: none !important;
-            border: none !important;
-          }
-          .print-hidden {
-            display: none !important;
-          }
-        }
-      `}</style>
 
       {/* Top Metrics Banner */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1023,23 +1040,32 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                   </div>
                 </div>
 
-                {/* Action Buttons: WhatsApp & Print */}
-                <div className="flex items-center justify-end gap-3 pt-2">
+                {/* Action Buttons: WhatsApp, Print, and PDF Download */}
+                <div className="flex flex-wrap items-center justify-end gap-2.5 pt-2">
                   <button
                     onClick={() => sendInvoiceOnWhatsApp(selectedSale)}
-                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-md shadow-emerald-200 active:scale-95 transition-all"
+                    className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-200 active:scale-95 transition-all"
                   >
                     <Share2 className="w-4 h-4" /> WhatsApp पर बिल भेजें
                   </button>
                   <button
-                    onClick={executePrint}
-                    className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all"
+                    onClick={() => handlePrintSaleInvoice(selectedSale)}
+                    className="px-3.5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                    title="प्रिंट करें या Android Print Spooler / PDF में सेव करें"
                   >
                     <Printer className="w-4 h-4" /> प्रिंट करें
                   </button>
                   <button
+                    onClick={() => handleDownloadSaleInvoicePdf(selectedSale)}
+                    disabled={isDownloadingPdf}
+                    className="px-3.5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all disabled:opacity-50"
+                    title="सीधे PDF फाइल डाउनलोड करें"
+                  >
+                    <Download className="w-4 h-4 text-emerald-700" /> {isDownloadingPdf ? 'PDF बन रहा है...' : 'PDF डाउनलोड'}
+                  </button>
+                  <button
                     onClick={() => setShowSaleModal(false)}
-                    className="px-4 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-bold text-xs transition-all"
+                    className="px-3.5 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-bold text-xs transition-all"
                   >
                     बंद करें
                   </button>
@@ -1061,7 +1087,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
               </h3>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={executePrint}
+                  onClick={handlePrintPassbookDoc}
                   className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-200 active:scale-95 transition-all"
                 >
                   <Printer className="w-4 h-4" /> प्रिंट करें / PDF सेव करें
@@ -1183,6 +1209,125 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
             </div>
           </div>
         </div>
+      )}
+      {/* GLOBAL DEDICATED PRINT PORTALS (Mounted directly on document.body for pristine A4 output) */}
+      {typeof document !== 'undefined' && activePrintDoc === 'invoice' && selectedSale && createPortal(
+        <div id="active-print-portal">
+          <PrintableSalesInvoice
+            sale={selectedSale}
+            customerOutstanding={selectedCustomer?.currentOutstanding || 0}
+          />
+        </div>,
+        document.body
+      )}
+
+      {typeof document !== 'undefined' && activePrintDoc === 'passbook' && selectedCustomer && createPortal(
+        <div id="active-print-portal" className="bg-white p-6 max-w-[794px] mx-auto text-gray-900 font-sans">
+          {/* Header */}
+          <div className="text-center border-b pb-4">
+            <h2 className="text-xl font-extrabold text-gray-900">🌱 फल्सावदिया कृषि बाजार</h2>
+            <p className="text-xs font-bold text-emerald-800">किसान का भरोसा, हमारी पहचान</p>
+            <p className="text-[11px] text-gray-500">डिंपल चौराहा, शामगढ़ (म.प्र.) · मोबाइल: 8982338046</p>
+            <div className="inline-block mt-2 px-3 py-1 bg-gray-100 text-gray-900 font-extrabold text-xs rounded-full">
+              ग्राहक खाता बही पासबुक (Customer Ledger Passbook)
+            </div>
+          </div>
+
+          {/* Customer Profile Box */}
+          <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-2xl text-xs border border-gray-200 mt-4">
+            <div className="space-y-1">
+              <p><strong>किसान का नाम:</strong> {selectedCustomer.name}</p>
+              <p><strong>मोबाइल नंबर:</strong> {selectedCustomer.phone || 'उपलब्ध नहीं'}</p>
+              <p><strong>गाँव / कस्बा:</strong> {selectedCustomer.village || 'शामगढ़'}</p>
+            </div>
+            <div className="space-y-1 text-right">
+              <p><strong>खाता संख्या:</strong> #{selectedCustomer.id.slice(0, 8).toUpperCase()}</p>
+              <p><strong>पासबुक प्रिंट दिनांक:</strong> {new Date().toLocaleDateString('hi-IN')}</p>
+              <p><strong>खाता स्थिति:</strong> <span className="font-bold text-emerald-700">{selectedCustomer.currentOutstanding === 0 ? 'खाता चुकता' : 'उधारी खाता चालू'}</span></p>
+            </div>
+          </div>
+
+          {/* Financial Summary */}
+          <div className="grid grid-cols-3 gap-3 p-3 bg-emerald-50/50 border border-emerald-200 rounded-2xl text-center text-xs mt-4">
+            <div>
+              <span className="text-gray-500 block text-[10px]">कुल खरीद</span>
+              <strong className="text-gray-900 text-sm font-extrabold">₹{selectedCustomer.totalPurchases?.toLocaleString() || 0}</strong>
+            </div>
+            <div className="border-x border-emerald-200">
+              <span className="text-gray-500 block text-[10px]">कुल जमा राशि</span>
+              <strong className="text-emerald-800 text-sm font-extrabold">₹{selectedCustomer.totalPaid?.toLocaleString() || 0}</strong>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-[10px]">वर्तमान शुद्ध बकाया</span>
+              <strong className="text-red-600 text-base font-extrabold">₹{selectedCustomer.currentOutstanding?.toLocaleString() || 0}</strong>
+            </div>
+          </div>
+
+          {/* Systematic Ledger Table */}
+          <div className="border border-gray-200 rounded-2xl overflow-hidden mt-4">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-gray-100 text-gray-700 border-b border-gray-200">
+                  <th className="p-2.5 font-bold">क्र.</th>
+                  <th className="p-2.5 font-bold">दिनांक</th>
+                  <th className="p-2.5 font-bold">विवरण व संदर्भ</th>
+                  <th className="p-2.5 font-bold">बिल/रसीद नं.</th>
+                  <th className="p-2.5 font-bold text-right text-emerald-700">जमा (-)</th>
+                  <th className="p-2.5 font-bold text-right text-red-600">उधारी (+)</th>
+                  <th className="p-2.5 font-bold text-right">खाता शेष</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {ledgerEntries.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-6 text-center text-gray-400">
+                      कोई लेनदेन दर्ज नहीं है।
+                    </td>
+                  </tr>
+                ) : (
+                  ledgerEntries.map((entry, idx) => {
+                    const isDebit = entry.type === 'sale_debit';
+                    return (
+                      <tr key={entry.id} className="hover:bg-gray-50/50">
+                        <td className="p-2.5 text-gray-400">{idx + 1}</td>
+                        <td className="p-2.5 text-gray-800 font-semibold">{entry.date}</td>
+                        <td className="p-2.5 font-bold text-gray-900">
+                          {isDebit ? 'सामान बिक्री' : `उधारी भुगतान (${entry.paymentMode || 'Cash'})`}
+                          <span className="block text-[10px] text-gray-400 font-normal">{entry.note}</span>
+                        </td>
+                        <td className="p-2.5 text-gray-600 font-mono text-[11px]">
+                          {entry.invoiceNo ? `#${entry.invoiceNo}` : '-'}
+                        </td>
+                        <td className="p-2.5 text-right font-bold text-emerald-700">
+                          {!isDebit ? `₹${entry.amount.toLocaleString()}` : '-'}
+                        </td>
+                        <td className="p-2.5 text-right font-bold text-red-600">
+                          {isDebit ? `₹${entry.amount.toLocaleString()}` : '-'}
+                        </td>
+                        <td className="p-2.5 text-right font-extrabold text-gray-900">
+                          ₹{entry.balanceAfter.toLocaleString()}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Authorized Signatory Stamp Box */}
+          <div className="flex justify-between items-end pt-8 text-xs text-gray-500">
+            <div>
+              <p>नोट: यह एक अधिकृत कंप्यूटरीकृत खाता विवरणी है।</p>
+              <p className="text-[10px] text-gray-400">फल्सावदिया कृषि बाजार · शामगढ़ (मंदसौर)</p>
+            </div>
+            <div className="text-center">
+              <div className="w-36 border-b border-gray-400 mb-1"></div>
+              <p className="font-bold text-gray-800">अधिकृत हस्ताक्षर / मुहर</p>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

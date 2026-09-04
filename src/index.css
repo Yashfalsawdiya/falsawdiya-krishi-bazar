@@ -107,3 +107,70 @@ body.is-drag-scrolling * {
     opacity: 0;
   }
 }
+
+/* ==========================================================================
+   ROBUST GLOBAL PRINT ENGINE (A4 INVOICES & PASSBOOKS)
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm;
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* When printing, hide all app UI tree (#root) */
+  body.has-active-print #root,
+  body:has(#active-print-portal) #root {
+    display: none !important;
+  }
+
+  /* Hide app navigation, headers, floating camera button, modals */
+  .no-print,
+  nav,
+  header,
+  footer,
+  aside,
+  .touch-tap-ripple,
+  .touch-longpress-ring,
+  button,
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  /* Show the active print portal cleanly */
+  #active-print-portal {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    visibility: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  #active-print-portal * {
+    visibility: visible !important;
+  }
+}
+
+@media screen {
+  #active-print-portal {
+    display: none !important;
+  }
+}

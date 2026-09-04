@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   ShoppingBag, Plus, Trash2, Search, UserCheck, AlertCircle, 
   CheckCircle2, Printer, Percent, ArrowRight, RefreshCw, 
   Phone, MapPin, IndianRupee, CreditCard, Wallet, UserPlus, X, FileText,
-  ChevronDown, User, Smartphone, BookOpen, Scale, Banknote
+  ChevronDown, User, Smartphone, BookOpen, Scale, Banknote, Download
 } from 'lucide-react';
 import { 
   AccountingProduct, 
@@ -14,9 +15,11 @@ import {
   fetchAccountingProducts, 
   fetchAccountingCustomers, 
   createOfflineSale, 
-  saveAccountingCustomer,
+  saveAccountingCustomer, 
   calculateBargainingAllocation 
 } from '../../services/accountingService';
+import { PrintableSalesInvoice } from './PrintableSalesInvoice';
+import { downloadSalesInvoicePDF } from '../../utils/salesInvoicePdfGenerator';
 
 interface Props {
   onSaleCreated?: (saleId: string) => void;
@@ -68,6 +71,8 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
   // Success / Print Modal
   const [completedSale, setCompletedSale] = useState<AccountingSale | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const customerDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -314,7 +319,34 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
   };
 
   const printReceipt = () => {
-    window.print();
+    if (!completedSale) return;
+    setIsPrinting(true);
+    document.body.classList.add('has-active-print');
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        document.body.classList.remove('has-active-print');
+        setIsPrinting(false);
+      }, 600);
+    }, 150);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!completedSale) return;
+    setIsDownloadingPdf(true);
+    try {
+      const res = await downloadSalesInvoicePDF(
+        completedSale,
+        selectedCustomer?.currentOutstanding || 0
+      );
+      if (!res.success && res.error) {
+        alert('PDF जनरेट करने में त्रुटि: ' + res.error);
+      }
+    } catch (err: any) {
+      alert('PDF डाउनलोड करने में त्रुटि: ' + err.message);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   return (
@@ -959,22 +991,40 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
               <button
                 onClick={printReceipt}
-                className="py-3 px-4 bg-gray-900 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-black transition-colors"
+                className="py-3 px-3 bg-emerald-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-emerald-900 transition-colors shadow-sm"
               >
-                <Printer className="w-4 h-4" /> प्रिंट / PDF रसीद
+                <Printer className="w-4 h-4" /> A4 प्रिंट / Spooler
+              </button>
+              <button
+                onClick={handleDownloadPdf}
+                disabled={isDownloadingPdf}
+                className="py-3 px-3 bg-gray-100 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-gray-200 transition-colors border border-gray-200 disabled:opacity-50"
+              >
+                <Download className="w-4 h-4 text-emerald-700" /> {isDownloadingPdf ? 'PDF बन रहा है...' : 'PDF फाइल'}
               </button>
               <button
                 onClick={() => setCompletedSale(null)}
-                className="py-3 px-4 bg-emerald-600 text-white rounded-xl font-bold text-xs hover:bg-emerald-700 transition-colors"
+                className="py-3 px-3 bg-emerald-600 text-white rounded-xl font-bold text-xs hover:bg-emerald-700 transition-colors"
               >
-                अगला बिल बनाएं (New Bill)
+                अगला बिल बनाएं
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* DEDICATED A4 PRINT PORTAL */}
+      {typeof document !== 'undefined' && isPrinting && completedSale && createPortal(
+        <div id="active-print-portal">
+          <PrintableSalesInvoice
+            sale={completedSale}
+            customerOutstanding={selectedCustomer?.currentOutstanding || 0}
+          />
+        </div>,
+        document.body
       )}
     </div>
   );
