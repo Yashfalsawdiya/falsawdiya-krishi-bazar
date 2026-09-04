@@ -319,6 +319,16 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Stock Movements Audit
+    match /accounting_stock_movements/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Accounting Audit Logs (Deletion & Cancellation Records)
+    match /accounting_audit_logs/{id} {
+      allow read, write: if isAdmin();
+    }
+
     // Accounting General Settings & Preferences
     match /accounting_settings/{id} {
       allow read, write: if isAdmin();

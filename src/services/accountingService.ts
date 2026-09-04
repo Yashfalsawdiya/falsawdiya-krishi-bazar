@@ -21,7 +21,8 @@ import {
   PackagingVariant,
   StockBatch,
   LooseStockPool,
-  StockMovementLog
+  StockMovementLog,
+  AccountingAuditLog
 } from '../types/accounting';
 import { compressImage } from '../lib/utils';
 
@@ -373,15 +374,201 @@ export async function fetchStockMovements(productId?: string, limitCount = 50): 
 // CUSTOMER & UDHARI LEDGER (KHATA) MANAGEMENT
 // ----------------------------------------------------
 
-export async function fetchAccountingCustomers(): Promise<AccountingCustomer[]> {
+export async function fetchAccountingCustomers(includeArchived = true): Promise<AccountingCustomer[]> {
   try {
     const q = query(collection(db, 'accounting_customers'), orderBy('name', 'asc'));
     const snap = await getDocs(q);
-    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccountingCustomer));
+    const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccountingCustomer));
+    if (!includeArchived) {
+      return list.filter(c => !c.isArchived && c.status !== 'archived' && c.status !== 'closed');
+    }
+    return list;
   } catch (err) {
     console.error('Error fetching accounting customers:', err);
     return [];
   }
+}
+
+export async function checkCustomerHasFinancialHistory(customerId: string): Promise<{
+  hasHistory: boolean;
+  salesCount: number;
+  ledgerCount: number;
+  totalPurchases: number;
+  totalPaid: number;
+  currentOutstanding: number;
+  customerName: string;
+}> {
+  try {
+    const custRef = doc(db, 'accounting_customers', customerId);
+    const custSnap = await getDoc(custRef);
+    const custData = custSnap.exists() ? (custSnap.data() as AccountingCustomer) : null;
+
+    const salesQ = query(collection(db, 'accounting_sales'), where('customerId', '==', customerId));
+    const salesSnap = await getDocs(salesQ);
+
+    const ledgerQ = query(collection(db, 'accounting_customer_ledger'), where('customerId', '==', customerId));
+    const ledgerSnap = await getDocs(ledgerQ);
+
+    const salesCount = salesSnap.size;
+    const ledgerCount = ledgerSnap.size;
+    const currentOutstanding = custData?.currentOutstanding || 0;
+    const totalPurchases = custData?.totalPurchases || 0;
+    const totalPaid = custData?.totalPaid || 0;
+
+    const hasHistory = salesCount > 0 || ledgerCount > 0 || currentOutstanding > 0 || totalPurchases > 0 || totalPaid > 0;
+
+    return {
+      hasHistory,
+      salesCount,
+      ledgerCount,
+      totalPurchases,
+      totalPaid,
+      currentOutstanding,
+      customerName: custData?.name || 'किसान / ग्राहक',
+    };
+  } catch (err) {
+    console.error('Error checking customer history:', err);
+    return {
+      hasHistory: false,
+      salesCount: 0,
+      ledgerCount: 0,
+      totalPurchases: 0,
+      totalPaid: 0,
+      currentOutstanding: 0,
+      customerName: 'किसान / ग्राहक',
+    };
+  }
+}
+
+export async function archiveOrCloseCustomerKhata(params: {
+  customerId: string;
+  adminEmail: string;
+  adminName?: string;
+  reason?: string;
+  actionType?: 'archived' | 'closed';
+}): Promise<void> {
+  const { customerId, adminEmail, adminName, reason, actionType = 'closed' } = params;
+  const now = Date.now();
+  const custRef = doc(db, 'accounting_customers', customerId);
+  const custSnap = await getDoc(custRef);
+  if (!custSnap.exists()) throw new Error('ग्राहक रिकॉर्ड नहीं मिला।');
+  const custData = custSnap.data() as AccountingCustomer;
+
+  const batch = writeBatch(db);
+
+  batch.update(custRef, {
+    status: actionType,
+    isArchived: true,
+    archivedAt: now,
+    archivedBy: adminEmail,
+    notes: reason ? `${custData.notes ? custData.notes + ' | ' : ''}खाता बंद/आर्काइव कारण: ${reason}` : custData.notes,
+    updatedAt: now,
+  });
+
+  // Record Audit Log
+  const auditRef = doc(collection(db, 'accounting_audit_logs'));
+  const auditLog: AccountingAuditLog = {
+    id: auditRef.id,
+    action: actionType === 'archived' ? 'customer_khata_archived' : 'customer_khata_closed',
+    targetId: customerId,
+    targetName: custData.name,
+    targetType: 'customer',
+    adminEmail,
+    adminName: adminName || adminEmail,
+    timestamp: now,
+    date: new Date().toISOString().split('T')[0],
+    reason: reason || 'Admin द्वारा खाता बंद / आर्काइव किया गया',
+    previousAmount: custData.currentOutstanding || 0,
+    financialImpact: {
+      outstandingAmount: custData.currentOutstanding || 0,
+      totalAmount: custData.totalPurchases || 0,
+      paidAmount: custData.totalPaid || 0,
+    },
+    details: `ग्राहक: ${custData.name} (${custData.phone || 'No Phone'}), बकाया: ₹${custData.currentOutstanding || 0}`,
+  };
+  batch.set(auditRef, auditLog);
+
+  await batch.commit();
+}
+
+export async function reopenCustomerKhata(customerId: string, adminEmail: string, adminName?: string): Promise<void> {
+  const now = Date.now();
+  const custRef = doc(db, 'accounting_customers', customerId);
+  const custSnap = await getDoc(custRef);
+  if (!custSnap.exists()) throw new Error('ग्राहक रिकॉर्ड नहीं मिला।');
+  const custData = custSnap.data() as AccountingCustomer;
+
+  const batch = writeBatch(db);
+
+  batch.update(custRef, {
+    status: 'good',
+    isArchived: false,
+    updatedAt: now,
+  });
+
+  const auditRef = doc(collection(db, 'accounting_audit_logs'));
+  const auditLog: AccountingAuditLog = {
+    id: auditRef.id,
+    action: 'customer_khata_reopened',
+    targetId: customerId,
+    targetName: custData.name,
+    targetType: 'customer',
+    adminEmail,
+    adminName: adminName || adminEmail,
+    timestamp: now,
+    date: new Date().toISOString().split('T')[0],
+    reason: 'खाता पुनः सक्रिय किया गया',
+    previousAmount: custData.currentOutstanding || 0,
+    details: `ग्राहक: ${custData.name}, बकाया: ₹${custData.currentOutstanding || 0}`,
+  };
+  batch.set(auditRef, auditLog);
+
+  await batch.commit();
+}
+
+export async function deleteCustomerKhata(params: {
+  customerId: string;
+  adminEmail: string;
+  adminName?: string;
+  reason?: string;
+}): Promise<void> {
+  const { customerId, adminEmail, adminName, reason } = params;
+  const now = Date.now();
+  const custRef = doc(db, 'accounting_customers', customerId);
+  const custSnap = await getDoc(custRef);
+  if (!custSnap.exists()) return;
+  const custData = custSnap.data() as AccountingCustomer;
+
+  const history = await checkCustomerHasFinancialHistory(customerId);
+
+  const batch = writeBatch(db);
+
+  // Record Audit Log with complete snapshot of financial history
+  const auditRef = doc(collection(db, 'accounting_audit_logs'));
+  const auditLog: AccountingAuditLog = {
+    id: auditRef.id,
+    action: 'customer_khata_deleted',
+    targetId: customerId,
+    targetName: custData.name,
+    targetType: 'customer',
+    adminEmail,
+    adminName: adminName || adminEmail,
+    timestamp: now,
+    date: new Date().toISOString().split('T')[0],
+    reason: reason || 'Admin द्वारा ग्राहक खाता स्थायी हटाया गया',
+    previousAmount: custData.currentOutstanding || 0,
+    financialImpact: {
+      outstandingAmount: custData.currentOutstanding || 0,
+      totalAmount: custData.totalPurchases || 0,
+      paidAmount: custData.totalPaid || 0,
+    },
+    details: `ग्राहक: ${custData.name} (${custData.phone || ''}), गांव: ${custData.village || ''}, बिक्री संख्या: ${history.salesCount}, लेजर एंट्रीज: ${history.ledgerCount}, अंतिम बकाया: ₹${custData.currentOutstanding || 0}`,
+  };
+  batch.set(auditRef, auditLog);
+
+  batch.delete(custRef);
+
+  await batch.commit();
 }
 
 export async function saveAccountingCustomer(customer: Omit<AccountingCustomer, 'id' | 'createdAt' | 'updatedAt'>, id?: string): Promise<string> {
@@ -843,8 +1030,30 @@ export async function createWholesalerPurchase(purchaseData: Omit<AccountingPurc
     });
   }
 
+  // Calculate landed cost allocation per item if transport charges exist
+  const transportCost = purchaseData.transportCharges || 0;
+  const itemsSubtotal = purchaseData.subtotal || purchaseData.items.reduce((s, it) => s + (it.total || 0), 0);
+  
+  const enrichedItems: AccountingPurchaseItem[] = purchaseData.items.map(item => {
+    let allocatedTransport = 0;
+    if (transportCost > 0 && itemsSubtotal > 0) {
+      allocatedTransport = Math.round(((item.total || 0) / itemsSubtotal) * transportCost * 100) / 100;
+    }
+    const packQty = item.quantity || 1;
+    const landedCostPerPack = Math.round(((item.purchasePrice || 0) + (allocatedTransport / packQty)) * 100) / 100;
+    return {
+      ...item,
+      allocatedTransportCost: allocatedTransport,
+      landedCostPerPack,
+    };
+  });
+
+  const totalLandedCost = Math.max(0, itemsSubtotal + (purchaseData.taxAmount || 0) - (purchaseData.discountAmount || 0) + transportCost);
+
   const fullPurchase: AccountingPurchase = {
     ...purchaseData,
+    items: enrichedItems,
+    totalLandedCost,
     id: purchaseRef.id,
     paymentStatus: initialStatus,
     clearedDate: isFullyPaid ? purchaseData.invoiceDate : undefined,
@@ -854,108 +1063,230 @@ export async function createWholesalerPurchase(purchaseData: Omit<AccountingPurc
 
   batch.set(purchaseRef, fullPurchase);
 
-  // 1. Automatically update stock, variants, batches and Weighted Average Cost for each item
-  for (const item of purchaseData.items) {
+  // 1. Group items by product to safely handle multiple packaging variants under the same product
+  const itemsByProduct = new Map<string, AccountingPurchaseItem[]>();
+  const unlinkedItems: AccountingPurchaseItem[] = [];
+
+  for (const item of enrichedItems) {
     if (item.productId) {
-      const prodRef = doc(db, 'accounting_products', item.productId);
-      const prodSnap = await getDoc(prodRef);
-      if (prodSnap.exists()) {
-        const prodData = prodSnap.data() as AccountingProduct;
-        const currentStock = prodData.currentStock || 0;
-        const currentCost = prodData.costPrice || 0;
+      const existingList = itemsByProduct.get(item.productId) || [];
+      existingList.push(item);
+      itemsByProduct.set(item.productId, existingList);
+    } else {
+      unlinkedItems.push(item);
+    }
+  }
+
+  // Process each linked product with all its purchase variants together
+  for (const [productId, prodItems] of itemsByProduct.entries()) {
+    const prodRef = doc(db, 'accounting_products', productId);
+    const prodSnap = await getDoc(prodRef);
+
+    if (prodSnap.exists()) {
+      const prodData = prodSnap.data() as AccountingProduct;
+      const variants: PackagingVariant[] = prodData.packagingVariants ? [...prodData.packagingVariants] : [];
+      const batches: StockBatch[] = prodData.batches ? [...prodData.batches] : [];
+      let currentStock = prodData.currentStock || 0;
+      let currentCost = prodData.costPrice || 0;
+
+      let addedPacks = 0;
+      let addedPurchaseCostTotal = 0;
+      let latestBatchNo = prodData.batchNo || '';
+      let latestExpiryDate = prodData.expiryDate || '';
+      let latestMfgDate = prodData.manufacturingDate || '';
+
+      for (const item of prodItems) {
+        const itemQty = Number(item.quantity) || 0;
+        addedPacks += itemQty;
+        addedPurchaseCostTotal += (item.purchasePrice || 0) * itemQty;
+
+        // Variant matching and updating
+        let targetVar: PackagingVariant | undefined;
+        if (item.variantId) {
+          targetVar = variants.find(v => v.id === item.variantId);
+        }
         
-        // Calculate new Weighted Average Cost
-        const totalNewQty = currentStock + item.quantity;
-        let weightedCost = item.purchasePrice;
-        if (totalNewQty > 0) {
-          weightedCost = ((currentStock * currentCost) + (item.quantity * item.purchasePrice)) / totalNewQty;
+        // Fallback: match by size, unit, packagingType
+        if (!targetVar && item.packagingSize) {
+          targetVar = variants.find(v => 
+            v.sizeValue === Number(item.packagingSize) && 
+            v.sizeUnit === item.packagingUnit && 
+            v.packagingType === item.packagingType
+          );
         }
 
-        const updates: any = {
-          currentStock: totalNewQty,
-          costPrice: Math.round(weightedCost * 100) / 100,
-          updatedAt: now,
-        };
-
-        // If packaging variant is specified or created on the fly
-        const variants = prodData.packagingVariants ? [...prodData.packagingVariants] : [];
-        if (item.variantId || item.packagingSize) {
-          let targetVar = variants.find(v => v.id === item.variantId);
-          if (!targetVar && item.packagingSize) {
-            const sizeVal = Number(item.packagingSize);
-            const sizeUnit = item.packagingUnit || 'ml';
-            const packType = item.packagingType || 'Bottle';
-            const baseQty = sizeUnit === 'Ltr' || sizeUnit === 'kg' ? sizeVal * 1000 : sizeVal;
-            const newVar: PackagingVariant = {
-              id: `var_${now}_${Math.random().toString(36).slice(2, 6)}`,
-              sizeValue: sizeVal,
-              sizeUnit: sizeUnit,
-              packagingType: packType,
-              label: `${sizeVal} ${sizeUnit} ${packType}`,
-              baseQuantity: baseQty,
-              costPrice: item.purchasePrice,
-              sellingPrice: item.sellingPriceSuggestion || Math.round(item.purchasePrice * 1.25),
-              currentStockPacks: item.quantity,
-              minStockAlertPacks: 5,
-              allowLooseSale: true,
-            };
-            variants.push(newVar);
-            targetVar = newVar;
-          } else if (targetVar) {
-            targetVar.currentStockPacks = (targetVar.currentStockPacks || 0) + item.quantity;
-            targetVar.costPrice = item.purchasePrice;
-            if (item.sellingPriceSuggestion) {
-              targetVar.sellingPrice = item.sellingPriceSuggestion;
-            }
+        if (targetVar) {
+          targetVar.currentStockPacks = (targetVar.currentStockPacks || 0) + itemQty;
+          targetVar.costPrice = item.purchasePrice;
+          if (item.sellingPriceSuggestion) {
+            targetVar.sellingPrice = item.sellingPriceSuggestion;
           }
-          updates.packagingVariants = variants;
+        } else if (item.packagingSize) {
+          // Create new packaging variant for this product
+          const sizeVal = Number(item.packagingSize);
+          const sizeUnit = item.packagingUnit || 'ml';
+          const packType = item.packagingType || 'Bottle';
+          let baseQty = sizeVal;
+          if (sizeUnit === 'Ltr' || sizeUnit === 'kg') baseQty = sizeVal * 1000;
+
+          const newVarId = `var_${now}_${Math.random().toString(36).slice(2, 6)}`;
+          const newVar: PackagingVariant = {
+            id: newVarId,
+            sizeValue: sizeVal,
+            sizeUnit: sizeUnit,
+            packagingType: packType,
+            label: `${sizeVal} ${sizeUnit} ${packType}`,
+            baseQuantity: baseQty,
+            costPrice: item.purchasePrice,
+            sellingPrice: item.sellingPriceSuggestion || Math.round(item.purchasePrice * 1.25),
+            currentStockPacks: itemQty,
+            minStockAlertPacks: 5,
+            allowLooseSale: sizeUnit === 'Ltr' || sizeUnit === 'kg' || sizeUnit === 'ml' || sizeUnit === 'g',
+          };
+          variants.push(newVar);
+          targetVar = newVar;
         }
 
-        // Add Stock Batch Lot record
+        // Add Batch Record
         if (item.batchNumber || item.expiryDate || item.manufacturingDate) {
-          const batches = prodData.batches ? [...prodData.batches] : [];
           const newBatch: StockBatch = {
             id: `batch_${now}_${Math.random().toString(36).slice(2, 6)}`,
-            productId: item.productId,
-            variantId: item.variantId || 'default',
+            productId,
+            variantId: targetVar ? targetVar.id : (item.variantId || 'default'),
             batchNumber: item.batchNumber || `B-${now.toString().slice(-6)}`,
             manufacturingDate: item.manufacturingDate,
             expiryDate: item.expiryDate || '',
             purchasePricePerPack: item.purchasePrice,
-            initialPackQuantity: item.quantity,
-            remainingPackQuantity: item.quantity,
+            initialPackQuantity: itemQty,
+            remainingPackQuantity: itemQty,
             supplierId: purchaseData.supplierId,
             purchaseInvoiceNo: purchaseData.invoiceNumber,
             purchaseDate: purchaseData.invoiceDate,
             createdAt: now,
           };
           batches.push(newBatch);
-          updates.batches = batches;
-          updates.batchNo = item.batchNumber || prodData.batchNo;
-          updates.expiryDate = item.expiryDate || prodData.expiryDate;
-          if (item.manufacturingDate) updates.manufacturingDate = item.manufacturingDate;
+
+          if (item.batchNumber) latestBatchNo = item.batchNumber;
+          if (item.expiryDate) latestExpiryDate = item.expiryDate;
+          if (item.manufacturingDate) latestMfgDate = item.manufacturingDate;
         }
 
-        batch.update(prodRef, updates);
-
-        // Stock movement audit
+        // Stock movement audit for each variant
         const movRef = doc(collection(db, 'accounting_stock_movements'));
         batch.set(movRef, {
           id: movRef.id,
           timestamp: now,
           date: purchaseData.invoiceDate,
-          productId: item.productId,
+          productId,
           productName: item.hindiName || item.name,
-          variantId: item.variantId,
+          variantId: targetVar?.id || item.variantId,
+          variantLabel: targetVar?.label || item.variantLabel,
           batchNumber: item.batchNumber,
           type: 'purchase',
-          quantityChangePacks: item.quantity,
-          balancePacksAfter: totalNewQty,
-          reason: `थोक खरीद इनवॉइस #${purchaseData.invoiceNumber} से स्टॉक आगमन`,
+          quantityChangePacks: itemQty,
+          balancePacksAfter: targetVar?.currentStockPacks || (currentStock + addedPacks),
+          reason: `थोक खरीद #${purchaseData.invoiceNumber} से स्टॉक आवक (${itemQty} पैकेट)`,
           referenceId: purchaseRef.id,
         });
       }
+
+      // Calculate total stock and weighted average cost for the product
+      const totalNewStock = currentStock + addedPacks;
+      let weightedCost = currentCost;
+      if (totalNewStock > 0 && addedPacks > 0) {
+        weightedCost = ((currentStock * currentCost) + addedPurchaseCostTotal) / totalNewStock;
+      }
+
+      // Recalculate total sealed packs from all variants if variants exist
+      const totalPacksFromVariants = variants.length > 0
+        ? variants.reduce((sum, v) => sum + (v.currentStockPacks || 0), 0)
+        : totalNewStock;
+
+      const updates: any = {
+        currentStock: totalPacksFromVariants,
+        costPrice: Math.round(weightedCost * 100) / 100,
+        updatedAt: now,
+      };
+
+      if (variants.length > 0) {
+        updates.packagingVariants = variants;
+        updates.hasMultipleVariants = variants.length > 1;
+      }
+      if (batches.length > 0) {
+        updates.batches = batches;
+      }
+      if (latestBatchNo) updates.batchNo = latestBatchNo;
+      if (latestExpiryDate) updates.expiryDate = latestExpiryDate;
+      if (latestMfgDate) updates.manufacturingDate = latestMfgDate;
+
+      batch.update(prodRef, updates);
     }
+  }
+
+  // Process any unlinked new products that were added directly in the invoice
+  for (const item of unlinkedItems) {
+    const newProdRef = doc(collection(db, 'accounting_products'));
+    const sizeVal = Number(item.packagingSize) || 1;
+    const sizeUnit = item.packagingUnit || 'ml';
+    const packType = item.packagingType || 'Bottle';
+    let baseQty = sizeVal;
+    if (sizeUnit === 'Ltr' || sizeUnit === 'kg') baseQty = sizeVal * 1000;
+
+    const initialVar: PackagingVariant = {
+      id: `var_${now}_${Math.random().toString(36).slice(2, 6)}`,
+      sizeValue: sizeVal,
+      sizeUnit: sizeUnit,
+      packagingType: packType,
+      label: `${sizeVal} ${sizeUnit} ${packType}`,
+      baseQuantity: baseQty,
+      costPrice: item.purchasePrice,
+      sellingPrice: item.sellingPriceSuggestion || Math.round(item.purchasePrice * 1.25),
+      currentStockPacks: item.quantity,
+      minStockAlertPacks: 5,
+      allowLooseSale: sizeUnit === 'Ltr' || sizeUnit === 'kg' || sizeUnit === 'ml' || sizeUnit === 'g',
+    };
+
+    const initialBatches: StockBatch[] = [];
+    if (item.batchNumber || item.expiryDate || item.manufacturingDate) {
+      initialBatches.push({
+        id: `batch_${now}_${Math.random().toString(36).slice(2, 6)}`,
+        productId: newProdRef.id,
+        variantId: initialVar.id,
+        batchNumber: item.batchNumber || `B-${now.toString().slice(-6)}`,
+        manufacturingDate: item.manufacturingDate,
+        expiryDate: item.expiryDate || '',
+        purchasePricePerPack: item.purchasePrice,
+        initialPackQuantity: item.quantity,
+        remainingPackQuantity: item.quantity,
+        supplierId: purchaseData.supplierId,
+        purchaseInvoiceNo: purchaseData.invoiceNumber,
+        purchaseDate: purchaseData.invoiceDate,
+        createdAt: now,
+      });
+    }
+
+    const newProductData: AccountingProduct = {
+      id: newProdRef.id,
+      name: item.name || item.hindiName || 'नया कृषि उत्पाद',
+      hindiName: item.hindiName || item.name || 'नया कृषि उत्पाद',
+      category: 'pesticides',
+      unit: packType,
+      currentStock: item.quantity,
+      minStockAlert: 5,
+      costPrice: item.purchasePrice,
+      defaultSellingPrice: item.sellingPriceSuggestion || Math.round(item.purchasePrice * 1.25),
+      batchNo: item.batchNumber,
+      expiryDate: item.expiryDate,
+      manufacturingDate: item.manufacturingDate,
+      packagingVariants: [initialVar],
+      batches: initialBatches,
+      hasMultipleVariants: false,
+      productType: sizeUnit === 'ml' || sizeUnit === 'Ltr' ? 'liquid' : 'powder_granule',
+      updatedAt: now,
+      createdAt: now,
+    };
+
+    batch.set(newProdRef, newProductData);
   }
 
   // 2. Update Supplier Outstanding, total purchased and total paid
@@ -965,8 +1296,14 @@ export async function createWholesalerPurchase(purchaseData: Omit<AccountingPurc
     if (suppSnap.exists()) {
       const suppData = suppSnap.data() as AccountingSupplier;
       const currentOutstanding = suppData.currentOutstanding || 0;
+      
+      // Determine amount to add to supplier balance based on transport liability
+      const supplierBilledTotal = purchaseData.transportPayableTo === 'transporter'
+        ? Math.max(0, purchaseData.grandTotal - (purchaseData.transportCharges || 0))
+        : purchaseData.grandTotal;
+
       const newOutstanding = currentOutstanding + purchaseData.unpaidSupplierUdhari;
-      const totalPurchased = (suppData.totalPurchased || 0) + purchaseData.grandTotal;
+      const totalPurchased = (suppData.totalPurchased || 0) + supplierBilledTotal;
       const totalPaid = (suppData.totalPaid || 0) + purchaseData.paidAmount;
 
       batch.update(suppRef, {
@@ -986,12 +1323,12 @@ export async function createWholesalerPurchase(purchaseData: Omit<AccountingPurc
         type: 'purchase_credit',
         invoiceNo: purchaseData.invoiceNumber,
         purchaseId: purchaseRef.id,
-        amount: purchaseData.grandTotal,
+        amount: supplierBilledTotal,
         balanceAfter: newOutstanding,
-        paymentMode: purchaseData.paymentMode === 'split' ? 'cash' : (purchaseData.paymentMode === 'online' ? 'online' : 'cash'),
+        paymentMode: purchaseData.paymentMode === 'split' ? 'cash' : (purchaseData.paymentMode === 'online' ? 'online' : (purchaseData.paymentMode === 'bank' ? 'bank' : 'cash')),
         date: purchaseData.invoiceDate,
         timestamp: now,
-        note: `खरीद इनवॉइस #${purchaseData.invoiceNumber} (Total: ₹${purchaseData.grandTotal}, Paid: ₹${purchaseData.paidAmount}, Due: ₹${purchaseData.unpaidSupplierUdhari})`,
+        note: `थोक खरीद इनवॉइस #${purchaseData.invoiceNumber} (माल: ₹${purchaseData.subtotal}${purchaseData.transportCharges ? `, भाड़ा: ₹${purchaseData.transportCharges}` : ''})`,
       };
       batch.set(sLedgerRef, sEntry);
 
@@ -1201,6 +1538,402 @@ export async function recordSupplierPayment(params: RecordSupplierPaymentParams)
   batch.set(expRef, expPayload);
 
   await batch.commit();
+}
+
+export async function checkPurchaseHasDependentRecords(purchaseId: string): Promise<{
+  purchase: AccountingPurchase | null;
+  hasSoldStock: boolean;
+  soldStockWarnings: Array<{
+    productId?: string;
+    productName: string;
+    variantLabel?: string;
+    boughtQty: number;
+    availableQty: number;
+    deficit: number;
+  }>;
+  hasSubsequentPayments: boolean;
+  subsequentPaymentsTotal: number;
+  subsequentPaymentsCount: number;
+  supplierOutstanding: number;
+  initialPaidExpenseFound: boolean;
+}> {
+  try {
+    const purchRef = doc(db, 'accounting_purchases', purchaseId);
+    const purchSnap = await getDoc(purchRef);
+    if (!purchSnap.exists()) {
+      return {
+        purchase: null,
+        hasSoldStock: false,
+        soldStockWarnings: [],
+        hasSubsequentPayments: false,
+        subsequentPaymentsTotal: 0,
+        subsequentPaymentsCount: 0,
+        supplierOutstanding: 0,
+        initialPaidExpenseFound: false,
+      };
+    }
+
+    const purchase = { id: purchSnap.id, ...purchSnap.data() } as AccountingPurchase;
+
+    // 1. Check stock availability for each item
+    const soldStockWarnings: Array<{
+      productId?: string;
+      productName: string;
+      variantLabel?: string;
+      boughtQty: number;
+      availableQty: number;
+      deficit: number;
+    }> = [];
+
+    for (const item of purchase.items || []) {
+      if (item.productId) {
+        const prodSnap = await getDoc(doc(db, 'accounting_products', item.productId));
+        if (prodSnap.exists()) {
+          const prod = prodSnap.data() as AccountingProduct;
+          let available = prod.currentStock || 0;
+          let variantLabel = item.variantLabel || `${item.packagingSize || ''} ${item.packagingUnit || ''}`;
+
+          if (item.variantId && prod.packagingVariants && prod.packagingVariants.length > 0) {
+            const v = prod.packagingVariants.find(x => x.id === item.variantId);
+            if (v) {
+              available = v.currentStockPacks || 0;
+              variantLabel = v.label || variantLabel;
+            }
+          } else if (item.packagingSize && prod.packagingVariants && prod.packagingVariants.length > 0) {
+            const v = prod.packagingVariants.find(x => 
+              x.sizeValue === Number(item.packagingSize) && 
+              x.sizeUnit === item.packagingUnit && 
+              x.packagingType === item.packagingType
+            );
+            if (v) {
+              available = v.currentStockPacks || 0;
+              variantLabel = v.label || variantLabel;
+            }
+          }
+
+          if (available < item.quantity) {
+            soldStockWarnings.push({
+              productId: item.productId,
+              productName: item.hindiName || item.name,
+              variantLabel,
+              boughtQty: item.quantity,
+              availableQty: available,
+              deficit: item.quantity - available,
+            });
+          }
+        }
+      }
+    }
+
+    // 2. Check subsequent payments on this invoice
+    const allPayments = purchase.payments || [];
+    const subsequentPayments = allPayments.filter(p => !p.id.startsWith('pay_init_'));
+    const subsequentPaymentsTotal = subsequentPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
+
+    // 3. Check supplier outstanding
+    let supplierOutstanding = 0;
+    if (purchase.supplierId) {
+      const suppSnap = await getDoc(doc(db, 'accounting_suppliers', purchase.supplierId));
+      if (suppSnap.exists()) {
+        supplierOutstanding = suppSnap.data().currentOutstanding || 0;
+      }
+    }
+
+    return {
+      purchase,
+      hasSoldStock: soldStockWarnings.length > 0,
+      soldStockWarnings,
+      hasSubsequentPayments: subsequentPayments.length > 0,
+      subsequentPaymentsTotal,
+      subsequentPaymentsCount: subsequentPayments.length,
+      supplierOutstanding,
+      initialPaidExpenseFound: (purchase.paidAmount || 0) > 0,
+    };
+  } catch (err) {
+    console.error('Error checking purchase dependencies:', err);
+    return {
+      purchase: null,
+      hasSoldStock: false,
+      soldStockWarnings: [],
+      hasSubsequentPayments: false,
+      subsequentPaymentsTotal: 0,
+      subsequentPaymentsCount: 0,
+      supplierOutstanding: 0,
+      initialPaidExpenseFound: false,
+    };
+  }
+}
+
+export async function cancelOrDeleteWholesalerPurchase(params: {
+  purchaseId: string;
+  adminEmail: string;
+  adminName?: string;
+  adminUid?: string;
+  reason?: string;
+  hardDelete?: boolean;
+}): Promise<void> {
+  const { purchaseId, adminEmail, adminName, adminUid, reason, hardDelete = false } = params;
+  const now = Date.now();
+  const purchRef = doc(db, 'accounting_purchases', purchaseId);
+  const purchSnap = await getDoc(purchRef);
+  if (!purchSnap.exists()) throw new Error('खरीद इनवॉइस रिकॉर्ड नहीं मिला।');
+
+  const purchase = { id: purchSnap.id, ...purchSnap.data() } as AccountingPurchase;
+
+  // If already cancelled and user wants to hard delete, we delete doc and record audit
+  if (purchase.status === 'cancelled' && hardDelete) {
+    const batch = writeBatch(db);
+    batch.delete(purchRef);
+    const auditRef = doc(collection(db, 'accounting_audit_logs'));
+    batch.set(auditRef, {
+      id: auditRef.id,
+      action: 'purchase_invoice_deleted',
+      targetId: purchase.id,
+      targetNumber: purchase.invoiceNumber,
+      targetName: purchase.supplierName,
+      targetType: 'purchase',
+      adminEmail,
+      adminName: adminName || adminEmail,
+      adminUid: adminUid || '',
+      timestamp: now,
+      date: new Date().toISOString().split('T')[0],
+      reason: reason || 'रद्द इनवॉइस को डेटाबेस से स्थायी रूप से हटाया गया',
+      previousAmount: purchase.grandTotal,
+      financialImpact: {
+        totalAmount: purchase.grandTotal,
+        paidAmount: purchase.paidAmount,
+        outstandingAmount: purchase.unpaidSupplierUdhari,
+      },
+    });
+    await batch.commit();
+    return;
+  }
+
+  // If already cancelled and trying to cancel again, no-op
+  if (purchase.status === 'cancelled' && !hardDelete) {
+    return;
+  }
+
+  const batch = writeBatch(db);
+
+  // 1. Stock Reversal for all items and packaging variants
+  const itemsByProduct = new Map<string, AccountingPurchaseItem[]>();
+  for (const item of purchase.items || []) {
+    if (item.productId) {
+      const list = itemsByProduct.get(item.productId) || [];
+      list.push(item);
+      itemsByProduct.set(item.productId, list);
+    }
+  }
+
+  for (const [productId, prodItems] of itemsByProduct.entries()) {
+    const prodRef = doc(db, 'accounting_products', productId);
+    const prodSnap = await getDoc(prodRef);
+    if (prodSnap.exists()) {
+      const prod = prodSnap.data() as AccountingProduct;
+      const variants: PackagingVariant[] = prod.packagingVariants ? [...prod.packagingVariants] : [];
+      let batches: StockBatch[] = prod.batches ? [...prod.batches] : [];
+      let currentStock = prod.currentStock || 0;
+
+      let totalDeductedPacks = 0;
+
+      for (const item of prodItems) {
+        const itemQty = Number(item.quantity) || 0;
+        totalDeductedPacks += itemQty;
+
+        // Match and deduct variant stock
+        let targetVar: PackagingVariant | undefined;
+        if (item.variantId) {
+          targetVar = variants.find(v => v.id === item.variantId);
+        }
+        if (!targetVar && item.packagingSize) {
+          targetVar = variants.find(v => 
+            v.sizeValue === Number(item.packagingSize) && 
+            v.sizeUnit === item.packagingUnit && 
+            v.packagingType === item.packagingType
+          );
+        }
+
+        if (targetVar) {
+          targetVar.currentStockPacks = Math.max(0, (targetVar.currentStockPacks || 0) - itemQty);
+        }
+
+        // Remove or reduce corresponding batch
+        batches = batches.filter(b => {
+          if (b.purchaseInvoiceNo === purchase.invoiceNumber || (b as any).purchaseId === purchase.id) {
+            return false;
+          }
+          return true;
+        });
+
+        // Record stock movement reversal audit log
+        const movRef = doc(collection(db, 'accounting_stock_movements'));
+        const movLog: StockMovementLog = {
+          id: movRef.id,
+          timestamp: now,
+          date: new Date().toISOString().split('T')[0],
+          productId,
+          productName: item.hindiName || item.name,
+          variantId: targetVar?.id || item.variantId,
+          variantLabel: targetVar?.label || item.variantLabel,
+          batchNumber: item.batchNumber,
+          type: 'return',
+          quantityChangePacks: -itemQty,
+          balancePacksAfter: targetVar?.currentStockPacks ?? Math.max(0, currentStock - totalDeductedPacks),
+          reason: `थोक खरीद #${purchase.invoiceNumber} रद्द/हटाने के कारण स्टॉक रिवर्सल (-${itemQty} पैकेट)`,
+          referenceId: purchase.id,
+        };
+        batch.set(movRef, movLog);
+      }
+
+      // Recalculate total product stock
+      const totalPacksFromVariants = variants.length > 0
+        ? variants.reduce((sum, v) => sum + (v.currentStockPacks || 0), 0)
+        : Math.max(0, currentStock - totalDeductedPacks);
+
+      const prodUpdates: any = {
+        currentStock: totalPacksFromVariants,
+        updatedAt: now,
+      };
+      if (variants.length > 0) prodUpdates.packagingVariants = variants;
+      if (prod.batches) prodUpdates.batches = batches;
+
+      batch.update(prodRef, prodUpdates);
+    }
+  }
+
+  // 2. Supplier Balance & Ledger Reversal
+  if (purchase.supplierId) {
+    const suppRef = doc(db, 'accounting_suppliers', purchase.supplierId);
+    const suppSnap = await getDoc(suppRef);
+    if (suppSnap.exists()) {
+      const supp = suppSnap.data() as AccountingSupplier;
+
+      const supplierBilledTotal = purchase.transportPayableTo === 'transporter'
+        ? Math.max(0, purchase.grandTotal - (purchase.transportCharges || 0))
+        : purchase.grandTotal;
+
+      const newOutstanding = Math.max(0, (supp.currentOutstanding || 0) - (purchase.unpaidSupplierUdhari || 0));
+      const newTotalPurchased = Math.max(0, (supp.totalPurchased || 0) - supplierBilledTotal);
+      const newTotalPaid = Math.max(0, (supp.totalPaid || 0) - (purchase.paidAmount || 0));
+
+      batch.update(suppRef, {
+        currentOutstanding: newOutstanding,
+        totalPurchased: newTotalPurchased,
+        totalPaid: newTotalPaid,
+        updatedAt: now,
+      });
+
+      // Write reversal record in Supplier Ledger
+      const sLedgerRef = doc(collection(db, 'accounting_supplier_ledger'));
+      const sEntry: SupplierLedgerEntry = {
+        id: sLedgerRef.id,
+        supplierId: purchase.supplierId,
+        supplierName: purchase.supplierName,
+        type: 'payment_debit',
+        invoiceNo: purchase.invoiceNumber,
+        purchaseId: purchase.id,
+        amount: purchase.unpaidSupplierUdhari || supplierBilledTotal,
+        balanceAfter: newOutstanding,
+        date: new Date().toISOString().split('T')[0],
+        timestamp: now,
+        note: `खरीद इनवॉइस #${purchase.invoiceNumber} रद्द/हटाया गया (लेजर व बकाया रिवर्सल)`,
+      };
+      batch.set(sLedgerRef, sEntry);
+    }
+  }
+
+  // 3. Cash Outflow / Expense Reversal
+  if (purchase.paidAmount > 0) {
+    try {
+      const expQ = query(
+        collection(db, 'accounting_expenses'),
+        where('categoryId', '==', 'supplier_payment')
+      );
+      const expSnap = await getDocs(expQ);
+      for (const eDoc of expSnap.docs) {
+        const eData = eDoc.data() as AccountingExpense;
+        if (eData.description && eData.description.includes(purchase.invoiceNumber)) {
+          batch.delete(eDoc.ref);
+        }
+      }
+    } catch (eErr) {
+      console.warn('Could not clean up expense for purchase:', eErr);
+    }
+  }
+
+  // 4. Record Comprehensive Audit Log
+  const auditRef = doc(collection(db, 'accounting_audit_logs'));
+  const auditLog: AccountingAuditLog = {
+    id: auditRef.id,
+    action: hardDelete ? 'purchase_invoice_deleted' : 'purchase_invoice_cancelled',
+    targetId: purchase.id,
+    targetNumber: purchase.invoiceNumber,
+    targetName: purchase.supplierName,
+    targetType: 'purchase',
+    adminEmail,
+    adminName: adminName || adminEmail,
+    adminUid: adminUid || '',
+    timestamp: now,
+    date: new Date().toISOString().split('T')[0],
+    reason: reason || (hardDelete ? 'Admin द्वारा खरीद इनवॉइस स्थायी रूप से हटाया गया' : 'Admin द्वारा खरीद इनवॉइस रद्द (Cancelled) किया गया'),
+    previousAmount: purchase.grandTotal,
+    previousStockImpact: (purchase.items || []).map(it => ({
+      productId: it.productId,
+      productName: it.hindiName || it.name,
+      variantLabel: it.variantLabel || `${it.packagingSize || ''} ${it.packagingUnit || ''}`,
+      quantity: it.quantity,
+    })),
+    financialImpact: {
+      totalAmount: purchase.grandTotal,
+      paidAmount: purchase.paidAmount,
+      outstandingAmount: purchase.unpaidSupplierUdhari,
+      reversedExpenseAmount: purchase.paidAmount || 0,
+    },
+    details: `इनवॉइस #${purchase.invoiceNumber} (${purchase.supplierName}), तारीख: ${purchase.invoiceDate}, कुल: ₹${purchase.grandTotal}, दिया गया: ₹${purchase.paidAmount}, बकाया: ₹${purchase.unpaidSupplierUdhari}`,
+  };
+  batch.set(auditRef, auditLog);
+
+  // 5. Purchase Doc Update or Delete
+  if (hardDelete) {
+    batch.delete(purchRef);
+  } else {
+    batch.update(purchRef, {
+      status: 'cancelled',
+      isCancelled: true,
+      paymentStatus: 'cancelled',
+      unpaidSupplierUdhari: 0,
+      cancelledAt: now,
+      cancelledBy: adminEmail,
+      cancelReason: reason || '',
+      updatedAt: now,
+    });
+  }
+
+  await batch.commit();
+}
+
+export async function fetchAccountingAuditLogs(targetType?: 'customer' | 'purchase', limitCount = 50): Promise<AccountingAuditLog[]> {
+  try {
+    let q = query(
+      collection(db, 'accounting_audit_logs'),
+      orderBy('timestamp', 'desc'),
+      limit(limitCount)
+    );
+    if (targetType) {
+      q = query(
+        collection(db, 'accounting_audit_logs'),
+        where('targetType', '==', targetType),
+        orderBy('timestamp', 'desc'),
+        limit(limitCount)
+      );
+    }
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as AccountingAuditLog));
+  } catch (err) {
+    console.error('Error fetching accounting audit logs:', err);
+    return [];
+  }
 }
 
 // ----------------------------------------------------

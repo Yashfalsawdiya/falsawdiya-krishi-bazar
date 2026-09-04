@@ -3,8 +3,7 @@ import { fetchMandiBhav, MandiData, MandiItem } from '../services/mandiService';
 import { 
   STATE_MANDI_DATA, 
   CROPS_LIST, 
-  getHindiCropName,
-  generateFallbackMandiDetails
+  getHindiCropName
 } from '../data/mandiData';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -19,12 +18,7 @@ import {
   Filter, 
   Share2, 
   ChevronDown, 
-  ChevronUp, 
-  ArrowLeftRight,
-  Sparkles,
-  Layers,
-  ArrowUpRight,
-  TrendingDown
+  ChevronUp
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import ApiKeyModal from '../components/ApiKeyModal';
@@ -40,10 +34,6 @@ const MandiBhav: React.FC = () => {
   // Search and filter variables
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedCropFilter, setSelectedCropFilter] = useState<string>("ALL");
-  
-  // View mode
-  const [compareMode, setCompareMode] = useState<boolean>(false);
-  const [compareCrop, setCompareCrop] = useState<string>("सोयाबीन (Soybean)");
   
   // Accordion details index
   const [expandedCardIndex, setExpandedCardIndex] = useState<number | null>(null);
@@ -167,88 +157,6 @@ const MandiBhav: React.FC = () => {
     return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
   };
 
-  // Comparison view data across nearby/all mandis in selected district for selected crop
-  const comparisonData = useMemo(() => {
-    const cropHindi = getHindiCropName(compareCrop);
-    const results: Array<{
-      mandi: string;
-      district: string;
-      state: string;
-      minPrice: string;
-      maxPrice: string;
-      avgPrice: string;
-      unit: string;
-      arrival: string;
-      quality: string;
-      lastUpdated: string;
-    }> = [];
-
-    // Gather mandi data in district and sync with active and cached data
-    const mandisInDistrict = STATE_MANDI_DATA[selectedState]?.[selectedDistrict] || [];
-    
-    mandisInDistrict.forEach(mandi => {
-      let cropItem: MandiItem | undefined;
-
-      // 1. If this is currently selected mandi and data is loaded, use active data (100% sync)
-      if (mandi === selectedMandi && data && data.items && data.items.length > 0) {
-        cropItem = data.items.find(item => item.commodity === cropHindi);
-      }
-
-      // 2. Otherwise, check localStorage cache for this specific mandi
-      if (!cropItem) {
-        const cacheKey = `mandi_pulse_${selectedState}_${selectedDistrict}_${mandi}`.replace(/\s+/g, "_");
-        const cachedStr = localStorage.getItem(cacheKey);
-        if (cachedStr) {
-          try {
-            const parsed = JSON.parse(cachedStr);
-            if (parsed && parsed.items) {
-              cropItem = parsed.items.find((item: MandiItem) => item.commodity === cropHindi);
-            }
-          } catch (e) {}
-        }
-      }
-
-      // 3. Fallback to stable deterministic fallback details
-      if (!cropItem) {
-        const details = generateFallbackMandiDetails(selectedState, selectedDistrict, mandi);
-        cropItem = details.items.find(item => item.commodity === cropHindi);
-      }
-
-      if (cropItem) {
-        results.push({
-          mandi,
-          district: selectedDistrict,
-          state: selectedState,
-          minPrice: cropItem.minPrice,
-          maxPrice: cropItem.maxPrice,
-          avgPrice: cropItem.avgPrice,
-          unit: cropItem.unit || "क्विंटल",
-          arrival: cropItem.arrival || "सामान्य आवक",
-          quality: cropItem.quality || "FAQ",
-          lastUpdated: cropItem.lastUpdated
-        });
-      }
-    });
-
-    // Sort by model price descending to show best mandi first
-    return results.sort((a, b) => parseInt(b.avgPrice) - parseInt(a.avgPrice));
-  }, [compareCrop, selectedState, selectedDistrict, selectedMandi, data]);
-
-  // Dynamic Crop Unit for Comparison Summary
-  const compareCropUnit = useMemo(() => {
-    if (comparisonData.length > 0 && comparisonData[0].unit) {
-      return comparisonData[0].unit;
-    }
-    return "क्विंटल";
-  }, [comparisonData]);
-
-  // Average comparison price across all mandis in current selection
-  const averageComparePrice = useMemo(() => {
-    if (comparisonData.length === 0) return 0;
-    const total = comparisonData.reduce((sum, item) => sum + parseInt(item.avgPrice), 0);
-    return Math.round(total / comparisonData.length);
-  }, [comparisonData]);
-
   return (
     <div className="space-y-6 pb-16">
       <ApiKeyModal 
@@ -286,32 +194,15 @@ const MandiBhav: React.FC = () => {
         </div>
       </div>
 
-      {/* Navigation tabs for Single Mandi vs Market Comparison */}
-      <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-2xl">
-        <button
-          onClick={() => setCompareMode(false)}
-          className={`py-3 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 ${
-            !compareMode 
-              ? "bg-white text-[#2D5A27] shadow-sm font-black" 
-              : "text-gray-500 hover:text-gray-800"
-          }`}
+      {/* Primary Section Tab */}
+      <div className="bg-gray-100 p-1 rounded-2xl">
+        <div
+          className="py-3 text-xs font-black rounded-xl bg-white text-[#2D5A27] shadow-sm flex items-center justify-center gap-2 border border-gray-100"
           id="tab-single-mandi"
         >
-          <MapPin className="w-4 h-4" />
-          एकल मंडी भाव
-        </button>
-        <button
-          onClick={() => setCompareMode(true)}
-          className={`py-3 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 ${
-            compareMode 
-              ? "bg-white text-[#2D5A27] shadow-sm font-black" 
-              : "text-gray-500 hover:text-gray-800"
-          }`}
-          id="tab-compare-mandi"
-        >
-          <ArrowLeftRight className="w-4 h-4" />
-          मंडी भाव तुलना
-        </button>
+          <MapPin className="w-4 h-4 text-[#2D5A27]" />
+          <span>मंडी भाव</span>
+        </div>
       </div>
 
       {/* State / District / Mandi Filter Card */}
@@ -365,11 +256,8 @@ const MandiBhav: React.FC = () => {
             <div className="relative">
               <select
                 value={selectedMandi}
-                disabled={compareMode}
                 onChange={(e) => setSelectedMandi(e.target.value)}
-                className={`w-full pl-3 pr-10 py-3 border rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] appearance-none ${
-                  compareMode ? "bg-gray-100 border-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-50 border-gray-200"
-                }`}
+                className="w-full pl-3 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] appearance-none"
               >
                 {mandis.map((mandi) => (
                   <option key={mandi} value={mandi}>{mandi}</option>
@@ -382,8 +270,7 @@ const MandiBhav: React.FC = () => {
       </div>
 
       {/* VIEW: SINGLE MANDI RATE VIEW */}
-      {!compareMode ? (
-        <div className="space-y-4">
+      <div className="space-y-4">
           {/* Live Search and Crop Filter Bar */}
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
@@ -685,124 +572,6 @@ const MandiBhav: React.FC = () => {
             </div>
           )}
         </div>
-      ) : (
-        // VIEW: COMPARISON MODE VIEW
-        <div className="space-y-4">
-          <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#2D5A27] flex items-center justify-center">
-                <Layers className="w-4 h-4" />
-              </div>
-              <div>
-                <h4 className="text-xs font-black text-gray-800">तुलनात्मक फसल का चयन करें</h4>
-                <p className="text-[9px] text-gray-400 font-bold">एक ही फसल के अलग-अलग मंडियों के दाम तुलना करें</p>
-              </div>
-            </div>
-
-            <div className="relative">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">तुलना के लिए फसल (Compare Crop)</label>
-              <select
-                value={compareCrop}
-                onChange={(e) => setCompareCrop(e.target.value)}
-                className="w-full pl-3.5 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-black text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 appearance-none"
-              >
-                {CROPS_LIST.map((crop) => (
-                  <option key={crop} value={crop}>{crop}</option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3.5 top-[34px] pointer-events-none" />
-            </div>
-
-            <div className="bg-[#2D5A27]/5 border border-[#2D5A27]/10 rounded-2xl p-4 flex justify-between items-center text-xs">
-              <span className="font-bold text-gray-600">औसत बाजार मूल्य ({selectedDistrict} जिला):</span>
-              <span className="font-black text-[#2D5A27] text-sm font-mono">₹{averageComparePrice} / {compareCropUnit}</span>
-            </div>
-          </div>
-
-          {/* Comparison Cards List */}
-          <div className="space-y-3">
-            {comparisonData.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-3xl border border-gray-100">
-                <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-2.5" />
-                <p className="text-xs font-bold text-gray-500">इस फसल के लिए तुलनात्मक डेटा उपलब्ध नहीं है।</p>
-              </div>
-            ) : (
-              comparisonData.map((item, idx) => {
-                const diff = parseInt(item.avgPrice) - averageComparePrice;
-                const isAboveAvg = diff >= 0;
-
-                return (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex flex-col gap-3 hover:border-[#2D5A27]/20 transition-all"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gray-50 text-[#2D5A27] border border-gray-100 flex items-center justify-center font-black text-xs">
-                          {idx + 1}
-                        </div>
-                        <div>
-                          <h4 className="font-black text-gray-800 text-xs sm:text-sm">{item.mandi}</h4>
-                          <span className="text-[10px] text-gray-400 font-bold">{item.district}, {item.state.split(" (")[0]}</span>
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight block">मॉडल भाव ({item.unit})</span>
-                        <span className="text-sm font-black text-[#2D5A27] font-mono">₹{item.avgPrice}</span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 bg-gray-50/70 rounded-xl p-3 text-[10px] font-semibold text-gray-500 gap-2 border border-gray-100/50">
-                      <div>
-                        न्यूनतम - अधिकतम: <span className="font-bold text-gray-700 font-mono block mt-0.5">₹{item.minPrice} - ₹{item.maxPrice}</span>
-                      </div>
-                      <div>
-                        आवक / गुणवत्ता: <span className="font-bold text-gray-700 block mt-0.5">{item.arrival} • {item.quality}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center text-[10px] pt-1">
-                      <div className="text-gray-400 font-bold">
-                        अद्यतन: {item.lastUpdated}
-                      </div>
-                      
-                      {/* Comparison indicator */}
-                      <div className={`flex items-center gap-1 font-black px-2.5 py-1 rounded-full text-[9px] ${
-                        isAboveAvg 
-                          ? "bg-emerald-50 text-emerald-700" 
-                          : "bg-rose-50 text-rose-600"
-                      }`}>
-                        {isAboveAvg ? (
-                          <>
-                            <ArrowUpRight className="w-3.5 h-3.5" />
-                            औसत से ₹{diff} ज़्यादा
-                          </>
-                        ) : (
-                          <>
-                            <TrendingDown className="w-3.5 h-3.5" />
-                            औसत से ₹{Math.abs(diff)} कम
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })
-            )}
-          </div>
-          
-          <div className="bg-[#2D5A27]/5 border border-[#2D5A27]/10 rounded-2xl p-4 flex gap-2.5 items-start">
-            <Sparkles className="w-4 h-4 text-[#2D5A27] shrink-0 mt-0.5" />
-            <p className="text-[10px] text-[#2D5A27] font-bold leading-relaxed">
-              *किसान भाइयों के लिए विशेष टिप: अपनी फसल को मंडी में ले जाने से पहले भावों की तुलना अवश्य करें। जहाँ सबसे ऊंचे दाम मिल रहे हों, वहीं बेचें ताकि आपको आपकी मेहनत का सबसे अच्छा दाम मिल सके!
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

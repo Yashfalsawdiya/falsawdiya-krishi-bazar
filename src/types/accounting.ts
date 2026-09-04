@@ -160,7 +160,10 @@ export interface AccountingCustomer {
   dailyUdhariLimit?: number;
   lastPurchaseDate?: string;
   lastPaymentDate?: string;
-  status: 'good' | 'warning' | 'blocked';
+  status: 'good' | 'warning' | 'blocked' | 'archived' | 'closed';
+  isArchived?: boolean;
+  archivedAt?: number;
+  archivedBy?: string;
   notes?: string;
   createdAt: number;
   updatedAt: number;
@@ -214,17 +217,22 @@ export interface AccountingPurchaseItem {
   name: string;
   hindiName?: string;
   unit: string;
-  quantity: number;
-  purchasePrice: number; // Unit Cost Price
+  quantity: number; // Number of packs
+  purchasePrice: number; // Unit Cost Price per pack
   sellingPriceSuggestion?: number;
   total: number;
   variantId?: string;
+  variantLabel?: string;
   packagingSize?: number;
   packagingUnit?: SizeUnit;
   packagingType?: PackagingType;
+  baseQuantity?: number;
+  totalBaseQuantity?: number; // Total equivalent volume/weight (e.g. 5000 ml = 5 Ltr)
   batchNumber?: string;
   manufacturingDate?: string;
   expiryDate?: string;
+  allocatedTransportCost?: number;
+  landedCostPerPack?: number;
 }
 
 export interface AccountingPurchase {
@@ -239,11 +247,20 @@ export interface AccountingPurchase {
   subtotal: number;
   taxAmount?: number;
   discountAmount?: number;
+  transportCharges?: number; // Freight / Mal bhada
+  transportNote?: string; // Note e.g. "Supplier to shop freight"
+  transportPayableTo?: 'supplier' | 'transporter';
+  totalLandedCost?: number; // Total purchase cost including freight
   grandTotal: number;
   paidAmount: number;
   unpaidSupplierUdhari: number;
   paymentMode: 'cash' | 'online' | 'bank' | 'udhari' | 'split';
-  paymentStatus?: 'unpaid' | 'partially_paid' | 'paid';
+  paymentStatus?: 'unpaid' | 'partially_paid' | 'paid' | 'cancelled';
+  status?: 'active' | 'cancelled';
+  isCancelled?: boolean;
+  cancelledAt?: number;
+  cancelledBy?: string;
+  cancelReason?: string;
   clearedDate?: string;
   payments?: PurchasePaymentRecord[];
   invoiceImageUrl?: string | null;
@@ -391,5 +408,34 @@ export interface AIBusinessInsight {
   bargainingImpactAdvice: string;
   cashFlowAnalysis: string;
   keyActionItems: string[];
+}
+
+export interface AccountingAuditLog {
+  id: string;
+  action: 'customer_khata_deleted' | 'customer_khata_archived' | 'customer_khata_closed' | 'customer_khata_reopened' | 'purchase_invoice_cancelled' | 'purchase_invoice_deleted';
+  targetId: string;
+  targetNumber?: string;
+  targetName?: string;
+  targetType: 'customer' | 'purchase';
+  adminEmail: string;
+  adminName?: string;
+  adminUid?: string;
+  timestamp: number;
+  date: string;
+  reason?: string;
+  previousAmount?: number;
+  previousStockImpact?: Array<{
+    productId?: string;
+    productName: string;
+    variantLabel?: string;
+    quantity: number;
+  }>;
+  financialImpact?: {
+    totalAmount?: number;
+    paidAmount?: number;
+    outstandingAmount?: number;
+    reversedExpenseAmount?: number;
+  };
+  details?: string;
 }
 

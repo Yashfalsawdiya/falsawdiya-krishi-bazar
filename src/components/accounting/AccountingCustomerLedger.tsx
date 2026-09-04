@@ -4,7 +4,8 @@ import {
   Users, Search, Plus, Phone, MapPin, IndianRupee, 
   AlertTriangle, CheckCircle2, MessageSquare, 
   Printer, ArrowUpRight, ArrowDownLeft, FileText, X,
-  Edit3, Eye, ChevronRight, Share2, ShoppingBag, ShieldCheck, Download
+  Edit3, Eye, ChevronRight, Share2, ShoppingBag, ShieldCheck, Download,
+  Trash2, Archive, RotateCcw, ShieldAlert, AlertOctagon
 } from 'lucide-react';
 import { 
   AccountingCustomer, 
@@ -17,8 +18,13 @@ import {
   fetchCustomerLedger, 
   recordCustomerPayment,
   fetchAccountingSaleById,
-  fetchAccountingSaleByInvoiceNo
+  fetchAccountingSaleByInvoiceNo,
+  checkCustomerHasFinancialHistory,
+  archiveOrCloseCustomerKhata,
+  reopenCustomerKhata,
+  deleteCustomerKhata
 } from '../../services/accountingService';
+import { useAppContext } from '../../context/AppContext';
 import { PrintableSalesInvoice } from './PrintableSalesInvoice';
 import { downloadSalesInvoicePDF } from '../../utils/salesInvoicePdfGenerator';
 
@@ -63,6 +69,94 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId, o
   // Active Print Document & PDF Generation State
   const [activePrintDoc, setActivePrintDoc] = useState<'invoice' | 'passbook' | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const { isAdmin, user } = useAppContext();
+
+  // Delete / Archive Khata Modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTargetCustomer, setDeleteTargetCustomer] = useState<AccountingCustomer | null>(null);
+  const [checkingHistory, setCheckingHistory] = useState(false);
+  const [customerHistoryInfo, setCustomerHistoryInfo] = useState<{
+    hasHistory: boolean;
+    salesCount: number;
+    ledgerCount: number;
+    totalPurchases: number;
+    totalPaid: number;
+    currentOutstanding: number;
+    customerName: string;
+  } | null>(null);
+  const [deleteMode, setDeleteMode] = useState<'archive' | 'permanent'>('archive');
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeletingCustomer, setIsDeletingCustomer] = useState(false);
+
+  const handleInitiateDeleteCustomer = async (cust: AccountingCustomer) => {
+    setDeleteTargetCustomer(cust);
+    setDeleteReason('');
+    setDeleteConfirmText('');
+    setShowDeleteModal(true);
+    setCheckingHistory(true);
+    try {
+      const history = await checkCustomerHasFinancialHistory(cust.id);
+      setCustomerHistoryInfo(history);
+      if (history.hasHistory) {
+        setDeleteMode('archive');
+      } else {
+        setDeleteMode('permanent');
+      }
+    } catch (err) {
+      console.error('Error checking customer history:', err);
+    } finally {
+      setCheckingHistory(false);
+    }
+  };
+
+  const handleConfirmDeleteCustomer = async () => {
+    if (!deleteTargetCustomer) return;
+    setIsDeletingCustomer(true);
+    try {
+      const adminEmail = user?.email || 'admin@krishibazaar.com';
+      const adminName = user?.displayName || user?.email || 'Admin';
+
+      if (deleteMode === 'archive') {
+        await archiveOrCloseCustomerKhata({
+          customerId: deleteTargetCustomer.id,
+          adminEmail,
+          adminName,
+          reason: deleteReason || 'Admin द्वारा खाता बंद / सुरक्षित आर्काइव किया गया',
+          actionType: 'closed',
+        });
+        alert(`ग्राहक ${deleteTargetCustomer.name} का खाता सफलतापूर्वक बंद (Archived) कर दिया गया। सभी पुराने रिकॉर्ड और लेजर सुरक्षित रखे गए हैं।`);
+      } else {
+        await deleteCustomerKhata({
+          customerId: deleteTargetCustomer.id,
+          adminEmail,
+          adminName,
+          reason: deleteReason || 'Admin द्वारा खाता स्थायी रूप से हटाया गया',
+        });
+        alert(`ग्राहक ${deleteTargetCustomer.name} का खाता स्थायी रूप से हटा दिया गया है।`);
+      }
+
+      setShowDeleteModal(false);
+      setDeleteTargetCustomer(null);
+      await loadCustomers();
+    } catch (err: any) {
+      alert('खाता हटाने में त्रुटि: ' + (err.message || err));
+    } finally {
+      setIsDeletingCustomer(false);
+    }
+  };
+
+  const handleReopenCustomer = async (cust: AccountingCustomer) => {
+    if (!window.confirm(`क्या आप ${cust.name} का खाता पुनः सक्रिय (Reopen) करना चाहते हैं?`)) return;
+    try {
+      await reopenCustomerKhata(cust.id, user?.email || 'admin@krishibazaar.com', user?.displayName || 'Admin');
+      alert(`ग्राहक ${cust.name} का खाता पुनः चालू कर दिया गया है।`);
+      await loadCustomers();
+    } catch (err: any) {
+      alert('खाता पुनः सक्रिय करने में त्रुटि: ' + err.message);
+    }
+  };
 
   const loadCustomers = async () => {
     setLoading(true);
@@ -563,13 +657,19 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
               {/* Customer Header & Quick Controls */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-lg font-extrabold text-gray-900">{selectedCustomer.name}</h3>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      selectedCustomer.currentOutstanding > 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-800'
-                    }`}>
-                      {selectedCustomer.currentOutstanding > 0 ? 'उधारी खाता चालू' : 'खाता चुकता'}
-                    </span>
+                    {(selectedCustomer.isArchived || selectedCustomer.status === 'closed' || selectedCustomer.status === 'archived') ? (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1">
+                        <Archive className="w-3 h-3 text-rose-600" /> खाता बंद (Archived)
+                      </span>
+                    ) : (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        selectedCustomer.currentOutstanding > 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {selectedCustomer.currentOutstanding > 0 ? 'उधारी खाता चालू' : 'खाता चुकता'}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-3">
                     <span className="flex items-center gap-1">
@@ -585,7 +685,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {/* Dynamic WhatsApp Button: Tagada vs Payment Confirmation */}
                   <button
                     onClick={() => sendWhatsAppMessage(selectedCustomer)}
@@ -616,11 +716,34 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                       setFormNotes(selectedCustomer.notes || '');
                       setShowCustomerModal(true);
                     }}
-                    className="p-2 text-gray-500 hover:text-gray-900 bg-gray-100 rounded-xl text-xs"
+                    className="p-2 text-gray-500 hover:text-gray-900 bg-gray-100 rounded-xl text-xs transition-colors"
                     title="खाता एडिट करें"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                   </button>
+
+                  {/* Admin Delete / Archive Khata Action */}
+                  {isAdmin && (
+                    (selectedCustomer.isArchived || selectedCustomer.status === 'closed' || selectedCustomer.status === 'archived') ? (
+                      <button
+                        onClick={() => handleReopenCustomer(selectedCustomer)}
+                        className="p-2 text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs flex items-center gap-1 font-bold transition-all shadow-sm"
+                        title="खाता पुनः सक्रिय (Reopen) करें"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">खाता पुनः चालू करें</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleInitiateDeleteCustomer(selectedCustomer)}
+                        className="p-2 text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl text-xs flex items-center gap-1 font-bold transition-all shadow-sm"
+                        title="ग्राहक का खाता हटाएं या सुरक्षित बंद करें"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">खाता हटाएं</span>
+                      </button>
+                    )
+                  )}
                 </div>
               </div>
 
@@ -1072,6 +1195,222 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                 </div>
               </div>
             ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DELETE / ARCHIVE CUSTOMER KHATA */}
+      {showDeleteModal && deleteTargetCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center font-bold">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-gray-900">
+                    ग्राहक खाता हटाएं / बंद करें
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    एडमिन सत्यापन एवं लेखांकन सुरक्षा नियंत्रण
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {checkingHistory ? (
+              <div className="py-10 text-center space-y-3">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-rose-600 border-t-transparent"></div>
+                <p className="text-xs text-gray-600 font-medium">
+                  ग्राहक के पिछले वित्तीय लेन-देन, बिल व लेजर रिकॉर्ड की जांच हो रही है...
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Customer Info Card */}
+                <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-xs space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-extrabold text-gray-900 text-sm">{deleteTargetCustomer.name}</h4>
+                      <p className="text-gray-500 text-[11px] flex items-center gap-2 mt-0.5">
+                        <span>📞 {deleteTargetCustomer.phone || 'उपलब्ध नहीं'}</span>
+                        {deleteTargetCustomer.village && <span>📍 {deleteTargetCustomer.village}</span>}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-gray-500 block">वर्तमान बकाया</span>
+                      <strong className="text-red-600 text-sm font-extrabold">
+                        ₹{(deleteTargetCustomer.currentOutstanding || 0).toLocaleString()}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200/70 text-[11px]">
+                    <div>
+                      <span className="text-gray-500">कुल ऐतिहासिक खरीद:</span>
+                      <span className="font-bold text-gray-800 ml-1">₹{(deleteTargetCustomer.totalPurchases || 0).toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">कुल जमा राशि:</span>
+                      <span className="font-bold text-emerald-700 ml-1">₹{(deleteTargetCustomer.totalPaid || 0).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* History Assessment */}
+                {customerHistoryInfo?.hasHistory ? (
+                  <div className="space-y-3">
+                    <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-amber-900 font-extrabold">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>चेतावनी: ग्राहक के पिछले बिल एवं उधारी रिकॉर्ड मौजूद हैं!</span>
+                      </div>
+                      <p className="text-amber-800 leading-relaxed text-[11px]">
+                        इस खाते में <strong>{customerHistoryInfo.salesCount} बिक्री बिल</strong> तथा{' '}
+                        <strong>{customerHistoryInfo.ledgerCount} लेजर प्रविष्टियां</strong> दर्ज हैं।
+                        {customerHistoryInfo.currentOutstanding > 0 && (
+                          <span className="font-bold text-red-700"> इस खाते पर ₹{customerHistoryInfo.currentOutstanding.toLocaleString()} का बकाया शेष है।</span>
+                        )}
+                      </p>
+                      <p className="text-amber-900 font-medium text-[11px] pt-1">
+                        लेखांकन सुरक्षा हेतु सलाह: सुरक्षित <strong>"खाता बंद / आर्काइव (Archive / Void)"</strong> विकल्प चुनें ताकि पुराना हिसाब-किताब न बिगड़े।
+                      </p>
+                    </div>
+
+                    {/* Action Type Selection */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-700 block">कार्यवाही का प्रकार चुनें:</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div
+                          onClick={() => setDeleteMode('archive')}
+                          className={`p-3 rounded-2xl border-2 cursor-pointer transition-all ${
+                            deleteMode === 'archive'
+                              ? 'border-emerald-600 bg-emerald-50/70 shadow-sm'
+                              : 'border-gray-200 bg-white hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 font-bold text-xs text-gray-900">
+                            <Archive className="w-4 h-4 text-emerald-700 shrink-0" />
+                            <span>सुरक्षित खाता बंद (Archive)</span>
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-1 leading-snug">
+                            खाता बंद रहेगा। पुराना लेजर व बिल सुरक्षित रहेंगे। कभी भी पुनः चालू कर सकते हैं।
+                          </p>
+                          <span className="mt-2 inline-block text-[9px] bg-emerald-200/80 text-emerald-900 font-extrabold px-2 py-0.5 rounded-full">
+                            ★ अनुशंसित (Recommended)
+                          </span>
+                        </div>
+
+                        <div
+                          onClick={() => setDeleteMode('permanent')}
+                          className={`p-3 rounded-2xl border-2 cursor-pointer transition-all ${
+                            deleteMode === 'permanent'
+                              ? 'border-rose-600 bg-rose-50/70 shadow-sm'
+                              : 'border-gray-200 bg-white hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 font-bold text-xs text-rose-900">
+                            <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
+                            <span>स्थायी हटाएं (Delete)</span>
+                          </div>
+                          <p className="text-[10px] text-rose-700 mt-1 leading-snug">
+                            ग्राहक खाता डेटाबेस से स्थायी रूप से मिट जाएगा। इसे वापस नहीं लाया जा सकेगा।
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {deleteMode === 'permanent' && (
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl space-y-2 text-xs">
+                        <p className="text-rose-900 font-bold">
+                          पुष्टिकरण आवश्यक: स्थायी हटाने के लिए नीचे <strong>"हटाएं"</strong> टाइप करें:
+                        </p>
+                        <input
+                          type="text"
+                          value={deleteConfirmText}
+                          onChange={e => setDeleteConfirmText(e.target.value)}
+                          placeholder='यहाँ "हटाएं" टाइप करें'
+                          className="w-full px-3 py-2 bg-white border border-rose-300 rounded-xl text-xs font-bold text-rose-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs space-y-1">
+                    <div className="flex items-center gap-1.5 text-emerald-900 font-extrabold">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>कोई पुराना लेन-देन नहीं मिला (खाली खाता)</span>
+                    </div>
+                    <p className="text-emerald-800 text-[11px]">
+                      इस खाते में कोई बिक्री बिल या उधारी दर्ज नहीं है। आप इसे सीधे स्थायी रूप से हटा सकते हैं।
+                    </p>
+                  </div>
+                )}
+
+                {/* Audit Reason Input */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 block">
+                    हटाने / बंद करने का कारण (Audit Reason) <span className="text-rose-600">*</span>:
+                  </label>
+                  <input
+                    type="text"
+                    value={deleteReason}
+                    onChange={e => setDeleteReason(e.target.value)}
+                    placeholder="उदा. पूरा हिसाब चुकता / किसान स्थानांतरित / गलत प्रविष्टि"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <p className="text-[10px] text-gray-400">
+                    यह कारण और एडमिन आईडी ({user?.email || 'admin'}) ऑडिट लॉग में स्थायी रूप से सुरक्षित रहेगी।
+                  </p>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t">
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteModal(false)}
+                    disabled={isDeletingCustomer}
+                    className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs transition-all"
+                  >
+                    रद्द करें
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDeleteCustomer}
+                    disabled={
+                      isDeletingCustomer ||
+                      !deleteReason.trim() ||
+                      (deleteMode === 'permanent' && customerHistoryInfo?.hasHistory && deleteConfirmText.trim() !== 'हटाएं')
+                    }
+                    className={`px-5 py-2.5 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                      deleteMode === 'archive'
+                        ? 'bg-emerald-700 hover:bg-emerald-800'
+                        : 'bg-rose-600 hover:bg-rose-700'
+                    }`}
+                  >
+                    {isDeletingCustomer ? (
+                      <>प्रक्रिया जारी है...</>
+                    ) : deleteMode === 'archive' ? (
+                      <>
+                        <Archive className="w-3.5 h-3.5" /> सुरक्षित खाता बंद करें
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-3.5 h-3.5" /> स्थायी रूप से हटाएं
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
