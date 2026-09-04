@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Camera, Upload, Sparkles, CheckCircle2, AlertTriangle, 
   Trash2, Plus, ArrowRight, RefreshCw, ZoomIn, ZoomOut, 
-  RotateCw, FileText, Check, X, ShieldAlert, ArrowUpRight
+  RotateCw, FileText, Check, X, ShieldAlert, ArrowUpRight,
+  Truck, ShoppingBag, Receipt
 } from 'lucide-react';
 import { 
   AIScanResult, 
@@ -271,7 +272,7 @@ export const AccountingSmartScanner: React.FC<Props> = ({ onEntrySaved }) => {
           notes: notes.trim(),
         });
 
-        alert('✅ थोक खरीद इनवॉइस सफलतापूर्वक दर्ज हो गया एवं इन्वेंट्री स्टॉक अपडेट हो गया!');
+        alert('थोक खरीद इनवॉइस सफलतापूर्वक दर्ज हो गया एवं इन्वेंट्री स्टॉक अपडेट हो गया!');
         if (onEntrySaved) onEntrySaved('purchase', purchaseId);
       } else if (docType === 'customer_bill') {
         // 2. Save as Customer Retail Sale
@@ -328,7 +329,7 @@ export const AccountingSmartScanner: React.FC<Props> = ({ onEntrySaved }) => {
           note: notes.trim(),
         });
 
-        alert('✅ ग्राहक बिक्री पर्ची सफलतापूर्वक सेव हो गई!');
+        alert('ग्राहक बिक्री पर्ची सफलतापूर्वक सेव हो गई!');
         if (onEntrySaved) onEntrySaved('sale', saleId);
       } else {
         // 3. Save as Business Expense
@@ -347,7 +348,7 @@ export const AccountingSmartScanner: React.FC<Props> = ({ onEntrySaved }) => {
           isAiScanned: true,
         });
 
-        alert('✅ दुकान का खर्च सफलतापूर्वक दर्ज हो गया!');
+        alert('दुकान का खर्च सफलतापूर्वक दर्ज हो गया!');
         if (onEntrySaved) onEntrySaved('expense', expenseId);
       }
 
@@ -571,23 +572,27 @@ export const AccountingSmartScanner: React.FC<Props> = ({ onEntrySaved }) => {
                 </label>
                 <div className="grid grid-cols-3 gap-2 text-xs font-bold">
                   {[
-                    { id: 'wholesaler_invoice', label: '📦 थोक खरीद (Purchase)' },
-                    { id: 'customer_bill', label: '🛒 ग्राहक बिक्री (Sale)' },
-                    { id: 'expense_receipt', label: '💸 दुकान खर्च (Expense)' },
-                  ].map(t => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setDocType(t.id as any)}
-                      className={`p-2.5 rounded-2xl border text-center transition-all ${
-                        docType === t.id
-                          ? 'bg-amber-600 text-white border-amber-600 shadow-md'
-                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
+                    { id: 'wholesaler_invoice', label: 'थोक खरीद (Purchase)', icon: Truck },
+                    { id: 'customer_bill', label: 'ग्राहक बिक्री (Sale)', icon: ShoppingBag },
+                    { id: 'expense_receipt', label: 'दुकान खर्च (Expense)', icon: Receipt },
+                  ].map(t => {
+                    const Icon = t.icon;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setDocType(t.id as any)}
+                        className={`p-2.5 rounded-2xl border text-center transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 ${
+                          docType === t.id
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-md'
+                            : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span>{t.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -785,9 +790,9 @@ export const AccountingSmartScanner: React.FC<Props> = ({ onEntrySaved }) => {
                     onChange={e => setPaymentMode(e.target.value as any)}
                     className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-bold"
                   >
-                    <option value="cash">💵 नकद (Cash)</option>
-                    <option value="online">📱 ऑनलाइन (UPI/Bank)</option>
-                    <option value="udhari">📒 उधारी (Credit Due)</option>
+                    <option value="cash">नकद (Cash)</option>
+                    <option value="online">ऑनलाइन (UPI/Bank)</option>
+                    <option value="udhari">उधारी (Credit Due)</option>
                   </select>
                 </div>
 

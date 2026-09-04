@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, Search, Plus, Phone, MapPin, IndianRupee, 
   AlertTriangle, CheckCircle2, MessageSquare, Download, 
-  Printer, ArrowUpRight, ArrowDownLeft, Calendar, FileText, X
+  Printer, ArrowUpRight, ArrowDownLeft, Calendar, FileText, X,
+  Edit3
 } from 'lucide-react';
 import { 
   AccountingCustomer, 
@@ -173,7 +174,7 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId })
     const cleanPhone = c.phone.replace(/[^0-9]/g, '');
     const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
 
-    const message = `नमस्ते ${c.name} जी,\n\n*फल्सावदिया कृषि बाजार, शामगढ़* से सादर नमस्कार।\n\nआपकी दुकान पर वर्तमान बकाया उधारी राशि *₹${c.currentOutstanding}* है।\n\nकृपया सुविधानुसार यह बकाया राशि चुकाने की कृपा करें ताकि आपकी उधारी खाता सुविधा निरंतर चालू रहे।\n\nदुकान का पता: डिंपल चौराहा, शामगढ़ (म.प्र.)\nसंपर्क: 8982338046\n\nधन्यवाद! 🙏`;
+    const message = `नमस्ते ${c.name} जी,\n\n*फल्सावदिया कृषि बाजार, शामगढ़* से सादर नमस्कार।\n\nआपकी दुकान पर वर्तमान बकाया उधारी राशि *₹${c.currentOutstanding}* है।\n\nकृपया सुविधानुसार यह बकाया राशि चुकाने की कृपा करें ताकि आपकी उधारी खाता सुविधा निरंतर चालू रहे।\n\nदुकान का पता: डिंपल चौराहा, शामगढ़ (म.प्र.)\nसंपर्क: 8982338046\n\nधन्यवाद!`;
 
     const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
@@ -257,21 +258,25 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId })
             <div className="flex gap-1 text-xs">
               {[
                 { id: 'outstanding', label: 'उधारी बाकी' },
-                { id: 'over_limit', label: 'लिमिट पार ⚠️' },
+                { id: 'over_limit', label: 'लिमिट पार', icon: AlertTriangle },
                 { id: 'all', label: 'सभी' },
-              ].map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => setFilterType(f.id as any)}
-                  className={`flex-1 py-1.5 rounded-xl font-bold transition-all text-center ${
-                    filterType === f.id
-                      ? 'bg-gray-900 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
+              ].map(f => {
+                const Icon = f.icon;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => setFilterType(f.id as any)}
+                    className={`flex-1 py-1.5 rounded-xl font-bold transition-all text-center flex items-center justify-center gap-1 ${
+                      filterType === f.id
+                        ? 'bg-gray-900 text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {Icon && <Icon className="w-3 h-3 text-amber-500" />}
+                    <span>{f.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Customers List */}
@@ -345,9 +350,17 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId })
                       {selectedCustomer.currentOutstanding > 0 ? 'उधारी खाता चालू' : 'खाता चुकता'}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
-                    <span>📞 {selectedCustomer.phone || 'मोबाइल उपलब्ध नहीं'}</span>
-                    {selectedCustomer.village && <span>📍 {selectedCustomer.village}</span>}
+                  <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-3">
+                    <span className="flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-gray-400" />
+                      {selectedCustomer.phone || 'मोबाइल उपलब्ध नहीं'}
+                    </span>
+                    {selectedCustomer.village && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-gray-400" />
+                        {selectedCustomer.village}
+                      </span>
+                    )}
                   </p>
                 </div>
 
@@ -371,7 +384,7 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId })
                     className="p-2 text-gray-500 hover:text-gray-900 bg-gray-100 rounded-xl text-xs"
                     title="खाता एडिट करें"
                   >
-                    ✏️
+                    <Edit3 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -460,8 +473,9 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId })
               </div>
             </div>
           ) : (
-            <div className="bg-white p-12 rounded-3xl border border-gray-100 text-center text-gray-400 text-xs">
-              👈 बाईं तरफ से किसी किसान का खाता चुनें
+            <div className="bg-white p-12 rounded-3xl border border-gray-100 text-center text-gray-400 text-xs flex flex-col items-center justify-center gap-2">
+              <Users className="w-8 h-8 text-gray-300" />
+              <span>बाईं तरफ से किसी किसान का खाता चुनें</span>
             </div>
           )}
         </div>
@@ -589,9 +603,9 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId })
                     onChange={e => setPaymentMode(e.target.value as any)}
                     className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold"
                   >
-                    <option value="cash">💵 नकद (Cash)</option>
-                    <option value="online">📱 ऑनलाइन (UPI)</option>
-                    <option value="bank">🏦 बैंक ट्रांसफर</option>
+                    <option value="cash">नकद (Cash)</option>
+                    <option value="online">ऑनलाइन (UPI)</option>
+                    <option value="bank">बैंक ट्रांसफर</option>
                   </select>
                 </div>
                 <div>

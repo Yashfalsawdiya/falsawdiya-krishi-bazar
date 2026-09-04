@@ -22,6 +22,7 @@ import {
 import { compressImage } from '../lib/utils';
 
 export const DEFAULT_EXPENSE_CATEGORIES: AccountingExpenseCategory[] = [
+  { id: 'supplier_payment', name: 'Supplier Payment', hindiName: 'सप्लायर भुगतान (थोक खरीद)', icon: 'Truck', isSystem: true },
   { id: 'tea_refreshment', name: 'Tea & Refreshment', hindiName: 'चाय-पानी व नाश्ता', icon: 'Coffee', isSystem: true },
   { id: 'fuel', name: 'Petrol & Fuel', hindiName: 'पेट्रोल व ईंधन', icon: 'Fuel', isSystem: true },
   { id: 'transport', name: 'Transport & Freight', hindiName: 'भाड़ा / ट्रांसपोर्ट', icon: 'Truck', isSystem: true },
@@ -385,27 +386,110 @@ export async function deleteOfflineSale(saleId: string, restoreStock = true): Pr
 // WHOLESALER PURCHASES & SUPPLIER LEDGER
 // ----------------------------------------------------
 
-export async function fetchAccountingSuppliers(): Promise<AccountingSupplier[]> {
+export async function fetchAccountingSuppliers(includeArchived = true): Promise<AccountingSupplier[]> {
   try {
     const q = query(collection(db, 'accounting_suppliers'), orderBy('name', 'asc'));
     const snap = await getDocs(q);
-    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccountingSupplier));
+    const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccountingSupplier));
+    if (!includeArchived) {
+      return list.filter(s => !s.isArchived);
+    }
+    return list;
   } catch (err) {
     console.error('Error fetching suppliers:', err);
     return [];
   }
 }
 
-export async function saveAccountingSupplier(supplier: Omit<AccountingSupplier, 'id' | 'createdAt' | 'updatedAt'>, id?: string): Promise<string> {
+export async function saveAccountingSupplier(
+  supplier: Omit<AccountingSupplier, 'id' | 'createdAt' | 'updatedAt'>,
+  id?: string
+): Promise<string> {
   const now = Date.now();
   const suppRef = id ? doc(db, 'accounting_suppliers', id) : doc(collection(db, 'accounting_suppliers'));
-  const payload = {
+  const payload: any = {
     ...supplier,
     updatedAt: now,
     ...(id ? {} : { createdAt: now }),
   };
+  if (supplier.isArchived !== undefined) {
+    payload.isArchived = !!supplier.isArchived;
+    payload.status = supplier.isArchived ? 'archived' : 'active';
+  }
   await setDoc(suppRef, payload, { merge: true });
   return suppRef.id;
+}
+
+export async function archiveAccountingSupplier(supplierId: string): Promise<void> {
+  const suppRef = doc(db, 'accounting_suppliers', supplierId);
+  await updateDoc(suppRef, {
+    isArchived: true,
+    status: 'archived',
+    updatedAt: Date.now(),
+  });
+}
+
+export async function unarchiveAccountingSupplier(supplierId: string): Promise<void> {
+  const suppRef = doc(db, 'accounting_suppliers', supplierId);
+  await updateDoc(suppRef, {
+    isArchived: false,
+    status: 'active',
+    updatedAt: Date.now(),
+  });
+}
+
+export async function checkSupplierHasHistory(supplierId: string): Promise<{
+  hasHistory: boolean;
+  purchaseCount: number;
+  totalPurchased: number;
+  totalPaid: number;
+  currentOutstanding: number;
+}> {
+  try {
+    const q = query(
+      collection(db, 'accounting_purchases'),
+      where('supplierId', '==', supplierId)
+    );
+    const snap = await getDocs(q);
+    const suppRef = doc(db, 'accounting_suppliers', supplierId);
+    const suppSnap = await getDoc(suppRef);
+    const suppData = suppSnap.exists() ? (suppSnap.data() as AccountingSupplier) : null;
+    
+    const count = snap.size;
+    const totalPurchased = suppData?.totalPurchased || 0;
+    const totalPaid = suppData?.totalPaid || 0;
+    const currentOutstanding = suppData?.currentOutstanding || 0;
+    const hasHistory = count > 0 || totalPurchased > 0 || totalPaid > 0;
+    return {
+      hasHistory,
+      purchaseCount: count,
+      totalPurchased,
+      totalPaid,
+      currentOutstanding,
+    };
+  } catch (err) {
+    console.error('Error checking supplier history:', err);
+    return { hasHistory: true, purchaseCount: 0, totalPurchased: 0, totalPaid: 0, currentOutstanding: 0 };
+  }
+}
+
+export async function deleteAccountingSupplier(supplierId: string): Promise<void> {
+  await deleteDoc(doc(db, 'accounting_suppliers', supplierId));
+}
+
+export async function fetchSupplierLedger(supplierId: string): Promise<SupplierLedgerEntry[]> {
+  try {
+    const q = query(
+      collection(db, 'accounting_supplier_ledger'),
+      where('supplierId', '==', supplierId),
+      orderBy('timestamp', 'desc')
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupplierLedgerEntry));
+  } catch (err) {
+    console.error('Error fetching supplier ledger:', err);
+    return [];
+  }
 }
 
 export async function fetchAccountingPurchases(): Promise<AccountingPurchase[]> {
@@ -424,9 +508,31 @@ export async function createWholesalerPurchase(purchaseData: Omit<AccountingPurc
   const batch = writeBatch(db);
 
   const purchaseRef = doc(collection(db, 'accounting_purchases'));
+  const isFullyPaid = purchaseData.unpaidSupplierUdhari === 0;
+  const initialStatus: 'paid' | 'partially_paid' | 'unpaid' = isFullyPaid
+    ? 'paid'
+    : purchaseData.paidAmount > 0
+    ? 'partially_paid'
+    : 'unpaid';
+
+  const initialPayments: any[] = [];
+  if (purchaseData.paidAmount > 0) {
+    initialPayments.push({
+      id: `pay_init_${now}`,
+      amount: purchaseData.paidAmount,
+      date: purchaseData.invoiceDate,
+      paymentMode: purchaseData.paymentMode === 'split' ? 'cash' : (purchaseData.paymentMode === 'online' ? 'online' : (purchaseData.paymentMode === 'bank' ? 'bank' : 'cash')),
+      note: 'खरीद के समय दिया गया प्रारंभिक भुगतान',
+      timestamp: now,
+    });
+  }
+
   const fullPurchase: AccountingPurchase = {
     ...purchaseData,
     id: purchaseRef.id,
+    paymentStatus: initialStatus,
+    clearedDate: isFullyPaid ? purchaseData.invoiceDate : undefined,
+    payments: initialPayments,
     createdAt: now,
   };
 
@@ -458,7 +564,7 @@ export async function createWholesalerPurchase(purchaseData: Omit<AccountingPurc
     }
   }
 
-  // 2. Update Supplier Outstanding if unpaid amount
+  // 2. Update Supplier Outstanding, total purchased and total paid
   if (purchaseData.supplierId) {
     const suppRef = doc(db, 'accounting_suppliers', purchaseData.supplierId);
     const suppSnap = await getDoc(suppRef);
@@ -473,10 +579,11 @@ export async function createWholesalerPurchase(purchaseData: Omit<AccountingPurc
         currentOutstanding: newOutstanding,
         totalPurchased,
         totalPaid,
+        lastPaymentDate: purchaseData.paidAmount > 0 ? purchaseData.invoiceDate : suppData.lastPaymentDate,
         updatedAt: now,
       });
 
-      // Write Supplier Ledger
+      // Write Supplier Ledger (Purchase Credit)
       const sLedgerRef = doc(collection(db, 'accounting_supplier_ledger'));
       const sEntry: SupplierLedgerEntry = {
         id: sLedgerRef.id,
@@ -493,11 +600,213 @@ export async function createWholesalerPurchase(purchaseData: Omit<AccountingPurc
         note: `खरीद इनवॉइस #${purchaseData.invoiceNumber} (Total: ₹${purchaseData.grandTotal}, Paid: ₹${purchaseData.paidAmount}, Due: ₹${purchaseData.unpaidSupplierUdhari})`,
       };
       batch.set(sLedgerRef, sEntry);
+
+      // If initial payment was made at purchase, record a ledger debit entry for clarity
+      if (purchaseData.paidAmount > 0) {
+        const payLedgerRef = doc(collection(db, 'accounting_supplier_ledger'));
+        const payEntry: SupplierLedgerEntry = {
+          id: payLedgerRef.id,
+          supplierId: purchaseData.supplierId,
+          supplierName: purchaseData.supplierName,
+          type: 'payment_debit',
+          invoiceNo: purchaseData.invoiceNumber,
+          purchaseId: purchaseRef.id,
+          amount: purchaseData.paidAmount,
+          balanceAfter: newOutstanding,
+          paymentMode: purchaseData.paymentMode === 'split' ? 'cash' : (purchaseData.paymentMode === 'online' ? 'online' : 'cash'),
+          date: purchaseData.invoiceDate,
+          timestamp: now + 1,
+          note: `खरीद के समय दिया गया भुगतान (बिल #${purchaseData.invoiceNumber})`,
+        };
+        batch.set(payLedgerRef, payEntry);
+      }
     }
+  }
+
+  // 3. Cash Flow Integration: Automatically record Outflow Expense for cash/online paid during purchase
+  if (purchaseData.paidAmount > 0) {
+    const expRef = doc(collection(db, 'accounting_expenses'));
+    const expPayload: AccountingExpense = {
+      id: expRef.id,
+      date: purchaseData.invoiceDate,
+      timestamp: now,
+      categoryId: 'supplier_payment',
+      categoryName: 'Supplier Payment',
+      categoryNameHindi: 'सप्लायर भुगतान (थोक खरीद)',
+      amount: purchaseData.paidAmount,
+      paymentMode: purchaseData.paymentMode === 'cash' ? 'cash' : 'online',
+      recipientName: purchaseData.supplierName,
+      description: `सप्लायर ${purchaseData.supplierName} को खरीद इनवॉइस #${purchaseData.invoiceNumber} पर नकद/ऑनलाइन भुगतान`,
+      isAiScanned: false,
+      createdAt: now,
+    };
+    batch.set(expRef, expPayload);
   }
 
   await batch.commit();
   return purchaseRef.id;
+}
+
+export interface RecordSupplierPaymentParams {
+  supplierId: string;
+  supplierName: string;
+  purchaseId?: string;
+  invoiceNumber?: string;
+  amount: number;
+  paymentMode: 'cash' | 'online' | 'bank';
+  paymentDate: string;
+  notes?: string;
+}
+
+/**
+ * Record payment to a supplier.
+ * Supports partial or full payment against a specific invoice or on-account.
+ * Automatically integrates with cash flow / business outflow expenses!
+ */
+export async function recordSupplierPayment(params: RecordSupplierPaymentParams): Promise<void> {
+  const { supplierId, supplierName, purchaseId, invoiceNumber, amount, paymentMode, paymentDate, notes } = params;
+  if (amount <= 0) {
+    throw new Error('कृपया 0 से अधिक भुगतान राशि दर्ज करें।');
+  }
+
+  const now = Date.now();
+  const batch = writeBatch(db);
+
+  // 1. Fetch & update supplier
+  const suppRef = doc(db, 'accounting_suppliers', supplierId);
+  const suppSnap = await getDoc(suppRef);
+  if (!suppSnap.exists()) {
+    throw new Error('सप्लायर रिकॉर्ड नहीं मिला।');
+  }
+
+  const suppData = suppSnap.data() as AccountingSupplier;
+  const currentOutstanding = suppData.currentOutstanding || 0;
+  const newOutstanding = Math.max(0, currentOutstanding - amount);
+  const totalPaid = (suppData.totalPaid || 0) + amount;
+
+  batch.update(suppRef, {
+    currentOutstanding: newOutstanding,
+    totalPaid,
+    lastPaymentDate: paymentDate,
+    updatedAt: now,
+  });
+
+  // 2. Settle specific invoice or allocate across pending invoices
+  let targetInvoiceNumber = invoiceNumber || '';
+  if (purchaseId) {
+    const purchRef = doc(db, 'accounting_purchases', purchaseId);
+    const purchSnap = await getDoc(purchRef);
+    if (purchSnap.exists()) {
+      const purchData = purchSnap.data() as AccountingPurchase;
+      targetInvoiceNumber = purchData.invoiceNumber || targetInvoiceNumber;
+      const currentPaid = purchData.paidAmount || 0;
+      const newPaid = currentPaid + amount;
+      const newUnpaid = Math.max(0, purchData.grandTotal - newPaid);
+      const isCleared = newUnpaid === 0;
+
+      const paymentRec: any = {
+        id: `pay_${now}_${Math.random().toString(36).substring(2, 7)}`,
+        amount,
+        date: paymentDate,
+        paymentMode,
+        note: notes || '',
+        timestamp: now,
+      };
+
+      batch.update(purchRef, {
+        paidAmount: newPaid,
+        unpaidSupplierUdhari: newUnpaid,
+        paymentStatus: isCleared ? 'paid' : (newPaid > 0 ? 'partially_paid' : 'unpaid'),
+        clearedDate: isCleared ? paymentDate : (purchData.clearedDate || null),
+        payments: [...(purchData.payments || []), paymentRec],
+      });
+    }
+  } else {
+    // If no specific invoice was chosen, settle sequentially against oldest pending invoices
+    const q = query(
+      collection(db, 'accounting_purchases'),
+      where('supplierId', '==', supplierId),
+      orderBy('timestamp', 'asc')
+    );
+    const pSnap = await getDocs(q);
+    let remainingAmountToAllocate = amount;
+    const settledInvoiceNumbers: string[] = [];
+
+    for (const docSnap of pSnap.docs) {
+      if (remainingAmountToAllocate <= 0) break;
+      const pData = docSnap.data() as AccountingPurchase;
+      const unpaid = pData.unpaidSupplierUdhari || 0;
+      if (unpaid > 0) {
+        const settleAmt = Math.min(unpaid, remainingAmountToAllocate);
+        const newPaid = (pData.paidAmount || 0) + settleAmt;
+        const newUnpaid = Math.max(0, pData.grandTotal - newPaid);
+        const isCleared = newUnpaid === 0;
+
+        settledInvoiceNumbers.push(pData.invoiceNumber);
+
+        const paymentRec: any = {
+          id: `pay_${now}_${Math.random().toString(36).substring(2, 7)}`,
+          amount: settleAmt,
+          date: paymentDate,
+          paymentMode,
+          note: notes ? `${notes} (On-Account)` : 'खाता ऑन-अकाउंट समायोजन',
+          timestamp: now,
+        };
+
+        batch.update(docSnap.ref, {
+          paidAmount: newPaid,
+          unpaidSupplierUdhari: newUnpaid,
+          paymentStatus: isCleared ? 'paid' : 'partially_paid',
+          clearedDate: isCleared ? paymentDate : (pData.clearedDate || null),
+          payments: [...(pData.payments || []), paymentRec],
+        });
+
+        remainingAmountToAllocate -= settleAmt;
+      }
+    }
+
+    if (settledInvoiceNumbers.length > 0 && !targetInvoiceNumber) {
+      targetInvoiceNumber = settledInvoiceNumbers.join(', ');
+    }
+  }
+
+  // 3. Write Supplier Ledger (Debit entry)
+  const sLedgerRef = doc(collection(db, 'accounting_supplier_ledger'));
+  const sEntry: SupplierLedgerEntry = {
+    id: sLedgerRef.id,
+    supplierId,
+    supplierName,
+    type: 'payment_debit',
+    invoiceNo: targetInvoiceNumber,
+    purchaseId: purchaseId || '',
+    amount,
+    balanceAfter: newOutstanding,
+    paymentMode,
+    date: paymentDate,
+    timestamp: now,
+    note: notes || (targetInvoiceNumber ? `सप्लायर भुगतान (बिल #${targetInvoiceNumber})` : 'सप्लायर खाता भुगतान'),
+  };
+  batch.set(sLedgerRef, sEntry);
+
+  // 4. Cash Flow Integration: Automatic Business Outflow Expense Entry
+  const expRef = doc(collection(db, 'accounting_expenses'));
+  const expPayload: AccountingExpense = {
+    id: expRef.id,
+    date: paymentDate,
+    timestamp: now,
+    categoryId: 'supplier_payment',
+    categoryName: 'Supplier Payment',
+    categoryNameHindi: 'सप्लायर भुगतान (थोक खरीद)',
+    amount,
+    paymentMode: paymentMode === 'cash' ? 'cash' : 'online',
+    recipientName: supplierName,
+    description: `सप्लायर ${supplierName} को भुगतान${targetInvoiceNumber ? ` (बिल #${targetInvoiceNumber})` : ''}${notes ? ` - ${notes}` : ''}`,
+    isAiScanned: false,
+    createdAt: now,
+  };
+  batch.set(expRef, expPayload);
+
+  await batch.commit();
 }
 
 // ----------------------------------------------------

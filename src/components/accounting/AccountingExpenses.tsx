@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Receipt, Plus, Trash2, Calendar, Coffee, Fuel, 
   Truck, Users, Zap, Home, Package, Wrench, Tag, 
-  PlusCircle, IndianRupee, Search, X
+  PlusCircle, IndianRupee, Search, X,
+  Wallet, Smartphone, Banknote
 } from 'lucide-react';
 import { 
   AccountingExpense, 
@@ -228,7 +229,7 @@ export const AccountingExpenses: React.FC = () => {
 
         <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center font-bold">
-            💵
+            <Wallet className="w-6 h-6" />
           </div>
           <div>
             <p className="text-xs text-gray-500 font-bold">नकद चुकाया (Cash Expenses)</p>
@@ -239,7 +240,7 @@ export const AccountingExpenses: React.FC = () => {
 
         <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 bg-blue-100 text-blue-700 rounded-2xl flex items-center justify-center font-bold">
-            📱
+            <Smartphone className="w-6 h-6" />
           </div>
           <div>
             <p className="text-xs text-gray-500 font-bold">ऑनलाइन चुकाया (UPI / Bank)</p>
@@ -333,7 +334,11 @@ export const AccountingExpenses: React.FC = () => {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 bg-rose-100 text-rose-700 rounded-xl flex items-center justify-center font-bold">
-                        {exp.paymentMode === 'cash' ? '💵' : '📱'}
+                        {exp.paymentMode === 'cash' ? (
+                          <Banknote className="w-4 h-4" />
+                        ) : (
+                          <Smartphone className="w-4 h-4" />
+                        )}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
@@ -419,8 +424,8 @@ export const AccountingExpenses: React.FC = () => {
                     onChange={e => setPaymentMode(e.target.value as any)}
                     className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold"
                   >
-                    <option value="cash">💵 नकद (Cash)</option>
-                    <option value="online">📱 ऑनलाइन (UPI / QR)</option>
+                    <option value="cash">नकद (Cash)</option>
+                    <option value="online">ऑनलाइन (UPI / QR)</option>
                   </select>
                 </div>
                 <div>

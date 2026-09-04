@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   TrendingUp, TrendingDown, IndianRupee, Sparkles, AlertTriangle, 
   Calendar, ShoppingBag, Truck, Receipt, Users, Package, 
-  ArrowUpRight, ArrowDownLeft, ShieldCheck, RefreshCw, Layers, CheckCircle2
+  ArrowUpRight, ArrowDownLeft, ShieldCheck, RefreshCw, Layers, CheckCircle2,
+  Wallet, Bot, Zap, Activity, Check
 } from 'lucide-react';
 import { 
   AccountingSummaryReport, 
@@ -78,13 +79,13 @@ export const AccountingDashboard: React.FC = () => {
       {/* Accounting Header Nav Tabs */}
       <div className="bg-white p-2 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-1.5 overflow-x-auto no-scrollbar">
         {[
-          { id: 'overview', label: '📊 वित्तीय डैशबोर्ड (Overview)', icon: TrendingUp },
-          { id: 'pos', label: '🛒 पीओएस बिक्री (POS Bill)', icon: ShoppingBag },
-          { id: 'scanner', label: '📸 AI स्मार्ट स्कैनर (Vision)', icon: Sparkles },
-          { id: 'ledger', label: '👥 किसान उधारी खाता (Khata)', icon: Users },
-          { id: 'inventory', label: '📦 स्टॉक व इन्वेंट्री', icon: Package },
-          { id: 'purchases', label: '🚚 थोक खरीद (Purchases)', icon: Truck },
-          { id: 'expenses', label: '💸 दुकान खर्च (Expenses)', icon: Receipt },
+          { id: 'overview', label: 'वित्तीय डैशबोर्ड (Overview)', icon: TrendingUp },
+          { id: 'pos', label: 'पीओएस बिक्री (POS Bill)', icon: ShoppingBag },
+          { id: 'scanner', label: 'AI स्मार्ट स्कैनर (Vision)', icon: Sparkles },
+          { id: 'ledger', label: 'किसान उधारी खाता (Khata)', icon: Users },
+          { id: 'inventory', label: 'स्टॉक व इन्वेंट्री', icon: Package },
+          { id: 'purchases', label: 'थोक खरीद (Purchases)', icon: Truck },
+          { id: 'expenses', label: 'दुकान खर्च (Expenses)', icon: Receipt },
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -99,7 +100,7 @@ export const AccountingDashboard: React.FC = () => {
               }`}
             >
               <Icon className="w-4 h-4" />
-              {tab.label}
+              <span>{tab.label}</span>
             </button>
           );
         })}
@@ -137,18 +138,19 @@ export const AccountingDashboard: React.FC = () => {
           <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-2xl text-xs font-bold">
               {[
-                { id: 'today', label: '📅 आज (Today)' },
-                { id: 'week', label: '📅 पिछला 7 दिन (Week)' },
-                { id: 'month', label: '📅 इस माह (Month)' },
+                { id: 'today', label: 'आज (Today)' },
+                { id: 'week', label: 'पिछला 7 दिन (Week)' },
+                { id: 'month', label: 'इस माह (Month)' },
               ].map(d => (
                 <button
                   key={d.id}
                   onClick={() => setDateRange(d.id as any)}
-                  className={`px-3 py-2 rounded-xl transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all ${
                     dateRange === d.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
                   }`}
                 >
-                  {d.label}
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>{d.label}</span>
                 </button>
               ))}
             </div>
@@ -167,8 +169,8 @@ export const AccountingDashboard: React.FC = () => {
                 disabled={loadingAiInsight}
                 className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-2xl text-xs font-extrabold flex items-center gap-2 shadow-md shadow-amber-200 active:scale-95 transition-all"
               >
-                <Sparkles className="w-4 h-4" />
-                {loadingAiInsight ? 'AI विश्लेषण हो रहा है...' : '🤖 AI मुनीम जी से सलाह लें (AI Insights)'}
+                <Bot className="w-4 h-4" />
+                {loadingAiInsight ? 'AI विश्लेषण हो रहा है...' : 'AI मुनीम जी से सलाह लें (AI Insights)'}
               </button>
             </div>
           </div>
@@ -196,11 +198,17 @@ export const AccountingDashboard: React.FC = () => {
                 <p className="font-medium text-gray-900">{aiInsight.hindiSummary}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-[11px]">
                   <div>
-                    <span className="font-bold text-amber-900">⚡ मोलभाव व डिस्काउंट प्रभाव:</span>
+                    <span className="font-bold text-amber-900 flex items-center gap-1 mb-0.5">
+                      <Zap className="w-3.5 h-3.5 text-amber-700" />
+                      मोलभाव व डिस्काउंट प्रभाव:
+                    </span>
                     <p className="text-gray-600">{aiInsight.bargainingImpactAdvice}</p>
                   </div>
                   <div>
-                    <span className="font-bold text-blue-900">💧 उधारी व कैश-फ्लो स्थिति:</span>
+                    <span className="font-bold text-blue-900 flex items-center gap-1 mb-0.5">
+                      <Activity className="w-3.5 h-3.5 text-blue-700" />
+                      उधारी व कैश-फ्लो स्थिति:
+                    </span>
                     <p className="text-gray-600">{aiInsight.cashFlowAnalysis}</p>
                   </div>
                 </div>
@@ -212,7 +220,7 @@ export const AccountingDashboard: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {aiInsight.keyActionItems.map((item, idx) => (
                       <div key={idx} className="p-2.5 bg-white rounded-xl border border-amber-200 text-[11px] text-gray-700 flex items-start gap-1.5">
-                        <span className="text-amber-600 font-bold">✓</span>
+                        <Check className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
                         <span>{item}</span>
                       </div>
                     ))}
@@ -303,7 +311,8 @@ export const AccountingDashboard: React.FC = () => {
             <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b pb-3">
                 <span className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
-                  💵 दैनिक गल्ला व नकद प्रवाह (Cash Flow)
+                  <Wallet className="w-4 h-4 text-emerald-600" />
+                  दैनिक गल्ला व नकद प्रवाह (Cash Flow)
                 </span>
                 <span className="text-[10px] text-gray-400">दुकान काउंटर</span>
               </div>
@@ -338,7 +347,8 @@ export const AccountingDashboard: React.FC = () => {
             <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b pb-3">
                 <span className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
-                  👥 बाजार उधारी खाता स्थिति (Credit Ledger)
+                  <Users className="w-4 h-4 text-amber-600" />
+                  बाजार उधारी खाता स्थिति (Credit Ledger)
                 </span>
                 <button
                   onClick={() => setActiveTab('ledger')}
@@ -355,7 +365,7 @@ export const AccountingDashboard: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">इस अवधि में वसूल हुई उधारी:</span>
-                  <strong className="text-emerald-700 font-bold">₹{report?.customerPaymentCollected?.toLocaleString() || 0}</strong>
+                  <strong className="text-emerald-700 font-bold">+₹{report?.customerPaymentCollected?.toLocaleString() || 0}</strong>
                 </div>
                 <div className="flex justify-between pt-2 border-t font-extrabold text-sm text-gray-900">
                   <span>कुल कुल बकाया उधारी (All Time):</span>
@@ -368,7 +378,8 @@ export const AccountingDashboard: React.FC = () => {
             <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b pb-3">
                 <span className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
-                  📦 इन्वेंट्री व थोक सप्लायर स्थिति
+                  <Package className="w-4 h-4 text-blue-600" />
+                  इन्वेंट्री व थोक सप्लायर स्थिति
                 </span>
                 <button
                   onClick={() => setActiveTab('inventory')}

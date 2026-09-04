@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   ShoppingBag, Plus, Trash2, Search, UserCheck, AlertCircle, 
   CheckCircle2, Printer, Percent, ArrowRight, RefreshCw, 
-  Phone, MapPin, IndianRupee, CreditCard, Wallet, UserPlus, X, FileText
+  Phone, MapPin, IndianRupee, CreditCard, Wallet, UserPlus, X, FileText,
+  ChevronDown, User, Smartphone, BookOpen, Scale, Banknote
 } from 'lucide-react';
 import { 
   AccountingProduct, 
@@ -505,7 +506,9 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                   ) : (
                     <span className="text-gray-400 font-medium">नकद ग्राहक (Retail Cash Customer) - क्लिक करके खाता चुनें</span>
                   )}
-                  <span className="text-xs text-emerald-700 font-bold">बदलें ▼</span>
+                  <span className="text-xs text-emerald-700 font-bold flex items-center gap-1">
+                    बदलें <ChevronDown className="w-3.5 h-3.5" />
+                  </span>
                 </div>
 
                 {isCustomerDropdownOpen && (
@@ -523,9 +526,10 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                         setSelectedCustomerId('');
                         setIsCustomerDropdownOpen(false);
                       }}
-                      className="p-2 rounded-xl text-xs hover:bg-gray-50 cursor-pointer font-bold text-gray-600 border-b border-gray-100"
+                      className="p-2 rounded-xl text-xs hover:bg-gray-50 cursor-pointer font-bold text-gray-600 border-b border-gray-100 flex items-center gap-1.5"
                     >
-                      🚶‍♂️ बिना खाते के नकद ग्राहक (Retail Walk-in)
+                      <User className="w-4 h-4 text-gray-500" />
+                      <span>बिना खाते के नकद ग्राहक (Retail Walk-in)</span>
                     </div>
 
                     {filteredCustomers.map(c => (
@@ -597,8 +601,9 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
               </h3>
 
               {cartItems.length === 0 ? (
-                <div className="p-8 text-center bg-gray-50 border border-dashed border-gray-200 rounded-2xl text-gray-400 text-xs">
-                  👈 बाईं तरफ से उत्पाद पर क्लिक करके बिल में जोड़ें
+                <div className="p-8 text-center bg-gray-50 border border-dashed border-gray-200 rounded-2xl text-gray-400 text-xs flex flex-col items-center justify-center gap-2">
+                  <ShoppingBag className="w-6 h-6 text-gray-300" />
+                  <span>बाईं तरफ से उत्पाद पर क्लिक करके बिल में जोड़ें</span>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
@@ -734,24 +739,28 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                 </label>
                 <div className="grid grid-cols-4 gap-2 text-xs font-bold">
                   {[
-                    { id: 'cash', label: '💵 नकद (Cash)' },
-                    { id: 'online', label: '📱 ऑनलाइन (UPI)' },
-                    { id: 'udhari', label: '📒 पूरी उधारी (Khata)' },
-                    { id: 'split', label: '⚖️ आधा नकद / उधारी' },
-                  ].map(m => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => setPaymentMode(m.id as any)}
-                      className={`p-2.5 rounded-2xl border text-center transition-all ${
-                        paymentMode === m.id
-                          ? 'bg-emerald-700 text-white border-emerald-700 shadow-md'
-                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
+                    { id: 'cash', label: 'नकद (Cash)', icon: Banknote },
+                    { id: 'online', label: 'ऑनलाइन (UPI)', icon: Smartphone },
+                    { id: 'udhari', label: 'पूरी उधारी (Khata)', icon: BookOpen },
+                    { id: 'split', label: 'आधा नकद / उधारी', icon: Scale },
+                  ].map(m => {
+                    const Icon = m.icon;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setPaymentMode(m.id as any)}
+                        className={`p-2.5 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                          paymentMode === m.id
+                            ? 'bg-emerald-700 text-white border-emerald-700 shadow-md'
+                            : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span className="text-[11px] leading-tight">{m.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Split / Custom Payment Inputs */}

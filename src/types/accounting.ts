@@ -104,8 +104,22 @@ export interface AccountingSupplier {
   totalPurchased: number;
   totalPaid: number;
   currentOutstanding: number; // What we owe to supplier
+  isArchived?: boolean;
+  status?: 'active' | 'archived';
+  lastPaymentDate?: string;
+  notes?: string;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface PurchasePaymentRecord {
+  id: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  paymentMode: 'cash' | 'online' | 'bank';
+  note?: string;
+  timestamp: number;
+  expenseId?: string;
 }
 
 export interface AccountingPurchaseItem {
@@ -135,6 +149,9 @@ export interface AccountingPurchase {
   paidAmount: number;
   unpaidSupplierUdhari: number;
   paymentMode: 'cash' | 'online' | 'bank' | 'udhari' | 'split';
+  paymentStatus?: 'unpaid' | 'partially_paid' | 'paid';
+  clearedDate?: string;
+  payments?: PurchasePaymentRecord[];
   invoiceImageUrl?: string | null;
   isAiScanned?: boolean;
   notes?: string;
