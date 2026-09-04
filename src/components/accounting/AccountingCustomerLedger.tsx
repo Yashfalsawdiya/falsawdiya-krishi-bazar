@@ -435,7 +435,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
               setFormNotes('');
               setShowCustomerModal(true);
             }}
-            className="p-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-bold flex items-center gap-1 shadow-md shadow-emerald-200 active:scale-95 transition-all"
+            className="px-3.5 py-2.5 bg-[#2D5A27] hover:bg-[#23461e] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
           >
             <Plus className="w-4 h-4" /> नया खाता
           </button>
@@ -591,8 +591,8 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                     onClick={() => sendWhatsAppMessage(selectedCustomer)}
                     className={`px-3 py-2 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all ${
                       selectedCustomer.currentOutstanding > 0
-                        ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200'
-                        : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200'
+                        ? 'bg-amber-600 hover:bg-amber-700'
+                        : 'bg-[#2D5A27] hover:bg-[#23461e]'
                     }`}
                   >
                     {selectedCustomer.currentOutstanding > 0 ? (
@@ -647,7 +647,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                     setPaymentAmount(selectedCustomer.currentOutstanding);
                     setShowPaymentModal(true);
                   }}
-                  className="py-3 px-5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl font-bold text-xs flex items-center gap-2 shadow-md shadow-emerald-200 active:scale-95 transition-all"
+                  className="py-2.5 px-4 bg-[#2D5A27] hover:bg-[#23461e] text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm active:scale-95 transition-all"
                 >
                   <IndianRupee className="w-4 h-4" /> ₹ उधारी भुगतान जमा करें (Receive Payment)
                 </button>
@@ -814,7 +814,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
 
               <button
                 type="submit"
-                className="w-full py-3 bg-emerald-700 text-white rounded-xl font-bold text-sm shadow-md hover:bg-emerald-800 active:scale-95 transition-all mt-4"
+                className="w-full py-3 bg-[#2D5A27] text-white rounded-xl font-bold text-sm shadow-sm hover:bg-[#23461e] active:scale-95 transition-all mt-4"
               >
                 खाता सुरक्षित करें
               </button>
@@ -894,7 +894,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
               <button
                 type="submit"
                 disabled={isSubmittingPayment}
-                className="w-full py-3.5 bg-emerald-700 text-white rounded-xl font-extrabold text-sm shadow-md hover:bg-emerald-800 active:scale-95 transition-all mt-4 disabled:opacity-50"
+                className="w-full py-3.5 bg-[#2D5A27] text-white rounded-xl font-extrabold text-sm shadow-sm hover:bg-[#23461e] active:scale-95 transition-all mt-4 disabled:opacity-50"
               >
                 {isSubmittingPayment ? 'जमा हो रहा है...' : `₹${paymentAmount.toLocaleString()} जमा करें एवं खाता अपडेट करें`}
               </button>
@@ -1044,7 +1044,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                 <div className="flex flex-wrap items-center justify-end gap-2.5 pt-2">
                   <button
                     onClick={() => sendInvoiceOnWhatsApp(selectedSale)}
-                    className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-200 active:scale-95 transition-all"
+                    className="px-3.5 py-2.5 bg-[#2D5A27] hover:bg-[#23461e] text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
                   >
                     <Share2 className="w-4 h-4" /> WhatsApp पर बिल भेजें
                   </button>
@@ -1088,7 +1088,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
               <div className="flex items-center gap-2">
                 <button
                   onClick={handlePrintPassbookDoc}
-                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-200 active:scale-95 transition-all"
+                  className="px-4 py-2 bg-[#2D5A27] hover:bg-[#23461e] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
                 >
                   <Printer className="w-4 h-4" /> प्रिंट करें / PDF सेव करें
                 </button>

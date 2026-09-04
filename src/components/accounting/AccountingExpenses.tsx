@@ -184,7 +184,7 @@ export const AccountingExpenses: React.FC = () => {
       {/* Top Banner */}
       <div className="bg-white p-5 sm:p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-rose-600 text-white rounded-2xl flex items-center justify-center shadow-md shadow-rose-200">
+          <div className="w-12 h-12 bg-rose-600 text-white rounded-xl flex items-center justify-center shadow-sm">
             <Receipt className="w-6 h-6" />
           </div>
           <div>
@@ -207,7 +207,7 @@ export const AccountingExpenses: React.FC = () => {
               setExpenseAmount(0);
               setShowAddModal(true);
             }}
-            className="p-3 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-bold flex items-center gap-1 shadow-md shadow-rose-200 active:scale-95 transition-all"
+            className="px-3.5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
           >
             <Plus className="w-4 h-4" /> + नया खर्च जोड़ें
           </button>
@@ -464,7 +464,7 @@ export const AccountingExpenses: React.FC = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-extrabold text-sm shadow-md active:scale-95 transition-all mt-4"
+                className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-extrabold text-sm shadow-sm active:scale-95 transition-all mt-4"
               >
                 {isSubmitting ? 'सुरक्षित हो रहा है...' : `खर्च सेव करें · ₹${expenseAmount}`}
               </button>

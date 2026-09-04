@@ -4,12 +4,14 @@ import {
   ShoppingBag, Plus, Trash2, Search, UserCheck, AlertCircle, 
   CheckCircle2, Printer, Percent, ArrowRight, RefreshCw, 
   Phone, MapPin, IndianRupee, CreditCard, Wallet, UserPlus, X, FileText,
-  ChevronDown, User, Smartphone, BookOpen, Scale, Banknote, Download
+  ChevronDown, User, Smartphone, BookOpen, Scale, Banknote, Download,
+  Droplet, Layers, Check, Sparkles
 } from 'lucide-react';
 import { 
   AccountingProduct, 
   AccountingCustomer, 
-  AccountingSale 
+  AccountingSale,
+  PackagingVariant 
 } from '../../types/accounting';
 import { 
   fetchAccountingProducts, 
@@ -18,6 +20,11 @@ import {
   saveAccountingCustomer, 
   calculateBargainingAllocation 
 } from '../../services/accountingService';
+import { 
+  getProductVariants, 
+  normalizeToBaseUnit, 
+  formatBaseUnitDisplay 
+} from '../../utils/agriPackagingUtils';
 import { PrintableSalesInvoice } from './PrintableSalesInvoice';
 import { downloadSalesInvoicePDF } from '../../utils/salesInvoicePdfGenerator';
 
@@ -35,6 +42,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
   // Cart / Bill State
   interface CartItem {
+    cartItemId: string; // unique item id
     productId: string;
     name: string;
     hindiName: string;
@@ -43,12 +51,30 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     costPrice: number;
     originalSellingPrice: number;
     currentStock: number;
+    variantId?: string;
+    variantLabel?: string;
+    batchNumber?: string;
+    expiryDate?: string;
+    saleType?: 'pack' | 'loose';
+    looseQuantity?: number;
+    looseUnit?: string;
+    looseBaseQty?: number;
+    openedPackDeducted?: boolean;
   }
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  
+  // Loose & Spray Dose Modal State
+  const [looseModalProduct, setLooseModalProduct] = useState<AccountingProduct | null>(null);
+  const [looseMode, setLooseMode] = useState<'direct' | 'pump'>('direct');
+  const [looseDirectQty, setLooseDirectQty] = useState<string>('100');
+  const [looseDirectUnit, setLooseDirectUnit] = useState<string>('ml');
+  const [loosePumpCount, setLoosePumpCount] = useState<string>('3');
+  const [looseDosePerPump, setLooseDosePerPump] = useState<string>('35');
+  const [looseCustomPrice, setLooseCustomPrice] = useState<string>('');
   
   // Quick Add Customer modal
   const [showQuickCustomerModal, setShowQuickCustomerModal] = useState(false);
@@ -126,47 +152,157 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     ).slice(0, 10);
   }, [customers, customerSearchQuery]);
 
-  // Add Item to Cart
-  const addItemToCart = (p: AccountingProduct) => {
+  // Add Item to Cart (Pack / Packaging Variant)
+  const addItemToCart = (p: AccountingProduct, variant?: PackagingVariant) => {
+    const variants = getProductVariants(p);
+    const chosenVariant = variant || (variants.length === 1 ? variants[0] : null);
+
+    const variantId = chosenVariant ? chosenVariant.id : undefined;
+    const cartItemId = `${p.id}_${variantId || 'base'}_pack`;
+
     setCartItems(prev => {
-      const existing = prev.find(item => item.productId === p.id);
+      const existing = prev.find(item => item.cartItemId === cartItemId);
       if (existing) {
         return prev.map(item => 
-          item.productId === p.id 
+          item.cartItemId === cartItemId 
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
+
+      const variantLabel = chosenVariant 
+        ? (chosenVariant.label || `${chosenVariant.sizeValue} ${chosenVariant.sizeUnit} (${chosenVariant.packagingType})`)
+        : undefined;
+
+      const costPrice = chosenVariant ? (chosenVariant.costPrice || p.costPrice || 0) : (p.costPrice || 0);
+      const originalSellingPrice = chosenVariant ? (chosenVariant.sellingPrice || p.defaultSellingPrice || p.costPrice || 0) : (p.defaultSellingPrice || p.costPrice || 0);
+      const currentStock = chosenVariant ? (chosenVariant.currentStockPacks ?? p.currentStock ?? 0) : (p.currentStock || 0);
+      const unit = chosenVariant ? (chosenVariant.sizeUnit || p.unit) : p.unit;
+
+      const firstBatch = p.batches && p.batches.length > 0 ? p.batches[0] : undefined;
+
       return [
         ...prev,
         {
+          cartItemId,
           productId: p.id,
           name: p.name,
           hindiName: p.hindiName,
-          unit: p.unit,
+          unit,
           quantity: 1,
-          costPrice: p.costPrice || 0,
-          originalSellingPrice: p.defaultSellingPrice || p.costPrice || 0,
-          currentStock: p.currentStock || 0,
+          costPrice,
+          originalSellingPrice,
+          currentStock,
+          variantId,
+          variantLabel,
+          batchNumber: firstBatch?.batchNumber,
+          expiryDate: firstBatch?.expiryDate,
+          saleType: 'pack',
         },
       ];
     });
   };
 
-  const updateItemQty = (productId: string, qty: number) => {
-    if (qty <= 0) {
-      removeItemFromCart(productId);
+  // Open Loose / Spray Dose Modal
+  const openLooseDoseModal = (p: AccountingProduct) => {
+    setLooseModalProduct(p);
+    setLooseMode('direct');
+
+    const isLiquid = p.unit === 'Ltr' || p.unit === 'Ml' || p.productType === 'liquid';
+    const baseUnit = isLiquid ? 'ml' : 'g';
+    setLooseDirectUnit(baseUnit);
+
+    const doseVal = p.standardDoseInfo?.verifiedDosePer20LTank || (isLiquid ? 35 : 50);
+    setLooseDosePerPump(String(doseVal));
+    setLoosePumpCount('3');
+    setLooseDirectQty('100');
+
+    // Default rate per base unit
+    let ratePerBase = p.looseStock?.sellingPricePerBaseUnit || 0;
+    if (!ratePerBase) {
+      const defaultSelling = p.defaultSellingPrice || 0;
+      const baseQty = normalizeToBaseUnit(1, p.unit || (isLiquid ? 'Ltr' : 'kg'));
+      ratePerBase = baseQty > 0 ? Number((defaultSelling / baseQty).toFixed(2)) : 0.5;
+    }
+    setLooseCustomPrice(String(ratePerBase));
+  };
+
+  // Confirm and Add Loose Item to Cart
+  const handleConfirmLooseSale = () => {
+    if (!looseModalProduct) return;
+    const p = looseModalProduct;
+    const isLiquid = p.unit === 'Ltr' || p.unit === 'Ml' || p.productType === 'liquid';
+    const baseUnit = isLiquid ? 'ml' : 'g';
+
+    let requestedQty = 0;
+    let label = '';
+
+    if (looseMode === 'pump') {
+      const pumps = Number(loosePumpCount) || 1;
+      const dose = Number(looseDosePerPump) || 35;
+      requestedQty = pumps * dose;
+      label = `डोज: ${pumps} पंप (${requestedQty} ${baseUnit})`;
+    } else {
+      requestedQty = Number(looseDirectQty) || 0;
+      label = `खुला / डोज (${requestedQty} ${baseUnit})`;
+    }
+
+    if (requestedQty <= 0) {
+      alert('कृपया मान्य मात्रा दर्ज करें।');
       return;
     }
-    setCartItems(prev => prev.map(it => it.productId === productId ? { ...it, quantity: qty } : it));
+
+    const ratePerUnit = Number(looseCustomPrice) || (p.looseStock?.sellingPricePerBaseUnit || 0.5);
+    const lineTotal = Math.round(requestedQty * ratePerUnit);
+
+    // Calculate cost per base unit
+    let costPerUnit = p.looseStock?.costPerBaseUnit || 0;
+    if (!costPerUnit) {
+      const baseQty = normalizeToBaseUnit(1, p.unit || (isLiquid ? 'Ltr' : 'kg'));
+      costPerUnit = baseQty > 0 ? ((p.costPrice || 0) / baseQty) : 0;
+    }
+    const lineCost = Math.round(requestedQty * costPerUnit);
+
+    const cartItemId = `${p.id}_loose_${Date.now()}`;
+
+    setCartItems(prev => [
+      ...prev,
+      {
+        cartItemId,
+        productId: p.id,
+        name: p.name,
+        hindiName: p.hindiName,
+        unit: baseUnit,
+        quantity: 1, // 1 loose line item
+        originalSellingPrice: lineTotal,
+        costPrice: lineCost,
+        currentStock: p.looseStock?.availableBaseQty || 0,
+        saleType: 'loose',
+        variantLabel: label,
+        looseQuantity: requestedQty,
+        looseUnit: baseUnit,
+        looseBaseQty: requestedQty,
+        openedPackDeducted: false,
+      },
+    ]);
+
+    setLooseModalProduct(null);
   };
 
-  const updateItemPrice = (productId: string, price: number) => {
-    setCartItems(prev => prev.map(it => it.productId === productId ? { ...it, originalSellingPrice: Math.max(0, price) } : it));
+  const updateItemQty = (cartItemId: string, qty: number) => {
+    if (qty <= 0) {
+      removeItemFromCart(cartItemId);
+      return;
+    }
+    setCartItems(prev => prev.map(it => it.cartItemId === cartItemId ? { ...it, quantity: qty } : it));
   };
 
-  const removeItemFromCart = (productId: string) => {
-    setCartItems(prev => prev.filter(it => it.productId !== productId));
+  const updateItemPrice = (cartItemId: string, price: number) => {
+    setCartItems(prev => prev.map(it => it.cartItemId === cartItemId ? { ...it, originalSellingPrice: Math.max(0, price) } : it));
+  };
+
+  const removeItemFromCart = (cartItemId: string) => {
+    setCartItems(prev => prev.filter(it => it.cartItemId !== cartItemId));
   };
 
   // Base Calculation without bargaining
@@ -354,7 +490,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-3xl border border-gray-100 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-emerald-600 text-white rounded-2xl flex items-center justify-center shadow-md shadow-emerald-200">
+          <div className="w-12 h-12 bg-[#2D5A27] text-white rounded-xl flex items-center justify-center shadow-sm">
             <ShoppingBag className="w-6 h-6" />
           </div>
           <div>
@@ -441,61 +577,131 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                 </div>
               ) : (
                 filteredProducts.map(prod => {
-                  const inCart = cartItems.find(it => it.productId === prod.id);
+                  const variants = getProductVariants(prod);
+                  const hasMultipleVariants = variants.length > 1;
+                  const isLiquidOrPowder = prod.unit === 'Ltr' || prod.unit === 'Ml' || prod.unit === 'Kg' || prod.unit === 'Gram' || prod.productType === 'liquid' || prod.productType === 'powder_granule' || prod.category === 'pesticides' || prod.category === 'fungicides' || prod.category === 'herbicides' || prod.category === 'medicines';
+                  const allowLoose = prod.looseStock?.isAllowedForLooseSale ?? isLiquidOrPowder;
+
+                  const prodCartCount = cartItems
+                    .filter(it => it.productId === prod.id)
+                    .reduce((sum, it) => sum + it.quantity, 0);
+
                   const isOutOfStock = (prod.currentStock || 0) <= 0;
+
                   return (
                     <div
                       key={prod.id}
-                      onClick={() => addItemToCart(prod)}
-                      className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                        inCart
-                          ? 'border-emerald-500 bg-emerald-50/50 shadow-sm'
+                      className={`p-3 rounded-2xl border transition-all ${
+                        prodCartCount > 0
+                          ? 'border-emerald-500 bg-emerald-50/40 shadow-sm'
                           : isOutOfStock
-                          ? 'border-red-100 bg-red-50/20 hover:border-red-300'
-                          : 'border-gray-100 bg-white hover:border-emerald-200 hover:bg-gray-50'
+                          ? 'border-red-100 bg-red-50/20'
+                          : 'border-gray-100 bg-white hover:border-gray-300'
                       }`}
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="font-bold text-gray-900 text-xs sm:text-sm truncate">
-                            {prod.hindiName || prod.name}
-                          </h4>
-                          {inCart && (
-                            <span className="bg-emerald-600 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
-                              ×{inCart.quantity}
-                            </span>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="font-bold text-gray-900 text-xs sm:text-sm truncate">
+                              {prod.hindiName || prod.name}
+                            </h4>
+                            {prodCartCount > 0 && (
+                              <span className="bg-[#2D5A27] text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
+                                {prodCartCount} बिल में
+                              </span>
+                            )}
+                          </div>
+                          {prod.hindiName && prod.name && prod.hindiName !== prod.name && (
+                            <p className="text-[10px] text-gray-400 truncate">{prod.name}</p>
                           )}
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[11px] font-extrabold text-emerald-800">
+                              ₹{prod.defaultSellingPrice} /{prod.unit}
+                            </span>
+                            <span className="text-[10px] text-gray-400">
+                              (लागत: ₹{prod.costPrice})
+                            </span>
+                          </div>
                         </div>
-                        <p className="text-[11px] text-gray-400 truncate">{prod.name}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[11px] font-extrabold text-emerald-800">
-                            ₹{prod.defaultSellingPrice} /{prod.unit}
+
+                        <div className="text-right shrink-0">
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full block mb-1 ${
+                              isOutOfStock
+                                ? 'bg-red-100 text-red-700'
+                                : prod.currentStock <= prod.minStockAlert
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            स्टॉक: {prod.currentStock} {prod.unit}
                           </span>
-                          <span className="text-[10px] text-gray-400">
-                            (लागत: ₹{prod.costPrice})
-                          </span>
+
+                          {!hasMultipleVariants && (
+                            <button
+                              type="button"
+                              onClick={() => addItemToCart(prod, variants[0])}
+                              className="text-xs bg-[#2D5A27] text-white px-2.5 py-1 rounded-xl hover:bg-[#23461e] active:scale-95 transition-all font-bold flex items-center gap-1 ml-auto"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> जोड़ें
+                            </button>
+                          )}
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full block mb-1 ${
-                            isOutOfStock
-                              ? 'bg-red-100 text-red-700'
-                              : prod.currentStock <= prod.minStockAlert
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          स्टॉक: {prod.currentStock} {prod.unit}
-                        </span>
-                        <button
-                          type="button"
-                          className="text-xs bg-emerald-600 text-white p-1.5 rounded-xl hover:bg-emerald-700 active:scale-95 transition-transform"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
+                      {/* PACKAGING VARIANTS CHIPS */}
+                      {hasMultipleVariants && (
+                        <div className="mt-2.5 pt-2 border-t border-gray-100">
+                          <div className="text-[10px] font-bold text-gray-500 mb-1 flex items-center gap-1">
+                            <Layers className="w-3 h-3 text-emerald-700" />
+                            पैकिंग विकल्प (Variants):
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {variants.map(v => {
+                              const vInCart = cartItems.find(it => it.cartItemId === `${prod.id}_${v.id}_pack`);
+                              return (
+                                <button
+                                  key={v.id}
+                                  type="button"
+                                  onClick={() => addItemToCart(prod, v)}
+                                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1.5 ${
+                                    vInCart
+                                      ? 'bg-[#2D5A27] text-white border-[#2D5A27]'
+                                      : 'bg-emerald-50/70 text-emerald-900 border-emerald-200 hover:bg-emerald-100'
+                                  }`}
+                                >
+                                  <span>{v.label || `${v.sizeValue} ${v.sizeUnit}`}</span>
+                                  <span className="font-extrabold">₹{v.sellingPrice || prod.defaultSellingPrice}</span>
+                                  {vInCart && (
+                                    <span className="bg-white/20 text-white px-1 rounded text-[9px]">
+                                      ×{vInCart.quantity}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* LOOSE SALE / DOSE QUICK BUTTON */}
+                      {allowLoose && (
+                        <div className="mt-2 pt-1.5 border-t border-gray-100 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => openLooseDoseModal(prod)}
+                            className="text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100 transition-colors flex items-center gap-1"
+                          >
+                            <Droplet className="w-3 h-3 text-blue-600" />
+                            <span>खुला / डोज बिक्री (Loose & Spray Dose)</span>
+                          </button>
+                          {prod.looseStock && prod.looseStock.availableBaseQty > 0 && (
+                            <span className="text-[10px] font-semibold text-blue-700">
+                              खुला: {formatBaseUnitDisplay(prod.looseStock.availableBaseQty, prod.looseStock.baseUnit)}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })
@@ -642,24 +848,45 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                   {cartItems.map((item, idx) => {
                     const allocItem = allocation.allocatedItems[idx];
                     const lineTotal = item.quantity * item.originalSellingPrice;
+                    const isLoose = item.saleType === 'loose';
+
                     return (
                       <div
-                        key={item.productId}
+                        key={item.cartItemId}
                         className="p-3 bg-gray-50 border border-gray-200 rounded-2xl space-y-2 text-xs"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0 pr-2">
-                            <h4 className="font-bold text-gray-900 text-xs sm:text-sm truncate">
-                              {item.hindiName || item.name}
-                            </h4>
-                            <p className="text-[10px] text-gray-400">
-                              लागत: ₹{item.costPrice} /{item.unit}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className="font-bold text-gray-900 text-xs sm:text-sm">
+                                {item.hindiName || item.name}
+                              </h4>
+                              {item.variantLabel && !isLoose && (
+                                <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                                  {item.variantLabel}
+                                </span>
+                              )}
+                              {isLoose && (
+                                <span className="text-[10px] text-blue-800 font-bold bg-blue-100 px-2 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">
+                                  <Droplet className="w-3 h-3 text-blue-600" />
+                                  {item.variantLabel || `खुला (${item.looseQuantity} ${item.looseUnit})`}
+                                </span>
+                              )}
+                              {item.batchNumber && (
+                                <span className="text-[9px] text-gray-500 font-mono bg-gray-200 px-1.5 py-0.5 rounded">
+                                  B: {item.batchNumber}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                              {isLoose ? `कुल मात्रा: ${item.looseQuantity} ${item.looseUnit}` : `लागत: ₹${item.costPrice} /${item.unit}`}
                             </p>
                           </div>
                           <button
                             type="button"
-                            onClick={() => removeItemFromCart(item.productId)}
+                            onClick={() => removeItemFromCart(item.cartItemId)}
                             className="text-gray-400 hover:text-red-600 p-1"
+                            title="बिल से हटाएं"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -674,10 +901,10 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                               min="0.1"
                               step="any"
                               value={item.quantity}
-                              onChange={e => updateItemQty(item.productId, Number(e.target.value))}
+                              onChange={e => updateItemQty(item.cartItemId, Number(e.target.value))}
                               className="w-16 p-1.5 text-center font-bold bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
-                            <span className="text-[11px] text-gray-500">{item.unit}</span>
+                            <span className="text-[11px] text-gray-500">{isLoose ? 'लाइन' : item.unit}</span>
                           </div>
 
                           <div className="col-span-4 flex items-center gap-1">
@@ -686,7 +913,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                               type="number"
                               min="0"
                               value={item.originalSellingPrice}
-                              onChange={e => updateItemPrice(item.productId, Number(e.target.value))}
+                              onChange={e => updateItemPrice(item.cartItemId, Number(e.target.value))}
                               className="w-20 p-1.5 text-center font-bold bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                             />
                           </div>
@@ -784,7 +1011,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                         onClick={() => setPaymentMode(m.id as any)}
                         className={`p-2.5 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
                           paymentMode === m.id
-                            ? 'bg-emerald-700 text-white border-emerald-700 shadow-md'
+                            ? 'bg-[#2D5A27] text-white border-[#2D5A27] shadow-sm'
                             : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
                         }`}
                       >
@@ -841,7 +1068,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                   type="button"
                   disabled={isSubmitting || cartItems.length === 0}
                   onClick={handleCreateSale}
-                  className="w-full py-4 px-6 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl font-extrabold text-sm sm:text-base shadow-lg shadow-emerald-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full py-3.5 px-6 bg-[#2D5A27] hover:bg-[#23461e] text-white rounded-xl font-extrabold text-sm sm:text-base shadow-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     'बिल सुरक्षित हो रहा है...'
@@ -920,11 +1147,261 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
               <button
                 type="submit"
-                className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-md hover:bg-emerald-700 active:scale-95 transition-all mt-4"
+                className="w-full py-3 bg-[#2D5A27] text-white rounded-xl font-bold text-sm shadow-sm hover:bg-[#23461e] active:scale-95 transition-all mt-4"
               >
                 ग्राहक सुरक्षित करें
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* LOOSE & SPRAY PUMP DOSE CALCULATOR MODAL */}
+      {looseModalProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-xl space-y-4 max-h-[92vh] overflow-y-auto border border-gray-200">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold">
+                  <Droplet className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">खुला / स्प्रे डोज बिक्री</h3>
+                  <p className="text-[11px] text-gray-500">{looseModalProduct.hindiName || looseModalProduct.name}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setLooseModalProduct(null)} 
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Current Open Stock Indicator */}
+            <div className="bg-blue-50/70 border border-blue-200 p-3 rounded-2xl flex items-center justify-between text-xs">
+              <div>
+                <span className="text-[11px] text-blue-800 font-medium block">वर्तमान उपलब्ध खुला स्टॉक:</span>
+                <span className="text-base font-black text-blue-950">
+                  {looseModalProduct.looseStock 
+                    ? formatBaseUnitDisplay(looseModalProduct.looseStock.availableBaseQty, looseModalProduct.looseStock.baseUnit)
+                    : `0 ${looseDirectUnit}`}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-gray-500 block">खुला दर:</span>
+                <span className="text-xs font-bold text-gray-800">
+                  ₹{looseCustomPrice || looseModalProduct.looseStock?.sellingPricePerBaseUnit || 0} /{looseDirectUnit}
+                </span>
+              </div>
+            </div>
+
+            {/* Mode Switch Tabs */}
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-gray-100 rounded-2xl text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setLooseMode('direct')}
+                className={`py-2 rounded-xl transition-all ${
+                  looseMode === 'direct' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                सीधी खुली मात्रा ({looseDirectUnit})
+              </button>
+              <button
+                type="button"
+                onClick={() => setLooseMode('pump')}
+                className={`py-2 rounded-xl transition-all flex items-center justify-center gap-1 ${
+                  looseMode === 'pump' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                पंप डोज कैलकुलेटर
+              </button>
+            </div>
+
+            {/* Mode 1: Direct Quantity */}
+            {looseMode === 'direct' && (
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    बिक्री की मात्रा ({looseDirectUnit}) *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder={`उदा. 100 ${looseDirectUnit}`}
+                    value={looseDirectQty}
+                    onChange={e => setLooseDirectQty(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                  {/* Preset quick buttons */}
+                  <div className="flex gap-1.5 mt-2">
+                    {['50', '100', '150', '250', '500'].map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setLooseDirectQty(val)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                          looseDirectQty === val
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                        }`}
+                      >
+                        {val} {looseDirectUnit}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    दर प्रति {looseDirectUnit} (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={looseCustomPrice}
+                    onChange={e => setLooseCustomPrice(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Mode 2: Spray Tank Dose Calculator */}
+            {looseMode === 'pump' && (
+              <div className="space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">
+                      पंपों की संख्या (Tanks) *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="उदा. 3"
+                      value={loosePumpCount}
+                      onChange={e => setLoosePumpCount(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                    <div className="flex gap-1 mt-1.5">
+                      {['1', '2', '3', '4', '5'].map(cnt => (
+                        <button
+                          key={cnt}
+                          type="button"
+                          onClick={() => setLoosePumpCount(cnt)}
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
+                            loosePumpCount === cnt
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-gray-100 text-gray-600 border-gray-200'
+                          }`}
+                        >
+                          {cnt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">
+                      प्रति पंप डोज ({looseDirectUnit}) *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="उदा. 35"
+                      value={looseDosePerPump}
+                      onChange={e => setLooseDosePerPump(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                    {looseModalProduct.standardDoseInfo?.verifiedDosePer20LTank && (
+                      <span className="text-[10px] text-emerald-700 font-semibold block mt-1">
+                        सत्यापित डोज: {looseModalProduct.standardDoseInfo.verifiedDosePer20LTank} {looseDirectUnit}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    दर प्रति {looseDirectUnit} (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={looseCustomPrice}
+                    onChange={e => setLooseCustomPrice(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Calculation Summary Box */}
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs space-y-1">
+                  <div className="font-bold text-amber-900 flex items-center justify-between">
+                    <span>कुल दवा (Volume):</span>
+                    <span className="text-sm">
+                      {(Number(loosePumpCount) || 0) * (Number(looseDosePerPump) || 0)} {looseDirectUnit}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-800">
+                    {loosePumpCount} पंप × {looseDosePerPump} {looseDirectUnit} प्रति 15-16 लीटर टंकी
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Total Price & Stock Check Display */}
+            {(() => {
+              const reqQty = looseMode === 'pump' 
+                ? (Number(loosePumpCount) || 0) * (Number(looseDosePerPump) || 0)
+                : (Number(looseDirectQty) || 0);
+              const rate = Number(looseCustomPrice) || 0;
+              const lineTotal = Math.round(reqQty * rate);
+              const openStock = looseModalProduct.looseStock?.availableBaseQty || 0;
+              const willNeedPackOpen = reqQty > openStock;
+
+              return (
+                <div className="space-y-2 pt-2 border-t border-gray-100">
+                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-2xl border border-gray-200">
+                    <div>
+                      <span className="text-[11px] text-gray-500 block">देय राशि (Line Total):</span>
+                      <span className="text-xl font-black text-gray-900">₹{lineTotal}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[11px] text-gray-500 block">कुल मात्रा:</span>
+                      <span className="text-sm font-bold text-emerald-800">{reqQty} {looseDirectUnit}</span>
+                    </div>
+                  </div>
+
+                  {willNeedPackOpen && (
+                    <div className="p-2.5 bg-sky-50 border border-sky-200 rounded-xl text-[11px] text-sky-900 flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+                      <span>
+                        खुले स्टॉक में मात्र <strong>{openStock} {looseDirectUnit}</strong> है। यह बिल सुरक्षित होने पर 1 सीलबंद पैकेट अपने-आप खुल जाएगा और शेष मात्रा खुले स्टॉक में सुरक्षित हो जाएगी।
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setLooseModalProduct(null)}
+                      className="py-2.5 px-4 bg-gray-100 text-gray-700 rounded-xl font-bold text-xs hover:bg-gray-200 transition-colors"
+                    >
+                      रद्द करें
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmLooseSale}
+                      className="py-2.5 px-4 bg-[#2D5A27] text-white rounded-xl font-bold text-xs hover:bg-[#23461e] active:scale-95 transition-all shadow-sm flex items-center justify-center gap-1.5"
+                    >
+                      <Check className="w-4 h-4" />
+                      बिल में जोड़ें
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

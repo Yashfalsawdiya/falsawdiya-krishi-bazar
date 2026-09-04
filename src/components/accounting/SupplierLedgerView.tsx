@@ -494,7 +494,7 @@ export const SupplierLedgerView: React.FC<SupplierLedgerViewProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => onOpenRecordPayment(selectedSupplier.id)}
-                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-blue-200 active:scale-95 transition-all"
+                    className="px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
                   >
                     <IndianRupee className="w-3.5 h-3.5" /> Supplier Payment दर्ज करें
                   </button>

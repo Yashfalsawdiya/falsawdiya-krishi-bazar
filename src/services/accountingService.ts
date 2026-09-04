@@ -17,7 +17,11 @@ import {
   AccountingExpenseCategory,
   AccountingCashRegister,
   DailyAccountingSummary,
-  AIScanResult
+  AIScanResult,
+  PackagingVariant,
+  StockBatch,
+  LooseStockPool,
+  StockMovementLog
 } from '../types/accounting';
 import { compressImage } from '../lib/utils';
 
@@ -88,6 +92,7 @@ export function calculateBargainingAllocation(
     const isBelowCost = effectiveUnitPrice < it.costPrice;
 
     return {
+      ...(it as any),
       productId: it.productId,
       name: it.name,
       hindiName: it.hindiName,
@@ -149,6 +154,219 @@ export async function saveAccountingProduct(product: Omit<AccountingProduct, 'id
 
 export async function deleteAccountingProduct(productId: string): Promise<void> {
   await deleteDoc(doc(db, 'accounting_products', productId));
+}
+
+/**
+ * Opens one or more sealed packs of a specific packaging variant
+ * and transfers the volume/weight into the product's loose stock pool.
+ */
+export async function openSealedPack(
+  productId: string,
+  variantId: string,
+  packsToOpen = 1
+): Promise<{ success: boolean; looseAdded: number; message: string }> {
+  const prodRef = doc(db, 'accounting_products', productId);
+  const prodSnap = await getDoc(prodRef);
+  if (!prodSnap.exists()) {
+    throw new Error('उत्पाद नहीं मिला (Product not found)');
+  }
+
+  const prod = prodSnap.data() as AccountingProduct;
+  const variants = prod.packagingVariants ? [...prod.packagingVariants] : [];
+  const targetVarIndex = variants.findIndex(v => v.id === variantId);
+
+  if (targetVarIndex === -1) {
+    throw new Error('पैकेजिंग साइज नहीं मिला (Variant not found)');
+  }
+
+  const targetVar = { ...variants[targetVarIndex] };
+  if ((targetVar.currentStockPacks || 0) < packsToOpen) {
+    throw new Error(`सीलबंद पैकेट उपलब्ध नहीं हैं। वर्तमान स्टॉक: ${targetVar.currentStockPacks || 0}`);
+  }
+
+  // Calculate base quantity (ml or g)
+  let baseQtyPerPack = targetVar.baseQuantity;
+  if (!baseQtyPerPack || baseQtyPerPack <= 0) {
+    const unit = (targetVar.sizeUnit || '').toLowerCase();
+    if (unit === 'ltr' || unit === 'l') baseQtyPerPack = targetVar.sizeValue * 1000;
+    else if (unit === 'kg') baseQtyPerPack = targetVar.sizeValue * 1000;
+    else baseQtyPerPack = targetVar.sizeValue;
+  }
+
+  const totalBaseQtyToAdd = baseQtyPerPack * packsToOpen;
+  const isLiquid = targetVar.sizeUnit === 'ml' || targetVar.sizeUnit === 'Ltr' || prod.unit === 'Ltr' || prod.unit === 'Ml';
+  const detectedBaseUnit: 'ml' | 'g' = isLiquid ? 'ml' : 'g';
+
+  // 1. Decrement variant stock
+  targetVar.currentStockPacks = Math.max(0, (targetVar.currentStockPacks || 0) - packsToOpen);
+  variants[targetVarIndex] = targetVar;
+
+  // 2. Calculate new loose pool balance & per-base-unit cost/rate
+  const currentLoose = prod.looseStock?.availableBaseQty || 0;
+  const newLooseQty = currentLoose + totalBaseQtyToAdd;
+
+  const costPerBaseUnit = baseQtyPerPack > 0 ? (targetVar.costPrice / baseQtyPerPack) : (prod.costPrice / (baseQtyPerPack || 1));
+  const sellingPerBaseUnit = baseQtyPerPack > 0 ? (targetVar.sellingPrice / baseQtyPerPack) : (prod.defaultSellingPrice / (baseQtyPerPack || 1));
+
+  const newLooseStock: LooseStockPool = {
+    availableBaseQty: newLooseQty,
+    baseUnit: detectedBaseUnit,
+    costPerBaseUnit: Math.round(costPerBaseUnit * 1000) / 1000,
+    sellingPricePerBaseUnit: Math.round(sellingPerBaseUnit * 1000) / 1000,
+    lastOpenedFromVariantId: targetVar.id,
+    updatedAt: Date.now(),
+  };
+
+  const totalSealedStock = variants.reduce((acc, v) => acc + (v.currentStockPacks || 0), 0);
+
+  const batch = writeBatch(db);
+  batch.update(prodRef, {
+    packagingVariants: variants,
+    currentStock: totalSealedStock,
+    looseStock: newLooseStock,
+    updatedAt: Date.now(),
+  });
+
+  // 3. Log stock movement
+  const movRef = doc(collection(db, 'accounting_stock_movements'));
+  const movLog: StockMovementLog = {
+    id: movRef.id,
+    timestamp: Date.now(),
+    date: new Date().toISOString().split('T')[0],
+    productId,
+    productName: prod.hindiName || prod.name,
+    variantId: targetVar.id,
+    variantLabel: targetVar.label,
+    type: 'pack_opened',
+    quantityChangePacks: -packsToOpen,
+    quantityChangeBaseUnit: totalBaseQtyToAdd,
+    balancePacksAfter: targetVar.currentStockPacks,
+    balanceBaseUnitAfter: newLooseQty,
+    reason: `${packsToOpen} सीलबंद पैकेट (${targetVar.label}) खोलकर ${totalBaseQtyToAdd} ${detectedBaseUnit} खुले स्टॉक में जमा किया गया।`,
+  };
+  batch.set(movRef, movLog);
+
+  await batch.commit();
+
+  return {
+    success: true,
+    looseAdded: totalBaseQtyToAdd,
+    message: `${targetVar.label} का ${packsToOpen} पैकेट सफलतापूर्वक खुला। अब कुल ${newLooseQty} ${detectedBaseUnit} खुला स्टॉक उपलब्ध है।`,
+  };
+}
+
+/**
+ * Stock adjustment for physical verification, weighing tolerance losses, or damage write-offs.
+ */
+export async function adjustProductStock(params: {
+  productId: string;
+  variantId?: string;
+  isLooseStock?: boolean;
+  adjustType: 'set' | 'add' | 'subtract';
+  quantity: number;
+  reason: string;
+}): Promise<void> {
+  const { productId, variantId, isLooseStock, adjustType, quantity, reason } = params;
+  const prodRef = doc(db, 'accounting_products', productId);
+  const prodSnap = await getDoc(prodRef);
+  if (!prodSnap.exists()) throw new Error('उत्पाद नहीं मिला');
+
+  const prod = prodSnap.data() as AccountingProduct;
+  const batch = writeBatch(db);
+  const now = Date.now();
+
+  let packsChange: number | undefined;
+  let baseUnitChange: number | undefined;
+  let finalPacks: number | undefined;
+  let finalBaseQty: number | undefined;
+
+  if (isLooseStock) {
+    const currentLoose = prod.looseStock?.availableBaseQty || 0;
+    let newLoose = currentLoose;
+    if (adjustType === 'set') newLoose = Math.max(0, quantity);
+    else if (adjustType === 'add') newLoose = currentLoose + quantity;
+    else if (adjustType === 'subtract') newLoose = Math.max(0, currentLoose - quantity);
+
+    baseUnitChange = newLoose - currentLoose;
+    finalBaseQty = newLoose;
+
+    batch.update(prodRef, {
+      'looseStock.availableBaseQty': newLoose,
+      'looseStock.updatedAt': now,
+      updatedAt: now,
+    });
+  } else if (variantId && prod.packagingVariants && prod.packagingVariants.length > 0) {
+    const variants = prod.packagingVariants.map(v => {
+      if (v.id === variantId) {
+        const cur = v.currentStockPacks || 0;
+        let nxt = cur;
+        if (adjustType === 'set') nxt = Math.max(0, quantity);
+        else if (adjustType === 'add') nxt = cur + quantity;
+        else if (adjustType === 'subtract') nxt = Math.max(0, cur - quantity);
+
+        packsChange = nxt - cur;
+        finalPacks = nxt;
+        return { ...v, currentStockPacks: nxt };
+      }
+      return v;
+    });
+
+    const totalSealed = variants.reduce((sum, v) => sum + (v.currentStockPacks || 0), 0);
+    batch.update(prodRef, {
+      packagingVariants: variants,
+      currentStock: totalSealed,
+      updatedAt: now,
+    });
+  } else {
+    // Legacy top-level stock adjustment
+    const cur = prod.currentStock || 0;
+    let nxt = cur;
+    if (adjustType === 'set') nxt = Math.max(0, quantity);
+    else if (adjustType === 'add') nxt = cur + quantity;
+    else if (adjustType === 'subtract') nxt = Math.max(0, cur - quantity);
+
+    packsChange = nxt - cur;
+    finalPacks = nxt;
+
+    batch.update(prodRef, {
+      currentStock: nxt,
+      updatedAt: now,
+    });
+  }
+
+  // Record Audit Trail
+  const movRef = doc(collection(db, 'accounting_stock_movements'));
+  const movLog: StockMovementLog = {
+    id: movRef.id,
+    timestamp: now,
+    date: new Date().toISOString().split('T')[0],
+    productId,
+    productName: prod.hindiName || prod.name,
+    variantId,
+    type: 'weighing_adjustment',
+    quantityChangePacks: packsChange,
+    quantityChangeBaseUnit: baseUnitChange,
+    balancePacksAfter: finalPacks,
+    balanceBaseUnitAfter: finalBaseQty,
+    reason: reason || 'स्टॉक एडजस्टमेंट (मैनुअल सत्यापन)',
+  };
+  batch.set(movRef, movLog);
+
+  await batch.commit();
+}
+
+export async function fetchStockMovements(productId?: string, limitCount = 50): Promise<StockMovementLog[]> {
+  try {
+    let q = query(collection(db, 'accounting_stock_movements'), orderBy('timestamp', 'desc'), limit(limitCount));
+    if (productId) {
+      q = query(collection(db, 'accounting_stock_movements'), where('productId', '==', productId), orderBy('timestamp', 'desc'), limit(limitCount));
+    }
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as StockMovementLog));
+  } catch (err) {
+    console.error('Error fetching stock movements:', err);
+    return [];
+  }
 }
 
 // ----------------------------------------------------
@@ -311,18 +529,84 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
   // 1. Write Sale Doc
   batch.set(saleRef, fullSale);
 
-  // 2. Automatically Deduct Inventory Stock for each sold item
+  // 2. Automatically Deduct Inventory Stock for each sold item (Pack or Loose)
   for (const item of saleData.items) {
     if (item.productId) {
       const prodRef = doc(db, 'accounting_products', item.productId);
       const prodSnap = await getDoc(prodRef);
       if (prodSnap.exists()) {
-        const currentStock = prodSnap.data().currentStock || 0;
-        const newStock = Math.max(0, currentStock - item.quantity);
-        batch.update(prodRef, {
-          currentStock: newStock,
-          updatedAt: now,
-        });
+        const prodData = prodSnap.data() as AccountingProduct;
+
+        if (item.saleType === 'loose') {
+          // Deduct from Loose Stock Pool
+          const currentLoose = prodData.looseStock?.availableBaseQty || 0;
+          const deductBase = item.looseBaseQty || item.looseQuantity || 0;
+          const newLoose = Math.max(0, currentLoose - deductBase);
+          
+          batch.update(prodRef, {
+            'looseStock.availableBaseQty': newLoose,
+            'looseStock.updatedAt': now,
+            updatedAt: now,
+          });
+
+          // Stock movement audit
+          const movRef = doc(collection(db, 'accounting_stock_movements'));
+          batch.set(movRef, {
+            id: movRef.id,
+            timestamp: now,
+            date: saleData.date,
+            productId: item.productId,
+            productName: item.hindiName || item.name,
+            type: 'loose_sale',
+            quantityChangeBaseUnit: -deductBase,
+            balanceBaseUnitAfter: newLoose,
+            reason: `बिल #${saleData.invoiceNo} पर खुली बिक्री (${deductBase} ${item.looseUnit || 'ml/g'})`,
+            referenceId: saleRef.id,
+          });
+        } else if (item.variantId && prodData.packagingVariants && prodData.packagingVariants.length > 0) {
+          // Deduct from specific variant
+          const updatedVariants = prodData.packagingVariants.map(v => {
+            if (v.id === item.variantId) {
+              return {
+                ...v,
+                currentStockPacks: Math.max(0, (v.currentStockPacks || 0) - item.quantity),
+              };
+            }
+            return v;
+          });
+          const totalSealedPacks = updatedVariants.reduce((sum, v) => sum + (v.currentStockPacks || 0), 0);
+          
+          batch.update(prodRef, {
+            packagingVariants: updatedVariants,
+            currentStock: totalSealedPacks,
+            updatedAt: now,
+          });
+
+          // Stock movement audit
+          const movRef = doc(collection(db, 'accounting_stock_movements'));
+          batch.set(movRef, {
+            id: movRef.id,
+            timestamp: now,
+            date: saleData.date,
+            productId: item.productId,
+            productName: item.hindiName || item.name,
+            variantId: item.variantId,
+            variantLabel: item.variantLabel,
+            type: 'pack_sale',
+            quantityChangePacks: -item.quantity,
+            balancePacksAfter: updatedVariants.find(v => v.id === item.variantId)?.currentStockPacks,
+            reason: `बिल #${saleData.invoiceNo} पर सीलबंद बिक्री (${item.quantity} ${item.variantLabel || item.unit})`,
+            referenceId: saleRef.id,
+          });
+        } else {
+          // Fallback legacy deduction
+          const currentStock = prodData.currentStock || 0;
+          const newStock = Math.max(0, currentStock - item.quantity);
+          batch.update(prodRef, {
+            currentStock: newStock,
+            updatedAt: now,
+          });
+        }
       }
     }
   }
@@ -570,7 +854,7 @@ export async function createWholesalerPurchase(purchaseData: Omit<AccountingPurc
 
   batch.set(purchaseRef, fullPurchase);
 
-  // 1. Automatically update stock and Weighted Average Cost for each item
+  // 1. Automatically update stock, variants, batches and Weighted Average Cost for each item
   for (const item of purchaseData.items) {
     if (item.productId) {
       const prodRef = doc(db, 'accounting_products', item.productId);
@@ -587,10 +871,88 @@ export async function createWholesalerPurchase(purchaseData: Omit<AccountingPurc
           weightedCost = ((currentStock * currentCost) + (item.quantity * item.purchasePrice)) / totalNewQty;
         }
 
-        batch.update(prodRef, {
+        const updates: any = {
           currentStock: totalNewQty,
           costPrice: Math.round(weightedCost * 100) / 100,
           updatedAt: now,
+        };
+
+        // If packaging variant is specified or created on the fly
+        const variants = prodData.packagingVariants ? [...prodData.packagingVariants] : [];
+        if (item.variantId || item.packagingSize) {
+          let targetVar = variants.find(v => v.id === item.variantId);
+          if (!targetVar && item.packagingSize) {
+            const sizeVal = Number(item.packagingSize);
+            const sizeUnit = item.packagingUnit || 'ml';
+            const packType = item.packagingType || 'Bottle';
+            const baseQty = sizeUnit === 'Ltr' || sizeUnit === 'kg' ? sizeVal * 1000 : sizeVal;
+            const newVar: PackagingVariant = {
+              id: `var_${now}_${Math.random().toString(36).slice(2, 6)}`,
+              sizeValue: sizeVal,
+              sizeUnit: sizeUnit,
+              packagingType: packType,
+              label: `${sizeVal} ${sizeUnit} ${packType}`,
+              baseQuantity: baseQty,
+              costPrice: item.purchasePrice,
+              sellingPrice: item.sellingPriceSuggestion || Math.round(item.purchasePrice * 1.25),
+              currentStockPacks: item.quantity,
+              minStockAlertPacks: 5,
+              allowLooseSale: true,
+            };
+            variants.push(newVar);
+            targetVar = newVar;
+          } else if (targetVar) {
+            targetVar.currentStockPacks = (targetVar.currentStockPacks || 0) + item.quantity;
+            targetVar.costPrice = item.purchasePrice;
+            if (item.sellingPriceSuggestion) {
+              targetVar.sellingPrice = item.sellingPriceSuggestion;
+            }
+          }
+          updates.packagingVariants = variants;
+        }
+
+        // Add Stock Batch Lot record
+        if (item.batchNumber || item.expiryDate || item.manufacturingDate) {
+          const batches = prodData.batches ? [...prodData.batches] : [];
+          const newBatch: StockBatch = {
+            id: `batch_${now}_${Math.random().toString(36).slice(2, 6)}`,
+            productId: item.productId,
+            variantId: item.variantId || 'default',
+            batchNumber: item.batchNumber || `B-${now.toString().slice(-6)}`,
+            manufacturingDate: item.manufacturingDate,
+            expiryDate: item.expiryDate || '',
+            purchasePricePerPack: item.purchasePrice,
+            initialPackQuantity: item.quantity,
+            remainingPackQuantity: item.quantity,
+            supplierId: purchaseData.supplierId,
+            purchaseInvoiceNo: purchaseData.invoiceNumber,
+            purchaseDate: purchaseData.invoiceDate,
+            createdAt: now,
+          };
+          batches.push(newBatch);
+          updates.batches = batches;
+          updates.batchNo = item.batchNumber || prodData.batchNo;
+          updates.expiryDate = item.expiryDate || prodData.expiryDate;
+          if (item.manufacturingDate) updates.manufacturingDate = item.manufacturingDate;
+        }
+
+        batch.update(prodRef, updates);
+
+        // Stock movement audit
+        const movRef = doc(collection(db, 'accounting_stock_movements'));
+        batch.set(movRef, {
+          id: movRef.id,
+          timestamp: now,
+          date: purchaseData.invoiceDate,
+          productId: item.productId,
+          productName: item.hindiName || item.name,
+          variantId: item.variantId,
+          batchNumber: item.batchNumber,
+          type: 'purchase',
+          quantityChangePacks: item.quantity,
+          balancePacksAfter: totalNewQty,
+          reason: `थोक खरीद इनवॉइस #${purchaseData.invoiceNumber} से स्टॉक आगमन`,
+          referenceId: purchaseRef.id,
         });
       }
     }

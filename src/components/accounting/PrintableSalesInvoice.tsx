@@ -142,17 +142,36 @@ export const PrintableSalesInvoice: React.FC<Props> = ({ sale, customerOutstandi
                   <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/60'}>
                     <td className="p-2 text-center text-gray-500 font-medium">{idx + 1}</td>
                     <td className="p-2">
-                      <div className="font-bold text-gray-900 text-xs">
-                        {item.hindiName || item.name}
+                      <div className="font-bold text-gray-900 text-xs flex items-center flex-wrap gap-1">
+                        <span>{item.hindiName || item.name}</span>
+                        {item.variantLabel && (
+                          <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200">
+                            {item.variantLabel}
+                          </span>
+                        )}
+                        {item.saleType === 'loose' && (
+                          <span className="text-[10px] text-blue-800 font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            💧 खुला ({item.looseQuantity || item.quantity} {item.looseUnit || item.unit})
+                          </span>
+                        )}
                       </div>
-                      {item.hindiName && item.name && item.hindiName !== item.name && (
-                        <div className="text-[10px] text-gray-500 font-medium leading-tight">
-                          {item.name}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {item.hindiName && item.name && item.hindiName !== item.name && (
+                          <span className="text-[10px] text-gray-500 font-medium leading-tight">
+                            {item.name}
+                          </span>
+                        )}
+                        {item.batchNumber && (
+                          <span className="text-[9px] text-gray-400 font-mono">
+                            बैच: {item.batchNumber}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-2 text-center font-bold text-gray-800">
-                      {item.quantity} {item.unit}
+                      {item.saleType === 'loose'
+                        ? `${item.looseQuantity || item.quantity} ${item.looseUnit || item.unit}`
+                        : `${item.quantity} ${item.unit}`}
                     </td>
                     <td className="p-2 text-right text-gray-600">
                       ₹{(item.originalSellingPrice || effectiveRate).toLocaleString()}

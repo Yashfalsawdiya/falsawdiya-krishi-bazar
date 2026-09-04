@@ -582,13 +582,13 @@ const Admin: React.FC = () => {
         <button 
           onClick={() => setActiveTab('accounting')}
           className={cn(
-            "flex-1 min-w-[170px] py-3 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 transition-all",
+            "flex-1 min-w-[170px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
             activeTab === 'accounting' 
-              ? "bg-gradient-to-r from-emerald-700 to-[#2D5A27] text-white shadow-md shadow-emerald-200" 
-              : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+              ? "bg-[#2D5A27] text-white shadow-md" 
+              : "text-gray-500 hover:bg-gray-50"
           )}
         >
-          <Calculator className="w-4 h-4 text-amber-300" /> AI मुनीम जी (Accounting)
+          <Calculator className="w-4 h-4" /> AI मुनीम जी (Accounting)
         </button>
         <button 
           onClick={() => setActiveTab('orders')}

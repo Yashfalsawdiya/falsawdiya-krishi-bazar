@@ -346,7 +346,7 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({
           <button
             type="submit"
             disabled={isSubmitting || paymentAmount <= 0}
-            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl font-extrabold text-sm shadow-md shadow-blue-200 active:scale-95 transition-all flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-blue-700 hover:bg-blue-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl font-extrabold text-sm shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2"
           >
             <IndianRupee className="w-4 h-4" />
             <span>

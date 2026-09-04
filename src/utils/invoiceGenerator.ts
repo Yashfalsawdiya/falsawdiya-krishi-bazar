@@ -1,4 +1,4 @@
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import { jsPDF } from 'jspdf';
 import { Order, ImageSource, InvoiceTemplateConfig } from '../types';
 import { getHighResImageURL } from '../lib/utils';
@@ -497,6 +497,15 @@ export const generateOrderInvoicePDF = async (
       backgroundColor: '#ffffff',
       width: 794,
       windowWidth: 794,
+      onclone: (_clonedDoc, clonedElement) => {
+        if (clonedElement) {
+          clonedElement.style.position = 'static';
+          clonedElement.style.left = '0px';
+          clonedElement.style.top = '0px';
+          clonedElement.style.display = 'block';
+          clonedElement.style.visibility = 'visible';
+        }
+      },
     });
 
     const imgData = canvas.toDataURL('image/jpeg', 0.98);

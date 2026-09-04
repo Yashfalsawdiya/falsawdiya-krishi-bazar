@@ -1,4 +1,4 @@
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import { jsPDF } from 'jspdf';
 import { AccountingSale } from '../types/accounting';
 
@@ -27,14 +27,29 @@ function buildInvoiceHtml(sale: AccountingSale, customerOutstanding: number = 0)
         const discount = item.bargainingDiscountShare || 0;
         const bg = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
 
+        const variantBadge = item.variantLabel ? `<span style="font-size: 10px; color: #065f46; font-weight: 700; background-color: #d1fae5; padding: 1px 5px; border-radius: 4px; margin-left: 4px; border: 1px solid #a7f3d0;">${item.variantLabel}</span>` : '';
+        const looseBadge = item.saleType === 'loose' ? `<span style="font-size: 10px; color: #1e40af; font-weight: 700; background-color: #dbeafe; padding: 1px 5px; border-radius: 4px; margin-left: 4px; border: 1px solid #bfdbfe;">💧 खुला (${item.looseQuantity || item.quantity} ${item.looseUnit || item.unit})</span>` : '';
+        const batchBadge = item.batchNumber ? `<span style="font-size: 9px; color: #6b7280; margin-left: 4px;">बैच: ${item.batchNumber}</span>` : '';
+
+        const qtyDisplay = item.saleType === 'loose'
+          ? `${item.looseQuantity || item.quantity} ${item.looseUnit || item.unit}`
+          : `${item.quantity} ${item.unit}`;
+
         return `
           <tr style="background-color: ${bg}; border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 8px; text-align: center; color: #6b7280;">${idx + 1}</td>
             <td style="padding: 8px;">
-              <div style="font-weight: 700; color: #111827; font-size: 12px;">${item.hindiName || item.name}</div>
-              ${item.hindiName && item.name && item.hindiName !== item.name ? `<div style="font-size: 10px; color: #6b7280;">${item.name}</div>` : ''}
+              <div style="font-weight: 700; color: #111827; font-size: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">
+                <span>${item.hindiName || item.name}</span>
+                ${variantBadge}
+                ${looseBadge}
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center; margin-top: 2px;">
+                ${item.hindiName && item.name && item.hindiName !== item.name ? `<span style="font-size: 10px; color: #6b7280;">${item.name}</span>` : ''}
+                ${batchBadge}
+              </div>
             </td>
-            <td style="padding: 8px; text-align: center; font-weight: 700; color: #1f2937;">${item.quantity} ${item.unit}</td>
+            <td style="padding: 8px; text-align: center; font-weight: 700; color: #1f2937;">${qtyDisplay}</td>
             <td style="padding: 8px; text-align: right; color: #4b5563;">₹${(item.originalSellingPrice || effectiveRate).toLocaleString()}</td>
             <td style="padding: 8px; text-align: right; color: #047857; font-weight: 700;">${discount > 0 ? `-₹${discount.toLocaleString()}` : '-'}</td>
             <td style="padding: 8px; text-align: right; color: #111827; font-weight: 700;">₹${effectiveRate.toLocaleString()}</td>
@@ -219,37 +234,85 @@ export async function downloadSalesInvoicePDF(
 ): Promise<{ success: boolean; fileName: string; error?: string }> {
   const fileName = `फल्सावदिया_बिल_${sale.invoiceNo}.pdf`;
 
-  // Create an offscreen container specifically configured for 794px width (standard A4 at 96 DPI)
-  const container = document.createElement('div');
-  container.style.position = 'fixed';
-  container.style.left = '-9999px';
-  container.style.top = '0';
-  container.style.width = '794px';
-  container.style.minWidth = '794px';
-  container.style.maxWidth = '794px';
-  container.style.backgroundColor = '#ffffff';
-  container.style.boxSizing = 'border-box';
-  container.style.zIndex = '-99999';
-
-  container.innerHTML = buildInvoiceHtml(sale, customerOutstanding);
-  document.body.appendChild(container);
+  // Create an isolated offscreen iframe so parent Tailwind v4 stylesheets (containing oklch)
+  // are never evaluated by html2canvas
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.left = '-9999px';
+  iframe.style.top = '0';
+  iframe.style.width = '794px';
+  iframe.style.height = '1123px';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
+  iframe.style.zIndex = '-99999';
+  document.body.appendChild(iframe);
 
   try {
-    // Wait for fonts to load
-    if (document.fonts && document.fonts.ready) {
-      await document.fonts.ready;
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      throw new Error('प्रिंटिंग फ्रेम तैयार नहीं किया जा सका।');
     }
-    // Brief layout settle
-    await new Promise((resolve) => setTimeout(resolve, 150));
 
-    const canvas = await html2canvas(container, {
-      scale: 2, // 2x resolution for crisp Hindi and numbers
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { 
+              font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; 
+              background-color: #ffffff; 
+              color: #111827; 
+            }
+            table { border-collapse: collapse; }
+          </style>
+        </head>
+        <body style="background-color: #ffffff; margin: 0; padding: 0;">
+          <div id="invoice-render-target" style="width: 794px; background-color: #ffffff;">
+            ${buildInvoiceHtml(sale, customerOutstanding)}
+          </div>
+        </body>
+      </html>
+    `;
+
+    iframeDoc.open();
+    iframeDoc.write(htmlContent);
+    iframeDoc.close();
+
+    // Wait for fonts & layout
+    if (iframeDoc.fonts && iframeDoc.fonts.ready) {
+      await iframeDoc.fonts.ready;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const renderTarget = iframeDoc.getElementById('invoice-render-target') || iframeDoc.body;
+
+    const canvas = await html2canvas(renderTarget, {
+      scale: 2, // 2x resolution for crisp Hindi font and numbers
       useCORS: true,
       allowTaint: true,
       logging: false,
       backgroundColor: '#ffffff',
       width: 794,
       windowWidth: 794,
+      onclone: (clonedDoc, clonedElement) => {
+        // Strip any style tags or stylesheet links that might contain unsupported oklch
+        const allStyles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
+        allStyles.forEach(s => {
+          if (s.textContent && s.textContent.includes('oklch')) {
+            s.remove();
+          }
+        });
+
+        if (clonedElement) {
+          clonedElement.style.position = 'static';
+          clonedElement.style.left = '0px';
+          clonedElement.style.top = '0px';
+          clonedElement.style.display = 'block';
+          clonedElement.style.visibility = 'visible';
+        }
+      },
     });
 
     const imgData = canvas.toDataURL('image/jpeg', 0.98);
@@ -293,8 +356,8 @@ export async function downloadSalesInvoicePDF(
     console.error('Error generating sales invoice PDF:', err);
     return { success: false, fileName, error: err.message || 'PDF जनरेट करने में असमर्थ' };
   } finally {
-    if (container.parentNode) {
-      container.parentNode.removeChild(container);
+    if (iframe.parentNode) {
+      iframe.parentNode.removeChild(iframe);
     }
   }
 }

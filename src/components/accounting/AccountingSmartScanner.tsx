@@ -368,7 +368,7 @@ export const AccountingSmartScanner: React.FC<Props> = ({ onEntrySaved }) => {
       {/* Header */}
       <div className="bg-white p-5 sm:p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-md shadow-amber-200">
+          <div className="w-12 h-12 bg-amber-500 text-white rounded-xl flex items-center justify-center shadow-sm">
             <Sparkles className="w-6 h-6" />
           </div>
           <div>
@@ -432,7 +432,7 @@ export const AccountingSmartScanner: React.FC<Props> = ({ onEntrySaved }) => {
               <h3 className="font-bold text-gray-900 text-base">कैमरा से फोटो खींचें</h3>
               <p className="text-xs text-gray-500 mt-1">दुकान पर आए बिल या पर्ची का तुरंत फोटो लें</p>
             </div>
-            <span className="inline-block px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-200">
+            <span className="inline-block px-4 py-2 bg-[#2D5A27] text-white rounded-xl text-xs font-bold shadow-sm">
               कैमरा खोलें (Live Camera)
             </span>
           </div>
@@ -448,7 +448,7 @@ export const AccountingSmartScanner: React.FC<Props> = ({ onEntrySaved }) => {
               <h3 className="font-bold text-gray-900 text-base">गैलरी / फाइल से अपलोड करें</h3>
               <p className="text-xs text-gray-500 mt-1">मोबाइल गैलरी से बिल या पर्ची चुनें</p>
             </div>
-            <span className="inline-block px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-200">
+            <span className="inline-block px-4 py-2 bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm">
               फाइल चुनें (Choose File)
             </span>
           </div>
@@ -813,7 +813,7 @@ export const AccountingSmartScanner: React.FC<Props> = ({ onEntrySaved }) => {
                   type="button"
                   disabled={isSaving}
                   onClick={handleSaveConfirmedEntry}
-                  className="w-full py-4 px-6 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-extrabold text-sm sm:text-base shadow-lg shadow-amber-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full py-3.5 px-6 bg-[#2D5A27] hover:bg-[#23461e] text-white rounded-xl font-extrabold text-sm sm:text-base shadow-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isSaving ? (
                     'सुरक्षित हो रहा है...'

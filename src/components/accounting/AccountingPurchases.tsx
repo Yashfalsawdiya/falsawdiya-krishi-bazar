@@ -132,10 +132,37 @@ export const AccountingPurchases: React.FC = () => {
           copy[index].hindiName = prod.hindiName;
           copy[index].unit = prod.unit;
           copy[index].purchasePrice = prod.costPrice || 0;
+          copy[index].batchNumber = prod.batchNo || '';
+          copy[index].expiryDate = prod.expiryDate || '';
+
+          if (prod.packagingVariants && prod.packagingVariants.length > 0) {
+            const firstVar = prod.packagingVariants[0];
+            copy[index].variantId = firstVar.id;
+            copy[index].packagingSize = firstVar.sizeValue;
+            copy[index].packagingUnit = firstVar.sizeUnit;
+            copy[index].packagingType = firstVar.packagingType;
+            copy[index].purchasePrice = firstVar.costPrice || prod.costPrice || 0;
+            copy[index].sellingPriceSuggestion = firstVar.sellingPrice || prod.defaultSellingPrice || 0;
+          }
         }
       }
 
-      if (field === 'quantity' || field === 'purchasePrice' || field === 'productId') {
+      if (field === 'variantId') {
+        const prod = products.find(p => p.id === copy[index].productId);
+        if (prod && prod.packagingVariants) {
+          const matchedVar = prod.packagingVariants.find(v => v.id === value);
+          if (matchedVar) {
+            copy[index].variantId = matchedVar.id;
+            copy[index].packagingSize = matchedVar.sizeValue;
+            copy[index].packagingUnit = matchedVar.sizeUnit;
+            copy[index].packagingType = matchedVar.packagingType;
+            copy[index].purchasePrice = matchedVar.costPrice || copy[index].purchasePrice;
+            copy[index].sellingPriceSuggestion = matchedVar.sellingPrice || copy[index].sellingPriceSuggestion;
+          }
+        }
+      }
+
+      if (field === 'quantity' || field === 'purchasePrice' || field === 'productId' || field === 'variantId') {
         const qty = field === 'quantity' ? Number(value) : copy[index].quantity;
         const rate = field === 'purchasePrice' ? Number(value) : copy[index].purchasePrice;
         copy[index].total = Math.round(qty * rate * 100) / 100;
@@ -261,7 +288,7 @@ export const AccountingPurchases: React.FC = () => {
       {/* Top Banner */}
       <div className="bg-white p-5 sm:p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-md shadow-blue-200">
+          <div className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-sm">
             <Truck className="w-6 h-6" />
           </div>
           <div>
@@ -275,7 +302,7 @@ export const AccountingPurchases: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleOpenPaymentModal()}
-            className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-200 active:scale-95 transition-all"
+            className="px-3.5 py-2.5 bg-[#2D5A27] hover:bg-[#23461e] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
           >
             <IndianRupee className="w-4 h-4" /> Supplier Payment दर्ज करें
           </button>
@@ -286,7 +313,7 @@ export const AccountingPurchases: React.FC = () => {
               ]);
               setShowAddPurchaseModal(true);
             }}
-            className="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-blue-200 active:scale-95 transition-all"
+            className="px-3.5 py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
           >
             <Plus className="w-4 h-4" /> नया खरीद इनवॉइस
           </button>
@@ -628,42 +655,109 @@ export const AccountingPurchases: React.FC = () => {
                         />
                       )}
 
+                      {/* If product selected, offer Variant selection */}
+                      {item.productId && (() => {
+                        const prod = products.find(p => p.id === item.productId);
+                        if (!prod || !prod.packagingVariants || prod.packagingVariants.length === 0) return null;
+                        return (
+                          <div className="flex items-center gap-2 bg-emerald-50/70 p-2 rounded-xl border border-emerald-200">
+                            <span className="text-[10px] font-bold text-emerald-900 shrink-0">पैकेजिंग साइज:</span>
+                            <select
+                              value={item.variantId || ''}
+                              onChange={e => updatePurchaseItem(idx, 'variantId', e.target.value)}
+                              className="flex-1 p-1.5 bg-white border border-emerald-300 rounded-lg text-xs font-bold text-emerald-950"
+                            >
+                              {prod.packagingVariants.map(v => (
+                                <option key={v.id} value={v.id}>
+                                  {v.label} — लागत: ₹{v.costPrice} / बिक्री: ₹{v.sellingPrice} (स्टॉक: {v.currentStockPacks || 0})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Batch No & Expiry Date row */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-500 block mb-0.5">बैच नंबर (Batch)</label>
+                          <input
+                            type="text"
+                            placeholder="उदा. B-2409"
+                            value={item.batchNumber || ''}
+                            onChange={e => updatePurchaseItem(idx, 'batchNumber', e.target.value)}
+                            className="w-full p-1.5 bg-white border border-gray-200 rounded-lg text-xs font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-500 block mb-0.5">एक्सपायरी तारीख (Expiry)</label>
+                          <input
+                            type="date"
+                            value={item.expiryDate || ''}
+                            onChange={e => updatePurchaseItem(idx, 'expiryDate', e.target.value)}
+                            className="w-full p-1.5 bg-white border border-gray-200 rounded-lg text-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-500 block mb-0.5">विक्रय मूल्य सुझाव ₹</label>
+                          <input
+                            type="number"
+                            step="any"
+                            placeholder="विक्रय दर"
+                            value={item.sellingPriceSuggestion || ''}
+                            onChange={e => updatePurchaseItem(idx, 'sellingPriceSuggestion', Number(e.target.value))}
+                            className="w-full p-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-emerald-800"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-500 block mb-0.5">पैकेट प्रकार</label>
+                          <select
+                            value={item.packagingType || 'Bottle'}
+                            onChange={e => updatePurchaseItem(idx, 'packagingType', e.target.value as any)}
+                            className="w-full p-1.5 bg-white border border-gray-200 rounded-lg text-xs"
+                          >
+                            <option value="Bottle">बोतल (Bottle)</option>
+                            <option value="Pouch">पाउच (Pouch)</option>
+                            <option value="Packet">पैकेट (Packet)</option>
+                            <option value="Bag">कट्टा/बैग (Bag)</option>
+                            <option value="Bucket">बाल्टी (Bucket)</option>
+                            <option value="Can">केन (Can)</option>
+                            <option value="Other">अन्य</option>
+                          </select>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-12 gap-2 items-center">
-                        <div className="col-span-4 flex items-center gap-1">
-                          <span className="text-[10px] text-gray-500 font-bold">मात्रा:</span>
+                        <div className="col-span-5 flex items-center gap-1">
+                          <span className="text-[10px] text-gray-500 font-bold">मात्रा (पैकेट):</span>
                           <input
                             type="number"
                             step="any"
                             value={item.quantity}
                             onChange={e => updatePurchaseItem(idx, 'quantity', Number(e.target.value))}
-                            className="w-14 p-1.5 text-center font-bold bg-white border border-gray-200 rounded-xl"
+                            className="w-16 p-1.5 text-center font-extrabold bg-white border border-gray-200 rounded-xl text-xs"
                           />
-                          <select
-                            value={item.unit}
-                            onChange={e => updatePurchaseItem(idx, 'unit', e.target.value)}
-                            className="p-1.5 bg-white border border-gray-200 rounded-xl text-[10px]"
-                          >
-                            <option value="Bottle">बोतल</option>
-                            <option value="Pouch">पाउच</option>
-                            <option value="Kg">किलो</option>
-                            <option value="Ltr">लीटर</option>
-                            <option value="Bag">कट्टा/बैग</option>
-                          </select>
+                          <span className="text-[11px] text-gray-600 font-bold">
+                            {item.packagingSize ? `${item.packagingSize}${item.packagingUnit || ''}` : item.unit}
+                          </span>
                         </div>
 
                         <div className="col-span-4 flex items-center gap-1">
-                          <span className="text-[10px] text-gray-500 font-bold">लागत दर ₹:</span>
+                          <span className="text-[10px] text-gray-500 font-bold">लागत ₹:</span>
                           <input
                             type="number"
                             step="any"
                             value={item.purchasePrice}
                             onChange={e => updatePurchaseItem(idx, 'purchasePrice', Number(e.target.value))}
-                            className="w-20 p-1.5 font-bold bg-white border border-gray-200 rounded-xl"
+                            className="w-24 p-1.5 font-bold bg-white border border-gray-200 rounded-xl text-xs text-purple-900"
                           />
                         </div>
 
-                        <div className="col-span-4 text-right font-extrabold text-gray-900">
-                          कुल: ₹{item.total}
+                        <div className="col-span-3 text-right font-black text-gray-900 text-xs">
+                          ₹{item.total}
                         </div>
                       </div>
                     </div>
@@ -755,7 +849,7 @@ export const AccountingPurchases: React.FC = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-extrabold text-sm shadow-md active:scale-95 transition-all mt-4"
+                className="w-full py-3.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-extrabold text-sm shadow-sm active:scale-95 transition-all mt-4"
               >
                 {isSubmitting ? 'सुरक्षित हो रहा है...' : `खरीद दर्ज करें एवं स्टॉक जोड़ें · ₹${grandTotal}`}
               </button>
@@ -839,7 +933,7 @@ export const AccountingPurchases: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 active:scale-95 transition-all mt-4"
+                className="w-full py-3 bg-blue-700 text-white rounded-xl font-bold text-sm shadow-sm hover:bg-blue-800 active:scale-95 transition-all mt-4"
               >
                 सप्लायर सुरक्षित करें
               </button>

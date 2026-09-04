@@ -1,3 +1,66 @@
+export type PackagingType = 'Bottle' | 'Pouch' | 'Packet' | 'Bag' | 'Bucket' | 'Can' | 'Drum' | 'Box' | 'Loose' | 'Other';
+export type SizeUnit = 'ml' | 'Ltr' | 'g' | 'kg' | 'Piece';
+
+export interface PackagingVariant {
+  id: string;
+  sizeValue: number; // e.g. 100, 250, 500, 1, 3, 5, 25, 50
+  sizeUnit: SizeUnit; // ml, Ltr, g, kg, Piece
+  packagingType: PackagingType; // Bottle, Pouch, Bag, etc.
+  label: string; // e.g. "500 ml Bottle", "3 kg Bag"
+  baseQuantity: number; // In ml or g (e.g., 500 for 500ml, 1000 for 1L, 3000 for 3kg)
+  costPrice: number; // Purchase Cost for this specific pack
+  sellingPrice: number; // Selling Price for this specific pack
+  currentStockPacks: number; // Available sealed packs
+  minStockAlertPacks?: number;
+  barcode?: string;
+  allowLooseSale?: boolean; // Can this pack be opened for gram/ml loose sales
+}
+
+export interface StockBatch {
+  id: string;
+  productId: string;
+  variantId: string;
+  batchNumber: string;
+  manufacturingDate?: string; // YYYY-MM-DD
+  expiryDate: string; // YYYY-MM-DD
+  purchasePricePerPack: number;
+  initialPackQuantity: number;
+  remainingPackQuantity: number;
+  supplierId?: string;
+  purchaseInvoiceNo?: string;
+  purchaseDate?: string;
+  createdAt: number;
+}
+
+export interface LooseStockPool {
+  availableBaseQty: number; // available ml or g
+  baseUnit: 'ml' | 'g';
+  costPerBaseUnit: number; // Cost per 1 ml or 1 gram
+  sellingPricePerBaseUnit: number; // Selling price per 1 ml or 1 gram
+  lastOpenedFromVariantId?: string;
+  lastOpenedBatchNumber?: string;
+  isAllowedForLooseSale?: boolean;
+  updatedAt: number;
+}
+
+export interface StockMovementLog {
+  id: string;
+  timestamp: number;
+  date: string;
+  productId: string;
+  productName: string;
+  variantId?: string;
+  variantLabel?: string;
+  batchNumber?: string;
+  type: 'purchase' | 'pack_sale' | 'loose_sale' | 'pack_opened' | 'weighing_adjustment' | 'damage' | 'expired_writeoff' | 'return';
+  quantityChangePacks?: number;
+  quantityChangeBaseUnit?: number;
+  balancePacksAfter?: number;
+  balanceBaseUnitAfter?: number;
+  reason?: string;
+  referenceId?: string;
+}
+
 export interface AccountingProduct {
   id: string;
   customId?: string;
@@ -12,6 +75,19 @@ export interface AccountingProduct {
   hsnCode?: string;
   batchNo?: string;
   expiryDate?: string;
+  manufacturingDate?: string;
+  // Multi-packaging & Loose extensions:
+  packagingVariants?: PackagingVariant[];
+  looseStock?: LooseStockPool;
+  batches?: StockBatch[];
+  hasMultipleVariants?: boolean;
+  productType?: 'liquid' | 'powder_granule' | 'other';
+  standardDoseInfo?: {
+    verifiedDosePer20LTank?: number; // e.g. 40 ml or 10 g
+    doseUnit?: 'ml' | 'g';
+    targetCrops?: string;
+    warningNote?: string;
+  };
   updatedAt: number;
   createdAt: number;
 }
@@ -32,6 +108,17 @@ export interface AccountingSaleItem {
   lineGrossProfit: number; // totalEffectiveAmount - totalCost
   lineMarginPercent: number; // ((effectiveSellingPrice - costPrice) / effectiveSellingPrice) * 100
   isBelowCost: boolean; // True if effectiveSellingPrice < costPrice
+  // New Variant & Loose Sale fields:
+  saleType?: 'pack' | 'loose';
+  variantId?: string;
+  variantLabel?: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  looseQuantity?: number;
+  looseUnit?: string;
+  looseBaseQty?: number;
+  packSizeValue?: number;
+  packSizeUnit?: string;
 }
 
 export interface AccountingSale {
@@ -131,6 +218,13 @@ export interface AccountingPurchaseItem {
   purchasePrice: number; // Unit Cost Price
   sellingPriceSuggestion?: number;
   total: number;
+  variantId?: string;
+  packagingSize?: number;
+  packagingUnit?: SizeUnit;
+  packagingType?: PackagingType;
+  batchNumber?: string;
+  manufacturingDate?: string;
+  expiryDate?: string;
 }
 
 export interface AccountingPurchase {

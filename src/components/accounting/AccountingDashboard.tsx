@@ -79,7 +79,7 @@ export const AccountingDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Accounting Header Nav Tabs */}
-      <div className="bg-white p-2 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+      <div className="bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-1.5 overflow-x-auto no-scrollbar">
         {[
           { id: 'overview', label: 'वित्तीय डैशबोर्ड (Overview)', icon: TrendingUp },
           { id: 'pos', label: 'पीओएस बिक्री (POS Bill)', icon: ShoppingBag },
@@ -95,9 +95,9 @@ export const AccountingDashboard: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                 isActive
-                  ? 'bg-emerald-700 text-white shadow-md shadow-emerald-200'
+                  ? 'bg-[#2D5A27] text-white shadow-sm'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
               }`}
             >
@@ -169,7 +169,7 @@ export const AccountingDashboard: React.FC = () => {
               <button
                 onClick={handleGenerateAiInsight}
                 disabled={loadingAiInsight}
-                className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-2xl text-xs font-extrabold flex items-center gap-2 shadow-md shadow-amber-200 active:scale-95 transition-all"
+                className="px-4 py-2.5 bg-[#2D5A27] hover:bg-[#23461e] text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm active:scale-95 transition-all disabled:opacity-50"
               >
                 <Bot className="w-4 h-4" />
                 {loadingAiInsight ? 'AI विश्लेषण हो रहा है...' : 'AI मुनीम जी से सलाह लें (AI Insights)'}
@@ -289,18 +289,18 @@ export const AccountingDashboard: React.FC = () => {
             </div>
 
             {/* 4. NET PURE PROFIT */}
-            <div className="bg-gradient-to-br from-emerald-800 to-emerald-950 text-white p-5 rounded-3xl shadow-lg shadow-emerald-200 flex flex-col justify-between space-y-3">
+            <div className="bg-[#2D5A27] text-white p-5 rounded-2xl shadow-sm border border-[#23461e] flex flex-col justify-between space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-200">शुद्ध मुनाफा (Net Profit)</span>
-                <div className="w-10 h-10 bg-emerald-700 text-white rounded-xl flex items-center justify-center font-bold">
+                <span className="text-xs font-bold text-emerald-100">शुद्ध मुनाफा (Net Profit)</span>
+                <div className="w-10 h-10 bg-white/10 text-white rounded-xl flex items-center justify-center font-bold">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
               </div>
               <div>
-                <h3 className="text-2xl font-extrabold text-emerald-100">
+                <h3 className="text-2xl font-extrabold text-white">
                   ₹{report?.netProfit?.toLocaleString() || 0}
                 </h3>
-                <p className="text-[11px] text-emerald-300 font-bold mt-0.5">
+                <p className="text-[11px] text-emerald-200 font-bold mt-0.5">
                   शुद्ध मार्जिन: {report?.netMarginPercent || 0}% (खर्च काटने के बाद)
                 </p>
               </div>
