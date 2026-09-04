@@ -58,8 +58,10 @@ export const AccountingDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    loadReport();
-  }, [dateRange]);
+    if (activeTab === 'overview') {
+      loadReport();
+    }
+  }, [dateRange, activeTab]);
 
   const handleGenerateAiInsight = async () => {
     if (!report) return;
@@ -116,7 +118,7 @@ export const AccountingDashboard: React.FC = () => {
       )}
 
       {activeTab === 'ledger' && (
-        <AccountingCustomerLedger />
+        <AccountingCustomerLedger onPaymentRecorded={() => loadReport()} />
       )}
 
       {activeTab === 'inventory' && (
@@ -326,9 +328,16 @@ export const AccountingDashboard: React.FC = () => {
                   <span className="text-gray-500">ऑनलाइन UPI से आया:</span>
                   <strong className="text-gray-900 font-bold">+₹{report?.onlineReceived?.toLocaleString() || 0}</strong>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-start">
                   <span className="text-gray-500">उधारी वसूली से आया:</span>
-                  <strong className="text-emerald-700 font-bold">+₹{report?.customerPaymentCollected?.toLocaleString() || 0}</strong>
+                  <div className="text-right">
+                    <strong className="text-emerald-700 font-bold">+₹{report?.customerPaymentCollected?.toLocaleString() || 0}</strong>
+                    {Boolean(report?.customerOnlinePaymentCollected && report.customerOnlinePaymentCollected > 0) && (
+                      <span className="block text-[10px] text-gray-400 font-normal">
+                        (नकद: ₹{(report?.customerCashPaymentCollected ?? 0).toLocaleString()} | UPI: ₹{(report?.customerOnlinePaymentCollected ?? 0).toLocaleString()})
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex justify-between text-rose-600">
                   <span>गल्ले से खर्च निकला:</span>
@@ -337,7 +346,7 @@ export const AccountingDashboard: React.FC = () => {
                 <div className="flex justify-between pt-2 border-t font-extrabold text-sm text-gray-900">
                   <span>शुद्ध नकद गल्ला शेष:</span>
                   <span className="text-emerald-800">
-                    ₹{((report?.cashReceived || 0) + (report?.customerPaymentCollected || 0) - (report?.cashExpenses || 0)).toLocaleString()}
+                    ₹{((report?.cashReceived || 0) + ((report?.customerCashPaymentCollected ?? report?.customerPaymentCollected) || 0) - (report?.cashExpenses || 0)).toLocaleString()}
                   </span>
                 </div>
               </div>

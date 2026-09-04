@@ -281,6 +281,8 @@ export interface AccountingSummaryReport {
   onlineReceived: number;
   newUdhariGiven: number;
   customerPaymentCollected: number;
+  customerCashPaymentCollected?: number;
+  customerOnlinePaymentCollected?: number;
   cashExpenses: number;
   onlineExpenses: number;
   totalCustomerOutstanding: number;

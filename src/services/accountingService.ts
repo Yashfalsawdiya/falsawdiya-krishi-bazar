@@ -265,6 +265,38 @@ export async function fetchAccountingSales(limitCount = 100): Promise<Accounting
   }
 }
 
+export async function fetchAccountingSaleById(saleId: string): Promise<AccountingSale | null> {
+  try {
+    const snap = await getDoc(doc(db, 'accounting_sales', saleId));
+    if (snap.exists()) {
+      return { id: snap.id, ...snap.data() } as AccountingSale;
+    }
+    return null;
+  } catch (err) {
+    console.error('Error fetching sale by id:', err);
+    return null;
+  }
+}
+
+export async function fetchAccountingSaleByInvoiceNo(invoiceNo: string): Promise<AccountingSale | null> {
+  try {
+    const q = query(
+      collection(db, 'accounting_sales'),
+      where('invoiceNo', '==', invoiceNo),
+      limit(1)
+    );
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const docSnap = snap.docs[0];
+      return { id: docSnap.id, ...docSnap.data() } as AccountingSale;
+    }
+    return null;
+  } catch (err) {
+    console.error('Error fetching sale by invoice no:', err);
+    return null;
+  }
+}
+
 export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'createdAt'>): Promise<string> {
   const now = Date.now();
   const batch = writeBatch(db);
@@ -937,22 +969,38 @@ export async function getAccountingInsightsAI(period: string, summaryData: any):
   return json.insights;
 }
 
+export async function fetchCustomerLedgerPayments(): Promise<CustomerLedgerEntry[]> {
+  try {
+    const q = query(
+      collection(db, 'accounting_customer_ledger'),
+      where('type', '==', 'payment_credit')
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CustomerLedgerEntry));
+  } catch (err) {
+    console.error('Error fetching customer ledger payments:', err);
+    return [];
+  }
+}
+
 export async function fetchAccountingReport(
   startDate: string,
   endDate: string
 ): Promise<any> {
   try {
-    const [sales, expenses, products, customers, suppliers] = await Promise.all([
+    const [sales, expenses, products, customers, suppliers, ledgerPayments] = await Promise.all([
       fetchAccountingSales(500),
       fetchAccountingExpenses(),
       fetchAccountingProducts(),
       fetchAccountingCustomers(),
       fetchAccountingSuppliers(),
+      fetchCustomerLedgerPayments(),
     ]);
 
-    // Filter sales by date range
+    // Filter sales and expenses by date range
     const filteredSales = sales.filter(s => s.date >= startDate && s.date <= endDate);
     const filteredExpenses = expenses.filter(e => e.date >= startDate && e.date <= endDate);
+    const filteredPayments = ledgerPayments.filter(p => p.date >= startDate && p.date <= endDate);
 
     const totalSalesAmount = filteredSales.reduce((acc, s) => acc + (s.finalTotal || 0), 0);
     const totalSalesCount = filteredSales.length;
@@ -967,6 +1015,14 @@ export async function fetchAccountingReport(
     const cashReceived = filteredSales.reduce((acc, s) => acc + (s.cashPaid || 0), 0);
     const onlineReceived = filteredSales.reduce((acc, s) => acc + (s.onlinePaid || 0), 0);
     const newUdhariGiven = filteredSales.reduce((acc, s) => acc + (s.udhariAmount || 0), 0);
+
+    const customerPaymentCollected = filteredPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
+    const customerCashPaymentCollected = filteredPayments
+      .filter(p => !p.paymentMode || p.paymentMode === 'cash')
+      .reduce((acc, p) => acc + (p.amount || 0), 0);
+    const customerOnlinePaymentCollected = filteredPayments
+      .filter(p => p.paymentMode === 'online' || p.paymentMode === 'bank')
+      .reduce((acc, p) => acc + (p.amount || 0), 0);
 
     const cashExpenses = filteredExpenses.filter(e => e.paymentMode === 'cash').reduce((acc, e) => acc + (e.amount || 0), 0);
     const onlineExpenses = filteredExpenses.filter(e => e.paymentMode === 'online').reduce((acc, e) => acc + (e.amount || 0), 0);
@@ -991,7 +1047,9 @@ export async function fetchAccountingReport(
       cashReceived,
       onlineReceived,
       newUdhariGiven,
-      customerPaymentCollected: 0,
+      customerPaymentCollected,
+      customerCashPaymentCollected,
+      customerOnlinePaymentCollected,
       cashExpenses,
       onlineExpenses,
       totalCustomerOutstanding,
