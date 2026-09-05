@@ -20,6 +20,7 @@ import AdminOrdersManager from '../components/AdminOrdersManager';
 import AdminRazorpayManager from '../components/AdminRazorpayManager';
 import AdminInvoiceTemplateManager from '../components/AdminInvoiceTemplateManager';
 import AdminDeliveryManager from '../components/AdminDeliveryManager';
+import AdminDeviceBannerManager from '../components/AdminDeviceBannerManager';
 import { SafeErrorBoundary } from '../components/SafeErrorBoundary';
 import { AccountingDashboard } from '../components/accounting/AccountingDashboard';
 import { Calculator } from 'lucide-react';
@@ -1769,77 +1770,15 @@ const Admin: React.FC = () => {
           </div>
 
           {/* Hero Banners */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-[#2D5A27]" />
-                मुख्य बैनर (Hero Banners)
-              </h3>
-              <div className="flex items-center gap-4">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Text ON/OFF</span>
-                <button 
-                  type="button"
-                  onClick={() => {
-                    if (!contentForm) return;
-                    setContentForm({...contentForm, showBannerText: contentForm.showBannerText !== false ? false : true});
-                  }}
-                  className={cn(
-                    "w-12 h-6 rounded-full relative transition-colors duration-200",
-                    contentForm?.showBannerText !== false ? "bg-[#2D5A27]" : "bg-gray-300"
-                  )}
-                >
-                  <div className={cn(
-                    "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-200",
-                    contentForm?.showBannerText !== false ? "left-7" : "left-1"
-                  )} />
-                </button>
-              </div>
-            </div>
-            {contentForm?.banners.map((banner, idx) => (
-              <div key={`${banner.id}-${idx}`} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">बैनर #{idx + 1}</span>
-                </div>
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">शीर्षक (Title)</label>
-                    <input 
-                      type="text" 
-                      value={banner.title}
-                      onChange={e => {
-                        const newBanners = [...contentForm.banners];
-                        newBanners[idx].title = e.target.value;
-                        setContentForm({...contentForm, banners: newBanners});
-                      }}
-                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">उप-शीर्षक (Subtitle)</label>
-                    <input 
-                      type="text" 
-                      value={banner.subtitle}
-                      onChange={e => {
-                        const newBanners = [...contentForm.banners];
-                        newBanners[idx].subtitle = e.target.value;
-                        setContentForm({...contentForm, banners: newBanners});
-                      }}
-                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
-                    />
-                  </div>
-                  <DualImageInput 
-                    label="बैनर फोटो (Banner Image)"
-                    value={banner.image}
-                    onChange={source => {
-                      const newBanners = [...contentForm.banners];
-                      newBanners[idx].image = source;
-                      setContentForm({...contentForm, banners: newBanners});
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+          <AdminDeviceBannerManager 
+            contentForm={contentForm}
+            setContentForm={setContentForm as React.Dispatch<React.SetStateAction<AppContent>>}
+            onSaveContent={async () => {
+              if (contentForm) {
+                await updateAppContent(contentForm);
+              }
+            }}
+          />
 
           {/* YouTube Videos */}
           <div className="space-y-4">

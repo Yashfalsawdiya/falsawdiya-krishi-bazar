@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen, Info, ChevronRight, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Facebook, Instagram, Plus } from 'lucide-react';
+import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen, Info, ChevronRight, ChevronLeft, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Facebook, Instagram, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
@@ -12,6 +12,12 @@ import { getDynamicAdvice, askAiQuestion } from '../services/gemini';
 import ApiKeyModal from '../components/ApiKeyModal';
 import { AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import { 
+  useDeviceType, 
+  normalizeDeviceBanners, 
+  getActiveBannersForDevice 
+} from '../utils/deviceBanners';
+import { DeviceBanner } from '../types';
 
 const BANNERS = [
   {
@@ -81,7 +87,34 @@ const Home: React.FC = () => {
     };
   }, []);
 
-  const [emblaRef] = useEmblaCarousel({ loop: true }, [Autoplay({ delay: 4000 })]);
+  const deviceType = useDeviceType();
+  const [selectedBannerIndex, setSelectedBannerIndex] = useState(0);
+
+  const deviceBannersMap = React.useMemo(() => {
+    return normalizeDeviceBanners(appContent);
+  }, [appContent]);
+
+  const activeDeviceBanners = React.useMemo(() => {
+    return getActiveBannersForDevice(deviceBannersMap, deviceType);
+  }, [deviceBannersMap, deviceType]);
+
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    { loop: activeDeviceBanners.length > 1 },
+    activeDeviceBanners.length > 1 ? [Autoplay({ delay: 4500, stopOnInteraction: false })] : []
+  );
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    const onSelect = () => {
+      setSelectedBannerIndex(emblaApi.selectedScrollSnap());
+    };
+    emblaApi.on('select', onSelect);
+    emblaApi.reInit();
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, activeDeviceBanners]);
+
   const [emblaVideoRef] = useEmblaCarousel({ align: 'start', containScroll: 'trimSnaps' });
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [mandi, setMandi] = useState<MandiData | null>(null);
@@ -266,30 +299,119 @@ const Home: React.FC = () => {
       </div>
 
       {/* Banner Slider */}
-      <div className="overflow-hidden rounded-2xl shadow-lg" ref={emblaRef}>
-        <div className="flex">
-          {banners.map((banner, idx) => (
-            <div 
-              key={`${banner.id}-${idx}`} 
-              onClick={() => setZoomImage({ src: banner.image, alt: banner.title })}
-              className="relative flex-[0_0_100%] min-w-0 aspect-[5/4] sm:aspect-[16/9] md:aspect-[21/9] md:max-h-[360px] lg:max-h-[400px] cursor-zoom-in group"
-            >
-                <SmartImage 
-                  src={banner.image} 
-                  alt={banner.title} 
-                  className="absolute inset-0 w-full h-full"
-                  objectFit="cover"
-                  priority={idx === 0}
-                />
-              {appContent?.showBannerText !== false && (
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-6 text-white">
-                  <h2 className="text-xl md:text-2xl font-bold mb-1">{banner.title}</h2>
-                  <p className="text-sm md:text-base opacity-90">{banner.subtitle}</p>
-                </div>
-              )}
-            </div>
-          ))}
+      <div 
+        className={cn(
+          "overflow-hidden rounded-2xl shadow-lg relative group/slider",
+          deviceType === 'mobile' && "aspect-[5/4] sm:aspect-[4/3] max-h-[360px]",
+          deviceType === 'tablet' && "aspect-[16/9] md:max-h-[380px]",
+          deviceType === 'laptop' && "aspect-[21/9] max-h-[380px]",
+          deviceType === 'desktop' && "aspect-[24/9] max-h-[420px]"
+        )} 
+        ref={emblaRef}
+      >
+        <div className="flex h-full">
+          {activeDeviceBanners.map((banner, idx) => {
+            const hasLink = Boolean(banner.link);
+            const hasImage = Boolean(banner.image);
+
+            return (
+              <div 
+                key={`${banner.id}-${idx}`} 
+                onClick={() => {
+                  if (banner.link) {
+                    if (banner.link.startsWith('http://') || banner.link.startsWith('https://')) {
+                      window.open(banner.link, '_blank', 'noopener,noreferrer');
+                    } else {
+                      navigate(banner.link);
+                    }
+                  } else if (banner.image) {
+                    setZoomImage({ src: banner.image, alt: banner.title || 'Hero Banner' });
+                  }
+                }}
+                className={cn(
+                  "relative flex-[0_0_100%] min-w-0 h-full group",
+                  hasLink ? "cursor-pointer" : hasImage ? "cursor-zoom-in" : "cursor-default"
+                )}
+              >
+                {banner.image ? (
+                  <SmartImage 
+                    src={banner.image} 
+                    alt={banner.title || 'Hero Banner'} 
+                    className="absolute inset-0 w-full h-full"
+                    objectFit="cover"
+                    priority={idx === 0}
+                  />
+                ) : (
+                  <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-emerald-900 via-green-800 to-[#1f3d1b] flex items-center justify-center p-6" />
+                )}
+
+                {appContent?.showBannerText !== false && (banner.title || banner.subtitle) && (
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent flex flex-col justify-end p-5 sm:p-6 md:p-8 text-white pointer-events-none">
+                    {banner.title && (
+                      <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold mb-1 drop-shadow-md">
+                        {banner.title}
+                      </h2>
+                    )}
+                    {banner.subtitle && (
+                      <p className="text-xs sm:text-sm md:text-base opacity-90 drop-shadow-sm font-medium">
+                        {banner.subtitle}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
+
+        {/* Slide Indicators (Dots) */}
+        {activeDeviceBanners.length > 1 && (
+          <div className="absolute bottom-3 right-4 z-10 flex items-center gap-1.5 bg-black/40 backdrop-blur-xs px-2.5 py-1 rounded-full pointer-events-auto">
+            {activeDeviceBanners.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  emblaApi?.scrollTo(i);
+                }}
+                className={cn(
+                  "h-1.5 rounded-full transition-all duration-300 cursor-pointer",
+                  selectedBannerIndex === i ? "w-5 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"
+                )}
+                title={`स्लाइड ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Next / Previous arrows on Laptop and Desktop */}
+        {activeDeviceBanners.length > 1 && (deviceType === 'laptop' || deviceType === 'desktop') && (
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                emblaApi?.scrollPrev();
+              }}
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-opacity backdrop-blur-xs z-10 cursor-pointer shadow-md"
+              title="पिछला बैनर"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                emblaApi?.scrollNext();
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-opacity backdrop-blur-xs z-10 cursor-pointer shadow-md"
+              title="अगला बैनर"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </>
+        )}
       </div>
 
       {/* API Key Prompt */}

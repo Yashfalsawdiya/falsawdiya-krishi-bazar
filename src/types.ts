@@ -3,6 +3,28 @@ export interface ImageSource {
   fallback: string;
 }
 
+export type DeviceType = 'mobile' | 'tablet' | 'laptop' | 'desktop';
+
+export interface DeviceBanner {
+  id: string;
+  deviceType: DeviceType;
+  image: string | ImageSource;
+  title?: string;
+  subtitle?: string;
+  link?: string;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type DeviceBannersMap = {
+  mobile: DeviceBanner[];
+  tablet: DeviceBanner[];
+  laptop: DeviceBanner[];
+  desktop: DeviceBanner[];
+};
+
 export interface CategoryData {
   id: string;
   name: string;

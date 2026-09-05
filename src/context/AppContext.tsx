@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig, DeliveryEmailTemplateConfig } from '../types';
+import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig, DeliveryEmailTemplateConfig, DeviceType, DeviceBanner, DeviceBannersMap } from '../types';
 import { PRODUCTS, CROP_ADVICE, CATEGORIES } from '../data/mockData';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
 import { DEFAULT_INVOICE_TEMPLATE, mergeInvoiceTemplate } from '../data/defaultInvoiceTemplate';
@@ -51,6 +51,7 @@ export interface AppContent {
   isAppActive?: boolean;
   showBannerText?: boolean;
   banners: { id: string; image: string | ImageSource; title: string; subtitle: string }[];
+  deviceBanners?: DeviceBannersMap;
   videos: { id: string; title: string; videoUrl: string; thumbnail: string | ImageSource }[];
   youtubeChannel: {
     url: string;
@@ -430,6 +431,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Content Banners
     if (content.banners) {
       content.banners.forEach(b => prefetchImage(b.image, true));
+    }
+    if (content.deviceBanners) {
+      Object.values(content.deviceBanners).forEach(list => {
+        if (Array.isArray(list)) {
+          list.forEach(b => prefetchImage(b.image, true));
+        }
+      });
     }
     
     // Partner Logos
@@ -1025,6 +1033,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateAppContent = async (content: AppContent) => {
+    setAppContent(content);
+    safeLocalStorageSet('agri_cache_app_content', JSON.stringify(content));
+    prefetchContentImages(content);
     try {
       await setDoc(doc(db, 'settings', 'content'), content);
     } catch (error) {
