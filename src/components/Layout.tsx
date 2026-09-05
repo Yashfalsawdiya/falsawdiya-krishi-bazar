@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import BottomNav from './BottomNav';
@@ -10,6 +10,52 @@ import { LogIn, Sprout, Loader2 } from 'lucide-react';
 
 const Layout: React.FC = () => {
   const { user, loading, login, appContent, isAdmin } = useAppContext();
+
+  // Dynamic header top offset strictly for Laptop & Desktop (window.innerWidth >= 1024)
+  const [desktopHeaderOffset, setDesktopHeaderOffset] = useState<number | null>(null);
+
+  useEffect(() => {
+    const updateHeaderOffset = () => {
+      // Strictly Laptop & Desktop ONLY (lg+)
+      if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+        const headerEl = document.getElementById('app-header') || document.querySelector('header');
+        if (headerEl) {
+          const rect = headerEl.getBoundingClientRect();
+          const height = rect.height || headerEl.offsetHeight;
+          if (height > 0) {
+            // Actual header height + clean, professional vertical whitespace (28px)
+            setDesktopHeaderOffset(Math.round(height + 28));
+            return;
+          }
+        }
+        // Baseline fallback for desktop (128px header + 28px gap = 156px)
+        setDesktopHeaderOffset(156);
+      } else {
+        // Leave mobile and tablet completely untouched
+        setDesktopHeaderOffset(null);
+      }
+    };
+
+    updateHeaderOffset();
+    window.addEventListener('resize', updateHeaderOffset);
+
+    // Also observe header resizing dynamically (e.g. font loading, zoom)
+    const headerEl = document.getElementById('app-header') || document.querySelector('header');
+    let resizeObserver: ResizeObserver | null = null;
+    if (headerEl && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        updateHeaderOffset();
+      });
+      resizeObserver.observe(headerEl);
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateHeaderOffset);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -101,7 +147,10 @@ const Layout: React.FC = () => {
     <div className="min-h-screen bg-[#F5F2ED] flex flex-col w-full relative">
       <OfflineIndicator />
       <Header />
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 md:pb-12 pt-36 md:pt-24 lg:pt-32 transition-all">
+      <main 
+        className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 md:pb-12 pt-36 md:pt-24 lg:pt-[156px] transition-all"
+        style={desktopHeaderOffset !== null ? { paddingTop: `${desktopHeaderOffset}px` } : undefined}
+      >
         <Outlet />
       </main>
       <BottomNav />

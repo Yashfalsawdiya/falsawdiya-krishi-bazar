@@ -3,7 +3,8 @@ import {
   Search, Menu, Sprout, X, Landmark, Phone, Newspaper, User, 
   Calculator, PhoneCall, Bug, TrendingUp, ShoppingCart, Sparkles, 
   Info, ShieldCheck, FileText, RotateCcw, AlertTriangle, ShieldAlert, 
-  HelpCircle, Truck, Scale, Award, Camera, CloudSun, Package, MessageCircle 
+  HelpCircle, Truck, Scale, Award, Camera, CloudSun, Package, MessageCircle,
+  Home, ShoppingBag
 } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -76,7 +77,7 @@ const Header: React.FC = () => {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 bg-[#2D5A27] text-white z-50 shadow-md">
+      <header id="app-header" className="fixed top-0 left-0 right-0 bg-[#2D5A27] text-white z-50 shadow-md">
         {/* ======================================================== */}
         {/* MOBILE VIEW (< md) - EXACTLY PRESERVED MOBILE EXPERIENCE */}
         {/* ======================================================== */}
@@ -381,27 +382,27 @@ const Header: React.FC = () => {
 
           {/* Tier 2: Sub-Navigation Bar (Wide Horizontal Categories & Services) */}
           <div className="bg-[#20431D] border-t border-white/10 shadow-inner">
-            <div className="max-w-7xl mx-auto px-6 lg:px-8 py-2 flex items-center justify-between">
-              <nav className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5">
+            <div className="max-w-7xl mx-auto px-6 lg:px-8 py-2 flex items-center">
+              <nav className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5 w-full">
                 <NavLink 
                   to="/" 
                   end
                   className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
                     isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
                   )}
                 >
-                  मुख्य पृष्ठ
+                  <Home className="w-3.5 h-3.5" /> मुख्य पृष्ठ
                 </NavLink>
 
                 <NavLink 
                   to="/products" 
                   className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
                     isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
                   )}
                 >
-                  कृषि बाजार
+                  <ShoppingBag className="w-3.5 h-3.5" /> कृषि बाज़ार
                 </NavLink>
 
                 <NavLink 
@@ -504,12 +505,6 @@ const Header: React.FC = () => {
                   <Phone className="w-3.5 h-3.5" /> संपर्क करें
                 </NavLink>
               </nav>
-
-              {/* Right Tag / Assurance Badge */}
-              <div className="hidden 2xl:flex items-center gap-2 text-[11px] font-bold text-emerald-200 bg-white/10 px-3 py-1 rounded-full border border-white/10">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>100% प्रमाणित कृषि इनपुट्स</span>
-              </div>
             </div>
           </div>
         </div>
