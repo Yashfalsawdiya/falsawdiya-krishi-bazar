@@ -431,7 +431,7 @@ const Profile: React.FC = () => {
       </div>
 
       {/* About Us & Privacy Policy Cards */}
-      <div className="space-y-2.5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Link 
           to="/about"
           className="bg-white p-5 rounded-3xl border border-gray-100 flex items-center justify-between shadow-xs hover:border-[#2D5A27]/30 transition-all group"

@@ -135,12 +135,12 @@ const Products: React.FC = () => {
       <h2 className="text-xl font-bold text-[#4A3728]">कृषि बाजार (Market)</h2>
       
       {/* Category Filter */}
-      <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
+      <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:flex-wrap md:overflow-x-visible">
         <button
           onClick={() => setSelectedCategory('all')}
           className={cn(
             "px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all",
-            selectedCategory === 'all' ? "bg-[#2D5A27] text-white" : "bg-white text-gray-600 border border-gray-200"
+            selectedCategory === 'all' ? "bg-[#2D5A27] text-white" : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300"
           )}
         >
           सभी (All)
@@ -151,7 +151,7 @@ const Products: React.FC = () => {
             onClick={() => setSelectedCategory(cat.id)}
             className={cn(
               "px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all",
-              selectedCategory === cat.id ? "bg-[#2D5A27] text-white" : "bg-white text-gray-600 border border-gray-200"
+              selectedCategory === cat.id ? "bg-[#2D5A27] text-white" : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300"
             )}
           >
             {cat.name}
@@ -160,7 +160,7 @@ const Products: React.FC = () => {
       </div>
 
       {/* Product List */}
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredProducts.length > 0 ? (
           filteredProducts.map((product, idx) => {
             const displayPrice = product.variants && product.variants.length > 0 ? product.variants[0].price : product.price;

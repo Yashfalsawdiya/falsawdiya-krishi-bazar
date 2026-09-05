@@ -578,7 +578,7 @@ const Admin: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto no-scrollbar">
+      <div className="flex gap-2 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto no-scrollbar md:flex-wrap">
         <button 
           onClick={() => setActiveTab('accounting')}
           className={cn(
@@ -816,7 +816,7 @@ const Admin: React.FC = () => {
           </div>
 
           {/* List Content */}
-          <div className="space-y-3 mt-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-1">
             {products.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-100">
                 <p className="text-sm text-gray-400">कोई उत्पाद नहीं मिला।</p>
@@ -939,7 +939,7 @@ const Admin: React.FC = () => {
           </div>
 
           {/* Categories List */}
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {categories.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-100">
                 <p className="text-sm text-gray-400">कोई श्रेणी नहीं मिली।</p>
@@ -1141,7 +1141,7 @@ const Admin: React.FC = () => {
             </button>
           </div>
 
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {agriIssues.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-100">
                 <p className="text-sm text-gray-400">कोई डेटा नहीं मिला।</p>
@@ -1218,7 +1218,7 @@ const Admin: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {helplines.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-gray-100">
                 <p className="text-sm text-gray-400">कोई हेल्पलाइन नहीं मिली।</p>
@@ -2243,7 +2243,7 @@ const Admin: React.FC = () => {
               initial={{ y: 100 }}
               animate={{ y: 0 }}
               exit={{ y: 100 }}
-              className="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
+              className="bg-white w-full max-w-md md:max-w-3xl rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
             >
               <div className="flex justify-between items-center">
                 <div>
@@ -2533,7 +2533,7 @@ const Admin: React.FC = () => {
               initial={{ y: 100 }}
               animate={{ y: 0 }}
               exit={{ y: 100 }}
-              className="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
+              className="bg-white w-full max-w-md md:max-w-2xl rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
             >
               <div className="flex justify-between items-center">
                 <div>
@@ -2689,7 +2689,7 @@ const Admin: React.FC = () => {
               initial={{ y: 100 }}
               animate={{ y: 0 }}
               exit={{ y: 100 }}
-              className="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
+              className="bg-white w-full max-w-md md:max-w-xl rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
             >
               <div className="flex justify-between items-center">
                 <div>
@@ -2759,7 +2759,7 @@ const Admin: React.FC = () => {
               initial={{ y: 100 }}
               animate={{ y: 0 }}
               exit={{ y: 100 }}
-              className="bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
+              className="bg-white w-full max-w-lg md:max-w-2xl rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
             >
               <div className="flex justify-between items-center">
                 <div>
@@ -2869,7 +2869,7 @@ const Admin: React.FC = () => {
               initial={{ y: 100 }}
               animate={{ y: 0 }}
               exit={{ y: 100 }}
-              className="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
+              className="bg-white w-full max-w-md md:max-w-xl rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl"
             >
               <div className="flex justify-between items-center">
                 <div>

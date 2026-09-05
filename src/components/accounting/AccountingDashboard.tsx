@@ -3,7 +3,7 @@ import {
   TrendingUp, TrendingDown, IndianRupee, Sparkles, AlertTriangle, 
   Calendar, ShoppingBag, Truck, Receipt, Users, Package, 
   ArrowUpRight, ArrowDownLeft, ShieldCheck, RefreshCw, Layers, CheckCircle2,
-  Wallet, Bot, Zap, Activity, Check
+  Wallet, Bot, Zap, Activity, Check, RotateCcw, X
 } from 'lucide-react';
 import { 
   AccountingSummaryReport, 
@@ -11,7 +11,8 @@ import {
 } from '../../types/accounting';
 import { 
   fetchAccountingReport, 
-  getAIFinancialInsights 
+  getAIFinancialInsights,
+  resetTestAccountingData
 } from '../../services/accountingService';
 import { AccountingPOSBilling } from './AccountingPOSBilling';
 import { AccountingSmartScanner } from './AccountingSmartScanner';
@@ -32,6 +33,11 @@ export const AccountingDashboard: React.FC = () => {
   // AI Insights State
   const [aiInsight, setAiInsight] = useState<AIBusinessInsight | null>(null);
   const [loadingAiInsight, setLoadingAiInsight] = useState(false);
+
+  // Controlled Admin Test Data Reset State
+  const [showResetModal, setShowResetModal] = useState<boolean>(false);
+  const [isResetting, setIsResetting] = useState<boolean>(false);
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
 
   const loadReport = async () => {
     setLoadingReport(true);
@@ -73,6 +79,20 @@ export const AccountingDashboard: React.FC = () => {
       alert('AI विश्लेषण लोड करने में समस्या: ' + err.message);
     } finally {
       setLoadingAiInsight(false);
+    }
+  };
+
+  const handleResetTestData = async () => {
+    setIsResetting(true);
+    try {
+      const result = await resetTestAccountingData();
+      await loadReport();
+      setShowResetModal(false);
+      setResetSuccessMessage(`सफलतापूर्वक रीसेट किया गया! कुल ${result.deletedSalesCount} टेस्ट बिक्री बिल एवं संबंधित लेजर रिकॉर्ड्स हटा दिए गए। अगला बिल #FKB-0001 से शुरू होगा।`);
+    } catch (err: any) {
+      alert('डेटा रीसेट करने में त्रुटि: ' + (err.message || err));
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -157,13 +177,23 @@ export const AccountingDashboard: React.FC = () => {
               ))}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={loadReport}
                 className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold flex items-center gap-1"
                 title="रिफ्रेश करें"
               >
                 <RefreshCw className="w-4 h-4" />
+              </button>
+
+              <button
+                id="accounting-reset-test-data-btn"
+                onClick={() => setShowResetModal(true)}
+                className="px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+                title="टेस्टिंग डेटा रीसेट करें"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                <span>टेस्ट डेटा रीसेट</span>
               </button>
 
               <button
@@ -176,6 +206,45 @@ export const AccountingDashboard: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Reset Success Message */}
+          {resetSuccessMessage && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-4 rounded-2xl flex items-center justify-between text-xs font-medium">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span>{resetSuccessMessage}</span>
+              </div>
+              <button onClick={() => setResetSuccessMessage(null)} className="text-gray-400 hover:text-gray-700">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Test Data Notification Banner */}
+          {report && report.totalSalesCount > 0 && (
+            <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-amber-100 text-amber-800 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <RotateCcw className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-amber-950">
+                    वर्तमान में {report.totalSalesCount} टेस्ट बिक्री बिल मौजूद हैं
+                  </h4>
+                  <p className="text-[11px] text-amber-800">
+                    लाइव दुकान बिक्री शुरू करने से पहले आप सभी टेस्ट बिक्री, कैश फ्लो और उधारी लेजर को सुरक्षित रूप से शून्य (₹0) कर सकते हैं।
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowResetModal(true)}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold whitespace-nowrap shadow-xs transition-all flex items-center justify-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>टेस्ट डेटा रीसेट करें</span>
+              </button>
+            </div>
+          )}
 
           {/* AI Insights Card (If generated) */}
           {aiInsight && (
@@ -452,6 +521,87 @@ export const AccountingDashboard: React.FC = () => {
               <div className="font-bold text-gray-900 text-xs">दुकान खर्च जोड़ें</div>
               <p className="text-[10px] text-gray-500">चाय, पेट्रोल, भाड़ा...</p>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* CONTROLLED ADMIN TEST DATA RESET CONFIRMATION MODAL */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 space-y-5 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <RotateCcw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-gray-900 text-base">टेस्टिंग डेटा रीसेट (Test Data Reset)</h3>
+                  <p className="text-xs text-gray-500">अकाउंटिंग व बिलिंग सिस्टम को प्रारंभिक स्थिति में लाएं</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => !isResetting && setShowResetModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100"
+                disabled={isResetting}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-2xl text-amber-900 space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 flex-shrink-0" />
+                  <span>क्या साफ किया जाएगा (What will be reset):</span>
+                </div>
+                <ul className="list-disc pl-5 space-y-1 text-amber-900">
+                  <li>अब तक टेस्टिंग के दौरान बने सभी <strong>POS बिक्री बिल</strong></li>
+                  <li>कैश फ्लो और दैनिक गल्ले के टेस्टिंग रिकॉर्ड्स</li>
+                  <li>ग्राहकों की टेस्टिंग उधारी और लेजर प्रविष्टियां (सभी बैलेंस <strong>₹0</strong> होंगे)</li>
+                  <li>मुनाफा (Gross/Net Profit) एवं सेल्स डैशबोर्ड आंकड़े</li>
+                  <li>बिल नंबर काउंटर रीसेट होकर <strong>Bill #FKB-0001</strong> से शुरू होगा</li>
+                </ul>
+              </div>
+
+              <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl text-emerald-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-emerald-950">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0" />
+                  <span>मास्टर डेटा सुरक्षित रहेगा (Master Data Preserved):</span>
+                </div>
+                <p className="text-[11px] text-emerald-800">
+                  दुकान के उत्पाद (Products), किस्में, श्रेणियां, ग्राहक प्रोफाइल (नाम, फोन, गांव), और सप्लायर रिकॉर्ड्स को कुछ नहीं होगा।
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                disabled={isResetting}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                रद्द करें (Cancel)
+              </button>
+              <button
+                type="button"
+                onClick={handleResetTestData}
+                disabled={isResetting}
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
+              >
+                {isResetting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>डेटा साफ हो रहा है...</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-4 h-4" />
+                    <span>हाँ, टेस्ट डेटा रीसेट करें</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

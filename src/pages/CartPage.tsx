@@ -89,9 +89,9 @@ const CartPage: React.FC = () => {
             </button>
           </motion.div>
         ) : (
-          <div className="space-y-4 mt-2">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start mt-2">
             {/* Cart Items List */}
-            <div className="space-y-3">
+            <div className="lg:col-span-7 xl:col-span-8 space-y-3">
               {cartItems.map((item) => {
                 const itemTotal = item.price * item.quantity;
                 return (
@@ -222,8 +222,10 @@ const CartPage: React.FC = () => {
               })}
             </div>
 
-            {/* Cart Summary details */}
-            <div className="bg-[#F5F2ED] border border-[#4A3728]/10 rounded-2xl p-4 flex flex-col gap-2">
+            {/* Cart Summary & Actions Column */}
+            <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:sticky lg:top-24">
+              {/* Cart Summary details */}
+              <div className="bg-[#F5F2ED] border border-[#4A3728]/10 rounded-2xl p-4 flex flex-col gap-2">
               <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
                 <span>कुल उत्पाद (Total Unique Items)</span>
                 <span>{cartItems.length}</span>
@@ -274,6 +276,7 @@ const CartPage: React.FC = () => {
                 <CreditCard className="w-5 h-5 text-[#EAB308]" />
                 सुरक्षित ऑनलाइन ऑर्डर करें (Proceed to Checkout)
               </button>
+            </div>
             </div>
           </div>
         )}

@@ -17,6 +17,10 @@ import {
   PackagingType 
 } from '../../types/accounting';
 import { normalizeToBaseUnit, formatBaseUnitDisplay, getProductVariants } from '../../utils/agriPackagingUtils';
+import { 
+  ProductBasicInfoFields, 
+  ACCOUNTING_PRODUCT_CATEGORIES 
+} from './ProductBasicInfoFields';
 
 export interface PurchaseVariantRow {
   id: string; // internal unique key
@@ -37,7 +41,7 @@ export interface PurchaseProductEntry {
   productId?: string;
   name: string;
   hindiName?: string;
-  productType: 'liquid' | 'powder_granule';
+  productType: 'liquid' | 'powder_granule' | 'other';
   category: string;
   variants: PurchaseVariantRow[];
 }
@@ -281,99 +285,132 @@ export const PurchasePackagingBuilder: React.FC<PurchasePackagingBuilderProps> =
               key={prodEntry.tempId || pIdx} 
               className="p-4 bg-white border-2 border-blue-100/80 rounded-2xl shadow-sm space-y-3 relative"
             >
-              {/* Product Header Row */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-gray-100">
+              {/* Product Header & Selection Row */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-gray-100">
                 <div className="flex items-center gap-2 flex-1">
-                  <span className="w-6 h-6 rounded-full bg-blue-700 text-white font-black text-xs flex items-center justify-center shrink-0">
+                  <span className="w-7 h-7 rounded-full bg-blue-700 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
                     {pIdx + 1}
                   </span>
                   
-                  {/* Select Existing Product or Manual Name */}
-                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <select
-                        value={prodEntry.productId || ''}
-                        onChange={e => handleSelectProduct(pIdx, e.target.value)}
-                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">-- इन्वेंट्री से उत्पाद चुनें (या नया लिखें) --</option>
-                        {products.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.hindiName} ({p.name}) · स्टॉक: {p.currentStock || 0}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {!prodEntry.productId ? (
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          required
-                          placeholder="उत्पाद का नाम (हिंदी / अंग्रेज़ी)..."
-                          value={prodEntry.hindiName || prodEntry.name}
-                          onChange={e => {
-                            const copy = [...productEntries];
-                            copy[pIdx].name = e.target.value;
-                            copy[pIdx].hindiName = e.target.value;
-                            onChangeEntries(copy);
-                          }}
-                          className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        
-                        {/* Product Form selector for new products */}
-                        <div className="flex bg-gray-100 p-0.5 rounded-xl border border-gray-200 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const copy = [...productEntries];
-                              copy[pIdx].productType = 'liquid';
-                              onChangeEntries(copy);
-                            }}
-                            className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 ${
-                              prodEntry.productType === 'liquid' ? 'bg-white shadow-xs text-blue-900' : 'text-gray-500'
-                            }`}
-                          >
-                            <Droplet className="w-3 h-3 text-blue-600" />
-                            <span>तरल</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const copy = [...productEntries];
-                              copy[pIdx].productType = 'powder_granule';
-                              onChangeEntries(copy);
-                            }}
-                            className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 ${
-                              prodEntry.productType === 'powder_granule' ? 'bg-white shadow-xs text-amber-900' : 'text-gray-500'
-                            }`}
-                          >
-                            <Scale className="w-3 h-3 text-amber-600" />
-                            <span>पाउडर</span>
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100">
-                        <span>{prodEntry.hindiName}</span>
-                        <span className="text-gray-500 font-normal">({prodEntry.name})</span>
-                        <span className="text-[10px] bg-white px-2 py-0.5 rounded-full border border-emerald-200 text-emerald-900 ml-auto">
-                          {prodEntry.productType === 'liquid' ? '💧 तरल' : '⚖️ पाउडर/दानेदार'}
-                        </span>
-                      </div>
-                    )}
+                  {/* Select Existing Product or Start New */}
+                  <div className="flex-1">
+                    <select
+                      value={prodEntry.productId || ''}
+                      onChange={e => handleSelectProduct(pIdx, e.target.value)}
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">-- नया उत्पाद बनाएं (Add New Product) --</option>
+                      <optgroup label="मौजूदा इन्वेंट्री उत्पाद (Existing Inventory)">
+                        {products.map(p => {
+                          const catName = ACCOUNTING_PRODUCT_CATEGORIES.find(c => c.id === p.category)?.nameHindi || p.category || '';
+                          return (
+                            <option key={p.id} value={p.id}>
+                              {p.hindiName} {p.name ? `(${p.name})` : ''} · {catName} · स्टॉक: {p.currentStock || 0}
+                            </option>
+                          );
+                        })}
+                      </optgroup>
+                    </select>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleRemoveProductBlock(pIdx)}
-                  title="उत्पाद हटाएं"
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors self-end sm:self-center"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2 self-end sm:self-center">
+                  {prodEntry.productId && (
+                    <button
+                      type="button"
+                      onClick={() => handleSelectProduct(pIdx, '')}
+                      className="text-[11px] text-blue-700 hover:text-blue-900 font-bold bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg border border-blue-200 transition-colors"
+                    >
+                      + नया उत्पाद लिखें
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveProductBlock(pIdx)}
+                    title="उत्पाद हटाएं"
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
+
+              {/* Product Information: New Product Form OR Selected Product Card */}
+              {!prodEntry.productId ? (
+                <div className="p-3 bg-blue-50/40 border border-blue-200/70 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between pb-1 border-b border-blue-100/80">
+                    <span className="text-xs font-black text-blue-950 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                      <span>उत्पाद विवरण (Product Information)</span>
+                    </span>
+                    <span className="text-[10px] bg-blue-100/80 text-blue-900 font-bold px-2 py-0.5 rounded-full border border-blue-200">
+                      इन्वेंट्री में नया उत्पाद जुड़ेगा
+                    </span>
+                  </div>
+
+                  <ProductBasicInfoFields
+                    values={{
+                      hindiName: prodEntry.hindiName || '',
+                      name: prodEntry.name || '',
+                      category: prodEntry.category || 'pesticides',
+                      productType: prodEntry.productType || 'liquid',
+                    }}
+                    onChange={updated => {
+                      const copy = [...productEntries];
+                      if (updated.hindiName !== undefined) copy[pIdx].hindiName = updated.hindiName;
+                      if (updated.name !== undefined) copy[pIdx].name = updated.name;
+                      if (updated.category !== undefined) copy[pIdx].category = updated.category;
+                      if (updated.productType !== undefined) {
+                        copy[pIdx].productType = updated.productType;
+                        if (copy[pIdx].variants.length === 1 && copy[pIdx].variants[0].costPrice === 0) {
+                          if (updated.productType === 'liquid') {
+                            copy[pIdx].variants[0].sizeUnit = 'ml';
+                            copy[pIdx].variants[0].packagingType = 'Bottle';
+                          } else {
+                            copy[pIdx].variants[0].sizeUnit = 'g';
+                            copy[pIdx].variants[0].packagingType = 'Packet';
+                          }
+                        }
+                      }
+                      onChangeEntries(copy);
+                    }}
+                    existingProducts={products}
+                    onSelectExistingProduct={matchedProd => {
+                      handleSelectProduct(pIdx, matchedProd.id);
+                    }}
+                    accentColor="blue"
+                  />
+                </div>
+              ) : (
+                <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-extrabold text-sm text-blue-950">{prodEntry.hindiName}</span>
+                      {prodEntry.name && (
+                        <span className="text-gray-600 text-xs">({prodEntry.name})</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 text-[10px] font-bold">
+                        {ACCOUNTING_PRODUCT_CATEGORIES.find(c => c.id === prodEntry.category)?.nameHindi || prodEntry.category || 'कीटनाशक'}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-white border border-blue-200 text-blue-900 text-[10px] font-bold">
+                        {prodEntry.productType === 'liquid' ? '💧 तरल (Liquid)' : '⚖️ पाउडर / दानेदार'}
+                      </span>
+                      <span className="text-[11px] text-gray-600 font-medium">
+                        उपलब्ध इन्वेंट्री स्टॉक: <b className="text-gray-900">{selectedProd?.currentStock || 0}</b>
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectProduct(pIdx, '')}
+                    className="text-xs text-blue-700 hover:text-blue-900 font-bold underline shrink-0 self-start sm:self-center"
+                  >
+                    🔄 दूसरा उत्पाद चुनें या नया बनाएं
+                  </button>
+                </div>
+              )}
 
               {/* SECTION: PACKAGING SIZE VARIANTS BUILDER */}
               <div className="space-y-2 pt-1">

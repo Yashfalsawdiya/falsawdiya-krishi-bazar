@@ -13,7 +13,7 @@ const BottomNav: React.FC = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-200 px-2 py-2 flex justify-around items-end z-50">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto bg-white border-t border-gray-200 px-2 py-2 flex justify-around items-end z-50">
       {navItems.map((item) => (
         <NavLink
           key={item.to}

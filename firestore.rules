@@ -334,6 +334,11 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // POS Monthly Backup & Export Tracking
+    match /pos_monthly_backup_meta/{id} {
+      allow read, write: if isAdmin();
+    }
+
     // Default deny-all (moved to end)
     match /{document=**} {
       allow read, write: if false;

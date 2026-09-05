@@ -434,56 +434,60 @@ const CheckoutPage: React.FC = () => {
         </div>
       )}
 
-      <form onSubmit={handleProceedToPayment} className="space-y-4">
-        {/* Step 1: Customer & Delivery Address Card */}
-        <div className="bg-white rounded-3xl p-4 sm:p-5 border border-gray-100 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#2D5A27]/10 flex items-center justify-center text-[#2D5A27]">
-                <MapPin className="w-4 h-4" />
+      <form onSubmit={handleProceedToPayment} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Delivery Address & Vehicle Details */}
+        <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+          {/* Step 1: Customer & Delivery Address Card */}
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-gray-100 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-[#2D5A27]/10 flex items-center justify-center text-[#2D5A27]">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <h3 className="font-bold text-[#4A3728] text-sm">
+                  डिलीवरी पता एवं विवरण (Delivery Address)
+                </h3>
               </div>
-              <h3 className="font-bold text-[#4A3728] text-sm">
-                डिलीवरी पता एवं विवरण (Delivery Address)
-              </h3>
-            </div>
-            <span className="text-[10px] bg-amber-50 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-200">
-              * सभी विवरण अनिवार्य
-            </span>
-          </div>
-
-          <div className="space-y-3 text-xs">
-            {/* Full Name */}
-            <div>
-              <label className="block text-[11px] font-bold text-gray-600 mb-1">पूरा नाम (Full Name) *</label>
-              <div className="relative">
-                <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  required
-                  placeholder="उदा: किशोर पाटीदार / Kishore Patidar"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
-                />
-              </div>
+              <span className="text-[10px] bg-amber-50 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-200">
+                * सभी विवरण अनिवार्य
+              </span>
             </div>
 
-            {/* Mobile Number */}
-            <div>
-              <label className="block text-[11px] font-bold text-gray-600 mb-1">मोबाइल नंबर (Mobile No.) *</label>
-              <div className="relative">
-                <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="tel"
-                  required
-                  maxLength={10}
-                  placeholder="उदा: 9876543210"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                  className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
-                />
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Full Name */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-600 mb-1">पूरा नाम (Full Name) *</label>
+                  <div className="relative">
+                    <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="उदा: किशोर पाटीदार / Kishore Patidar"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
+                    />
+                  </div>
+                </div>
+
+                {/* Mobile Number */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-600 mb-1">मोबाइल नंबर (Mobile No.) *</label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="tel"
+                      required
+                      maxLength={10}
+                      placeholder="उदा: 9876543210"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                      className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
 
             {/* House / Street / Landmark */}
             <div>
@@ -762,91 +766,95 @@ const CheckoutPage: React.FC = () => {
             </p>
           </div>
         )}
-
-        {/* Step 3: Transparent Price Summary Card */}
-        <div className="bg-[#F5F2ED] rounded-3xl p-4 sm:p-5 border border-[#4A3728]/10 space-y-2.5 text-xs">
-          <h4 className="font-bold text-[#4A3728] text-sm border-b border-gray-200/60 pb-2">
-            ऑर्डर एवं मूल्य विवरण (Price Breakdown)
-          </h4>
-
-          <div className="flex justify-between text-gray-700 font-medium">
-            <span>उत्पाद कुल मूल्य (Product Total):</span>
-            <span className="font-bold text-gray-900">₹{cartTotal}</span>
-          </div>
-
-          <div className="flex justify-between text-gray-700 font-medium">
-            <span>
-              डिलीवरी शुल्क ({isLocationValid ? `${deliveryQuote.vehicleType} • ${deliveryQuote.distanceKm} km` : 'पते अनुसार'}):
-            </span>
-            <span className="font-bold text-emerald-800">
-              {isLocationValid ? (
-                deliveryQuote.isFreeDelivery || finalDeliveryCharges === 0 ? (
-                  <span className="text-emerald-700 font-black">मुफ़्त (FREE)</span>
-                ) : (
-                  `+ ₹${finalDeliveryCharges}`
-                )
-              ) : (
-                <span className="text-amber-700 font-bold text-[11px]">स्थान सत्यापन आवश्यक</span>
-              )}
-            </span>
-          </div>
-
-          <div className="flex justify-between items-center pt-2.5 border-t border-gray-300/50 text-sm font-bold text-[#4A3728]">
-            <span>कुल देय राशि (Grand Total):</span>
-            <span className="text-xl font-black text-[#2D5A27]">
-              ₹{isLocationValid ? finalPayableTotal : cartTotal}
-            </span>
-          </div>
-
-          <div className="pt-2 text-[11px] text-gray-500 flex items-center gap-1.5 border-t border-gray-200/50">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>UPI (PhonePe / GPay / Paytm), कार्ड और नेट बैंकिंग द्वारा 100% सुरक्षित ऑनलाइन भुगतान</span>
-          </div>
         </div>
 
-        {/* Step 4: Pay Online Button */}
-        <button
-          type="submit"
-          disabled={isProcessing || !isDeliveryActive || !isLocationValid}
-          className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2.5 shadow-lg active:scale-98 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
-            !isDeliveryActive || !isLocationValid
-              ? "bg-gray-400 text-white shadow-none"
-              : "bg-[#2D5A27] hover:bg-[#2D5A27]/90 text-white shadow-[#2D5A27]/25"
-          }`}
-        >
-          {isProcessing ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              सुरक्षित पेमेंट विंडो खुल रही है...
-            </>
-          ) : !isDeliveryActive ? (
-            <>
-              <Truck className="w-5 h-5" />
-              डिलीवरी सेवा बंद है (Delivery Suspended)
-            </>
-          ) : !isLocationValid ? (
-            <>
-              <MapPin className="w-5 h-5" />
-              मान्य डिलीवरी पता व पिनकोड दर्ज करें (Address Required)
-            </>
-          ) : (
-            <>
-              <CreditCard className="w-5 h-5 text-[#EAB308]" />
-              ₹{finalPayableTotal} का ऑनलाइन भुगतान करें (Pay with UPI / Razorpay)
-            </>
-          )}
-        </button>
+        {/* Right Column: Price Summary & Payment (Sticky on Desktop) */}
+        <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:sticky lg:top-24">
+          {/* Step 3: Transparent Price Summary Card */}
+          <div className="bg-[#F5F2ED] rounded-3xl p-4 sm:p-5 border border-[#4A3728]/10 space-y-2.5 text-xs">
+            <h4 className="font-bold text-[#4A3728] text-sm border-b border-gray-200/60 pb-2">
+              ऑर्डर एवं मूल्य विवरण (Price Breakdown)
+            </h4>
 
-        {/* Quick Fallback Support Line */}
-        <div className="text-center pt-1">
+            <div className="flex justify-between text-gray-700 font-medium">
+              <span>उत्पाद कुल मूल्य (Product Total):</span>
+              <span className="font-bold text-gray-900">₹{cartTotal}</span>
+            </div>
+
+            <div className="flex justify-between text-gray-700 font-medium">
+              <span>
+                डिलीवरी शुल्क ({isLocationValid ? `${deliveryQuote.vehicleType} • ${deliveryQuote.distanceKm} km` : 'पते अनुसार'}):
+              </span>
+              <span className="font-bold text-emerald-800">
+                {isLocationValid ? (
+                  deliveryQuote.isFreeDelivery || finalDeliveryCharges === 0 ? (
+                    <span className="text-emerald-700 font-black">मुफ़्त (FREE)</span>
+                  ) : (
+                    `+ ₹${finalDeliveryCharges}`
+                  )
+                ) : (
+                  <span className="text-amber-700 font-bold text-[11px]">स्थान सत्यापन आवश्यक</span>
+                )}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center pt-2.5 border-t border-gray-300/50 text-sm font-bold text-[#4A3728]">
+              <span>कुल देय राशि (Grand Total):</span>
+              <span className="text-xl font-black text-[#2D5A27]">
+                ₹{isLocationValid ? finalPayableTotal : cartTotal}
+              </span>
+            </div>
+
+            <div className="pt-2 text-[11px] text-gray-500 flex items-center gap-1.5 border-t border-gray-200/50">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>UPI (PhonePe / GPay / Paytm), कार्ड और नेट बैंकिंग द्वारा 100% सुरक्षित ऑनलाइन भुगतान</span>
+            </div>
+          </div>
+
+          {/* Step 4: Pay Online Button */}
           <button
-            type="button"
-            onClick={handleWhatsAppHelp}
-            className="text-xs text-gray-500 hover:text-gray-800 underline font-medium inline-flex items-center gap-1"
+            type="submit"
+            disabled={isProcessing || !isDeliveryActive || !isLocationValid}
+            className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2.5 shadow-lg active:scale-98 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+              !isDeliveryActive || !isLocationValid
+                ? "bg-gray-400 text-white shadow-none"
+                : "bg-[#2D5A27] hover:bg-[#2D5A27]/90 text-white shadow-[#2D5A27]/25"
+            }`}
           >
-            <MessageSquare className="w-3.5 h-3.5 text-[#25D366]" />
-            चेकआउट में कोई समस्या? व्हाट्सएप हेल्पलाइन से सहायता लें
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                सुरक्षित पेमेंट विंडो खुल रही है...
+              </>
+            ) : !isDeliveryActive ? (
+              <>
+                <Truck className="w-5 h-5" />
+                डिलीवरी सेवा बंद है (Delivery Suspended)
+              </>
+            ) : !isLocationValid ? (
+              <>
+                <MapPin className="w-5 h-5" />
+                मान्य डिलीवरी पता व पिनकोड दर्ज करें (Address Required)
+              </>
+            ) : (
+              <>
+                <CreditCard className="w-5 h-5 text-[#EAB308]" />
+                ₹{finalPayableTotal} का ऑनलाइन भुगतान करें (Pay with UPI / Razorpay)
+              </>
+            )}
           </button>
+
+          {/* Quick Fallback Support Line */}
+          <div className="text-center pt-1">
+            <button
+              type="button"
+              onClick={handleWhatsAppHelp}
+              className="text-xs text-gray-500 hover:text-gray-800 underline font-medium inline-flex items-center gap-1"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-[#25D366]" />
+              चेकआउट में कोई समस्या? व्हाट्सएप हेल्पलाइन से सहायता लें
+            </button>
+          </div>
         </div>
       </form>
     </div>

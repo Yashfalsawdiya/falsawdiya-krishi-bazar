@@ -9,7 +9,8 @@ import {
   AccountingPurchase, 
   AccountingSupplier, 
   AccountingProduct, 
-  AccountingPurchaseItem 
+  AccountingPurchaseItem,
+  PackagingVariant
 } from '../../types/accounting';
 import { 
   fetchAccountingPurchases, 
@@ -17,6 +18,7 @@ import {
   fetchAccountingProducts, 
   createWholesalerPurchase, 
   saveAccountingSupplier,
+  saveAccountingProduct,
   cancelOrDeleteWholesalerPurchase,
   checkPurchaseHasDependentRecords
 } from '../../services/accountingService';
@@ -263,8 +265,64 @@ export const AccountingPurchases: React.FC = () => {
     const flatItems: AccountingPurchaseItem[] = [];
 
     for (const prod of productEntries) {
-      const prodName = prod.name.trim() || prod.hindiName?.trim() || '';
-      if (!prodName && !prod.productId) continue;
+      const cleanHindi = (prod.hindiName || '').trim();
+      const cleanName = (prod.name || '').trim();
+      if (!cleanHindi && !cleanName && !prod.productId) continue;
+
+      let assignedProductId = prod.productId;
+
+      // If new product being entered without productId:
+      if (!assignedProductId) {
+        // Double check against existing products in inventory to prevent duplicates
+        const existingMatch = products.find(p => {
+          const pHindi = (p.hindiName || '').trim().toLowerCase();
+          const pName = (p.name || '').trim().toLowerCase();
+          const matchHindi = cleanHindi && (pHindi === cleanHindi.toLowerCase() || pName === cleanHindi.toLowerCase());
+          const matchTech = cleanName && (pName === cleanName.toLowerCase() || pHindi === cleanName.toLowerCase());
+          const matchCat = !prod.category || p.category === prod.category;
+          return (matchHindi || matchTech) && matchCat;
+        });
+
+        if (existingMatch) {
+          assignedProductId = existingMatch.id;
+        } else {
+          // Create product in inventory
+          const firstVar = prod.variants[0];
+          const initialVariants: PackagingVariant[] = prod.variants.map((v, vIdx) => {
+            const vSize = Number(v.sizeValue) || 1;
+            const vUnit = v.sizeUnit || (prod.productType === 'liquid' ? 'ml' : 'g');
+            const vPackType = v.packagingType || (prod.productType === 'liquid' ? 'Bottle' : 'Packet');
+            return {
+              id: v.variantId || `var_${Date.now()}_${vIdx}`,
+              sizeValue: vSize,
+              sizeUnit: vUnit,
+              packagingType: vPackType,
+              label: `${vSize} ${vUnit} ${vPackType}`,
+              baseQuantity: normalizeToBaseUnit(vSize, vUnit),
+              costPrice: Number(v.costPrice) || 0,
+              sellingPrice: Number(v.sellingPrice) || Math.round((Number(v.costPrice) || 0) * 1.25),
+              currentStockPacks: 0,
+              minStockAlertPacks: 5,
+              allowLooseSale: true,
+            };
+          });
+
+          assignedProductId = await saveAccountingProduct({
+            hindiName: cleanHindi || cleanName,
+            name: cleanName || cleanHindi,
+            category: prod.category || 'pesticides',
+            productType: prod.productType || 'liquid',
+            unit: firstVar?.packagingType || (prod.productType === 'liquid' ? 'Bottle' : 'Packet'),
+            currentStock: 0,
+            minStockAlert: 5,
+            costPrice: Number(firstVar?.costPrice) || 0,
+            defaultSellingPrice: Number(firstVar?.sellingPrice) || 0,
+            hsnCode: '',
+            packagingVariants: initialVariants,
+            hasMultipleVariants: initialVariants.length > 1,
+          });
+        }
+      }
 
       for (const v of prod.variants) {
         const qty = Number(v.quantity) || 0;
@@ -276,10 +334,12 @@ export const AccountingPurchases: React.FC = () => {
         const totalLine = Math.round(qty * cost * 100) / 100;
 
         flatItems.push({
-          productId: prod.productId,
-          name: prod.name || prod.hindiName || 'कृषि उत्पाद',
-          hindiName: prod.hindiName || prod.name || 'कृषि उत्पाद',
-          unit: v.packagingType || 'Bottle',
+          productId: assignedProductId,
+          name: cleanName || cleanHindi || 'कृषि उत्पाद',
+          hindiName: cleanHindi || cleanName || 'कृषि उत्पाद',
+          category: prod.category || 'pesticides',
+          productType: prod.productType || 'liquid',
+          unit: v.packagingType || (prod.productType === 'liquid' ? 'Bottle' : 'Packet'),
           quantity: qty,
           purchasePrice: cost,
           sellingPriceSuggestion: Number(v.sellingPrice) || undefined,

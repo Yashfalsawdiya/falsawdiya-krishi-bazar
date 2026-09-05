@@ -267,7 +267,7 @@ const Home: React.FC = () => {
             <div 
               key={`${banner.id}-${idx}`} 
               onClick={() => setZoomImage({ src: banner.image, alt: banner.title })}
-              className="relative flex-[0_0_100%] min-w-0 aspect-[5/4] cursor-zoom-in group"
+              className="relative flex-[0_0_100%] min-w-0 aspect-[5/4] sm:aspect-[16/9] md:aspect-[21/9] md:max-h-[360px] lg:max-h-[400px] cursor-zoom-in group"
             >
                 <SmartImage 
                   src={banner.image} 
@@ -278,8 +278,8 @@ const Home: React.FC = () => {
                 />
               {appContent?.showBannerText !== false && (
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-6 text-white">
-                  <h2 className="text-xl font-bold mb-1">{banner.title}</h2>
-                  <p className="text-sm opacity-90">{banner.subtitle}</p>
+                  <h2 className="text-xl md:text-2xl font-bold mb-1">{banner.title}</h2>
+                  <p className="text-sm md:text-base opacity-90">{banner.subtitle}</p>
                 </div>
               )}
             </div>
@@ -309,95 +309,95 @@ const Home: React.FC = () => {
         </motion.div>
       )}
 
-      {/* AI Voice Agent Entry Section */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="pt-2"
-      >
-        <Link to="/ai-call">
-          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden group active:scale-95 transition-all">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D5A27]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#2D5A27]/10 transition-colors" />
-            <div className="flex items-center gap-5">
-              <div className="relative">
-                <div className="absolute inset-0 bg-[#2D5A27] rounded-2xl blur-lg opacity-20 animate-pulse" />
-                <div className="w-16 h-16 bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl flex items-center justify-center text-white relative z-10 shadow-lg">
-                  <Phone className="w-8 h-8 animate-bounce" />
+      {/* AI Intelligence Cards (Side by side on Tablet & Desktop) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 pt-1">
+        {/* AI Voice Agent Entry Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Link to="/ai-call">
+            <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-6 shadow-md border border-gray-100 relative overflow-hidden group active:scale-95 transition-all h-full flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D5A27]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#2D5A27]/10 transition-colors" />
+              <div className="flex items-center gap-4 sm:gap-5">
+                <div className="relative shrink-0">
+                  <div className="absolute inset-0 bg-[#2D5A27] rounded-2xl blur-lg opacity-20 animate-pulse" />
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl flex items-center justify-center text-white relative z-10 shadow-lg">
+                    <Phone className="w-7 h-7 sm:w-8 sm:h-8 animate-bounce" />
+                  </div>
                 </div>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-black text-[#4A3728] leading-tight">AI कृषि विशेषज्ञ कॉल</h3>
-                <p className="text-xs text-gray-500 font-bold mt-1">सीधे बात करें और समस्या का हल पाएं</p>
-                <div className="flex items-center gap-1.5 mt-2">
-                  <Sparkles className="w-3 h-3 text-[#2D5A27]" />
-                  <span className="text-[10px] font-black text-[#2D5A27] uppercase tracking-widest">इंसानों की तरह बातचीत</span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg sm:text-xl font-black text-[#4A3728] leading-tight truncate">AI कृषि विशेषज्ञ कॉल</h3>
+                  <p className="text-xs text-gray-500 font-bold mt-1 line-clamp-1">सीधे बात करें और समस्या का हल पाएं</p>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <Sparkles className="w-3 h-3 text-[#2D5A27] shrink-0" />
+                    <span className="text-[10px] font-black text-[#2D5A27] uppercase tracking-widest truncate">इंसानों की तरह बातचीत</span>
+                  </div>
                 </div>
-              </div>
-              <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all">
-                <ArrowRight className="w-5 h-5" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all shrink-0">
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
               </div>
             </div>
-          </div>
-        </Link>
-      </motion.div>
+          </Link>
+        </motion.div>
 
-      {/* AI Product Knowledge Entry Section */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="pt-1"
-      >
-        <Link to="/ai-product-knowledge">
-          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden group active:scale-95 transition-all">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D5A27]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#2D5A27]/10 transition-colors" />
-            <div className="flex items-center gap-5">
-              <div className="relative">
-                <div className="absolute inset-0 bg-[#2D5A27] rounded-2xl blur-lg opacity-20 animate-pulse" />
-                <div className="w-16 h-16 bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl flex items-center justify-center text-white relative z-10 shadow-lg">
-                  <Sprout className="w-8 h-8 text-white" />
+        {/* AI Product Knowledge Entry Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Link to="/ai-product-knowledge">
+            <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-6 shadow-md border border-gray-100 relative overflow-hidden group active:scale-95 transition-all h-full flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D5A27]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#2D5A27]/10 transition-colors" />
+              <div className="flex items-center gap-4 sm:gap-5">
+                <div className="relative shrink-0">
+                  <div className="absolute inset-0 bg-[#2D5A27] rounded-2xl blur-lg opacity-20 animate-pulse" />
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl flex items-center justify-center text-white relative z-10 shadow-lg">
+                    <Sprout className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+                  </div>
                 </div>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-black text-[#4A3728] leading-tight">AI उत्पाद जानकारी</h3>
-                <p className="text-xs text-gray-500 font-bold mt-1">दवाई, खाद या टेक्निकल का सही डोज़ जानें</p>
-                <div className="flex items-center gap-1.5 mt-2">
-                  <Sparkles className="w-3 h-3 text-[#2D5A27]" />
-                  <span className="text-[10px] font-black text-[#2D5A27] uppercase tracking-widest">सटीक डोज़ और उपयोग विधि</span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg sm:text-xl font-black text-[#4A3728] leading-tight truncate">AI उत्पाद जानकारी</h3>
+                  <p className="text-xs text-gray-500 font-bold mt-1 line-clamp-1">दवाई, खाद या टेक्निकल का सही डोज़ जानें</p>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <Sparkles className="w-3 h-3 text-[#2D5A27] shrink-0" />
+                    <span className="text-[10px] font-black text-[#2D5A27] uppercase tracking-widest truncate">सटीक डोज़ और उपयोग विधि</span>
+                  </div>
                 </div>
-              </div>
-              <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all">
-                <ArrowRight className="w-5 h-5" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all shrink-0">
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
               </div>
             </div>
-          </div>
-        </Link>
-      </motion.div>
+          </Link>
+        </motion.div>
+      </div>
 
-
-      {/* Weather & Mandi Quick View */}
-      <div className="grid grid-cols-2 gap-3">
-        <Link to="/weather">
+      {/* Weather, Mandi, & Schemes Dashboard Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 pt-1">
+        <Link to="/weather" className="col-span-1">
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl p-4 text-white h-full flex flex-col justify-between shadow-lg"
+            className="bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl p-4 text-white h-full flex flex-col justify-between shadow-md"
           >
             <div className="flex justify-between items-start">
               <CloudSun className="w-8 h-8 text-[#EAB308]" />
               <span className="text-[10px] font-bold opacity-70 uppercase">मौसम</span>
             </div>
             {weather ? (
-              <div>
+              <div className="mt-2">
                 <h2 className="text-2xl font-bold leading-none">{weather.temp}°C</h2>
                 <p className="text-[10px] font-medium mt-1 truncate">{weather.condition}</p>
               </div>
             ) : (
-              <Loader2 className="w-5 h-5 animate-spin opacity-50" />
+              <Loader2 className="w-5 h-5 animate-spin opacity-50 my-2" />
             )}
           </motion.div>
         </Link>
 
-        <Link to="/mandi">
+        <Link to="/mandi" className="col-span-1">
           <motion.div 
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -408,19 +408,15 @@ const Home: React.FC = () => {
               <span className="text-[10px] font-bold text-gray-400 uppercase">मंडी भाव</span>
             </div>
             {mandi ? (
-              <div className="animate-in fade-in duration-500">
+              <div className="animate-in fade-in duration-500 mt-2">
                 <p className="text-[10px] font-bold text-gray-500 truncate">{mandi.items[0]?.commodity}</p>
                 <h2 className="text-xl font-bold text-[#2D5A27] leading-none">₹{mandi.items[0]?.avgPrice}</h2>
-                <p className="text-[9px] text-gray-400 mt-1">{mandi.mandiName} मंडी</p>
+                <p className="text-[9px] text-gray-400 mt-1 truncate">{mandi.mandiName} मंडी</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 my-2">
                 <div className="h-4 w-12 bg-gray-100 rounded animate-pulse" />
                 <div className="h-6 w-20 bg-gray-100 rounded animate-pulse mt-1" />
-                <div className="flex items-center gap-1 mt-2">
-                  <Loader2 className="w-3 h-3 animate-spin text-[#2D5A27] opacity-40" />
-                  <span className="text-[8px] text-gray-400">अपडेट हो रहा है...</span>
-                </div>
               </div>
             )}
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -428,22 +424,20 @@ const Home: React.FC = () => {
             </div>
           </motion.div>
         </Link>
-      </div>
 
-      {/* Government Schemes Banner */}
-      <div className="pt-3">
-        <Link to="/schemes">
+        {/* Government Schemes Banner (Takes full width of mobile, 1 column on md+) */}
+        <Link to="/schemes" className="col-span-2 md:col-span-1">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-[#2D5A27] to-[#3D7A35] rounded-2xl p-4 text-white shadow-lg flex items-center justify-between overflow-hidden relative"
+            className="bg-gradient-to-r from-[#2D5A27] to-[#3D7A35] rounded-2xl p-4 text-white shadow-md flex items-center justify-between overflow-hidden relative h-full"
           >
             <div className="relative z-10">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Landmark className="w-5 h-5 text-[#EAB308]" />
+              <h3 className="text-base sm:text-lg font-bold flex items-center gap-2">
+                <Landmark className="w-5 h-5 text-[#EAB308] shrink-0" />
                 सरकारी योजनाएं
               </h3>
-              <p className="text-xs text-white/80 mt-1">PM-Kisan, सब्सिडी और बीमा की जानकारी</p>
+              <p className="text-xs text-white/80 mt-1">PM-Kisan, सब्सिडी और बीमा</p>
               <div className="mt-3 inline-flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold backdrop-blur-sm">
                 अभी देखें <ArrowRight className="w-3 h-3" />
               </div>
@@ -454,11 +448,11 @@ const Home: React.FC = () => {
       </div>
 
       {/* Categories */}
-      <section className="pt-3">
+      <section className="pt-2">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-bold text-[#4A3728]">श्रेणियाँ (Categories)</h3>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
           {categories.map((cat, index) => (
             <motion.div
               key={cat.id}
@@ -489,9 +483,9 @@ const Home: React.FC = () => {
             सभी देखें <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
-        <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
+        <div className="flex md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 overflow-x-auto md:overflow-x-visible pb-2 -mx-1 px-1 snap-x">
           {featuredProducts.length === 0 ? (
-            <div className="w-full py-8 text-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-100 flex flex-col items-center gap-2">
+            <div className="w-full col-span-full py-8 text-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-100 flex flex-col items-center gap-2">
               <ShoppingBag className="w-8 h-8 text-gray-200" />
               <p className="text-xs text-gray-400 font-bold">आज के विशेष उत्पाद जल्द ही आएंगे!</p>
             </div>
@@ -511,12 +505,12 @@ const Home: React.FC = () => {
                     setShowDetail(true);
                   }}
                   className={cn(
-                    "min-w-[160px] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden snap-start flex flex-col cursor-pointer group",
+                    "min-w-[160px] md:min-w-0 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden snap-start flex flex-col cursor-pointer group hover:shadow-md transition-shadow",
                     !isInStock && "opacity-75 grayscale-[0.5]"
                   )}
                 >
                   <div 
-                    className="relative h-32 overflow-hidden cursor-zoom-in"
+                    className="relative h-32 sm:h-36 md:h-40 overflow-hidden cursor-zoom-in"
                     onClick={(e) => {
                       e.stopPropagation();
                       setZoomImage({ src: product.image, alt: product.hindiName });
@@ -566,7 +560,6 @@ const Home: React.FC = () => {
                         disabled={!isInStock}
                         onClick={(e) => {
                           e.stopPropagation();
-                          // For the Buy button on card, if it has variants, we use the first one
                           const pWithPrice = {
                             ...product,
                             price: displayPrice || 0,
@@ -592,8 +585,8 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* WhatsApp Support */}
-      <div className="space-y-3">
+      {/* WhatsApp & Social Support Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
         <button 
           onClick={() => {
             if (whatsappSection.mode === 'group' && whatsappSection.groupLink) {
@@ -605,7 +598,7 @@ const Home: React.FC = () => {
           }}
           className="w-full bg-[#25D366]/10 border-2 border-[#25D366] rounded-2xl p-4 flex items-center gap-4 active:scale-95 transition-transform text-left"
         >
-          <div className="bg-[#25D366] p-3 rounded-full">
+          <div className="bg-[#25D366] p-3 rounded-full shrink-0">
             <Phone className="w-6 h-6 text-white" />
           </div>
           <div>
@@ -676,7 +669,7 @@ const Home: React.FC = () => {
         )}
 
         <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start gap-3">
-          <div className="bg-[#F5F2ED] p-2 rounded-lg">
+          <div className="bg-[#F5F2ED] p-2 rounded-lg shrink-0">
             <MapPin className="w-5 h-5 text-[#2D5A27]" />
           </div>
           <div>
@@ -745,7 +738,7 @@ const Home: React.FC = () => {
         <div className="overflow-hidden -mx-4 px-4" ref={emblaVideoRef}>
           <div className="flex gap-4">
             {videos.map((video, idx) => (
-              <div key={`${video.id}-${idx}`} className="flex-[0_0_85%] min-w-0">
+              <div key={`${video.id}-${idx}`} className="flex-[0_0_85%] sm:flex-[0_0_45%] md:flex-[0_0_31%] lg:flex-[0_0_23%] min-w-0">
                 <a 
                   href={video.videoUrl}
                   target="_blank"

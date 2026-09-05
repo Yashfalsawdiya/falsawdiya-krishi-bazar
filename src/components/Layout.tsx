@@ -12,7 +12,7 @@ const Layout: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-center max-w-md mx-auto shadow-2xl">
+      <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-center p-4">
         <OfflineIndicator />
         <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin" />
         <p className="mt-4 text-sm font-bold text-[#2D5A27]">लोड हो रहा है...</p>
@@ -23,23 +23,25 @@ const Layout: React.FC = () => {
   // Maintenance / App Inactive Mode
   if (appContent?.isAppActive === false && !isAdmin) {
     return (
-      <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-center max-w-md mx-auto shadow-2xl p-8 text-center">
-        <div className="w-24 h-24 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-8 border-2 border-red-100 overflow-hidden p-2">
-          <SmartImage 
-            src="/icon-192.png" 
-            alt="Maintenance" 
-            className="w-full h-full opacity-50 grayscale" 
-            objectFit="contain" 
-          />
-        </div>
-        <h1 className="text-2xl font-black text-[#4A3728] mb-4">ऐप अभी बंद है</h1>
-        <p className="text-gray-500 mb-8 leading-relaxed">
-          नमस्ते किसान भाइयों! ऐप में कुछ सुधार कार्य चल रहा है, इसलिए यह अभी उपलब्ध नहीं है। कृपया कुछ समय बाद प्रयास करें।
-        </p>
-        <div className="p-4 bg-white rounded-2xl border border-gray-100 w-full">
-          <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">
-            Maintenance Mode Active
+      <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-center p-4 text-center">
+        <div className="bg-white max-w-md w-full rounded-3xl p-8 shadow-xl border border-red-100 flex flex-col items-center">
+          <div className="w-24 h-24 bg-white rounded-3xl shadow-md flex items-center justify-center mb-6 border-2 border-red-100 overflow-hidden p-2">
+            <SmartImage 
+              src="/icon-192.png" 
+              alt="Maintenance" 
+              className="w-full h-full opacity-50 grayscale" 
+              objectFit="contain" 
+            />
+          </div>
+          <h1 className="text-2xl font-black text-[#4A3728] mb-4">ऐप अभी बंद है</h1>
+          <p className="text-gray-500 mb-8 leading-relaxed text-sm">
+            नमस्ते किसान भाइयों! ऐप में कुछ सुधार कार्य चल रहा है, इसलिए यह अभी उपलब्ध नहीं है। कृपया कुछ समय बाद प्रयास करें।
           </p>
+          <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 w-full">
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">
+              Maintenance Mode Active
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -54,12 +56,12 @@ const Layout: React.FC = () => {
     const loginText = appContent?.loginText || 'ऐप की सुविधाओं का उपयोग करने के लिए कृपया अपनी Gmail ID से लॉगिन करें।';
 
     return (
-      <div className="min-h-screen bg-[#F5F2ED] flex flex-col max-w-md mx-auto shadow-2xl relative overflow-hidden">
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-          <div className="w-24 h-24 bg-transparent rounded-3xl shadow-xl flex items-center justify-center mb-8 border-2 border-[#2D5A27]/10 overflow-hidden p-2 relative">
+      <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-center p-4">
+        <div className="bg-white/80 backdrop-blur-md max-w-md w-full rounded-3xl p-8 shadow-xl border border-gray-100 flex flex-col items-center text-center">
+          <div className="w-24 h-24 bg-transparent rounded-3xl shadow-md flex items-center justify-center mb-6 border-2 border-[#2D5A27]/10 overflow-hidden p-2 relative">
             <SmartImage 
               src={branding.logo} 
-              fallbackSrc="/icon-192.png"
+              fallbackSrc="/icon-192.png" 
               alt="Logo" 
               className="w-full h-full relative z-10" 
               objectFit="contain" 
@@ -67,38 +69,38 @@ const Layout: React.FC = () => {
             />
             <div className="absolute inset-0 bg-white/40 -z-10" />
           </div>
-          <h1 className="text-3xl font-black text-[#4A3728] mb-2">{branding.name}</h1>
-          <p className="text-gray-500 mb-12 font-medium">{branding.tagline}</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-[#4A3728] mb-2">{branding.name}</h1>
+          <p className="text-gray-500 mb-8 font-medium text-xs sm:text-sm">{branding.tagline}</p>
           
           <div className="w-full space-y-4">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mb-8">
-              <p className="text-sm text-gray-600 leading-relaxed">
+            <div className="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100/50 mb-6">
+              <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
                 {loginText}
               </p>
             </div>
             
             <button 
               onClick={login}
-              className="w-full bg-[#2D5A27] text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg active:scale-95 transition-transform"
+              className="w-full bg-[#2D5A27] hover:bg-[#23481f] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-md active:scale-95 transition-all"
             >
-              <LogIn className="w-6 h-6" /> Google से लॉगिन करें
+              <LogIn className="w-5 h-5" /> Google से लॉगिन करें
             </button>
           </div>
-        </div>
-        <div className="p-6 text-center">
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-            Safe & Secure Login • Powered by Google
-          </p>
+          <div className="mt-8 pt-4 border-t border-gray-100 w-full">
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+              Safe & Secure Login • Powered by Google
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F2ED] flex flex-col max-w-md mx-auto shadow-2xl relative overflow-hidden">
+    <div className="min-h-screen bg-[#F5F2ED] flex flex-col w-full relative">
       <OfflineIndicator />
       <Header />
-      <main className="flex-1 overflow-y-auto pb-24 pt-36 px-4">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 md:pb-12 pt-36 md:pt-24 lg:pt-24 transition-all">
         <Outlet />
       </main>
       <BottomNav />

@@ -216,6 +216,8 @@ export interface AccountingPurchaseItem {
   productId?: string;
   name: string;
   hindiName?: string;
+  category?: string;
+  productType?: 'liquid' | 'powder_granule' | 'other';
   unit: string;
   quantity: number; // Number of packs
   purchasePrice: number; // Unit Cost Price per pack
@@ -437,5 +439,18 @@ export interface AccountingAuditLog {
     reversedExpenseAmount?: number;
   };
   details?: string;
+}
+
+export interface MonthlyPOSExportMeta {
+  monthKey: string; // e.g. "2026-09"
+  year: number;
+  month: number;
+  isExported: boolean;
+  lastExportDate?: string; // formatted e.g. "05/09/2026, 04:30 PM"
+  lastExportTimestamp?: number;
+  billsExportedCount?: number;
+  totalSalesAmount?: number;
+  fileName?: string;
+  exportedBy?: string;
 }
 

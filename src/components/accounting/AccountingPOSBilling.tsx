@@ -5,7 +5,7 @@ import {
   CheckCircle2, Printer, Percent, ArrowRight, RefreshCw, 
   Phone, MapPin, IndianRupee, CreditCard, Wallet, UserPlus, X, FileText,
   ChevronDown, User, Smartphone, BookOpen, Scale, Banknote, Download,
-  Droplet, Layers, Check, Sparkles
+  Droplet, Layers, Check, Sparkles, Calendar, Receipt, RotateCcw, AlertTriangle
 } from 'lucide-react';
 import { 
   AccountingProduct, 
@@ -18,7 +18,10 @@ import {
   fetchAccountingCustomers, 
   createOfflineSale, 
   saveAccountingCustomer, 
-  calculateBargainingAllocation 
+  calculateBargainingAllocation,
+  getNextPOSInvoiceNoPreview,
+  fetchAccountingSaleById,
+  resetTestAccountingData
 } from '../../services/accountingService';
 import { 
   getProductVariants, 
@@ -27,6 +30,7 @@ import {
 } from '../../utils/agriPackagingUtils';
 import { PrintableSalesInvoice } from './PrintableSalesInvoice';
 import { downloadSalesInvoicePDF } from '../../utils/salesInvoicePdfGenerator';
+import { POSMonthlyHistory } from './POSMonthlyHistory';
 
 interface Props {
   onSaleCreated?: (saleId: string) => void;
@@ -99,8 +103,24 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
   const [completedSale, setCompletedSale] = useState<AccountingSale | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [activeTab, setActiveTab] = useState<'billing' | 'history'>('billing');
+
+  // Professional Bill Numbering & Reset Modal
+  const [nextBillNumberPreview, setNextBillNumberPreview] = useState<string>('FKB-0001');
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState<boolean>(false);
+  const [isResetting, setIsResetting] = useState<boolean>(false);
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
 
   const customerDropdownRef = useRef<HTMLDivElement>(null);
+
+  const refreshBillPreview = async () => {
+    try {
+      const preview = await getNextPOSInvoiceNoPreview();
+      setNextBillNumberPreview(preview);
+    } catch (err) {
+      console.warn('Could not load next bill preview:', err);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -111,6 +131,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
       ]);
       setProducts(prods);
       setCustomers(custs);
+      await refreshBillPreview();
     } catch (err) {
       console.error('Error loading POS data:', err);
     } finally {
@@ -120,7 +141,26 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
   useEffect(() => {
     loadData();
+    refreshBillPreview();
   }, []);
+
+  const handleResetTestData = async () => {
+    setIsResetting(true);
+    try {
+      const result = await resetTestAccountingData();
+      await loadData();
+      await refreshBillPreview();
+      setShowResetConfirmModal(false);
+      setResetSuccessMessage(`सफलतापूर्वक रीसेट किया गया! कुल ${result.deletedSalesCount} टेस्ट बिक्री बिल हटा दिए गए। अगला बिल #FKB-0001 से शुरू होगा।`);
+      if (onSaleComplete) {
+        onSaleComplete();
+      }
+    } catch (err: any) {
+      alert('डेटा रीसेट करने में त्रुटि: ' + (err.message || err));
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   // Filtered Products for Quick Add
   const filteredProducts = useMemo(() => {
@@ -403,9 +443,8 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
     setIsSubmitting(true);
     try {
-      const invoiceNo = `OFF-${Date.now().toString().slice(-6)}`;
       const salePayload: Omit<AccountingSale, 'id' | 'createdAt'> = {
-        invoiceNo,
+        invoiceNo: '', // Automatically assigned as sequential FKB-XXXX by atomic transaction
         date: invoiceDate,
         timestamp: Date.now(),
         customerId: selectedCustomerId || null,
@@ -427,14 +466,19 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
       };
 
       const saleId = await createOfflineSale(salePayload);
-      
-      const savedSale: AccountingSale = {
-        ...salePayload,
-        id: saleId,
-        createdAt: Date.now(),
-      };
+      const savedSale = await fetchAccountingSaleById(saleId);
 
-      setCompletedSale(savedSale);
+      setCompletedSale(
+        savedSale || {
+          ...salePayload,
+          id: saleId,
+          invoiceNo: nextBillNumberPreview,
+          createdAt: Date.now(),
+        }
+      );
+
+      // Immediately refresh next bill preview for the next customer
+      refreshBillPreview();
 
       // Reset Form
       setCartItems([]);
@@ -488,7 +532,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-3xl border border-gray-100 shadow-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-3xl border border-gray-100 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-[#2D5A27] text-white rounded-xl flex items-center justify-center shadow-sm">
             <ShoppingBag className="w-6 h-6" />
@@ -499,24 +543,100 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <input
-            type="date"
-            value={invoiceDate}
-            onChange={e => setInvoiceDate(e.target.value)}
-            className="px-3 py-2 text-xs font-bold bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          />
-          <button
-            onClick={loadData}
-            disabled={loading}
-            className="p-2 text-gray-500 hover:text-emerald-700 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors"
-            title="डेटा रिफ्रेश करें"
+        {/* Tab Selector & Actions */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Next Bill Number Preview Badge */}
+          <div 
+            id="pos-next-bill-badge"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold shadow-2xs"
+            title="स्वचालित अनुक्रमिक बिल नंबर प्रणाली"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+            <Receipt className="w-4 h-4 text-emerald-600" />
+            <span>अगला बिल: <strong className="font-mono text-emerald-950 tracking-wide font-black">#{nextBillNumberPreview}</strong></span>
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-gray-100/90 p-1.5 rounded-2xl border border-gray-200 w-full sm:w-auto">
+            <button
+              id="pos-tab-new-bill"
+              onClick={() => setActiveTab('billing')}
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === 'billing'
+                  ? 'bg-white text-emerald-800 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4 text-emerald-600" />
+              <span>नया बिल बनाएं</span>
+              {cartItems.length > 0 && (
+                <span className="ml-1 px-2 py-0.5 bg-emerald-600 text-white rounded-full text-[10px]">
+                  {cartItems.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              id="pos-tab-monthly-history"
+              onClick={() => setActiveTab('history')}
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === 'history'
+                  ? 'bg-white text-emerald-800 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Calendar className="w-4 h-4 text-emerald-600" />
+              <span>नकद बिल इतिहास (Monthly History)</span>
+            </button>
+          </div>
+
+          {activeTab === 'billing' && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={invoiceDate}
+                onChange={e => setInvoiceDate(e.target.value)}
+                className="px-3 py-2 text-xs font-bold bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              />
+              <button
+                onClick={loadData}
+                disabled={loading}
+                className="p-2 text-gray-500 hover:text-emerald-700 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors"
+                title="डेटा रिफ्रेश करें"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                id="pos-reset-test-data-btn"
+                onClick={() => setShowResetConfirmModal(true)}
+                className="px-3 py-2 text-xs font-bold text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-colors flex items-center gap-1 shadow-2xs"
+                title="टेस्टिंग डेटा रीसेट करें"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                <span>टेस्ट डेटा रीसेट</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
+      {resetSuccessMessage && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-4 rounded-2xl flex items-center justify-between text-xs font-medium">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <span>{resetSuccessMessage}</span>
+          </div>
+          <button onClick={() => setResetSuccessMessage(null)} className="text-gray-400 hover:text-gray-700">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {activeTab === 'history' ? (
+        <POSMonthlyHistory
+          onBackToBilling={() => setActiveTab('billing')}
+          onSaleDeleted={loadData}
+        />
+      ) : (
+        <>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* LEFT COLUMN: Product Catalog & Quick Add (5 Cols) */}
         <div className="lg:col-span-5 space-y-4">
@@ -1405,6 +1525,8 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
           </div>
         </div>
       )}
+      </>
+      )}
 
       {/* COMPLETED SALE & PRINT MODAL */}
       {completedSale && (
@@ -1468,25 +1590,115 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
               <button
                 onClick={printReceipt}
-                className="py-3 px-3 bg-emerald-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-emerald-900 transition-colors shadow-sm"
+                className="py-3 px-2 bg-emerald-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1 hover:bg-emerald-900 transition-colors shadow-sm"
               >
-                <Printer className="w-4 h-4" /> A4 प्रिंट / Spooler
+                <Printer className="w-3.5 h-3.5" /> A4 प्रिंट
               </button>
               <button
                 onClick={handleDownloadPdf}
                 disabled={isDownloadingPdf}
-                className="py-3 px-3 bg-gray-100 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-gray-200 transition-colors border border-gray-200 disabled:opacity-50"
+                className="py-3 px-2 bg-gray-100 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1 hover:bg-gray-200 transition-colors border border-gray-200 disabled:opacity-50"
               >
-                <Download className="w-4 h-4 text-emerald-700" /> {isDownloadingPdf ? 'PDF बन रहा है...' : 'PDF फाइल'}
+                <Download className="w-3.5 h-3.5 text-emerald-700" /> {isDownloadingPdf ? 'PDF...' : 'PDF फाइल'}
+              </button>
+              <button
+                onClick={() => {
+                  setCompletedSale(null);
+                  setActiveTab('history');
+                }}
+                className="py-3 px-2 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-colors border border-emerald-200"
+              >
+                <Calendar className="w-3.5 h-3.5" /> इतिहास
               </button>
               <button
                 onClick={() => setCompletedSale(null)}
-                className="py-3 px-3 bg-emerald-600 text-white rounded-xl font-bold text-xs hover:bg-emerald-700 transition-colors"
+                className="py-3 px-2 bg-emerald-600 text-white rounded-xl font-bold text-xs hover:bg-emerald-700 transition-colors"
               >
-                अगला बिल बनाएं
+                अगला बिल
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONTROLLED ADMIN TEST DATA RESET CONFIRMATION MODAL */}
+      {showResetConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 space-y-5 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <RotateCcw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-gray-900 text-base">टेस्टिंग डेटा रीसेट (Test Data Reset)</h3>
+                  <p className="text-xs text-gray-500">अकाउंटिंग व बिलिंग सिस्टम को प्रारंभिक स्थिति में लाएं</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => !isResetting && setShowResetConfirmModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100"
+                disabled={isResetting}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-2xl text-amber-900 space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 flex-shrink-0" />
+                  <span>क्या साफ किया जाएगा (What will be reset):</span>
+                </div>
+                <ul className="list-disc pl-5 space-y-1 text-amber-900">
+                  <li>अब तक टेस्टिंग के दौरान बने सभी <strong>POS बिक्री बिल</strong></li>
+                  <li>कैश फ्लो और दैनिक गल्ले के टेस्टिंग रिकॉर्ड्स</li>
+                  <li>ग्राहकों की टेस्टिंग उधारी और लेजर प्रविष्टियां (सभी बैलेंस <strong>₹0</strong> होंगे)</li>
+                  <li>मुनाफा (Gross/Net Profit) एवं सेल्स डैशबोर्ड आंकड़े</li>
+                  <li>बिल नंबर काउंटर रीसेट होकर <strong>Bill #FKB-0001</strong> से शुरू होगा</li>
+                </ul>
+              </div>
+
+              <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl text-emerald-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-emerald-950">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0" />
+                  <span>मास्टर डेटा सुरक्षित रहेगा (Master Data Preserved):</span>
+                </div>
+                <p className="text-[11px] text-emerald-800">
+                  दुकान के उत्पाद (Products), किस्में, श्रेणियां, ग्राहक प्रोफाइल (नाम, फोन, गांव), और सप्लायर रिकॉर्ड्स को कुछ नहीं होगा।
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setShowResetConfirmModal(false)}
+                disabled={isResetting}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                रद्द करें (Cancel)
+              </button>
+              <button
+                type="button"
+                onClick={handleResetTestData}
+                disabled={isResetting}
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
+              >
+                {isResetting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>डेटा साफ हो रहा है...</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-4 h-4" />
+                    <span>हाँ, टेस्ट डेटा रीसेट करें</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

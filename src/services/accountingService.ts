@@ -1,6 +1,7 @@
 import { 
   collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, 
-  query, where, orderBy, limit, onSnapshot, writeBatch, Timestamp 
+  query, where, orderBy, limit, onSnapshot, writeBatch, Timestamp,
+  runTransaction, DocumentReference
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
@@ -22,7 +23,8 @@ import {
   StockBatch,
   LooseStockPool,
   StockMovementLog,
-  AccountingAuditLog
+  AccountingAuditLog,
+  MonthlyPOSExportMeta
 } from '../types/accounting';
 import { compressImage } from '../lib/utils';
 
@@ -702,43 +704,121 @@ export async function fetchAccountingSaleByInvoiceNo(invoiceNo: string): Promise
   }
 }
 
+/**
+ * Format sequential POS bill number
+ * 1 -> FKB-0001
+ * 2 -> FKB-0002
+ * 9999 -> FKB-9999
+ * 10000 -> FKB-10000
+ */
+export function formatPOSInvoiceNo(seq: number): string {
+  const safeSeq = Math.max(1, Math.floor(seq || 1));
+  if (safeSeq < 10000) {
+    return `FKB-${String(safeSeq).padStart(4, '0')}`;
+  }
+  return `FKB-${safeSeq}`;
+}
+
+/**
+ * Peek next available bill number for live UI preview
+ */
+export async function getNextPOSInvoiceNoPreview(): Promise<string> {
+  try {
+    const counterRef = doc(db, 'accounting_settings', 'pos_sequence');
+    const counterSnap = await getDoc(counterRef);
+    if (!counterSnap.exists()) {
+      return formatPOSInvoiceNo(1);
+    }
+    const data = counterSnap.data();
+    const lastSeq = typeof data.lastSequence === 'number' ? data.lastSequence : 0;
+    return formatPOSInvoiceNo(lastSeq + 1);
+  } catch (err) {
+    console.warn('Could not read pos_sequence counter, default to FKB-0001:', err);
+    return 'FKB-0001';
+  }
+}
+
 export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'createdAt'>): Promise<string> {
   const now = Date.now();
-  const batch = writeBatch(db);
-
+  const counterRef = doc(db, 'accounting_settings', 'pos_sequence');
   const saleRef = doc(collection(db, 'accounting_sales'));
-  const fullSale: AccountingSale = {
-    ...saleData,
-    id: saleRef.id,
-    createdAt: now,
-  };
 
-  // 1. Write Sale Doc
-  batch.set(saleRef, fullSale);
+  let assignedInvoiceNo = '';
 
-  // 2. Automatically Deduct Inventory Stock for each sold item (Pack or Loose)
-  for (const item of saleData.items) {
-    if (item.productId) {
-      const prodRef = doc(db, 'accounting_products', item.productId);
-      const prodSnap = await getDoc(prodRef);
+  await runTransaction(db, async (transaction) => {
+    // 1. Read the counter atomically
+    const counterSnap = await transaction.get(counterRef);
+    let lastSeq = 0;
+    if (counterSnap.exists()) {
+      const cData = counterSnap.data();
+      if (typeof cData.lastSequence === 'number') {
+        lastSeq = cData.lastSequence;
+      }
+    }
+
+    // Determine invoice number:
+    // If invoiceNo is empty, starts with "OFF-", or is placeholder, generate strictly sequential FKB number
+    const isPlaceholder = !saleData.invoiceNo || saleData.invoiceNo.startsWith('OFF-') || saleData.invoiceNo.startsWith('FKB-TEMP');
+    if (!isPlaceholder && saleData.invoiceNo) {
+      assignedInvoiceNo = saleData.invoiceNo;
+    } else {
+      const nextSeq = lastSeq + 1;
+      assignedInvoiceNo = formatPOSInvoiceNo(nextSeq);
+      // Persist next sequence number atomically
+      transaction.set(counterRef, {
+        lastSequence: nextSeq,
+        prefix: 'FKB-',
+        updatedAt: now,
+      }, { merge: true });
+    }
+
+    // 2. Read products for stock deductions (must read before any writes)
+    const productReads: { ref: DocumentReference; snap: any; item: AccountingSaleItem }[] = [];
+    for (const item of saleData.items) {
+      if (item.productId) {
+        const prodRef = doc(db, 'accounting_products', item.productId);
+        const prodSnap = await transaction.get(prodRef);
+        productReads.push({ ref: prodRef, snap: prodSnap, item });
+      }
+    }
+
+    // 3. Read customer if udhari
+    let custRead: { ref: DocumentReference; snap: any } | null = null;
+    if (saleData.udhariAmount > 0 && saleData.customerId) {
+      const custRef = doc(db, 'accounting_customers', saleData.customerId);
+      const custSnap = await transaction.get(custRef);
+      custRead = { ref: custRef, snap: custSnap };
+    }
+
+    // --- ALL READS COMPLETED: NOW EXECUTE ALL ATOMIC WRITES ---
+
+    // 4. Write Sale Document
+    const fullSale: AccountingSale = {
+      ...saleData,
+      id: saleRef.id,
+      invoiceNo: assignedInvoiceNo,
+      createdAt: now,
+    };
+    transaction.set(saleRef, fullSale);
+
+    // 5. Deduct inventory stock and record audit movements
+    for (const { ref: prodRef, snap: prodSnap, item } of productReads) {
       if (prodSnap.exists()) {
         const prodData = prodSnap.data() as AccountingProduct;
 
         if (item.saleType === 'loose') {
-          // Deduct from Loose Stock Pool
           const currentLoose = prodData.looseStock?.availableBaseQty || 0;
           const deductBase = item.looseBaseQty || item.looseQuantity || 0;
           const newLoose = Math.max(0, currentLoose - deductBase);
-          
-          batch.update(prodRef, {
+
+          transaction.update(prodRef, {
             'looseStock.availableBaseQty': newLoose,
             'looseStock.updatedAt': now,
             updatedAt: now,
           });
 
-          // Stock movement audit
           const movRef = doc(collection(db, 'accounting_stock_movements'));
-          batch.set(movRef, {
+          transaction.set(movRef, {
             id: movRef.id,
             timestamp: now,
             date: saleData.date,
@@ -747,11 +827,10 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
             type: 'loose_sale',
             quantityChangeBaseUnit: -deductBase,
             balanceBaseUnitAfter: newLoose,
-            reason: `बिल #${saleData.invoiceNo} पर खुली बिक्री (${deductBase} ${item.looseUnit || 'ml/g'})`,
+            reason: `बिल #${assignedInvoiceNo} पर खुली बिक्री (${deductBase} ${item.looseUnit || 'ml/g'})`,
             referenceId: saleRef.id,
           });
         } else if (item.variantId && prodData.packagingVariants && prodData.packagingVariants.length > 0) {
-          // Deduct from specific variant
           const updatedVariants = prodData.packagingVariants.map(v => {
             if (v.id === item.variantId) {
               return {
@@ -762,16 +841,15 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
             return v;
           });
           const totalSealedPacks = updatedVariants.reduce((sum, v) => sum + (v.currentStockPacks || 0), 0);
-          
-          batch.update(prodRef, {
+
+          transaction.update(prodRef, {
             packagingVariants: updatedVariants,
             currentStock: totalSealedPacks,
             updatedAt: now,
           });
 
-          // Stock movement audit
           const movRef = doc(collection(db, 'accounting_stock_movements'));
-          batch.set(movRef, {
+          transaction.set(movRef, {
             id: movRef.id,
             timestamp: now,
             date: saleData.date,
@@ -782,34 +860,29 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
             type: 'pack_sale',
             quantityChangePacks: -item.quantity,
             balancePacksAfter: updatedVariants.find(v => v.id === item.variantId)?.currentStockPacks,
-            reason: `बिल #${saleData.invoiceNo} पर सीलबंद बिक्री (${item.quantity} ${item.variantLabel || item.unit})`,
+            reason: `बिल #${assignedInvoiceNo} पर सीलबंद बिक्री (${item.quantity} ${item.variantLabel || item.unit})`,
             referenceId: saleRef.id,
           });
         } else {
-          // Fallback legacy deduction
           const currentStock = prodData.currentStock || 0;
           const newStock = Math.max(0, currentStock - item.quantity);
-          batch.update(prodRef, {
+          transaction.update(prodRef, {
             currentStock: newStock,
             updatedAt: now,
           });
         }
       }
     }
-  }
 
-  // 3. If there is Udhari on this sale and customerId is present, update Customer Ledger
-  if (saleData.udhariAmount > 0 && saleData.customerId) {
-    const custRef = doc(db, 'accounting_customers', saleData.customerId);
-    const custSnap = await getDoc(custRef);
-    if (custSnap.exists()) {
-      const custData = custSnap.data() as AccountingCustomer;
+    // 6. Update Customer Udhari Ledger
+    if (custRead && custRead.snap.exists()) {
+      const custData = custRead.snap.data() as AccountingCustomer;
       const currentOutstanding = custData.currentOutstanding || 0;
       const newOutstanding = currentOutstanding + saleData.udhariAmount;
       const totalPurchases = (custData.totalPurchases || 0) + saleData.finalTotal;
       const totalPaid = (custData.totalPaid || 0) + (saleData.cashPaid + saleData.onlinePaid);
 
-      batch.update(custRef, {
+      transaction.update(custRead.ref, {
         currentOutstanding: newOutstanding,
         totalPurchases,
         totalPaid,
@@ -818,28 +891,139 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
         updatedAt: now,
       });
 
-      // Write Ledger debit
       const ledgerRef = doc(collection(db, 'accounting_customer_ledger'));
       const ledgerEntry: CustomerLedgerEntry = {
         id: ledgerRef.id,
-        customerId: saleData.customerId,
+        customerId: saleData.customerId!,
         customerName: saleData.customerName,
         type: 'sale_debit',
-        invoiceNo: saleData.invoiceNo,
+        invoiceNo: assignedInvoiceNo,
         saleId: saleRef.id,
         amount: saleData.udhariAmount,
         balanceAfter: newOutstanding,
         paymentMode: saleData.paymentMode === 'split' ? 'cash' : (saleData.paymentMode === 'online' ? 'online' : 'cash'),
         date: saleData.date,
         timestamp: now,
-        note: `बिल #${saleData.invoiceNo} पर उधारी (Total: ₹${saleData.finalTotal}, Paid: ₹${saleData.cashPaid + saleData.onlinePaid})`,
+        note: `बिल #${assignedInvoiceNo} पर उधारी (Total: ₹${saleData.finalTotal}, Paid: ₹${saleData.cashPaid + saleData.onlinePaid})`,
       };
-      batch.set(ledgerRef, ledgerEntry);
+      transaction.set(ledgerRef, ledgerEntry);
     }
+  });
+
+  return saleRef.id;
+}
+
+/**
+ * Controlled Admin Test Data Reset
+ * Resets all test sales, customer ledger transactions, cash flow metrics,
+ * and resets the POS bill sequence so next bill starts cleanly at Bill #FKB-0001.
+ * Master data (Products, Categories, Suppliers, Customer records) is 100% preserved.
+ */
+export async function resetTestAccountingData(): Promise<{
+  deletedSalesCount: number;
+  deletedLedgerCount: number;
+  customersResetCount: number;
+  movementsDeletedCount: number;
+  backupsResetCount: number;
+}> {
+  // 1. Fetch all sales from accounting_sales
+  const salesSnap = await getDocs(collection(db, 'accounting_sales'));
+  const salesDocs = salesSnap.docs;
+
+  // 2. Fetch all customer ledger entries
+  const ledgerSnap = await getDocs(collection(db, 'accounting_customer_ledger'));
+  const ledgerDocs = ledgerSnap.docs;
+
+  // 3. Fetch all customer docs to reset their balances
+  const custSnap = await getDocs(collection(db, 'accounting_customers'));
+  const custDocs = custSnap.docs;
+
+  // 4. Fetch test stock movements
+  const movSnap = await getDocs(collection(db, 'accounting_stock_movements'));
+  const testMovDocs = movSnap.docs.filter(d => {
+    const data = d.data();
+    return data.type === 'pack_sale' || data.type === 'loose_sale' || Boolean(data.referenceId);
+  });
+
+  // 5. Fetch backup metadata
+  const backupSnap = await getDocs(collection(db, 'pos_monthly_backup_meta'));
+  const backupDocs = backupSnap.docs;
+
+  // 6. Delete test sales, ledger, and movements in safe batches
+  const allDeletes: DocumentReference[] = [
+    ...salesDocs.map(d => d.ref),
+    ...ledgerDocs.map(d => d.ref),
+    ...testMovDocs.map(d => d.ref),
+    ...backupDocs.map(d => d.ref),
+  ];
+
+  for (let i = 0; i < allDeletes.length; i += 350) {
+    const chunk = allDeletes.slice(i, i + 350);
+    const batch = writeBatch(db);
+    for (const ref of chunk) {
+      batch.delete(ref);
+    }
+    await batch.commit();
   }
 
-  await batch.commit();
-  return saleRef.id;
+  // 7. Reset all customer balances to 0 (Preserving names, phones, villages, credit limits)
+  for (let i = 0; i < custDocs.length; i += 350) {
+    const chunk = custDocs.slice(i, i + 350);
+    const batch = writeBatch(db);
+    for (const docSnap of chunk) {
+      batch.update(docSnap.ref, {
+        currentOutstanding: 0,
+        totalPurchases: 0,
+        totalPaid: 0,
+        lastPurchaseDate: '',
+        status: 'good',
+        updatedAt: Date.now(),
+      });
+    }
+    await batch.commit();
+  }
+
+  // 8. Reset the bill sequence counter to 0 so the very next bill is strictly FKB-0001
+  const counterRef = doc(db, 'accounting_settings', 'pos_sequence');
+  await setDoc(counterRef, {
+    lastSequence: 0,
+    prefix: 'FKB-',
+    updatedAt: Date.now(),
+  });
+
+  // 9. Write audit log entry
+  const auditRef = doc(collection(db, 'accounting_audit_logs'));
+  await setDoc(auditRef, {
+    id: auditRef.id,
+    action: 'TEST_DATA_RESET',
+    details: `Accounting test data reset. Removed ${salesDocs.length} sales, ${ledgerDocs.length} ledger entries. Sequence reset to FKB-0001.`,
+    timestamp: Date.now(),
+    date: new Date().toISOString().split('T')[0],
+  });
+
+  // 10. Clean up client localStorage backup cache
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('pos_monthly_history_') || key.startsWith('pos_') || key.includes('accounting_report'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    }
+  } catch (e) {
+    console.warn('Could not clear local storage cache:', e);
+  }
+
+  return {
+    deletedSalesCount: salesDocs.length,
+    deletedLedgerCount: ledgerDocs.length,
+    customersResetCount: custDocs.length,
+    movementsDeletedCount: testMovDocs.length,
+    backupsResetCount: backupDocs.length,
+  };
 }
 
 export async function deleteOfflineSale(saleId: string, restoreStock = true): Promise<void> {
@@ -883,6 +1067,155 @@ export async function deleteOfflineSale(saleId: string, restoreStock = true): Pr
 
   batch.delete(saleRef);
   await batch.commit();
+}
+
+// ----------------------------------------------------
+// POS MONTHLY BILL HISTORY & PDF BACKUP SYSTEM
+// ----------------------------------------------------
+
+export const HINDI_MONTH_NAMES_LIST = [
+  'जनवरी (January)',
+  'फरवरी (February)',
+  'मार्च (March)',
+  'अप्रैल (April)',
+  'मई (May)',
+  'जून (June)',
+  'जुलाई (July)',
+  'अगस्त (August)',
+  'सितंबर (September)',
+  'अक्टूबर (October)',
+  'नवंबर (November)',
+  'दिसंबर (December)',
+];
+
+export async function fetchAllPOSSalesForHistory(): Promise<AccountingSale[]> {
+  try {
+    const q = query(collection(db, 'accounting_sales'));
+    const snap = await getDocs(q);
+    return snap.docs
+      .map(doc => ({ id: doc.id, ...doc.data() } as AccountingSale))
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  } catch (err) {
+    console.error('Error fetching all POS sales:', err);
+    return [];
+  }
+}
+
+export async function fetchAccountingSalesForMonth(year: number, month: number): Promise<AccountingSale[]> {
+  try {
+    const all = await fetchAllPOSSalesForHistory();
+    const monthStr = String(month).padStart(2, '0');
+    const prefix = `${year}-${monthStr}`;
+
+    return all.filter(s => {
+      if (s.date && s.date.startsWith(prefix)) return true;
+      if (s.timestamp) {
+        const d = new Date(s.timestamp);
+        return d.getFullYear() === year && (d.getMonth() + 1) === month;
+      }
+      return false;
+    });
+  } catch (err) {
+    console.error('Error fetching sales for month:', err);
+    return [];
+  }
+}
+
+export async function getMonthlyPOSExportMeta(monthKey: string): Promise<MonthlyPOSExportMeta | null> {
+  try {
+    const snap = await getDoc(doc(db, 'pos_monthly_backup_meta', monthKey));
+    if (snap.exists()) {
+      return snap.data() as MonthlyPOSExportMeta;
+    }
+  } catch (err) {
+    console.warn('Could not read pos_monthly_backup_meta from firestore:', err);
+  }
+
+  try {
+    const stored = localStorage.getItem(`pos_export_meta_${monthKey}`);
+    if (stored) {
+      return JSON.parse(stored) as MonthlyPOSExportMeta;
+    }
+  } catch (e) {
+    // ignore
+  }
+  return null;
+}
+
+export async function saveMonthlyPOSExportMeta(meta: MonthlyPOSExportMeta): Promise<void> {
+  try {
+    localStorage.setItem(`pos_export_meta_${meta.monthKey}`, JSON.stringify(meta));
+  } catch (e) {
+    // ignore
+  }
+
+  try {
+    await setDoc(doc(db, 'pos_monthly_backup_meta', meta.monthKey), meta, { merge: true });
+  } catch (err) {
+    console.warn('Could not save to pos_monthly_backup_meta in Firestore:', err);
+  }
+}
+
+export async function deleteMonthlyPOSBills(
+  saleIds: string[],
+  year: number,
+  month: number,
+  reason?: string
+): Promise<{ success: boolean; deletedCount: number; error?: string }> {
+  try {
+    if (!saleIds || saleIds.length === 0) {
+      return { success: true, deletedCount: 0 };
+    }
+
+    const now = Date.now();
+    const monthStr = String(month).padStart(2, '0');
+    const monthKey = `${year}-${monthStr}`;
+
+    // Batched deletion in chunks of 400 (safe limit for Firestore)
+    const chunkSize = 400;
+    for (let i = 0; i < saleIds.length; i += chunkSize) {
+      const chunk = saleIds.slice(i, i + chunkSize);
+      const batch = writeBatch(db);
+      for (const id of chunk) {
+        batch.delete(doc(db, 'accounting_sales', id));
+      }
+      await batch.commit();
+    }
+
+    // Write audit log for compliance & accountability
+    try {
+      const auditRef = doc(collection(db, 'accounting_audit_logs'));
+      await setDoc(auditRef, {
+        id: auditRef.id,
+        type: 'pos_monthly_bills_purge',
+        title: `नकद बिक्री इतिहास हटाया गया: ${monthKey}`,
+        timestamp: now,
+        date: new Date(now).toISOString().split('T')[0],
+        reason: reason || `Admin द्वारा ${monthKey} के POS बिलों का बैकअप लेने के बाद इतिहास मैन्युअली हटाया गया`,
+        details: `कुल ${saleIds.length} नकद बिल स्थायी रूप से हटाए गए। इन्वेंट्री एवं ग्राहक खाता सुरक्षित रखा गया।`,
+      });
+    } catch (auditErr) {
+      console.warn('Audit log write error:', auditErr);
+    }
+
+    // Update metadata
+    try {
+      await setDoc(doc(db, 'pos_monthly_backup_meta', monthKey), {
+        monthKey,
+        year,
+        month,
+        historyPurgedAt: now,
+        purgedBillsCount: saleIds.length,
+      }, { merge: true });
+    } catch (mErr) {
+      console.warn('Meta update error:', mErr);
+    }
+
+    return { success: true, deletedCount: saleIds.length };
+  } catch (err: any) {
+    console.error('Error deleting monthly POS bills:', err);
+    return { success: false, deletedCount: 0, error: err.message || 'बिल डिलीट करने में त्रुटि' };
+  }
 }
 
 // ----------------------------------------------------
@@ -1269,7 +1602,7 @@ export async function createWholesalerPurchase(purchaseData: Omit<AccountingPurc
       id: newProdRef.id,
       name: item.name || item.hindiName || 'नया कृषि उत्पाद',
       hindiName: item.hindiName || item.name || 'नया कृषि उत्पाद',
-      category: 'pesticides',
+      category: item.category || 'pesticides',
       unit: packType,
       currentStock: item.quantity,
       minStockAlert: 5,
@@ -1281,7 +1614,7 @@ export async function createWholesalerPurchase(purchaseData: Omit<AccountingPurc
       packagingVariants: [initialVar],
       batches: initialBatches,
       hasMultipleVariants: false,
-      productType: sizeUnit === 'ml' || sizeUnit === 'Ltr' ? 'liquid' : 'powder_granule',
+      productType: item.productType || (sizeUnit === 'ml' || sizeUnit === 'Ltr' ? 'liquid' : 'powder_granule'),
       updatedAt: now,
       createdAt: now,
     };

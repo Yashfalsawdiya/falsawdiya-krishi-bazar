@@ -8,17 +8,31 @@ export interface GenerateInvoicePdfOptions {
   fileName?: string;
 }
 
+export interface InvoiceHtmlMeta {
+  pageNum?: number;
+  totalPages?: number;
+  monthTitle?: string;
+}
+
 /**
  * Renders the clean, dedicated printable sales invoice HTML string
  * for offscreen rasterization and PDF generation.
  */
-function buildInvoiceHtml(sale: AccountingSale, customerOutstanding: number = 0): string {
+function buildInvoiceHtml(
+  sale: AccountingSale, 
+  customerOutstanding: number = 0,
+  meta?: InvoiceHtmlMeta
+): string {
   const paymentModeText = 
     sale.paymentMode === 'cash' ? 'नकद (Cash)' :
     sale.paymentMode === 'online' ? 'ऑनलाइन (UPI)' :
     sale.paymentMode === 'split' ? 'नकद + UPI' : 'उधारी (Credit)';
 
   const paidAmount = (sale.cashPaid || 0) + (sale.onlinePaid || 0);
+
+  const formattedTime = sale.timestamp 
+    ? new Date(sale.timestamp).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+    : '';
 
   const itemsHtml = (sale.items && sale.items.length > 0)
     ? sale.items.map((item, idx) => {
@@ -104,7 +118,8 @@ function buildInvoiceHtml(sale: AccountingSale, customerOutstanding: number = 0)
           </div>
           <div style="font-size: 12px; color: #4b5563;">
             <div>बिल नंबर: <strong style="color: #111827; font-family: monospace;">#${sale.invoiceNo}</strong></div>
-            <div>दिनांक: <strong style="color: #111827;">${sale.date}</strong></div>
+            <div>दिनांक: <strong style="color: #111827;">${sale.date}${formattedTime ? ` (${formattedTime})` : ''}</strong></div>
+            ${meta?.monthTitle ? `<div style="font-size: 10px; color: #047857; font-weight: 600; margin-top: 2px;">माह: ${meta.monthTitle}</div>` : ''}
           </div>
         </div>
       </div>
@@ -212,7 +227,9 @@ function buildInvoiceHtml(sale: AccountingSale, customerOutstanding: number = 0)
       <div style="display: flex; justify-content: space-between; align-items: flex-end; padding-top: 16px; border-top: 1px solid #e5e7eb;">
         <div style="font-size: 11px; color: #6b7280;">
           <div>धन्यवाद! आपका दिन शुभ हो। फल्सावदिया कृषि बाजार में पुनः पधारें।</div>
-          <div style="font-size: 9px; color: #9ca3af; margin-top: 2px;">फल्सावदिया कृषि लेखा बही प्रबंधन प्रणाली</div>
+          <div style="font-size: 9px; color: #9ca3af; margin-top: 2px;">
+            ${meta?.pageNum ? `<span style="font-weight: 700; color: #047857; margin-right: 8px;">पेज: ${meta.pageNum} / ${meta.totalPages} (बिल #${sale.invoiceNo})</span>` : ''}फल्सावदिया कृषि लेखा बही प्रबंधन प्रणाली
+          </div>
         </div>
 
         <div style="text-align: center;">
@@ -361,3 +378,185 @@ export async function downloadSalesInvoicePDF(
     }
   }
 }
+
+export interface ExportMonthlyPOSBillsPdfOptions {
+  sales: AccountingSale[];
+  monthLabel: string;
+  fileName: string;
+  onProgress?: (current: number, total: number, currentInvoiceNo: string) => void;
+}
+
+/**
+ * Exports all POS bills for a selected month into a single consolidated PDF document.
+ * GUARANTEES:
+ * - One Bill = Exactly One PDF Page (Page 1 -> Bill 1, Page 2 -> Bill 2, etc.)
+ * - Zero blank pages
+ * - Complete professional styling with shop branding, customer details, products, & totals
+ */
+export async function exportMonthlyPOSBillsPDF(
+  options: ExportMonthlyPOSBillsPdfOptions
+): Promise<{ success: boolean; fileName: string; error?: string; count: number; totalAmount: number }> {
+  const { sales, monthLabel, fileName, onProgress } = options;
+
+  if (!sales || sales.length === 0) {
+    return {
+      success: false,
+      fileName,
+      error: 'इस महीने में कोई नकद बिक्री बिल नहीं मिला।',
+      count: 0,
+      totalAmount: 0,
+    };
+  }
+
+  // Sort chronologically ascending so bills appear in sequence
+  const sortedSales = [...sales].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  const totalAmount = sortedSales.reduce((sum, s) => sum + (s.finalTotal || 0), 0);
+
+  // Create isolated offscreen iframe
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.left = '-9999px';
+  iframe.style.top = '0';
+  iframe.style.width = '794px';
+  iframe.style.height = '1123px';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
+  iframe.style.zIndex = '-99999';
+  document.body.appendChild(iframe);
+
+  try {
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      throw new Error('प्रिंटिंग फ्रेम तैयार नहीं किया जा सका।');
+    }
+
+    // Initialize A4 PDF (210mm x 297mm)
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+      compress: true,
+    });
+
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const margin = 8; // 8mm margin
+    const printableWidth = pageWidth - margin * 2; // 194mm printable width
+    const printableHeight = pageHeight - margin * 2; // 281mm printable height
+
+    for (let i = 0; i < sortedSales.length; i++) {
+      const sale = sortedSales[i];
+      if (onProgress) {
+        onProgress(i + 1, sortedSales.length, sale.invoiceNo);
+      }
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              * { box-sizing: border-box; margin: 0; padding: 0; }
+              body { 
+                font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; 
+                background-color: #ffffff; 
+                color: #111827; 
+              }
+              table { border-collapse: collapse; }
+            </style>
+          </head>
+          <body style="background-color: #ffffff; margin: 0; padding: 0;">
+            <div id="invoice-render-target" style="width: 794px; background-color: #ffffff;">
+              ${buildInvoiceHtml(sale, 0, {
+                pageNum: i + 1,
+                totalPages: sortedSales.length,
+                monthTitle: monthLabel,
+              })}
+            </div>
+          </body>
+        </html>
+      `;
+
+      iframeDoc.open();
+      iframeDoc.write(htmlContent);
+      iframeDoc.close();
+
+      // Wait for fonts & layout
+      if (iframeDoc.fonts && iframeDoc.fonts.ready) {
+        await iframeDoc.fonts.ready;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const renderTarget = iframeDoc.getElementById('invoice-render-target') || iframeDoc.body;
+
+      const canvas = await html2canvas(renderTarget, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 794,
+        windowWidth: 794,
+        onclone: (clonedDoc, clonedElement) => {
+          const allStyles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
+          allStyles.forEach((s) => {
+            if (s.textContent && s.textContent.includes('oklch')) {
+              s.remove();
+            }
+          });
+
+          if (clonedElement) {
+            clonedElement.style.position = 'static';
+            clonedElement.style.left = '0px';
+            clonedElement.style.top = '0px';
+            clonedElement.style.display = 'block';
+            clonedElement.style.visibility = 'visible';
+          }
+        },
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+      // Fit strictly within exactly 1 single A4 page
+      let w = printableWidth;
+      let h = (canvas.height * printableWidth) / canvas.width;
+      if (h > printableHeight) {
+        const scaleFactor = printableHeight / h;
+        w = w * scaleFactor;
+        h = printableHeight;
+      }
+      const x = margin + (printableWidth - w) / 2;
+      const y = margin;
+
+      // Only add a new page after page 1
+      if (i > 0) {
+        pdf.addPage();
+      }
+
+      pdf.addImage(imgData, 'JPEG', x, y, w, h, undefined, 'FAST');
+    }
+
+    // Save final PDF
+    pdf.save(fileName);
+    return {
+      success: true,
+      fileName,
+      count: sortedSales.length,
+      totalAmount,
+    };
+  } catch (err: any) {
+    console.error('Error generating monthly POS bills PDF:', err);
+    return {
+      success: false,
+      fileName,
+      error: err.message || 'मासिक PDF तैयार करने में असमर्थ',
+      count: 0,
+      totalAmount: 0,
+    };
+  } finally {
+    if (iframe.parentNode) {
+      iframe.parentNode.removeChild(iframe);
+    }
+  }
+}
+

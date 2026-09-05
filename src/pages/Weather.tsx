@@ -338,6 +338,7 @@ const Weather: React.FC = () => {
       {/* Forecast */}
       <div className="space-y-3">
         <h3 className="font-bold text-[#4A3728] px-1">अगले 7 दिन का पूर्वानुमान</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {weather.forecast.map((item, idx) => {
           const sanitized = getSanitizedDailyInfo(item);
           const Icon = getIcon(sanitized.condition);
@@ -368,6 +369,7 @@ const Weather: React.FC = () => {
             </motion.div>
           );
         })}
+        </div>
       </div>
 
       {/* Farming Alert & Smart Farmer Advisory Box */}

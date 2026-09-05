@@ -60,7 +60,7 @@ const Encyclopedia: React.FC = () => {
       </div>
 
       <div className="px-5 mb-8">
-        <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
+        <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar md:flex-wrap">
           {types.map((type) => (
             <button
               key={type.id}
@@ -79,7 +79,7 @@ const Encyclopedia: React.FC = () => {
         </div>
       </div>
 
-      <div className="px-5 space-y-4">
+      <div className="px-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredIssues.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-[32px] border-2 border-dashed border-gray-200">
             <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">

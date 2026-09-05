@@ -341,7 +341,7 @@ const MandiBhav: React.FC = () => {
                   <p className="text-[10px] text-gray-400 mt-1">कृपया सर्च कीवर्ड बदलें या अन्य फसल चुनें।</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {filteredItems.map((item, idx) => {
                     const isExpanded = expandedCardIndex === idx;
                     const histData = getHistoricalPoints(item.avgPrice, idx);

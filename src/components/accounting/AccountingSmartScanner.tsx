@@ -307,7 +307,7 @@ export const AccountingSmartScanner: React.FC<Props> = ({ onEntrySaved }) => {
         const udhari = Math.max(0, grandTot - paid);
 
         const saleId = await createOfflineSale({
-          invoiceNo: invoiceNumber.trim() || `OFF-${Date.now().toString().slice(-6)}`,
+          invoiceNo: invoiceNumber.trim() || '',
           date: invoiceDate,
           timestamp: Date.now(),
           customerId: matchedCust?.id,

@@ -73,15 +73,15 @@ const Schemes: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {schemes.map((scheme: any, idx) => (
             <motion.div
               key={idx}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
+              transition={{ delay: idx * 0.05 }}
               onClick={() => setSelectedScheme(scheme)}
-              className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer active:scale-95 transition-transform"
+              className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer active:scale-95 transition-transform hover:border-[#2D5A27]/20"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#2D5A27]/10 rounded-xl flex items-center justify-center shrink-0">
@@ -126,7 +126,7 @@ const Schemes: React.FC = () => {
           <motion.div 
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
+            className="bg-white rounded-3xl w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
           >
             {/* Modal Header */}
             <div className="p-6 pb-4 border-b border-gray-100 relative shrink-0">

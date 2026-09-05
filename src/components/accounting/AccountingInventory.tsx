@@ -26,6 +26,10 @@ import {
   getProductVariants, 
   calculateTotalEquivalentStock 
 } from '../../utils/agriPackagingUtils';
+import { 
+  ProductBasicInfoFields, 
+  ACCOUNTING_PRODUCT_CATEGORIES 
+} from './ProductBasicInfoFields';
 
 export const AccountingInventory: React.FC = () => {
   const [products, setProducts] = useState<AccountingProduct[]>([]);
@@ -595,14 +599,9 @@ export const AccountingInventory: React.FC = () => {
             className="p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none"
           >
             <option value="all">सभी श्रेणियां (All Categories)</option>
-            <option value="pesticides">कीटनाशक (Pesticides)</option>
-            <option value="fertilizers">खाद व पोषण (Fertilizers)</option>
-            <option value="seeds">बीज (Seeds)</option>
-            <option value="fungicides">फफूंदनाशी (Fungicides)</option>
-            <option value="herbicides">खरपतवारनाशी (Herbicides)</option>
-            <option value="medicines">टॉनिक व PGR</option>
-            <option value="implements">कृषि उपकरण</option>
-            <option value="other">अन्य</option>
+            {ACCOUNTING_PRODUCT_CATEGORIES.map(cat => (
+              <option key={cat.id} value={cat.id}>{cat.nameHindi}</option>
+            ))}
           </select>
 
           {/* Quick Filter Tabs */}
@@ -887,80 +886,27 @@ export const AccountingInventory: React.FC = () => {
 
             <form onSubmit={handleSaveProduct} className="space-y-4 text-xs">
               {/* SECTION A: BASIC INFO */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">उत्पाद का हिंदी नाम *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="उदा. रोकेट (Profenofos 40% + Cypermethrin 4%)"
-                    value={formHindiName}
-                    onChange={e => setFormHindiName(e.target.value)}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">अंग्रेज़ी / टेक्निकल नाम</label>
-                  <input
-                    type="text"
-                    placeholder="उदा. Roket (PI Industries)"
-                    value={formName}
-                    onChange={e => setFormName(e.target.value)}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">श्रेणी (Category)</label>
-                  <select
-                    value={formCategory}
-                    onChange={e => setFormCategory(e.target.value)}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-700"
-                  >
-                    <option value="pesticides">कीटनाशक (Pesticides)</option>
-                    <option value="fertilizers">खाद (Fertilizers)</option>
-                    <option value="seeds">बीज (Seeds)</option>
-                    <option value="fungicides">फफूंदनाशी (Fungicides)</option>
-                    <option value="herbicides">खरपतवारनाशी (Herbicides)</option>
-                    <option value="medicines">टॉनिक व वृद्धि वर्धक</option>
-                    <option value="implements">कृषि उपकरण</option>
-                    <option value="other">अन्य</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">उत्पाद रूप (Product Form)</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormProductType('liquid');
-                        setFormDoseUnit('ml');
-                      }}
-                      className={`p-2 rounded-xl border text-center font-bold flex items-center justify-center gap-1 ${
-                        formProductType === 'liquid' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-gray-50 text-gray-600'
-                      }`}
-                    >
-                      <Droplet className="w-3.5 h-3.5" />
-                      <span>तरल (Liquid)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormProductType('powder_granule');
-                        setFormDoseUnit('g');
-                      }}
-                      className={`p-2 rounded-xl border text-center font-bold flex items-center justify-center gap-1 ${
-                        formProductType === 'powder_granule' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-gray-50 text-gray-600'
-                      }`}
-                    >
-                      <Scale className="w-3.5 h-3.5" />
-                      <span>पाउडर / दानेदार</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <ProductBasicInfoFields
+                values={{
+                  hindiName: formHindiName,
+                  name: formName,
+                  category: formCategory,
+                  productType: formProductType,
+                }}
+                onChange={updated => {
+                  if (updated.hindiName !== undefined) setFormHindiName(updated.hindiName);
+                  if (updated.name !== undefined) setFormName(updated.name);
+                  if (updated.category !== undefined) setFormCategory(updated.category);
+                  if (updated.productType !== undefined) {
+                    setFormProductType(updated.productType);
+                    setFormDoseUnit(updated.productType === 'liquid' ? 'ml' : 'g');
+                  }
+                }}
+                existingProducts={products}
+                currentProductId={editingProduct?.id}
+                onSelectExistingProduct={p => openEditModal(p)}
+                accentColor="emerald"
+              />
 
               {/* SECTION B: PACKAGING VARIANTS BUILDER */}
               <div className="border-t border-gray-200 pt-3">
