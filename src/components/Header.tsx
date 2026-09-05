@@ -3,7 +3,7 @@ import {
   Search, Menu, Sprout, X, Landmark, Phone, Newspaper, User, 
   Calculator, PhoneCall, Bug, TrendingUp, ShoppingCart, Sparkles, 
   Info, ShieldCheck, FileText, RotateCcw, AlertTriangle, ShieldAlert, 
-  HelpCircle, Truck, Scale, Award, Camera, CloudSun 
+  HelpCircle, Truck, Scale, Award, Camera, CloudSun, Package, MessageCircle 
 } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -17,7 +17,7 @@ const Header: React.FC = () => {
   const [isLogoEnlarged, setIsLogoEnlarged] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
-  const { appContent, isAdmin } = useAppContext();
+  const { appContent, isAdmin, legalPagesContent } = useAppContext();
   const { cartCount } = useCart();
 
   const handleLogoClick = (e: React.MouseEvent) => {
@@ -36,6 +36,10 @@ const Header: React.FC = () => {
     tagline: 'किसान का भरोसा, हमारी पहचान',
     logo: ''
   };
+
+  const contactData = legalPagesContent?.contactUs;
+  const phoneNumber = contactData?.phone || '8982338046';
+  const cleanPhone = phoneNumber.replace(/\D/g, '');
 
   interface MenuItem {
     icon: React.ElementType;
@@ -73,7 +77,9 @@ const Header: React.FC = () => {
   return (
     <>
       <header className="fixed top-0 left-0 right-0 bg-[#2D5A27] text-white z-50 shadow-md">
-        {/* MOBILE VIEW (< md) - Exactly Preserving Existing Mobile Appearance */}
+        {/* ======================================================== */}
+        {/* MOBILE VIEW (< md) - EXACTLY PRESERVED MOBILE EXPERIENCE */}
+        {/* ======================================================== */}
         <div className="md:hidden max-w-md mx-auto px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -88,7 +94,7 @@ const Header: React.FC = () => {
                 >
                   <SmartImage 
                     src={branding.logo} 
-                    fallbackSrc="/icon-192.png"
+                    fallbackSrc="/icon-192.png" 
                     alt="Logo" 
                     className="w-full h-full" 
                     objectFit="contain" 
@@ -138,9 +144,10 @@ const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* TABLET & DESKTOP VIEW (>= md) - Professional High-Density Navigation Bar */}
-        <div className="hidden md:flex max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 items-center justify-between gap-4">
-          {/* Left: Branding */}
+        {/* ======================================================== */}
+        {/* TABLET VIEW (md to lg) - PRESERVES TABLET DRAWER NAVIGATION */}
+        {/* ======================================================== */}
+        <div className="hidden md:flex lg:hidden max-w-7xl mx-auto px-4 sm:px-6 py-2.5 items-center justify-between gap-4">
           <div className="flex items-center gap-3 shrink-0">
             <Link to={isAdmin ? "/admin" : "/"} className="flex items-center gap-3 group">
               <div 
@@ -157,108 +164,40 @@ const Header: React.FC = () => {
                 />
               </div>
               <div>
-                <h1 className="text-base lg:text-lg font-black tracking-tight text-white leading-tight group-hover:text-amber-200 transition-colors">
+                <h1 className="text-base font-black tracking-tight text-white leading-tight">
                   {branding.name}
                 </h1>
-                <p className="text-[10px] lg:text-xs text-[#EAB308] font-bold">
+                <p className="text-[10px] text-[#EAB308] font-bold">
                   {branding.tagline}
                 </p>
               </div>
             </Link>
           </div>
 
-          {/* Center Navigation Links (Hidden on medium tablet, visible on lg/xl) */}
-          <nav className="hidden xl:flex items-center gap-1.5">
-            <NavLink 
-              to="/" 
-              className={({ isActive }) => cn(
-                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
-                isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
-              )}
-            >
-              होम
-            </NavLink>
-            <NavLink 
-              to="/products" 
-              className={({ isActive }) => cn(
-                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
-                isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
-              )}
-            >
-              कृषि बाजार
-            </NavLink>
-            <NavLink 
-              to="/disease" 
-              className={({ isActive }) => cn(
-                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
-              )}
-            >
-              <Camera className="w-3.5 h-3.5" /> बीमारी जाँच
-            </NavLink>
-            <NavLink 
-              to="/mandi" 
-              className={({ isActive }) => cn(
-                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
-              )}
-            >
-              <TrendingUp className="w-3.5 h-3.5" /> मंडी भाव
-            </NavLink>
-            <NavLink 
-              to="/news" 
-              className={({ isActive }) => cn(
-                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
-              )}
-            >
-              <Newspaper className="w-3.5 h-3.5" /> कृषि समाचार
-            </NavLink>
-            <NavLink 
-              to="/weather" 
-              className={({ isActive }) => cn(
-                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
-              )}
-            >
-              <CloudSun className="w-3.5 h-3.5" /> मौसम
-            </NavLink>
-            <NavLink 
-              to="/ai-call" 
-              className={({ isActive }) => cn(
-                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 text-amber-300",
-                isActive ? "bg-white/20 text-amber-200 shadow-xs" : "hover:text-amber-200 hover:bg-white/10"
-              )}
-            >
-              <Sparkles className="w-3.5 h-3.5" /> AI कॉल
-            </NavLink>
-          </nav>
+          {/* Tablet Search Bar */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSearch(searchQuery);
+            }}
+            className="relative flex-1 max-w-xs"
+          >
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="दवाई या बीज खोजें..."
+              className="w-full bg-white/10 border border-white/25 rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:bg-white/20 placeholder:text-white/70 text-white transition-all"
+            />
+            <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-white/70" />
+          </form>
 
-          {/* Right Section: Search & Actions */}
+          {/* Tablet Actions */}
           <div className="flex items-center gap-2.5 shrink-0">
-            {/* Desktop Search Bar */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSearch(searchQuery);
-              }}
-              className="relative w-44 md:w-52 lg:w-60"
-            >
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="दवाई या बीज खोजें..."
-                className="w-full bg-white/10 border border-white/25 rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:bg-white/20 placeholder:text-white/70 text-white transition-all"
-              />
-              <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-white/70" />
-            </form>
-
-            {/* Admin Panel Quick Badge (if admin) */}
             {isAdmin && (
               <Link
                 to="/admin"
-                className="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 rounded-xl text-xs font-black transition-all flex items-center gap-1.5"
+                className="px-2.5 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-400/40 rounded-xl text-xs font-black transition-all flex items-center gap-1"
                 title="एडमिन पैनल"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
@@ -266,14 +205,12 @@ const Header: React.FC = () => {
               </Link>
             )}
 
-            {/* Cart Button */}
             <Link
               to="/cart"
               className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold flex items-center gap-2 transition-all relative border border-white/15 text-white"
-              title="कार्ट देखें"
             >
               <ShoppingCart className="w-4 h-4 text-white" />
-              <span className="hidden sm:inline">कार्ट</span>
+              <span>कार्ट</span>
               {cartCount > 0 && (
                 <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
                   {cartCount}
@@ -281,7 +218,6 @@ const Header: React.FC = () => {
               )}
             </Link>
 
-            {/* User Profile */}
             <Link
               to="/profile"
               className="p-2 hover:bg-white/10 rounded-xl transition-colors text-white border border-white/10"
@@ -290,7 +226,7 @@ const Header: React.FC = () => {
               <User className="w-4 h-4" />
             </Link>
 
-            {/* Menu Drawer */}
+            {/* Tablet Hamburger Button (Preserved for Tablet) */}
             <button
               onClick={() => setIsMenuOpen(true)}
               className="p-2 hover:bg-white/10 rounded-xl transition-colors text-white border border-white/10"
@@ -298,6 +234,283 @@ const Header: React.FC = () => {
             >
               <Menu className="w-4 h-4" />
             </button>
+          </div>
+        </div>
+
+        {/* ======================================================== */}
+        {/* LAPTOP & DESKTOP VIEW (lg+) - PROFESSIONAL 2-TIER WEBSITE HEADER */}
+        {/* NO Side Drawer, NO Hamburger Menu Button, Clean Wide Navigation */}
+        {/* ======================================================== */}
+        <div className="hidden lg:block w-full">
+          {/* Tier 1: Main Header Bar */}
+          <div className="max-w-7xl mx-auto px-6 lg:px-8 py-3 flex items-center justify-between gap-6">
+            {/* Left: Brand Identity */}
+            <div className="flex items-center gap-3.5 shrink-0">
+              <div 
+                className="w-13 h-13 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-md p-1.5 cursor-pointer hover:scale-105 transition-transform"
+                onClick={!isAdmin ? handleLogoClick : undefined}
+                title="लोगो बड़ा करें"
+              >
+                <SmartImage
+                  src={branding.logo}
+                  fallbackSrc="/icon-192.png"
+                  alt={branding.name}
+                  className="w-full h-full"
+                  objectFit="contain"
+                  priority
+                />
+              </div>
+              <Link to={isAdmin ? "/admin" : "/"} className="group">
+                <h1 className="text-xl font-black tracking-tight text-white leading-tight group-hover:text-amber-300 transition-colors">
+                  {branding.name}
+                </h1>
+                <p className="text-xs text-[#EAB308] font-bold tracking-wide">
+                  {branding.tagline}
+                </p>
+              </Link>
+            </div>
+
+            {/* Center: Search Bar (Inspired by BigHaat) */}
+            <div className="flex-1 max-w-xl mx-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSearch(searchQuery);
+                }}
+                className="relative flex items-center"
+              >
+                <div className="relative w-full">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="दवाई, खाद, बीज या कीटनाशक खोजें..."
+                    className="w-full bg-white/10 hover:bg-white/15 focus:bg-white focus:text-[#16311A] border border-white/25 rounded-2xl py-2.5 pl-11 pr-24 text-sm transition-all placeholder:text-white/70 focus:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#EAB308] text-white shadow-inner"
+                  />
+                  <Search className="absolute left-3.5 top-3 w-4 h-4 text-white/70" />
+                </div>
+                <button
+                  type="submit"
+                  className="absolute right-1.5 px-4 py-1.5 bg-[#EAB308] hover:bg-[#d4a107] text-[#16311A] font-bold text-xs rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  खोजें
+                </button>
+              </form>
+            </div>
+
+            {/* Right: Quick Customer Actions */}
+            <div className="flex items-center gap-3 shrink-0">
+              {/* Missed Call / Helpline Badge */}
+              <a
+                href={`tel:${cleanPhone}`}
+                className="hidden xl:flex items-center gap-2.5 px-3 py-1.5 bg-white/10 hover:bg-white/15 border border-white/15 rounded-2xl text-white transition-all group"
+                title="कृषि हेल्पलाइन पर कॉल करें"
+              >
+                <div className="w-8 h-8 rounded-xl bg-[#EAB308]/20 flex items-center justify-center text-[#EAB308] shrink-0 group-hover:scale-105 transition-transform">
+                  <Phone className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider">हेल्पलाइन</p>
+                  <p className="text-xs font-black text-white">{phoneNumber}</p>
+                </div>
+              </a>
+
+              {/* My Orders */}
+              <NavLink
+                to="/my-orders"
+                className={({ isActive }) => cn(
+                  "px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border",
+                  isActive 
+                    ? "bg-white/20 text-white border-white/30 shadow-xs" 
+                    : "bg-white/10 hover:bg-white/15 text-white/90 border-white/10 hover:text-white"
+                )}
+                title="मेरे ऑर्डर"
+              >
+                <Package className="w-4 h-4 text-emerald-300" />
+                <span>मेरे ऑर्डर</span>
+              </NavLink>
+
+              {/* User Profile */}
+              <NavLink
+                to="/profile"
+                className={({ isActive }) => cn(
+                  "px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border",
+                  isActive 
+                    ? "bg-white/20 text-white border-white/30 shadow-xs" 
+                    : "bg-white/10 hover:bg-white/15 text-white/90 border-white/10 hover:text-white"
+                )}
+                title="प्रोफाइल"
+              >
+                <User className="w-4 h-4 text-amber-300" />
+                <span>प्रोफाइल</span>
+              </NavLink>
+
+              {/* Shopping Cart */}
+              <NavLink
+                to="/cart"
+                className={({ isActive }) => cn(
+                  "px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 relative border shadow-xs",
+                  isActive 
+                    ? "bg-[#EAB308] text-[#16311A] border-[#EAB308]" 
+                    : "bg-white/15 hover:bg-white/25 text-white border-white/20"
+                )}
+                title="शॉपिंग कार्ट देखें"
+              >
+                <ShoppingCart className="w-4 h-4" />
+                <span>कार्ट</span>
+                {cartCount > 0 && (
+                  <span className="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none shadow-sm">
+                    {cartCount}
+                  </span>
+                )}
+              </NavLink>
+
+              {/* Admin Panel Quick Badge (if admin) */}
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className="px-3 py-2 bg-amber-500/25 hover:bg-amber-500/35 text-amber-300 border border-amber-400/40 rounded-2xl text-xs font-black transition-all flex items-center gap-1.5 shadow-xs"
+                  title="एडमिन पैनल"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>एडमिन</span>
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Tier 2: Sub-Navigation Bar (Wide Horizontal Categories & Services) */}
+          <div className="bg-[#20431D] border-t border-white/10 shadow-inner">
+            <div className="max-w-7xl mx-auto px-6 lg:px-8 py-2 flex items-center justify-between">
+              <nav className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5">
+                <NavLink 
+                  to="/" 
+                  end
+                  className={({ isActive }) => cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
+                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  मुख्य पृष्ठ
+                </NavLink>
+
+                <NavLink 
+                  to="/products" 
+                  className={({ isActive }) => cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
+                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  कृषि बाजार
+                </NavLink>
+
+                <NavLink 
+                  to="/ai-call" 
+                  className={({ isActive }) => cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 text-amber-300",
+                    isActive ? "bg-white/20 text-amber-200 shadow-xs" : "hover:text-amber-200 hover:bg-white/10"
+                  )}
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> AI विशेषज्ञ कॉल
+                </NavLink>
+
+                <NavLink 
+                  to="/disease" 
+                  className={({ isActive }) => cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  <Camera className="w-3.5 h-3.5" /> बीमारी जाँच
+                </NavLink>
+
+                <NavLink 
+                  to="/mandi" 
+                  className={({ isActive }) => cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  <TrendingUp className="w-3.5 h-3.5" /> मंडी भाव
+                </NavLink>
+
+                <NavLink 
+                  to="/news" 
+                  className={({ isActive }) => cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  <Newspaper className="w-3.5 h-3.5" /> कृषि समाचार
+                </NavLink>
+
+                <NavLink 
+                  to="/weather" 
+                  className={({ isActive }) => cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  <CloudSun className="w-3.5 h-3.5" /> मौसम
+                </NavLink>
+
+                <NavLink 
+                  to="/schemes" 
+                  className={({ isActive }) => cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  <Landmark className="w-3.5 h-3.5" /> सरकारी योजनाएं
+                </NavLink>
+
+                <NavLink 
+                  to="/calculator" 
+                  className={({ isActive }) => cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  <Calculator className="w-3.5 h-3.5" /> कैलकुलेटर
+                </NavLink>
+
+                <NavLink 
+                  to="/helpline" 
+                  className={({ isActive }) => cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  <PhoneCall className="w-3.5 h-3.5" /> हेल्पलाइन
+                </NavLink>
+
+                <NavLink 
+                  to="/about" 
+                  className={({ isActive }) => cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  <Info className="w-3.5 h-3.5" /> हमारे बारे में
+                </NavLink>
+
+                <NavLink 
+                  to="/contact" 
+                  className={({ isActive }) => cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  <Phone className="w-3.5 h-3.5" /> संपर्क करें
+                </NavLink>
+              </nav>
+
+              {/* Right Tag / Assurance Badge */}
+              <div className="hidden 2xl:flex items-center gap-2 text-[11px] font-bold text-emerald-200 bg-white/10 px-3 py-1 rounded-full border border-white/10">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>100% प्रमाणित कृषि इनपुट्स</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -328,7 +541,7 @@ const Header: React.FC = () => {
                 <div className="w-full h-full overflow-hidden flex items-center justify-center">
                   <SmartImage 
                     src={branding.logo} 
-                    fallbackSrc="/icon-512.png"
+                    fallbackSrc="/icon-512.png" 
                     alt="Enlarged Logo" 
                     className="w-full h-full" 
                     objectFit="contain" 
@@ -344,23 +557,23 @@ const Header: React.FC = () => {
         </AnimatePresence>
       </header>
 
-      {/* Side Menu Overlay */}
+      {/* Side Menu Overlay - STRICTLY MOBILE & TABLET ONLY (lg:hidden) */}
       <AnimatePresence>
         {isMenuOpen && (
-          <>
+          <div className="lg:hidden">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMenuOpen(false)}
-              className="fixed inset-0 bg-black/50 z-[100] backdrop-blur-sm"
+              className="fixed inset-0 bg-black/50 z-[100] backdrop-blur-sm lg:hidden"
             />
             <motion.div 
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 bottom-0 w-[80%] max-w-[320px] bg-white z-[101] shadow-2xl flex flex-col"
+              className="fixed top-0 right-0 bottom-0 w-[80%] max-w-[320px] bg-white z-[101] shadow-2xl flex flex-col lg:hidden"
             >
               <div className="bg-[#2D5A27] p-6 text-white">
                 <div className="flex justify-between items-center mb-4">
@@ -371,7 +584,7 @@ const Header: React.FC = () => {
                   >
                     <SmartImage 
                       src={branding.logo} 
-                      fallbackSrc="/icon-192.png"
+                      fallbackSrc="/icon-192.png" 
                       alt="Logo" 
                       className="w-full h-full" 
                       objectFit="contain" 
@@ -443,7 +656,7 @@ const Header: React.FC = () => {
                 </p>
               </div>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
     </>

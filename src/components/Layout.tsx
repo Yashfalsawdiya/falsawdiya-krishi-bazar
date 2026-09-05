@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import BottomNav from './BottomNav';
+import Footer from './Footer';
 import OfflineIndicator from './OfflineIndicator';
 import SmartImage from './SmartImage';
 import { useAppContext } from '../context/AppContext';
@@ -100,10 +101,11 @@ const Layout: React.FC = () => {
     <div className="min-h-screen bg-[#F5F2ED] flex flex-col w-full relative">
       <OfflineIndicator />
       <Header />
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 md:pb-12 pt-36 md:pt-24 lg:pt-24 transition-all">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 md:pb-12 pt-36 md:pt-24 lg:pt-32 transition-all">
         <Outlet />
       </main>
       <BottomNav />
+      <Footer />
     </div>
   );
 };
