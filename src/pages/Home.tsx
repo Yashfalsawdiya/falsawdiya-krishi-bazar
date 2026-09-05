@@ -138,7 +138,12 @@ const Home: React.FC = () => {
 
   const featuredProducts = products
     .filter(p => p.isFeatured)
-    .sort((a, b) => (a.featuredOrder || 0) - (b.featuredOrder || 0));
+    .sort((a, b) => {
+      const orderA = typeof a.featuredOrder === 'number' ? a.featuredOrder : 9999;
+      const orderB = typeof b.featuredOrder === 'number' ? b.featuredOrder : 9999;
+      if (orderA !== orderB) return orderA - orderB;
+      return (a.hindiName || '').localeCompare(b.hindiName || '');
+    });
 
   const currentDate = new Date().toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -326,12 +331,12 @@ const Home: React.FC = () => {
                     <Phone className="w-7 h-7 sm:w-8 sm:h-8 animate-bounce" />
                   </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg sm:text-xl font-black text-[#4A3728] leading-tight truncate">AI कृषि विशेषज्ञ कॉल</h3>
-                  <p className="text-xs text-gray-500 font-bold mt-1 line-clamp-1">सीधे बात करें और समस्या का हल पाएं</p>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <Sparkles className="w-3 h-3 text-[#2D5A27] shrink-0" />
-                    <span className="text-[10px] font-black text-[#2D5A27] uppercase tracking-widest truncate">इंसानों की तरह बातचीत</span>
+                <div className="flex-1 min-w-0 py-0.5">
+                  <h3 className="text-lg sm:text-xl font-black text-[#4A3728] leading-normal pt-1 pb-0.5 truncate">AI कृषि विशेषज्ञ कॉल</h3>
+                  <p className="text-xs text-gray-500 font-bold mt-0.5 line-clamp-1 leading-normal py-0.5">सीधे बात करें और समस्या का हल पाएं</p>
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
+                    <span className="text-[10px] font-black text-[#2D5A27] uppercase tracking-wider truncate py-0.5">इंसानों की तरह बातचीत</span>
                   </div>
                 </div>
                 <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all shrink-0">
@@ -357,12 +362,12 @@ const Home: React.FC = () => {
                     <Sprout className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
                   </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg sm:text-xl font-black text-[#4A3728] leading-tight truncate">AI उत्पाद जानकारी</h3>
-                  <p className="text-xs text-gray-500 font-bold mt-1 line-clamp-1">दवाई, खाद या टेक्निकल का सही डोज़ जानें</p>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <Sparkles className="w-3 h-3 text-[#2D5A27] shrink-0" />
-                    <span className="text-[10px] font-black text-[#2D5A27] uppercase tracking-widest truncate">सटीक डोज़ और उपयोग विधि</span>
+                <div className="flex-1 min-w-0 py-0.5">
+                  <h3 className="text-lg sm:text-xl font-black text-[#4A3728] leading-normal pt-1 pb-0.5 truncate">AI उत्पाद जानकारी</h3>
+                  <p className="text-xs text-gray-500 font-bold mt-0.5 line-clamp-1 leading-normal py-0.5">दवाई, खाद या टेक्निकल का सही डोज़ जानें</p>
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
+                    <span className="text-[10px] font-black text-[#2D5A27] uppercase tracking-wider truncate py-0.5">सटीक डोज़ और उपयोग विधि</span>
                   </div>
                 </div>
                 <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all shrink-0">
@@ -380,20 +385,23 @@ const Home: React.FC = () => {
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl p-4 text-white h-full flex flex-col justify-between shadow-md"
+            className="bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl p-4 text-white h-full flex flex-col justify-between shadow-md relative overflow-hidden"
           >
-            <div className="flex justify-between items-start">
-              <CloudSun className="w-8 h-8 text-[#EAB308]" />
-              <span className="text-[10px] font-bold opacity-70 uppercase">मौसम</span>
-            </div>
-            {weather ? (
-              <div className="mt-2">
-                <h2 className="text-2xl font-bold leading-none">{weather.temp}°C</h2>
-                <p className="text-[10px] font-medium mt-1 truncate">{weather.condition}</p>
+            <div className="relative z-10 flex flex-col justify-between h-full">
+              <div className="flex justify-between items-start">
+                <CloudSun className="w-8 h-8 text-[#EAB308]" />
+                <span className="text-[10px] font-bold opacity-70 uppercase">मौसम</span>
               </div>
-            ) : (
-              <Loader2 className="w-5 h-5 animate-spin opacity-50 my-2" />
-            )}
+              {weather ? (
+                <div className="mt-2">
+                  <h2 className="text-2xl font-bold leading-none">{weather.temp}°C</h2>
+                  <p className="text-[10px] font-medium mt-1 truncate">{weather.condition}</p>
+                </div>
+              ) : (
+                <Loader2 className="w-5 h-5 animate-spin opacity-50 my-2" />
+              )}
+            </div>
+            <CloudSun className="w-14 h-14 sm:w-16 sm:h-16 text-white/[0.12] absolute right-3 sm:right-4 bottom-2.5 sm:bottom-3 pointer-events-none" />
           </motion.div>
         </Link>
 
@@ -401,27 +409,30 @@ const Home: React.FC = () => {
           <motion.div 
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-white rounded-2xl p-4 border border-gray-100 h-full flex flex-col justify-between shadow-sm relative group"
+            className="bg-white rounded-2xl p-4 border border-gray-100 h-full flex flex-col justify-between shadow-sm relative group overflow-hidden"
           >
-            <div className="flex justify-between items-start">
-              <TrendingUp className="w-8 h-8 text-[#2D5A27]" />
-              <span className="text-[10px] font-bold text-gray-400 uppercase">मंडी भाव</span>
+            <div className="relative z-10 flex flex-col justify-between h-full">
+              <div className="flex justify-between items-start">
+                <TrendingUp className="w-8 h-8 text-[#2D5A27]" />
+                <span className="text-[10px] font-bold text-gray-400 uppercase">मंडी भाव</span>
+              </div>
+              {mandi ? (
+                <div className="animate-in fade-in duration-500 mt-2">
+                  <p className="text-[10px] font-bold text-gray-500 truncate">{mandi.items[0]?.commodity}</p>
+                  <h2 className="text-xl font-bold text-[#2D5A27] leading-none">₹{mandi.items[0]?.avgPrice}</h2>
+                  <p className="text-[9px] text-gray-400 mt-1 truncate">{mandi.mandiName} मंडी</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1 my-2">
+                  <div className="h-4 w-12 bg-gray-100 rounded animate-pulse" />
+                  <div className="h-6 w-20 bg-gray-100 rounded animate-pulse mt-1" />
+                </div>
+              )}
             </div>
-            {mandi ? (
-              <div className="animate-in fade-in duration-500 mt-2">
-                <p className="text-[10px] font-bold text-gray-500 truncate">{mandi.items[0]?.commodity}</p>
-                <h2 className="text-xl font-bold text-[#2D5A27] leading-none">₹{mandi.items[0]?.avgPrice}</h2>
-                <p className="text-[9px] text-gray-400 mt-1 truncate">{mandi.mandiName} मंडी</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-1 my-2">
-                <div className="h-4 w-12 bg-gray-100 rounded animate-pulse" />
-                <div className="h-6 w-20 bg-gray-100 rounded animate-pulse mt-1" />
-              </div>
-            )}
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
               <ArrowRight className="w-3 h-3 text-gray-300" />
             </div>
+            <TrendingUp className="w-14 h-14 sm:w-16 sm:h-16 text-[#2D5A27]/[0.08] absolute right-3 sm:right-4 bottom-2.5 sm:bottom-3 pointer-events-none" />
           </motion.div>
         </Link>
 
@@ -442,7 +453,7 @@ const Home: React.FC = () => {
                 अभी देखें <ArrowRight className="w-3 h-3" />
               </div>
             </div>
-            <Landmark className="w-20 h-20 text-white/10 absolute -right-4 -bottom-4 rotate-12" />
+            <Landmark className="w-14 h-14 sm:w-16 sm:h-16 text-white/[0.12] absolute right-3 sm:right-4 bottom-2.5 sm:bottom-3 pointer-events-none" />
           </motion.div>
         </Link>
       </div>

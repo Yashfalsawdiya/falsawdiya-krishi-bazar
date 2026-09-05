@@ -476,16 +476,6 @@ const Header: React.FC = () => {
                 </NavLink>
 
                 <NavLink 
-                  to="/helpline" 
-                  className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
-                  )}
-                >
-                  <PhoneCall className="w-3.5 h-3.5" /> हेल्पलाइन
-                </NavLink>
-
-                <NavLink 
                   to="/about" 
                   className={({ isActive }) => cn(
                     "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",

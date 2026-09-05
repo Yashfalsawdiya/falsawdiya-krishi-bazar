@@ -15,6 +15,7 @@ import {
   deleteDoc, 
   doc, 
   setDoc,
+  writeBatch,
   getDoc,
   getDocs,
   getDocsFromCache,
@@ -114,6 +115,8 @@ interface AppContextType {
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
+  removeFeaturedProduct: (productId: string) => Promise<void>;
+  reorderFeaturedProducts: (reorderedProducts: Product[]) => Promise<void>;
   addCategory: (category: Omit<CategoryData, 'id'>) => Promise<void>;
   updateCategory: (category: CategoryData) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
@@ -798,13 +801,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addProduct = async (product: Omit<Product, 'id'>) => {
     try {
-      await addDoc(collection(db, 'products'), product);
+      const docRef = await addDoc(collection(db, 'products'), product);
+      const newProd = { id: docRef.id, ...product } as Product;
+      setProducts(prev => {
+        const updated = [...prev, newProd];
+        setCacheData('products', updated);
+        return updated;
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'products');
     }
   };
 
   const updateProduct = async (updatedProduct: Product) => {
+    setProducts(prev => {
+      const updated = prev.map(p => p.id === updatedProduct.id ? updatedProduct : p);
+      setCacheData('products', updated);
+      return updated;
+    });
     try {
       const { id, ...data } = updatedProduct;
       await setDoc(doc(db, 'products', id), data, { merge: true });
@@ -814,10 +828,124 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteProduct = async (id: string) => {
+    setProducts(prev => {
+      const updated = prev.filter(p => p.id !== id);
+      setCacheData('products', updated);
+      return updated;
+    });
     try {
       await deleteDoc(doc(db, 'products', id));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
+    }
+  };
+
+  const removeFeaturedProduct = async (productId: string) => {
+    // 1. Optimistically update local React state & local cache
+    setProducts(prev => {
+      const target = prev.find(p => p.id === productId);
+      if (!target) return prev;
+
+      // Re-index remaining featured products sequentially
+      const remainingFeatured = prev
+        .filter(p => p.isFeatured && p.id !== productId)
+        .sort((a, b) => {
+          const orderA = typeof a.featuredOrder === 'number' ? a.featuredOrder : 9999;
+          const orderB = typeof b.featuredOrder === 'number' ? b.featuredOrder : 9999;
+          if (orderA !== orderB) return orderA - orderB;
+          return (a.hindiName || '').localeCompare(b.hindiName || '');
+        })
+        .map((p, idx) => ({ ...p, featuredOrder: idx + 1 }));
+
+      const remainingMap = new Map(remainingFeatured.map(p => [p.id, p]));
+
+      const next = prev.map(p => {
+        if (p.id === productId) {
+          return { ...p, isFeatured: false, featuredOrder: 0 };
+        }
+        if (remainingMap.has(p.id)) {
+          return remainingMap.get(p.id)!;
+        }
+        return p;
+      });
+
+      setCacheData('products', next);
+      return next;
+    });
+
+    // 2. Persist update to Firestore
+    try {
+      const batch = writeBatch(db);
+      // Remove featured flag and reset order for the target product
+      batch.update(doc(db, 'products', productId), {
+        isFeatured: false,
+        featuredOrder: 0
+      });
+
+      // Update remaining featured products ordering in Firestore
+      const remainingFeatured = products
+        .filter(p => p.isFeatured && p.id !== productId)
+        .sort((a, b) => {
+          const orderA = typeof a.featuredOrder === 'number' ? a.featuredOrder : 9999;
+          const orderB = typeof b.featuredOrder === 'number' ? b.featuredOrder : 9999;
+          if (orderA !== orderB) return orderA - orderB;
+          return (a.hindiName || '').localeCompare(b.hindiName || '');
+        });
+
+      remainingFeatured.forEach((p, idx) => {
+        batch.update(doc(db, 'products', p.id), {
+          featuredOrder: idx + 1
+        });
+      });
+
+      await batch.commit();
+    } catch (error) {
+      console.warn("Batch remove featured write failed, trying individual fallback:", error);
+      try {
+        await setDoc(doc(db, 'products', productId), { isFeatured: false, featuredOrder: 0 }, { merge: true });
+      } catch (fallbackErr) {
+        handleFirestoreError(fallbackErr, OperationType.UPDATE, `products/${productId}`);
+      }
+    }
+  };
+
+  const reorderFeaturedProducts = async (reorderedProducts: Product[]) => {
+    // 1. Assign clean 1-based sequential ordering
+    const normalized = reorderedProducts.map((p, idx) => ({
+      ...p,
+      isFeatured: true,
+      featuredOrder: idx + 1
+    }));
+
+    const orderMap = new Map(normalized.map(p => [p.id, p]));
+
+    // 2. Optimistically update local React state & local storage cache
+    setProducts(prev => {
+      const nextProducts = prev.map(p => orderMap.get(p.id) || p);
+      setCacheData('products', nextProducts);
+      return nextProducts;
+    });
+
+    // 3. Persist batch update to Firestore
+    try {
+      const batch = writeBatch(db);
+      normalized.forEach(p => {
+        batch.update(doc(db, 'products', p.id), {
+          featuredOrder: p.featuredOrder
+        });
+      });
+      await batch.commit();
+    } catch (error) {
+      console.warn("Batch reorder write failed, falling back to individual updates:", error);
+      try {
+        await Promise.all(
+          normalized.map(p => 
+            setDoc(doc(db, 'products', p.id), { featuredOrder: p.featuredOrder }, { merge: true })
+          )
+        );
+      } catch (fallbackErr) {
+        handleFirestoreError(fallbackErr, OperationType.UPDATE, 'products/reorder');
+      }
     }
   };
 
@@ -1105,6 +1233,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addProduct, 
       updateProduct, 
       deleteProduct,
+      removeFeaturedProduct,
+      reorderFeaturedProducts,
       addCategory,
       updateCategory,
       deleteCategory,

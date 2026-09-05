@@ -27,6 +27,7 @@ import { Calculator } from 'lucide-react';
 const Admin: React.FC = () => {
   const { 
     products, addProduct, updateProduct, deleteProduct,
+    removeFeaturedProduct, reorderFeaturedProducts,
     categories, addCategory, updateCategory, deleteCategory,
     agriIssues, addAgriIssue, updateAgriIssue, deleteAgriIssue,
     helplines, addHelpline, updateHelpline, deleteHelpline,
@@ -58,6 +59,9 @@ const Admin: React.FC = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [featuredProductToDelete, setFeaturedProductToDelete] = useState<Product | null>(null);
+  const [isReorderingFeatured, setIsReorderingFeatured] = useState(false);
+  const [isRemovingFeatured, setIsRemovingFeatured] = useState(false);
 
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [editingCategory, setEditingCategory] = useState<CategoryData | null>(null);
@@ -339,6 +343,36 @@ const Admin: React.FC = () => {
     }
   };
 
+  const featuredProductsList = React.useMemo(() => {
+    return products
+      .filter(p => p.isFeatured)
+      .sort((a, b) => {
+        const orderA = typeof a.featuredOrder === 'number' ? a.featuredOrder : 9999;
+        const orderB = typeof b.featuredOrder === 'number' ? b.featuredOrder : 9999;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.hindiName || '').localeCompare(b.hindiName || '');
+      });
+  }, [products]);
+
+  const handleMoveFeatured = async (fromIndex: number, direction: 'up' | 'down') => {
+    if (isReorderingFeatured) return;
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+    if (toIndex < 0 || toIndex >= featuredProductsList.length) return;
+
+    setIsReorderingFeatured(true);
+    try {
+      const updatedList = [...featuredProductsList];
+      const [movedItem] = updatedList.splice(fromIndex, 1);
+      updatedList.splice(toIndex, 0, movedItem);
+
+      await reorderFeaturedProducts(updatedList);
+    } catch (err) {
+      console.error("Failed to reorder featured products:", err);
+    } finally {
+      setIsReorderingFeatured(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
@@ -443,6 +477,90 @@ const Admin: React.FC = () => {
                     className="py-4 px-6 bg-red-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-red-200 hover:bg-red-700 transition-colors active:scale-95"
                   >
                     हाँ (Delete)
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Featured Product Remove Confirmation Modal */}
+      <AnimatePresence>
+        {featuredProductToDelete && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (!isRemovingFeatured) setFeaturedProductToDelete(null);
+              }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl"
+            >
+              <div className="p-8 text-center">
+                <div className="w-20 h-20 bg-amber-50 rounded-[24px] flex items-center justify-center mx-auto mb-6 text-amber-500">
+                  <Star className="w-10 h-10 fill-amber-500/20 stroke-amber-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">क्या आप सुनिश्चित हैं?</h3>
+                <p className="text-sm text-gray-700 mb-4 leading-relaxed">
+                  क्या आप इस Featured Product को Home Page की Featured Products list से हटाना चाहते हैं?
+                </p>
+                <div className="bg-gray-50 border border-gray-100 rounded-2xl p-3 mb-4 flex items-center gap-3 text-left">
+                  <SmartImage 
+                    src={featuredProductToDelete.image} 
+                    alt={featuredProductToDelete.name} 
+                    className="w-12 h-12 rounded-xl object-cover shrink-0 border border-gray-100" 
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-gray-900 truncate">{featuredProductToDelete.hindiName}</p>
+                    <p className="text-xs text-gray-500 truncate">{featuredProductToDelete.brand}</p>
+                  </div>
+                </div>
+                <div className="bg-emerald-50 text-emerald-800 text-xs p-3 rounded-2xl mb-6 font-medium text-left border border-emerald-100 flex items-start gap-2">
+                  <span className="shrink-0 mt-0.5">ℹ️</span>
+                  <span><strong>सुरक्षित:</strong> यह उत्पाद आपकी इन्वेंटरी/डेटाबेस से डिलीट नहीं होगा, केवल Home Page के Featured सेक्शन से हटेगा।</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    type="button"
+                    disabled={isRemovingFeatured}
+                    onClick={() => setFeaturedProductToDelete(null)}
+                    className="py-4 px-6 bg-gray-100 text-gray-700 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-colors active:scale-95 disabled:opacity-50"
+                  >
+                    नहीं (Cancel)
+                  </button>
+                  <button 
+                    type="button"
+                    disabled={isRemovingFeatured}
+                    onClick={async () => {
+                      if (!featuredProductToDelete) return;
+                      const targetId = featuredProductToDelete.id;
+                      setIsRemovingFeatured(true);
+                      try {
+                        await removeFeaturedProduct(targetId);
+                        setFeaturedProductToDelete(null);
+                      } catch (error) {
+                        console.error("Failed to remove featured product:", error);
+                      } finally {
+                        setIsRemovingFeatured(false);
+                      }
+                    }}
+                    className="py-4 px-6 bg-red-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-red-200 hover:bg-red-700 transition-colors active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isRemovingFeatured ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> हटा रहे हैं...
+                      </>
+                    ) : (
+                      "हाँ (Remove)"
+                    )}
                   </button>
                 </div>
               </div>
@@ -1292,7 +1410,7 @@ const Admin: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {products.filter(p => p.isFeatured).length === 0 ? (
+            {featuredProductsList.length === 0 ? (
               <div className="text-center py-16 bg-white rounded-[2.5rem] border-2 border-dashed border-gray-100">
                 <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
                   <ShoppingBag className="w-8 h-8 text-gray-300" />
@@ -1301,87 +1419,82 @@ const Admin: React.FC = () => {
                 <p className="text-xs text-gray-300 mt-1 font-medium">उत्पाद टैब में जाकर किसी प्रोडक्ट को "Featured" बनाएं।</p>
               </div>
             ) : (
-              products
-                .filter(p => p.isFeatured)
-                .sort((a, b) => (a.featuredOrder || 0) - (b.featuredOrder || 0))
-                .map((product, idx, array) => (
-                  <motion.div 
-                    layout
-                    key={`${product.id}-feat`} 
-                    className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between group"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="relative">
-                        <div className="absolute -top-1.5 -left-1.5 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-[10px] font-black text-white border-2 border-white shadow-sm z-10">
-                          {idx + 1}
-                        </div>
-                        <SmartImage src={product.image} alt={product.name} className="w-16 h-16 rounded-2xl shadow-sm" objectFit="cover" />
+              featuredProductsList.map((product, idx) => (
+                <motion.div 
+                  layout
+                  key={`${product.id}-feat`} 
+                  className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className="absolute -top-1.5 -left-1.5 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-[10px] font-black text-white border-2 border-white shadow-sm z-10">
+                        {idx + 1}
                       </div>
-                      <div>
-                        <h4 className="font-bold text-gray-800">{product.hindiName}</h4>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100 font-black">
-                            ID: {product.customId || product.id.substring(0, 5)}
+                      <SmartImage src={product.image} alt={product.name} className="w-16 h-16 rounded-2xl shadow-sm" objectFit="cover" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800">{product.hindiName}</h4>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100 font-black">
+                          ID: {product.customId || product.id.substring(0, 5)}
+                        </span>
+                        <span className="text-[9px] bg-gray-50 text-gray-500 px-1.5 py-0.5 rounded border border-gray-200 font-bold uppercase">
+                          क्रम: {idx + 1}
+                        </span>
+                        {product.brand && (
+                          <span className="text-[9px] text-gray-400 font-medium">
+                            • {product.brand}
                           </span>
-                          <span className="text-[9px] bg-gray-50 text-gray-400 px-1.5 py-0.5 rounded border border-gray-100 font-bold uppercase">
-                            क्रम: {product.featuredOrder}
-                          </span>
-                        </div>
+                        )}
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <div className="flex flex-col gap-1">
-                        <button 
-                          type="button"
-                          disabled={idx === 0}
-                          onClick={async () => {
-                            if (idx === 0) return;
-                            const prevProd = array[idx - 1];
-                            const currentProd = product;
-                            const tempOrder = prevProd.featuredOrder || 0;
-                            await updateProduct({ ...prevProd, featuredOrder: currentProd.featuredOrder });
-                            await updateProduct({ ...currentProd, featuredOrder: tempOrder });
-                          }}
-                          className={cn(
-                            "p-2 rounded-xl transition-all active:scale-95",
-                            idx === 0 ? "text-gray-200 cursor-not-allowed" : "text-amber-500 bg-amber-50 hover:bg-amber-100"
-                          )}
-                        >
-                          <ArrowUp className="w-4 h-4" />
-                        </button>
-                        <button 
-                          type="button"
-                          disabled={idx === array.length - 1}
-                          onClick={async () => {
-                            if (idx === array.length - 1) return;
-                            const nextProd = array[idx + 1];
-                            const currentProd = product;
-                            const tempOrder = nextProd.featuredOrder || 0;
-                            await updateProduct({ ...nextProd, featuredOrder: currentProd.featuredOrder });
-                            await updateProduct({ ...currentProd, featuredOrder: tempOrder });
-                          }}
-                          className={cn(
-                            "p-2 rounded-xl transition-all active:scale-95",
-                            idx === array.length - 1 ? "text-gray-200 cursor-not-allowed" : "text-amber-500 bg-amber-50 hover:bg-amber-100"
-                          )}
-                        >
-                          <ArrowDown className="w-4 h-4" />
-                        </button>
-                      </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-1">
                       <button 
                         type="button"
-                        onClick={async () => {
-                          if (confirm(`क्या आप वाकई "${product.hindiName}" को Featured से हटाना चाहते हैं?`)) {
-                            await updateProduct({ ...product, isFeatured: false });
-                          }
-                        }}
-                        className="p-3 text-red-500 bg-red-50 rounded-2xl hover:bg-red-100 transition-colors flex items-center justify-center"
+                        id={`btn-featured-up-${product.id}`}
+                        disabled={idx === 0 || isReorderingFeatured}
+                        onClick={() => handleMoveFeatured(idx, 'up')}
+                        title={idx === 0 ? "सबसे ऊपर है" : "ऊपर ले जाएँ (Move Up)"}
+                        className={cn(
+                          "p-2 rounded-xl transition-all",
+                          idx === 0 || isReorderingFeatured 
+                            ? "text-gray-300 bg-gray-50 cursor-not-allowed opacity-50" 
+                            : "text-amber-600 bg-amber-50 hover:bg-amber-100 active:scale-90 cursor-pointer shadow-xs"
+                        )}
                       >
-                        <Trash2 className="w-5 h-5" />
+                        <ArrowUp className="w-4 h-4" />
+                      </button>
+                      <button 
+                        type="button"
+                        id={`btn-featured-down-${product.id}`}
+                        disabled={idx === featuredProductsList.length - 1 || isReorderingFeatured}
+                        onClick={() => handleMoveFeatured(idx, 'down')}
+                        title={idx === featuredProductsList.length - 1 ? "सबसे नीचे है" : "नीचे ले जाएँ (Move Down)"}
+                        className={cn(
+                          "p-2 rounded-xl transition-all",
+                          idx === featuredProductsList.length - 1 || isReorderingFeatured 
+                            ? "text-gray-300 bg-gray-50 cursor-not-allowed opacity-50" 
+                            : "text-amber-600 bg-amber-50 hover:bg-amber-100 active:scale-90 cursor-pointer shadow-xs"
+                        )}
+                      >
+                        <ArrowDown className="w-4 h-4" />
                       </button>
                     </div>
-                  </motion.div>
-                ))
+                    <button 
+                      type="button"
+                      id={`btn-featured-delete-${product.id}`}
+                      disabled={isRemovingFeatured || isReorderingFeatured}
+                      onClick={() => setFeaturedProductToDelete(product)}
+                      title="Featured से हटाएँ (Remove from Featured)"
+                      className="p-3 text-red-600 bg-red-50 rounded-2xl hover:bg-red-100 active:scale-95 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </motion.div>
+              ))
             )}
           </div>
         </div>
