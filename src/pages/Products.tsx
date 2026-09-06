@@ -2,12 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { ShoppingBag, Building2, Tag, Plus, ShoppingCart, ArrowRight } from 'lucide-react';
-import { motion } from 'motion/react';
-import SmartImage from '../components/SmartImage';
+import { ShoppingBag } from 'lucide-react';
 import { cn } from '../lib/utils';
 import ImageZoomModal from '../components/ImageZoomModal';
 import ProductDetailModal from '../components/ProductDetailModal';
+import KrishiBazaarProductCard from '../components/KrishiBazaarProductCard';
 import { Product, ImageSource } from '../types';
 
 const Products: React.FC = () => {
@@ -19,7 +18,6 @@ const Products: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [zoomImage, setZoomImage] = useState<{ src: string | ImageSource; alt: string } | null>(null);
-  const [addedProductId, setAddedProductId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubProducts = loadProducts();
@@ -125,9 +123,13 @@ const Products: React.FC = () => {
     return mixedProducts;
   }, [products, categories, selectedCategory, searchParams]);
 
-  const handleDirectBuy = (product: Product) => {
-    addToCart(product, product.variants?.[0]);
+  const handleDirectBuy = (product: Product, variant?: { id: string; quantity: string; price: number }) => {
+    addToCart(product, variant || product.variants?.[0]);
     navigate('/cart');
+  };
+
+  const handleAddToCart = (product: Product, variant?: { id: string; quantity: string; price: number }) => {
+    addToCart(product, variant || product.variants?.[0]);
   };
 
   return (
@@ -159,119 +161,30 @@ const Products: React.FC = () => {
         ))}
       </div>
 
-      {/* Product List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Product List - Premium Responsive Vertical Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-5">
         {filteredProducts.length > 0 ? (
-          filteredProducts.map((product, idx) => {
-            const displayPrice = product.variants && product.variants.length > 0 ? product.variants[0].price : product.price;
-            const displayUnit = product.variants && product.variants.length > 0 ? product.variants[0].quantity : product.unit;
-            const isInStock = product.inStock !== false;
-
-            return (
-              <motion.div
-                layout
-                key={`${product.id}-${idx}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                onClick={() => {
-                  setSelectedProduct(product);
-                  setShowDetail(true);
-                }}
-                className={cn(
-                  "bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex gap-4 cursor-pointer active:scale-[0.99] transition-transform group relative",
-                  !isInStock && "opacity-75 grayscale-[0.5]"
-                )}
-              >
-                <div className="w-24 h-24 rounded-xl overflow-hidden shrink-0 relative">
-                  <SmartImage 
-                    src={product.image} 
-                    alt={product.hindiName} 
-                    className="w-full h-full cursor-zoom-in" 
-                    objectFit="cover"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setZoomImage({ src: product.image, alt: product.hindiName });
-                    }}
-                  />
-                  {!isInStock && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <span className="text-[8px] font-black text-white uppercase tracking-wider bg-red-600 px-1.5 py-0.5 rounded-md rotate-[-15deg]">Stock Out</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-1 text-[10px] text-[#2D5A27] font-bold">
-                        <Building2 className="w-3 h-3" />
-                        {product.brand}
-                      </div>
-                      {product.customId && (
-                        <span className="text-[8px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 uppercase tracking-tighter">
-                          {product.customId}
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="font-bold text-gray-800 leading-tight group-hover:text-[#2D5A27] transition-colors">{product.hindiName}</h3>
-                    {product.description && (
-                      <p className="text-[11px] text-gray-600 line-clamp-2 leading-snug mt-1 italic">
-                        {product.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-end mt-3">
-                    <div className="flex gap-1.5 flex-wrap">
-                      <button 
-                        disabled={!isInStock}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addToCart(product, product.variants?.[0]);
-                          setAddedProductId(product.id);
-                          setTimeout(() => setAddedProductId(null), 1200);
-                        }}
-                        className={cn(
-                          "px-2.5 py-1.5 rounded-full text-[10px] font-bold shadow-sm flex items-center gap-1 active:scale-95 transition-all outline-none",
-                          !isInStock
-                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                            : addedProductId === product.id
-                              ? "bg-green-600 text-white"
-                              : "bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90"
-                        )}
-                      >
-                        <Plus className="w-3 h-3" />
-                        {addedProductId === product.id ? 'Added ✓' : 'Add To Cart'}
-                      </button>
-                      <button 
-                        disabled={!isInStock}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const pWithPrice = {
-                            ...product,
-                            price: displayPrice || 0,
-                            unit: displayUnit || ''
-                          };
-                          handleDirectBuy(pWithPrice as Product);
-                        }}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm flex items-center gap-1 active:scale-95 transition-all outline-none",
-                          isInStock 
-                            ? "bg-[#EAB308] text-[#2D5A27] hover:bg-amber-500" 
-                            : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                        )}
-                      >
-                        <ShoppingBag className="w-3 h-3" /> {isInStock ? 'अभी खरीदें' : 'खत्म'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })
+          filteredProducts.map((product, idx) => (
+            <KrishiBazaarProductCard
+              key={`${product.id}-${idx}`}
+              product={product}
+              index={idx}
+              onSelect={(p) => {
+                setSelectedProduct(p);
+                setShowDetail(true);
+              }}
+              onZoom={(src, alt) => {
+                setZoomImage({ src, alt });
+              }}
+              onAddToCart={handleAddToCart}
+              onBuy={handleDirectBuy}
+            />
+          ))
         ) : (
-          <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-gray-200">
+          <div className="col-span-full text-center py-12 bg-white rounded-2xl border border-dashed border-gray-200">
             <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-            <p className="text-gray-500 font-bold">कोई उत्पाद नहीं मिला</p>
-            <p className="text-xs text-gray-400">कृपया कुछ और खोजें</p>
+            <p className="text-gray-600 font-bold">कोई उत्पाद नहीं मिला</p>
+            <p className="text-xs text-gray-400">कृपया कुछ और खोजें या अन्य श्रेणी चुनें</p>
           </div>
         )}
       </div>

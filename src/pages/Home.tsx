@@ -70,6 +70,7 @@ import { MONTHLY_TIPS } from '../data/seasonalTips';
 
 import ImageZoomModal from '../components/ImageZoomModal';
 import ProductDetailModal from '../components/ProductDetailModal';
+import FeaturedProductCard from '../components/FeaturedProductCard';
 import SmartImage from '../components/SmartImage';
 import { Product, ImageSource } from '../types';
 
@@ -110,8 +111,15 @@ const Home: React.FC = () => {
     };
     emblaApi.on('select', onSelect);
     emblaApi.reInit();
+
+    const handleResize = () => {
+      emblaApi.reInit();
+    };
+    window.addEventListener('resize', handleResize);
+
     return () => {
       emblaApi.off('select', onSelect);
+      window.removeEventListener('resize', handleResize);
     };
   }, [emblaApi, activeDeviceBanners]);
 
@@ -279,8 +287,8 @@ const Home: React.FC = () => {
     }
   };
 
-  const handleBuyClick = (product: Product) => {
-    addToCart(product, product.variants?.[0]);
+  const handleBuyClick = (product: Product, variant?: { id: string; quantity: string; price: number }) => {
+    addToCart(product, variant || product.variants?.[0]);
     navigate('/cart');
   };
 
@@ -301,15 +309,15 @@ const Home: React.FC = () => {
       {/* Banner Slider */}
       <div 
         className={cn(
-          "overflow-hidden rounded-2xl shadow-lg relative group/slider",
+          "w-full overflow-hidden rounded-2xl shadow-lg relative group/slider",
           deviceType === 'mobile' && "aspect-[5/4] sm:aspect-[4/3] max-h-[360px]",
-          deviceType === 'tablet' && "aspect-[16/9] md:max-h-[380px]",
-          deviceType === 'laptop' && "aspect-[21/9] max-h-[380px]",
-          deviceType === 'desktop' && "aspect-[24/9] max-h-[420px]"
+          deviceType === 'tablet' && "aspect-auto h-[300px] sm:h-[320px] md:h-[350px]",
+          deviceType === 'laptop' && "aspect-auto h-[340px] md:h-[360px] lg:h-[380px]",
+          deviceType === 'desktop' && "aspect-auto h-[380px] lg:h-[400px] xl:h-[420px]"
         )} 
         ref={emblaRef}
       >
-        <div className="flex h-full">
+        <div className="flex h-full w-full">
           {activeDeviceBanners.map((banner, idx) => {
             const hasLink = Boolean(banner.link);
             const hasImage = Boolean(banner.image);
@@ -329,7 +337,7 @@ const Home: React.FC = () => {
                   }
                 }}
                 className={cn(
-                  "relative flex-[0_0_100%] min-w-0 h-full group",
+                  "relative flex-[0_0_100%] min-w-0 w-full h-full group",
                   hasLink ? "cursor-pointer" : hasImage ? "cursor-zoom-in" : "cursor-default"
                 )}
               >
@@ -616,104 +624,30 @@ const Home: React.FC = () => {
             सभी देखें <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
-        <div className="flex md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 overflow-x-auto md:overflow-x-visible pb-2 -mx-1 px-1 snap-x">
+        <div className="flex md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 overflow-x-auto md:overflow-x-visible pb-3 -mx-1 px-1 snap-x">
           {featuredProducts.length === 0 ? (
             <div className="w-full col-span-full py-8 text-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-100 flex flex-col items-center gap-2">
               <ShoppingBag className="w-8 h-8 text-gray-200" />
               <p className="text-xs text-gray-400 font-bold">आज के विशेष उत्पाद जल्द ही आएंगे!</p>
             </div>
           ) : (
-            featuredProducts.map((product, idx) => {
-              const displayPrice = product.variants && product.variants.length > 0 ? product.variants[0].price : product.price;
-              const displayUnit = product.variants && product.variants.length > 0 ? product.variants[0].quantity : product.unit;
-              const isInStock = product.inStock !== false;
-
-              return (
-                <motion.div 
-                  key={`${product.id}-${idx}`} 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  onClick={() => {
-                    setSelectedProduct(product);
-                    setShowDetail(true);
-                  }}
-                  className={cn(
-                    "min-w-[160px] md:min-w-0 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden snap-start flex flex-col cursor-pointer group hover:shadow-md transition-shadow",
-                    !isInStock && "opacity-75 grayscale-[0.5]"
-                  )}
-                >
-                  <div 
-                    className="relative h-32 sm:h-36 md:h-40 overflow-hidden cursor-zoom-in"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setZoomImage({ src: product.image, alt: product.hindiName });
-                    }}
-                  >
-                    <SmartImage 
-                      src={product.image} 
-                      alt={product.name} 
-                      className="w-full h-full transition-transform group-hover:scale-110" 
-                      objectFit="cover"
-                    />
-                    {!isInStock && (
-                      <div className="absolute top-2 right-2 bg-red-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-lg z-10">
-                        Out of Stock
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-3 flex-1 flex flex-col justify-between">
-                    <div>
-                      {product.customId && (
-                        <span className="text-[8px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 uppercase tracking-tighter mb-1 inline-block">
-                          {product.customId}
-                        </span>
-                      )}
-                      <h4 
-                        className="text-xs font-bold text-gray-800 line-clamp-1 group-hover:text-[#2D5A27] transition-colors"
-                      >
-                        {product.hindiName}
-                      </h4>
-                      <p className="text-[10px] text-gray-500 mb-2">{displayUnit || (product.hidePrice ? 'किमत उपल्ध नहीं' : '')}</p>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      {product.variants && product.variants.length > 0 ? (
-                        <span className="text-[10px] font-bold text-[#EAB308] bg-[#2D5A27]/5 px-2 py-1 rounded-lg border border-[#EAB308]/20 flex items-center gap-1">
-                          <Tag className="w-3 h-3" /> मात्रा चुनें
-                        </span>
-                      ) : (
-                        <span className="text-sm font-bold text-[#2D5A27]">
-                          {product.hidePrice || !displayPrice ? (
-                            <span className="text-[10px] text-gray-400 font-medium">कीमत उपलब्ध नहीं</span>
-                          ) : (
-                            `₹${displayPrice}`
-                          )}
-                        </span>
-                      )}
-                      <button 
-                        disabled={!isInStock}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const pWithPrice = {
-                            ...product,
-                            price: displayPrice || 0,
-                            unit: displayUnit || ''
-                          };
-                          handleBuyClick(pWithPrice as Product);
-                        }}
-                        className={cn(
-                          "p-2 rounded-lg shadow-sm transition-all",
-                          isInStock 
-                            ? "bg-[#EAB308] active:scale-90" 
-                            : "bg-gray-200 cursor-not-allowed"
-                        )}
-                      >
-                        <ShoppingBag className={cn("w-3.5 h-3.5", isInStock ? "text-[#2D5A27]" : "text-gray-400")} />
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })
+            featuredProducts.map((product, idx) => (
+              <FeaturedProductCard
+                key={`${product.id}-${idx}`}
+                product={product}
+                index={idx}
+                onSelect={(p) => {
+                  setSelectedProduct(p);
+                  setShowDetail(true);
+                }}
+                onZoom={(src, alt) => {
+                  setZoomImage({ src, alt });
+                }}
+                onBuy={(p, variant) => {
+                  handleBuyClick(p, variant);
+                }}
+              />
+            ))
           )}
         </div>
       </section>
