@@ -113,10 +113,10 @@ const Footer: React.FC = () => {
                 />
               </div>
               <div>
-                <h2 className="text-lg font-black tracking-tight text-white group-hover:text-amber-300 transition-colors leading-tight">
+                <h2 className="text-lg font-bold text-white group-hover:text-amber-300 transition-colors leading-tight">
                   {branding.name}
                 </h2>
-                <p className="text-xs text-[#EAB308] font-bold mt-0.5">
+                <p className="text-xs text-[#EAB308] font-semibold mt-0.5">
                   {branding.tagline}
                 </p>
               </div>
@@ -134,10 +134,10 @@ const Footer: React.FC = () => {
                     <Phone className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider">हेल्पलाइन व ऑर्डर सहायता</p>
+                    <p className="text-[10px] text-emerald-200 font-medium">हेल्पलाइन व ऑर्डर सहायता</p>
                     <a 
                       href={`tel:${cleanPhone}`} 
-                      className="text-sm font-black text-white hover:text-[#EAB308] transition-colors"
+                      className="text-sm font-bold text-white hover:text-[#EAB308] transition-colors"
                     >
                       +91 {phoneNumber}
                     </a>
@@ -145,7 +145,7 @@ const Footer: React.FC = () => {
                 </div>
                 <a
                   href={`tel:${cleanPhone}`}
-                  className="px-3 py-1.5 bg-[#EAB308] hover:bg-[#d4a107] text-[#16311A] text-xs font-black rounded-xl transition-all shadow-xs"
+                  className="px-3 py-1.5 bg-[#EAB308] hover:bg-[#d4a107] text-[#16311A] text-xs font-semibold rounded-xl transition-all shadow-xs"
                 >
                   कॉल करें
                 </a>
@@ -160,7 +160,7 @@ const Footer: React.FC = () => {
 
             {/* Social & Community Links */}
             <div className="pt-2">
-              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2.5">
+              <p className="text-[11px] font-semibold text-gray-400 mb-2.5">
                 सोशल मीडिया व कम्युनिटी
               </p>
               <div className="flex items-center gap-2">
@@ -208,7 +208,7 @@ const Footer: React.FC = () => {
           <div className="col-span-12 xl:col-span-8 grid grid-cols-2 md:grid-cols-4 gap-6 xl:gap-8">
             {/* Column 1: Falsawdiya Krishi Bazaar / Company */}
             <div className="space-y-3.5">
-              <h3 className="text-xs font-black text-[#EAB308] uppercase tracking-wider border-b border-white/10 pb-2">
+              <h3 className="text-xs font-bold text-[#EAB308] border-b border-white/10 pb-2">
                 फल्सावदिया बाजार
               </h3>
               <ul className="space-y-2.5 text-xs text-gray-300">
@@ -277,7 +277,7 @@ const Footer: React.FC = () => {
 
             {/* Column 2: Agri Services */}
             <div className="space-y-3.5">
-              <h3 className="text-xs font-black text-[#EAB308] uppercase tracking-wider border-b border-white/10 pb-2">
+              <h3 className="text-xs font-bold text-[#EAB308] border-b border-white/10 pb-2">
                 कृषि सेवाएं
               </h3>
               <ul className="space-y-2.5 text-xs text-gray-300">
@@ -356,7 +356,7 @@ const Footer: React.FC = () => {
 
             {/* Column 3: Tools & Resources */}
             <div className="space-y-3.5">
-              <h3 className="text-xs font-black text-[#EAB308] uppercase tracking-wider border-b border-white/10 pb-2">
+              <h3 className="text-xs font-bold text-[#EAB308] border-b border-white/10 pb-2">
                 टूल्स व सहायता
               </h3>
               <ul className="space-y-2.5 text-xs text-gray-300">
@@ -425,7 +425,7 @@ const Footer: React.FC = () => {
 
             {/* Column 4: Legal, Safety & Licensing */}
             <div className="space-y-3.5">
-              <h3 className="text-xs font-black text-[#EAB308] uppercase tracking-wider border-b border-white/10 pb-2">
+              <h3 className="text-xs font-bold text-[#EAB308] border-b border-white/10 pb-2">
                 नीतियां व सुरक्षा
               </h3>
               <ul className="space-y-2.5 text-xs text-gray-300">

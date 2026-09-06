@@ -13,20 +13,29 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-feature-settings: "kern" 1;
+    font-feature-settings: "kern" 1, "liga" 1;
+    font-variant-ligatures: common-ligatures;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
     @apply font-sans bg-[#F5F2ED] text-gray-900;
-    line-height: 1.5;
-    letter-spacing: 0;
+    line-height: 1.55;
+    letter-spacing: normal;
+    word-spacing: normal;
   }
 
   /* Universal E-Commerce Heading & Subheading Standards */
   h1, h2, h3, h4, h5, h6 {
     text-rendering: optimizeLegibility;
     line-height: 1.35;
-    letter-spacing: 0;
+    letter-spacing: normal !important;
+    word-spacing: normal !important;
+  }
+
+  p, span, a, label, li, td, th, button, input, textarea, select {
+    letter-spacing: normal;
+    word-spacing: normal;
   }
 
   /* Clamp excessive heavy font weights (800/900) to professional, clean 700 / 600
@@ -50,11 +59,25 @@
     font-weight: 600 !important;
   }
 
-  /* Avoid negative tracking on Hindi/Devanagari text to prevent letter collisions & clipping */
+  /* Devanagari (Hindi) and bilingual text MUST NEVER have letter-spacing or tracking.
+     Letter-spacing breaks glyph conjuncts and separates continuous shirorekha headlines,
+     creating abnormal gaps between syllables (e.g. कि सा न   का   भ रो सा).
+     Force letter-spacing: normal on all tracking utilities. */
+  .tracking-tighter,
   .tracking-tight,
-  .tracking-tighter {
+  .tracking-normal,
+  .tracking-wide,
+  .tracking-wider,
+  .tracking-widest {
     letter-spacing: normal !important;
   }
+}
+
+/* Specific exception only for monospace verification OTP PIN inputs */
+.otp-code,
+.otp-input,
+[data-otp-code] {
+  letter-spacing: 0.25em !important;
 }
 
 /* Custom scrollbar for horizontal categories */

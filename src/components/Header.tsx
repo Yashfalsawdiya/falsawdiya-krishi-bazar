@@ -265,7 +265,7 @@ const Header: React.FC = () => {
                 <h1 className="text-xl 2xl:text-2xl font-bold text-white leading-snug group-hover:text-amber-300 transition-colors">
                   {branding.name}
                 </h1>
-                <p className="text-xs 2xl:text-sm text-[#EAB308] font-medium tracking-wide">
+                <p className="text-xs 2xl:text-sm text-[#EAB308] font-medium">
                   {branding.tagline}
                 </p>
               </Link>
@@ -311,7 +311,7 @@ const Header: React.FC = () => {
                   <Phone className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <p className="text-[10px] text-emerald-200 font-medium uppercase tracking-wider">हेल्पलाइन</p>
+                  <p className="text-[10px] text-emerald-200 font-medium">हेल्पलाइन</p>
                   <p className="text-xs font-bold text-white">{phoneNumber}</p>
                 </div>
               </a>
@@ -624,7 +624,7 @@ const Header: React.FC = () => {
 
                 {/* Legal & Policy Pages - Shifted to Bottom */}
                 <div className="pt-2 border-t border-gray-100 space-y-1">
-                  <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider px-3 mb-1">
+                  <p className="text-[11px] font-semibold text-gray-500 px-3 mb-1">
                     नीतियां व सहायता (Legal & Info)
                   </p>
                   {legalMenuItems.map((item, idx) => (
@@ -646,7 +646,7 @@ const Header: React.FC = () => {
               </div>
 
               <div className="p-6 border-t border-gray-100">
-                <p className="text-[10px] text-gray-400 text-center font-bold uppercase tracking-widest">
+                <p className="text-[10px] text-gray-400 text-center font-medium">
                   Version 2.3.0 • Made for Farmers
                 </p>
               </div>

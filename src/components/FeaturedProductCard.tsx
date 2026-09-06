@@ -82,7 +82,7 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
         {/* Out of stock badge */}
         {!isInStock && (
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
-            <span className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider bg-red-600 px-3 py-1 rounded-full shadow-lg border border-white/30 rotate-[-8deg]">
+            <span className="text-[10px] sm:text-xs font-bold text-white bg-red-600 px-3 py-1 rounded-full shadow-lg border border-white/30 rotate-[-8deg]">
               स्टॉक समाप्त
             </span>
           </div>
@@ -128,7 +128,7 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
 
           {/* Available Packaging Sizes (उपलब्ध पैकिंग) */}
           <div className="my-2 pt-1.5 border-t border-gray-100/80">
-            <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+            <span className="text-[11px] font-medium text-gray-500 flex items-center gap-1 mb-1.5">
               <Package className="w-3 h-3 text-gray-400" /> 
               उपलब्ध पैकिंग:
             </span>

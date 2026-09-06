@@ -88,7 +88,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
         {/* Out of Stock Overlay / Badge */}
         {!isInStock ? (
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
-            <span className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider bg-red-600 px-3 py-1 rounded-full shadow-lg border border-white/30 rotate-[-8deg]">
+            <span className="text-[10px] sm:text-xs font-bold text-white bg-red-600 px-3 py-1 rounded-full shadow-lg border border-white/30 rotate-[-8deg]">
               STOCK OUT
             </span>
           </div>
@@ -143,7 +143,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
 
           {/* Available Packaging Variants (उपलब्ध पैक) */}
           <div className="pt-2 border-t border-gray-100">
-            <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+            <span className="text-[11px] font-medium text-gray-500 flex items-center gap-1 mb-1.5">
               <Package className="w-3 h-3 text-gray-400" />
               उपलब्ध पैक:
             </span>

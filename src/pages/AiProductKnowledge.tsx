@@ -2072,14 +2072,14 @@ ${result.safetyInstructions}
                 crossOrigin="anonymous"
               />
               <div>
-                <h1 className="text-2xl font-extrabold text-[#2D5A27] tracking-tight">फल्सावदिया कृषि बाजार</h1>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">किसान का भरोसा, हमारी पहचान</p>
-                <p className="text-[10px] text-[#2D5A27] font-extrabold bg-[#2D5A27]/5 px-2.5 py-0.5 rounded-full inline-block mt-1">
+                <h1 className="text-2xl font-bold text-[#2D5A27]">फल्सावदिया कृषि बाजार</h1>
+                <p className="text-xs font-medium text-gray-600">किसान का भरोसा, हमारी पहचान</p>
+                <p className="text-[11px] text-[#2D5A27] font-semibold bg-[#2D5A27]/5 px-2.5 py-0.5 rounded-full inline-block mt-1">
                   AI उत्पाद ज्ञान साथी - विस्तृत तकनीकी रिपोर्ट
                 </p>
               </div>
             </div>
-            <div className="text-right text-xs font-bold text-gray-500">
+            <div className="text-right text-xs font-semibold text-gray-500">
               <p>दिनांक: {new Date().toLocaleDateString('hi-IN')}</p>
               <p>समय: {new Date().toLocaleTimeString('hi-IN')}</p>
               <p className="text-[10px] text-gray-400 mt-1">शामगढ़, मध्य प्रदेश</p>
@@ -2090,16 +2090,16 @@ ${result.safetyInstructions}
           <div className="bg-[#2D5A27]/5 p-5 rounded-2xl border border-gray-100 mb-6">
             <div className="flex justify-between items-start">
               <div>
-                <span className="bg-[#2D5A27] text-white text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
+                <span className="bg-[#2D5A27] text-white text-[11px] font-semibold px-3 py-1 rounded-full">
                   {result.category}
                 </span>
-                <h2 className="text-2xl font-black text-[#2D5A27] mt-2 leading-tight">{result.productName}</h2>
-                <p className="text-sm font-bold text-gray-600 mt-1">निर्माता: <span className="text-gray-900">{result.companyName}</span></p>
+                <h2 className="text-2xl font-bold text-[#2D5A27] mt-2 leading-tight">{result.productName}</h2>
+                <p className="text-sm font-semibold text-gray-600 mt-1">निर्माता: <span className="text-gray-900">{result.companyName}</span></p>
               </div>
               {result.fracIracHracGroup && (
                 <div className="bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl text-center">
-                  <span className="text-[9px] text-amber-700 font-extrabold uppercase tracking-widest block">Group Code</span>
-                  <span className="font-extrabold text-[#4A3728] text-xs">{result.fracIracHracGroup}</span>
+                  <span className="text-[9px] text-amber-700 font-semibold block">Group Code</span>
+                  <span className="font-bold text-[#4A3728] text-xs">{result.fracIracHracGroup}</span>
                 </div>
               )}
             </div>
@@ -2107,7 +2107,7 @@ ${result.safetyInstructions}
 
           {/* Technical Specifications Grid */}
           <div className="mb-6">
-            <h3 className="text-sm font-extrabold text-[#4A3728] uppercase tracking-widest border-b border-gray-200 pb-1.5 mb-3 flex items-center gap-1.5">
+            <h3 className="text-sm font-bold text-[#4A3728] border-b border-gray-200 pb-1.5 mb-3 flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-[#2D5A27]" />
               उत्पाद तकनीकी विवरण (Technical Details)
             </h3>

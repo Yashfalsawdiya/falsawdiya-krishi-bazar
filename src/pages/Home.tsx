@@ -466,7 +466,7 @@ const Home: React.FC = () => {
                   <p className="text-xs text-gray-600 font-normal mt-0.5 line-clamp-1 leading-normal py-0.5">सीधे बात करें और समस्या का हल पाएं</p>
                   <div className="flex items-center gap-1.5 mt-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
-                    <span className="text-[10px] font-semibold text-[#2D5A27] uppercase tracking-wider truncate py-0.5">इंसानों की तरह बातचीत</span>
+                    <span className="text-[11px] font-medium text-[#2D5A27] truncate py-0.5">इंसानों की तरह बातचीत</span>
                   </div>
                 </div>
                 <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all shrink-0">
@@ -497,7 +497,7 @@ const Home: React.FC = () => {
                   <p className="text-xs text-gray-600 font-normal mt-0.5 line-clamp-1 leading-normal py-0.5">दवाई, खाद या टेक्निकल का सही डोज़ जानें</p>
                   <div className="flex items-center gap-1.5 mt-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
-                    <span className="text-[10px] font-semibold text-[#2D5A27] uppercase tracking-wider truncate py-0.5">सटीक डोज़ और उपयोग विधि</span>
+                    <span className="text-[11px] font-medium text-[#2D5A27] truncate py-0.5">सटीक डोज़ और उपयोग विधि</span>
                   </div>
                 </div>
                 <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all shrink-0">
@@ -531,7 +531,6 @@ const Home: React.FC = () => {
                 <Loader2 className="w-5 h-5 animate-spin opacity-50 my-2" />
               )}
             </div>
-            <CloudSun className="w-14 h-14 sm:w-16 sm:h-16 text-white/[0.12] absolute right-3 sm:right-4 bottom-2.5 sm:bottom-3 pointer-events-none" />
           </motion.div>
         </Link>
 
@@ -562,7 +561,6 @@ const Home: React.FC = () => {
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
               <ArrowRight className="w-3 h-3 text-gray-300" />
             </div>
-            <TrendingUp className="w-14 h-14 sm:w-16 sm:h-16 text-[#2D5A27]/[0.08] absolute right-3 sm:right-4 bottom-2.5 sm:bottom-3 pointer-events-none" />
           </motion.div>
         </Link>
 
@@ -583,7 +581,6 @@ const Home: React.FC = () => {
                 अभी देखें <ArrowRight className="w-3 h-3" />
               </div>
             </div>
-            <Landmark className="w-14 h-14 sm:w-16 sm:h-16 text-white/[0.12] absolute right-3 sm:right-4 bottom-2.5 sm:bottom-3 pointer-events-none" />
           </motion.div>
         </Link>
       </div>
@@ -740,7 +737,7 @@ const Home: React.FC = () => {
             <MapPin className="w-5 h-5 text-[#2D5A27]" />
           </div>
           <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">हमारा पता (Our Address)</p>
+            <p className="text-[11px] font-semibold text-gray-500 mb-1">हमारा पता (Our Address)</p>
             <p className="text-xs text-[#4A3728] font-bold leading-relaxed">
               {contactInfo.address}
             </p>
@@ -750,7 +747,7 @@ const Home: React.FC = () => {
 
       {/* Partner Logos Slider */}
       <section className="py-4 overflow-hidden">
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4 text-center">हमारे टॉप ब्रांड्स (Our Top Brands)</p>
+        <p className="text-[11px] font-semibold text-gray-500 mb-4 text-center">हमारे टॉप ब्रांड्स (Our Top Brands)</p>
         <div className="relative flex overflow-x-hidden">
           <motion.div 
             animate={{ x: ["0%", "-50%"] }}
