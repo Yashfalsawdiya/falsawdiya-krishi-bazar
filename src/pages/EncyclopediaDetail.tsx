@@ -140,7 +140,8 @@ const EncyclopediaDetail: React.FC = () => {
 
         <button 
           onClick={() => navigate(-1)}
-          className="absolute top-6 left-6 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/30"
+          className="lg:hidden absolute top-6 left-6 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/30 cursor-pointer"
+          title="वापस जाएँ (Back)"
         >
           <ChevronLeft className="w-6 h-6" />
         </button>

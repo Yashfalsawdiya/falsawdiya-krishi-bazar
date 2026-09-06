@@ -448,10 +448,12 @@ export const DeliveryOrdersPage: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate('/profile')}
-            className="w-9 h-9 rounded-2xl bg-gray-50 hover:bg-gray-100 text-gray-600 flex items-center justify-center transition-colors"
+            className="lg:hidden w-9 h-9 rounded-2xl bg-gray-50 hover:bg-gray-100 text-gray-600 flex items-center justify-center transition-colors cursor-pointer"
+            title="वापस जाएँ (Back)"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
+          <div className="hidden lg:block w-9 h-9" />
 
           <div className="text-center">
             <h1 className="text-base font-black text-gray-900 flex items-center justify-center gap-1.5">

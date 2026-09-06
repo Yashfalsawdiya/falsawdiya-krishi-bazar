@@ -64,9 +64,9 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
         !isInStock && "opacity-75 grayscale-[0.3]"
       )}
     >
-      {/* Product Image Section - Full-Bleed Edge-to-Edge */}
+      {/* Product Image Section - Full-Bleed Edge-to-Edge with 1:1 Square Proportion */}
       <div 
-        className="relative h-48 sm:h-52 md:h-56 w-full overflow-hidden border-b border-gray-100 cursor-zoom-in bg-white"
+        className="relative aspect-square w-full overflow-hidden border-b border-gray-100 cursor-zoom-in bg-white"
         onClick={(e) => {
           e.stopPropagation();
           onZoom(product.image, product.hindiName);

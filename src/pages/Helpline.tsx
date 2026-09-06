@@ -57,7 +57,11 @@ const Helpline: React.FC = () => {
   return (
     <div className="space-y-6 pb-20">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => navigate(-1)} className="p-2 bg-white rounded-full shadow-sm text-gray-600">
+        <button 
+          onClick={() => navigate(-1)} 
+          className="lg:hidden p-2 bg-white rounded-full shadow-sm text-gray-600 transition-all active:scale-95 cursor-pointer"
+          title="वापस जाएँ (Back)"
+        >
           <ArrowLeft className="w-6 h-6" />
         </button>
         <h2 className="text-2xl font-bold text-gray-800">हेल्पलाइन डायरेक्टरी</h2>

@@ -385,7 +385,8 @@ const CheckoutPage: React.FC = () => {
       <div className="flex items-center gap-3 bg-white p-3.5 rounded-2xl border border-gray-100 shadow-xs">
         <button
           onClick={() => navigate('/cart')}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors active:scale-95 text-[#4A3728]"
+          className="lg:hidden p-2 hover:bg-gray-100 rounded-full transition-colors active:scale-95 text-[#4A3728]"
+          title="वापस जाएँ (Back)"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>

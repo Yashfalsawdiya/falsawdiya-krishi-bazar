@@ -1246,7 +1246,8 @@ ${result.safetyInstructions}
               navigate(-1);
             }
           }}
-          className="p-2 hover:bg-white/10 rounded-full transition-colors"
+          className="lg:hidden p-2 hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+          title="वापस जाएँ (Back)"
         >
           <ArrowLeft className="w-6 h-6" />
         </button>

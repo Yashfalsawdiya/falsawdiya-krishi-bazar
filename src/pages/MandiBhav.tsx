@@ -9,7 +9,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
   Calendar, 
-  MapPin, 
   Loader2, 
   RefreshCw, 
   AlertCircle, 
@@ -47,7 +46,7 @@ const MandiBhav: React.FC = () => {
   
   // Loading Hindi tips
   const loadingTips = [
-    "मंडी पल्स (Mandi Pulse) से नवीनतम दरें प्राप्त की जा रही हैं...",
+    "मंडी भाव (Mandi Bhaav) से नवीनतम दरें प्राप्त की जा रही हैं...",
     "फसलों के न्यूनतम और अधिकतम भाव अपडेट हो रहे हैं...",
     "स्थानीय मंडियों की आवक और गुणवत्ता जांची जा रही है...",
     "आपकी चुनिंदा मंडी के ताज़ा दाम लोड किए जा रहे हैं...",
@@ -175,7 +174,7 @@ const MandiBhav: React.FC = () => {
             <TrendingUp className="w-6 h-6" />
           </div>
         </div>
-        <h2 className="text-2xl font-black text-[#2D5A27] tracking-tight">मंडी भाव (Mandi Pulse)</h2>
+        <h2 className="text-2xl font-black text-[#2D5A27] tracking-tight">मंडी भाव (Mandi Bhaav)</h2>
         <p className="text-xs text-gray-500 font-medium mt-1">
           फल्सावदिया कृषि बाजार • सभी मंडियों और फसलों के ताज़ा लाइव दाम
         </p>
@@ -194,17 +193,6 @@ const MandiBhav: React.FC = () => {
         </div>
       </div>
 
-      {/* Primary Section Tab */}
-      <div className="bg-gray-100 p-1 rounded-2xl">
-        <div
-          className="py-3 text-xs font-black rounded-xl bg-white text-[#2D5A27] shadow-sm flex items-center justify-center gap-2 border border-gray-100"
-          id="tab-single-mandi"
-        >
-          <MapPin className="w-4 h-4 text-[#2D5A27]" />
-          <span>मंडी भाव</span>
-        </div>
-      </div>
-
       {/* State / District / Mandi Filter Card */}
       <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 space-y-4">
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
@@ -212,7 +200,7 @@ const MandiBhav: React.FC = () => {
             <Filter className="w-3.5 h-3.5 text-[#2D5A27]" />
             लोकेशन और मंडी चुनें (Select Location)
           </h3>
-          <span className="text-[10px] text-gray-400 font-semibold bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100">Mandi Pulse</span>
+          <span className="text-[10px] text-gray-400 font-semibold bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100">Mandi Bhaav</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -546,7 +534,7 @@ const MandiBhav: React.FC = () => {
                 <div className="space-y-1">
                   <p className="text-[11px] font-black text-gray-700">मंडी भाव चेतावनी एवं अस्वीकरण (*Disclaimer):</p>
                   <p className="text-[10px] text-gray-600 font-medium leading-relaxed">
-                    दिखाए गए मंडी भाव इंटरनेट स्रोतों (Mandi Pulse, Agmarknet) एवं विश्वसनीय स्थानीय रिपोर्टर्स से संकलित हैं। बाजार उतार-चढ़ाव के कारण कीमतें हर मिनट बदल सकती हैं। मंडी में फसल बेचने से पहले स्थानीय रूप से भावों की पुष्टि ज़रूर करें। हम किसी भी वित्तीय नुकसान के लिए उत्तरदायी नहीं हैं।
+                    दिखाए गए मंडी भाव इंटरनेट स्रोतों (Mandi Bhaav, Agmarknet) एवं विश्वसनीय स्थानीय रिपोर्टर्स से संकलित हैं। बाजार उतार-चढ़ाव के कारण कीमतें हर मिनट बदल सकती हैं। मंडी में फसल बेचने से पहले स्थानीय रूप से भावों की पुष्टि ज़रूर करें। हम किसी भी वित्तीय नुकसान के लिए उत्तरदायी नहीं हैं।
                   </p>
                 </div>
               </div>

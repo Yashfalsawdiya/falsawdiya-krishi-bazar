@@ -540,10 +540,11 @@ STRICT RULE ON NAME:
         message={apiKeyErrorMessage}
       />
       {/* Header */}
-      <div className="w-full flex items-center justify-between mb-8">
+      <div className="w-full flex items-center justify-between lg:justify-center mb-8">
         <button 
           onClick={() => navigate(-1)}
-          className="p-3 bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-95 transition-transform"
+          className="lg:hidden p-3 bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-95 transition-transform cursor-pointer"
+          title="वापस जाएँ (Back)"
         >
           <ChevronLeft className="w-6 h-6 text-gray-500" />
         </button>
@@ -557,7 +558,7 @@ STRICT RULE ON NAME:
             </span>
           </div>
         </div>
-        <div className="w-12" /> {/* Spacer */}
+        <div className="w-12 lg:hidden" /> {/* Spacer */}
       </div>
 
       {/* Main Experience */}

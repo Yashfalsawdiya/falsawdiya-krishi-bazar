@@ -25,6 +25,19 @@ export type DeviceBannersMap = {
   desktop: DeviceBanner[];
 };
 
+export interface YouTubeVideoItem {
+  id: string;
+  title: string;
+  videoUrl: string;
+  videoId?: string;
+  description?: string;
+  thumbnail: string | ImageSource;
+  isActive: boolean;
+  displayOrder?: number;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
 export interface CategoryData {
   id: string;
   name: string;

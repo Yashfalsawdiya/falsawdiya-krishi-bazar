@@ -17,6 +17,7 @@ import {
   normalizeDeviceBanners, 
   getActiveBannersForDevice 
 } from '../utils/deviceBanners';
+import { normalizeVideos, resolveVideoThumbnail } from '../utils/youtubeUtils';
 import { DeviceBanner } from '../types';
 
 const BANNERS = [
@@ -139,11 +140,10 @@ const Home: React.FC = () => {
   const [zoomImage, setZoomImage] = useState<{ src: string | ImageSource; alt: string } | null>(null);
 
   const banners = appContent?.banners || BANNERS;
-  const videos = appContent?.videos || [
-    { id: 'v1', title: 'आधुनिक खेती की जानकारी', videoUrl: 'https://www.youtube.com/watch?v=9-3-P4mXG3A', thumbnail: '' },
-    { id: 'v2', title: 'मिट्टी परीक्षण कैसे करें', videoUrl: 'https://www.youtube.com/watch?v=6Z_L2v_p-m8', thumbnail: '' },
-    { id: 'v3', title: 'जैविक खाद बनाने की विधि', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', thumbnail: '' }
-  ];
+  const videos = React.useMemo(() => {
+    const list = normalizeVideos(appContent?.videos);
+    return list.filter(v => v.isActive !== false);
+  }, [appContent?.videos]);
   const partners = appContent?.partners || PARTNERS.map((name, i) => ({ id: `p${i}`, name, logo: '' }));
   const whatsappSection = appContent?.whatsappSection || {
     title: 'WhatsApp पर जुड़ें',
@@ -786,70 +786,89 @@ const Home: React.FC = () => {
       </section>
 
       {/* YouTube Videos Section */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[#4A3728] flex items-center gap-2">
-            <Youtube className="w-6 h-6 text-red-600" />
-            खेती की वीडियो (Videos)
-          </h3>
-          <a 
-            href={youtubeChannel.url} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-xs font-bold text-red-600 flex items-center gap-1"
-          >
-            {youtubeChannel.label} <ExternalLink className="w-3 h-3" />
-          </a>
-        </div>
-        
-        <div className="overflow-hidden -mx-4 px-4" ref={emblaVideoRef}>
-          <div className="flex gap-4">
-            {videos.map((video, idx) => (
-              <div key={`${video.id}-${idx}`} className="flex-[0_0_85%] sm:flex-[0_0_45%] md:flex-[0_0_31%] lg:flex-[0_0_23%] min-w-0">
-                <a 
-                  href={video.videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 active:scale-95 transition-transform"
-                >
-                  <div className="aspect-video relative">
-                    <SmartImage 
-                      src={video.thumbnail} 
-                      alt={video.title} 
-                      className="absolute inset-0 w-full h-full"
-                      objectFit="cover"
-                    />
-                    <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
-                      <div className="bg-red-600 text-white w-14 h-10 rounded-[14px] flex items-center justify-center shadow-xl group-hover:bg-red-700 transition-colors">
-                        <Play className="w-6 h-6 fill-white text-white ml-1" />
+      {videos.length > 0 && (
+        <section className="space-y-3" id="home-youtube-videos-section">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-[#4A3728] flex items-center gap-2">
+              <Youtube className="w-6 h-6 text-red-600" />
+              खेती की वीडियो (Videos)
+            </h3>
+            <a 
+              href={youtubeChannel.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xs font-bold text-red-600 flex items-center gap-1 hover:underline transition-colors"
+            >
+              {youtubeChannel.label} <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+          
+          <div className="overflow-hidden -mx-4 px-4" ref={emblaVideoRef}>
+            <div className="flex gap-4">
+              {videos.map((video, idx) => (
+                <div key={`${video.id}-${idx}`} className="flex-[0_0_85%] sm:flex-[0_0_45%] md:flex-[0_0_31%] lg:flex-[0_0_23%] min-w-0">
+                  <a 
+                    href={video.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 active:scale-95 transition-transform group"
+                  >
+                    <div className="aspect-video relative bg-gray-900">
+                      <SmartImage 
+                        src={resolveVideoThumbnail(video)} 
+                        alt={video.title} 
+                        className="absolute inset-0 w-full h-full"
+                        objectFit="cover"
+                      />
+                      <div className="absolute inset-0 bg-black/15 flex items-center justify-center group-hover:bg-black/25 transition-colors">
+                        <div className="bg-red-600 text-white w-14 h-10 rounded-[14px] flex items-center justify-center shadow-xl group-hover:scale-105 transition-transform">
+                          <Play className="w-6 h-6 fill-white text-white ml-1" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="p-3">
-                    <h4 className="text-sm font-bold text-gray-800">{video.title}</h4>
-                  </div>
-                </a>
-              </div>
-            ))}
+                    <div className="p-3">
+                      <h4 className="text-sm font-bold text-gray-800 line-clamp-2">{video.title}</h4>
+                      {video.description && (
+                        <p className="text-xs text-gray-500 line-clamp-1 mt-1">{video.description}</p>
+                      )}
+                    </div>
+                  </a>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
 
       {/* Farming Tips */}
-      <section className="bg-[#4A3728] rounded-2xl p-4 text-white space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold flex items-center gap-2">
-            <Sprout className="w-5 h-5 text-[#EAB308]" />
-            आज की सलाह (Today's Tip)
+      <section className="bg-gradient-to-br from-[#EEF7EC] via-[#F4F9F2] to-[#E5F2E1] rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-[#CDE5C8] shadow-xs space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="font-extrabold text-[#1B4318] text-sm sm:text-base flex items-center gap-2 tracking-tight">
+            <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-[#2D5A27]/10 border border-[#2D5A27]/15 flex items-center justify-center text-[#2D5A27] shrink-0">
+              <Sprout className="w-4 h-4 text-[#2D5A27]" />
+            </span>
+            <span>
+              आज की सलाह
+              <span className="text-xs font-semibold text-[#2D5A27]/75 font-sans ml-1.5 hidden sm:inline">
+                (Today's Tip)
+              </span>
+            </span>
           </h3>
+
           <button 
             onClick={handleOpenChat}
             disabled={isAiLoading}
-            className="bg-[#EAB308] text-[#2D5A27] text-[10px] font-black px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm active:scale-95 transition-transform disabled:opacity-50"
+            className="group inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-[#2D5A27] hover:bg-[#23461e] active:scale-95 text-white text-xs sm:text-sm font-bold px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-full shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 shrink-0 cursor-pointer"
+            title="खेती से जुड़ा सवाल पूछें और AI कृषि सहायक से बात करें"
           >
-            {isAiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-            AI सलाह लें
+            {isAiLoading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 transition-transform group-hover:rotate-12" />
+            )}
+            <span>AI से कृषि सलाह लें</span>
+            <ArrowRight className="w-3.5 h-3.5 text-white/80 group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>
         
@@ -857,14 +876,19 @@ const Home: React.FC = () => {
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-sm opacity-90 leading-relaxed bg-white/10 p-3 rounded-xl border border-white/10"
+            className="text-xs sm:text-sm leading-relaxed text-[#1F3A1D] bg-white/85 backdrop-blur-xs p-3.5 rounded-xl border border-[#CDE5C8] font-medium"
           >
             {aiAdvice}
           </motion.div>
         ) : (
-          <p className="text-sm opacity-90 leading-relaxed">
-            {dailyTip}
-          </p>
+          <div className="space-y-1">
+            <p className="text-xs sm:text-sm text-[#263D23] font-medium leading-relaxed">
+              {dailyTip}
+            </p>
+            <p className="text-[11px] text-[#42603E]/80 hidden sm:block">
+              खेती से जुड़ा सवाल पूछें और AI कृषि सहायक से सीधे बात करें
+            </p>
+          </div>
         )}
       </section>
 

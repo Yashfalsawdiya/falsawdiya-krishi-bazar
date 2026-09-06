@@ -246,7 +246,8 @@ const OrderDetailsPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate('/orders')}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors active:scale-95 text-[#4A3728]"
+            className="lg:hidden p-2 hover:bg-gray-100 rounded-full transition-colors active:scale-95 text-[#4A3728]"
+            title="वापस जाएँ (Back)"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>

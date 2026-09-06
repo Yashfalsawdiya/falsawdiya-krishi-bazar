@@ -365,7 +365,8 @@ const AgriCalculator: React.FC = () => {
       <div className="flex items-center gap-3.5">
         <button 
           onClick={() => navigate(-1)} 
-          className="p-2.5 bg-white hover:bg-gray-50 border border-gray-100 rounded-full shadow-sm text-gray-700 transition-all active:scale-95"
+          className="lg:hidden p-2.5 bg-white hover:bg-gray-50 border border-gray-100 rounded-full shadow-sm text-gray-700 transition-all active:scale-95"
+          title="वापस जाएँ (Back)"
         >
           <ArrowLeft className="w-5.5 h-5.5 text-gray-700" />
         </button>

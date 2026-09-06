@@ -21,6 +21,8 @@ import AdminRazorpayManager from '../components/AdminRazorpayManager';
 import AdminInvoiceTemplateManager from '../components/AdminInvoiceTemplateManager';
 import AdminDeliveryManager from '../components/AdminDeliveryManager';
 import AdminDeviceBannerManager from '../components/AdminDeviceBannerManager';
+import AdminYouTubeVideoManager from '../components/AdminYouTubeVideoManager';
+import { DEFAULT_VIDEOS } from '../utils/youtubeUtils';
 import { SafeErrorBoundary } from '../components/SafeErrorBoundary';
 import { AccountingDashboard } from '../components/accounting/AccountingDashboard';
 import { Calculator } from 'lucide-react';
@@ -145,11 +147,7 @@ const Admin: React.FC = () => {
           { id: '2', image: '', title: 'नई किस्म के सोयाबीन बीज', subtitle: 'अधिक पैदावार की गारंटी' },
           { id: '3', image: '', title: 'फसल सुरक्षा समाधान', subtitle: 'बेहतरीन कीटनाशक उपलब्ध' }
         ],
-        videos: [
-          { id: 'v1', title: 'आधुनिक खेती की जानकारी', videoUrl: 'https://www.youtube.com/watch?v=9-3-P4mXG3A', thumbnail: '' },
-          { id: 'v2', title: 'मिट्टी परीक्षण कैसे करें', videoUrl: 'https://www.youtube.com/watch?v=6Z_L2v_p-m8', thumbnail: '' },
-          { id: 'v3', title: 'जैविक खाद बनाने की विधि', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', thumbnail: '' }
-        ],
+        videos: DEFAULT_VIDEOS,
         branding: {
           name: 'फल्सावदिया कृषि बाजार',
           tagline: 'किसान का भरोसा, हमारी पहचान',
@@ -1734,41 +1732,6 @@ const Admin: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
-              <YoutubeIcon className="w-5 h-5 text-red-600" />
-              यूट्यूब चैनल लिंक (YouTube Channel)
-            </h3>
-            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">चैनल का नाम/लेबल (Label)</label>
-                <input 
-                  type="text" 
-                  value={contentForm?.youtubeChannel?.label || ''}
-                  onChange={e => {
-                    if (!contentForm) return;
-                    setContentForm({...contentForm, youtubeChannel: {...(contentForm.youtubeChannel || {url: '', label: ''}), label: e.target.value}});
-                  }}
-                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
-                  placeholder="जैसे: हमारा कृषि चैनल"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">चैनल URL (Channel Link)</label>
-                <input 
-                  type="text" 
-                  value={contentForm?.youtubeChannel?.url || ''}
-                  onChange={e => {
-                    if (!contentForm) return;
-                    setContentForm({...contentForm, youtubeChannel: {...(contentForm.youtubeChannel || {url: '', label: ''}), url: e.target.value}});
-                  }}
-                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
-                  placeholder="जैसे: https://youtube.com/@yourchannel"
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Hero Banners */}
           <AdminDeviceBannerManager 
             contentForm={contentForm}
@@ -1780,58 +1743,18 @@ const Admin: React.FC = () => {
             }}
           />
 
-          {/* YouTube Videos */}
-          <div className="space-y-4">
-            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
-              <YoutubeIcon className="w-5 h-5 text-red-600" />
-              यूट्यूब वीडियो (YouTube Videos)
-            </h3>
-            {contentForm?.videos.map((video, idx) => (
-              <div key={`${video.id}-${idx}`} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">वीडियो #{idx + 1}</span>
-                </div>
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">वीडियो नाम (Title)</label>
-                    <input 
-                      type="text" 
-                      value={video.title}
-                      onChange={e => {
-                        const newVideos = [...contentForm.videos];
-                        newVideos[idx].title = e.target.value;
-                        setContentForm({...contentForm, videos: newVideos});
-                      }}
-                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">यूट्यूब वीडियो लिंक (Video URL)</label>
-                    <input 
-                      type="text" 
-                      value={video.videoUrl}
-                      onChange={e => {
-                        const newVideos = [...contentForm.videos];
-                        newVideos[idx].videoUrl = e.target.value;
-                        setContentForm({...contentForm, videos: newVideos});
-                      }}
-                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
-                      placeholder="जैसे: https://www.youtube.com/watch?v=..."
-                    />
-                  </div>
-                  <DualImageInput 
-                    label="वीडियो थंबनेल (Thumbnail)"
-                    value={video.thumbnail}
-                    onChange={source => {
-                      const newVideos = [...contentForm.videos];
-                      newVideos[idx].thumbnail = source;
-                      setContentForm({...contentForm, videos: newVideos});
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* YouTube Videos Management (Add, Edit, Delete, Reorder, Active/Hidden, Channel URL) */}
+          {contentForm && (
+            <AdminYouTubeVideoManager 
+              contentForm={contentForm}
+              setContentForm={setContentForm as React.Dispatch<React.SetStateAction<AppContent>>}
+              onSaveContent={async () => {
+                if (contentForm) {
+                  await updateAppContent(contentForm);
+                }
+              }}
+            />
+          )}
 
           {/* Partner Logos */}
           <div className="space-y-4">
