@@ -82,7 +82,7 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
         {/* Out of stock badge */}
         {!isInStock && (
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
-            <span className="text-[10px] sm:text-xs font-black text-white uppercase tracking-wider bg-red-600 px-3 py-1 rounded-full shadow-lg border border-white/30 rotate-[-8deg]">
+            <span className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider bg-red-600 px-3 py-1 rounded-full shadow-lg border border-white/30 rotate-[-8deg]">
               स्टॉक समाप्त
             </span>
           </div>
@@ -109,7 +109,7 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
         <div>
           {/* Custom Product ID */}
           {product.customId && (
-            <span className="text-[9px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 uppercase tracking-tight inline-block mb-1.5">
+            <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 uppercase inline-block mb-1.5">
               {product.customId}
             </span>
           )}
@@ -121,14 +121,14 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
 
           {/* Subtitle / English Name */}
           {product.name && (
-            <p className="text-[11px] text-gray-500 font-medium line-clamp-1 mb-2">
+            <p className="text-[11px] text-gray-500 font-normal line-clamp-1 mb-2">
               {product.name}
             </p>
           )}
 
           {/* Available Packaging Sizes (उपलब्ध पैकिंग) */}
           <div className="my-2 pt-1.5 border-t border-gray-100/80">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+            <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1 mb-1.5">
               <Package className="w-3 h-3 text-gray-400" /> 
               उपलब्ध पैकिंग:
             </span>
@@ -146,9 +146,9 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
                       handleVariantSelect(variant.id);
                     }}
                     className={cn(
-                      "text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer",
+                      "text-[11px] font-medium px-2.5 py-1 rounded-lg border transition-all cursor-pointer",
                       isSelected
-                        ? "bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs scale-105"
+                        ? "bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs scale-105 font-semibold"
                         : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
                     )}
                     title={`${variant.quantity} - ₹${variant.price}`}
@@ -168,7 +168,7 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
               <span className="text-[10px] text-gray-400 font-medium">कीमत उपलब्ध नहीं</span>
             ) : (
               <div className="flex flex-col">
-                <span className="text-sm sm:text-base font-extrabold text-[#2D5A27]">
+                <span className="text-sm sm:text-base font-bold text-[#2D5A27]">
                   ₹{displayPrice}
                 </span>
                 {displayUnit && (

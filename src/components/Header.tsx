@@ -104,15 +104,15 @@ const Header: React.FC = () => {
                 </Link>
               </motion.div>
               <div>
-                <h1 className="text-lg font-bold leading-none">{branding.name}</h1>
-                <p className="text-[10px] text-[#EAB308]">{branding.tagline}</p>
+                <h1 className="text-lg font-bold leading-snug">{branding.name}</h1>
+                <p className="text-[11px] text-[#EAB308] font-medium leading-normal">{branding.tagline}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Link to="/cart" className="p-1 hover:bg-white/10 rounded-full transition-colors relative" title="Cart Page">
                 <ShoppingCart className="w-6 h-6" />
                 {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-black w-4.5 h-4.5 flex items-center justify-center rounded-full border border-[#2D5A27]">
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold w-4.5 h-4.5 flex items-center justify-center rounded-full border border-[#2D5A27]">
                     {cartCount}
                   </span>
                 )}
@@ -165,10 +165,10 @@ const Header: React.FC = () => {
                 />
               </div>
               <div>
-                <h1 className="text-base font-black tracking-tight text-white leading-tight">
+                <h1 className="text-base font-bold text-white leading-snug">
                   {branding.name}
                 </h1>
-                <p className="text-[10px] text-[#EAB308] font-bold">
+                <p className="text-[11px] text-[#EAB308] font-medium">
                   {branding.tagline}
                 </p>
               </div>
@@ -188,7 +188,7 @@ const Header: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="दवाई या बीज खोजें..."
-              className="w-full bg-white/10 border border-white/25 rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:bg-white/20 placeholder:text-white/70 text-white transition-all"
+              className="w-full bg-white/10 border border-white/25 rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:bg-white/20 placeholder:text-white/70 text-white transition-all font-normal"
             />
             <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-white/70" />
           </form>
@@ -198,7 +198,7 @@ const Header: React.FC = () => {
             {isAdmin && (
               <Link
                 to="/admin"
-                className="px-2.5 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-400/40 rounded-xl text-xs font-black transition-all flex items-center gap-1"
+                className="px-2.5 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-400/40 rounded-xl text-xs font-semibold transition-all flex items-center gap-1"
                 title="एडमिन पैनल"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
@@ -208,12 +208,12 @@ const Header: React.FC = () => {
 
             <Link
               to="/cart"
-              className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold flex items-center gap-2 transition-all relative border border-white/15 text-white"
+              className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all relative border border-white/15 text-white"
             >
               <ShoppingCart className="w-4 h-4 text-white" />
               <span>कार्ट</span>
               {cartCount > 0 && (
-                <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
+                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
                   {cartCount}
                 </span>
               )}
@@ -262,10 +262,10 @@ const Header: React.FC = () => {
                 />
               </div>
               <Link to={isAdmin ? "/admin" : "/"} className="group">
-                <h1 className="text-xl 2xl:text-2xl font-black tracking-tight text-white leading-tight group-hover:text-amber-300 transition-colors">
+                <h1 className="text-xl 2xl:text-2xl font-bold text-white leading-snug group-hover:text-amber-300 transition-colors">
                   {branding.name}
                 </h1>
-                <p className="text-xs 2xl:text-sm text-[#EAB308] font-bold tracking-wide">
+                <p className="text-xs 2xl:text-sm text-[#EAB308] font-medium tracking-wide">
                   {branding.tagline}
                 </p>
               </Link>
@@ -286,13 +286,13 @@ const Header: React.FC = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="दवाई, खाद, बीज या कीटनाशक खोजें..."
-                    className="w-full bg-white/10 hover:bg-white/15 focus:bg-white focus:text-[#16311A] border border-white/25 rounded-2xl py-2.5 pl-11 pr-24 text-sm transition-all placeholder:text-white/70 focus:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#EAB308] text-white shadow-inner"
+                    className="w-full bg-white/10 hover:bg-white/15 focus:bg-white focus:text-[#16311A] border border-white/25 rounded-2xl py-2.5 pl-11 pr-24 text-sm transition-all placeholder:text-white/70 focus:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#EAB308] text-white shadow-inner font-normal"
                   />
                   <Search className="absolute left-3.5 top-3 w-4 h-4 text-white/70" />
                 </div>
                 <button
                   type="submit"
-                  className="absolute right-1.5 px-4 py-1.5 bg-[#EAB308] hover:bg-[#d4a107] text-[#16311A] font-bold text-xs rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer"
+                  className="absolute right-1.5 px-4 py-1.5 bg-[#EAB308] hover:bg-[#d4a107] text-[#16311A] font-semibold text-xs rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer"
                 >
                   खोजें
                 </button>
@@ -311,8 +311,8 @@ const Header: React.FC = () => {
                   <Phone className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <p className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider">हेल्पलाइन</p>
-                  <p className="text-xs font-black text-white">{phoneNumber}</p>
+                  <p className="text-[10px] text-emerald-200 font-medium uppercase tracking-wider">हेल्पलाइन</p>
+                  <p className="text-xs font-bold text-white">{phoneNumber}</p>
                 </div>
               </a>
 
@@ -320,7 +320,7 @@ const Header: React.FC = () => {
               <NavLink
                 to="/my-orders"
                 className={({ isActive }) => cn(
-                  "px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border",
+                  "px-3.5 py-2 rounded-2xl text-xs font-semibold transition-all flex items-center gap-2 border",
                   isActive 
                     ? "bg-white/20 text-white border-white/30 shadow-xs" 
                     : "bg-white/10 hover:bg-white/15 text-white/90 border-white/10 hover:text-white"
@@ -335,7 +335,7 @@ const Header: React.FC = () => {
               <NavLink
                 to="/profile"
                 className={({ isActive }) => cn(
-                  "px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border",
+                  "px-3.5 py-2 rounded-2xl text-xs font-semibold transition-all flex items-center gap-2 border",
                   isActive 
                     ? "bg-white/20 text-white border-white/30 shadow-xs" 
                     : "bg-white/10 hover:bg-white/15 text-white/90 border-white/10 hover:text-white"
@@ -350,7 +350,7 @@ const Header: React.FC = () => {
               <NavLink
                 to="/cart"
                 className={({ isActive }) => cn(
-                  "px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 relative border shadow-xs",
+                  "px-4 py-2 rounded-2xl text-xs font-semibold transition-all flex items-center gap-2 relative border shadow-xs",
                   isActive 
                     ? "bg-[#EAB308] text-[#16311A] border-[#EAB308]" 
                     : "bg-white/15 hover:bg-white/25 text-white border-white/20"
@@ -360,7 +360,7 @@ const Header: React.FC = () => {
                 <ShoppingCart className="w-4 h-4" />
                 <span>कार्ट</span>
                 {cartCount > 0 && (
-                  <span className="bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none shadow-sm">
+                  <span className="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none shadow-sm">
                     {cartCount}
                   </span>
                 )}
@@ -370,7 +370,7 @@ const Header: React.FC = () => {
               {isAdmin && (
                 <Link
                   to="/admin"
-                  className="px-3 py-2 bg-amber-500/25 hover:bg-amber-500/35 text-amber-300 border border-amber-400/40 rounded-2xl text-xs font-black transition-all flex items-center gap-1.5 shadow-xs"
+                  className="px-3 py-2 bg-amber-500/25 hover:bg-amber-500/35 text-amber-300 border border-amber-400/40 rounded-2xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs"
                   title="एडमिन पैनल"
                 >
                   <ShieldCheck className="w-4 h-4" />
@@ -388,8 +388,8 @@ const Header: React.FC = () => {
                   to="/" 
                   end
                   className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                    "px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
                   <Home className="w-3.5 h-3.5" /> मुख्य पृष्ठ
@@ -398,8 +398,8 @@ const Header: React.FC = () => {
                 <NavLink 
                   to="/products" 
                   className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                    "px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
                   <ShoppingBag className="w-3.5 h-3.5" /> कृषि बाज़ार
@@ -408,8 +408,8 @@ const Header: React.FC = () => {
                 <NavLink 
                   to="/ai-call" 
                   className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 text-amber-300",
-                    isActive ? "bg-white/20 text-amber-200 shadow-xs" : "hover:text-amber-200 hover:bg-white/10"
+                    "px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap flex items-center gap-1.5 text-amber-300",
+                    isActive ? "bg-white/20 text-amber-200 font-semibold shadow-xs" : "hover:text-amber-200 hover:bg-white/10 font-medium"
                   )}
                 >
                   <Sparkles className="w-3.5 h-3.5" /> AI विशेषज्ञ कॉल
@@ -418,8 +418,8 @@ const Header: React.FC = () => {
                 <NavLink 
                   to="/disease" 
                   className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                    "px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
                   <Camera className="w-3.5 h-3.5" /> बीमारी जाँच
@@ -428,8 +428,8 @@ const Header: React.FC = () => {
                 <NavLink 
                   to="/mandi" 
                   className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                    "px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
                   <TrendingUp className="w-3.5 h-3.5" /> मंडी भाव
@@ -438,8 +438,8 @@ const Header: React.FC = () => {
                 <NavLink 
                   to="/news" 
                   className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                    "px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
                   <Newspaper className="w-3.5 h-3.5" /> कृषि समाचार
@@ -448,8 +448,8 @@ const Header: React.FC = () => {
                 <NavLink 
                   to="/weather" 
                   className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                    "px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
                   <CloudSun className="w-3.5 h-3.5" /> मौसम
@@ -458,8 +458,8 @@ const Header: React.FC = () => {
                 <NavLink 
                   to="/schemes" 
                   className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                    "px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
                   <Landmark className="w-3.5 h-3.5" /> सरकारी योजनाएं
@@ -468,8 +468,8 @@ const Header: React.FC = () => {
                 <NavLink 
                   to="/calculator" 
                   className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                    "px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
                   <Calculator className="w-3.5 h-3.5" /> कैलकुलेटर
@@ -478,8 +478,8 @@ const Header: React.FC = () => {
                 <NavLink 
                   to="/about" 
                   className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                    "px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
                   <Info className="w-3.5 h-3.5" /> हमारे बारे में
@@ -488,8 +488,8 @@ const Header: React.FC = () => {
                 <NavLink 
                   to="/licensing-disclaimer" 
                   className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                    "px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
                   <Award className="w-3.5 h-3.5" /> वैधानिक लाइसेंस
@@ -498,8 +498,8 @@ const Header: React.FC = () => {
                 <NavLink 
                   to="/contact" 
                   className={({ isActive }) => cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
-                    isActive ? "bg-white/20 text-white shadow-xs" : "text-white/80 hover:text-white hover:bg-white/10"
+                    "px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
                   <Phone className="w-3.5 h-3.5" /> संपर्क करें

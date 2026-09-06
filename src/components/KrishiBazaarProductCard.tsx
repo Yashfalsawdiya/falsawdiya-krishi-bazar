@@ -88,7 +88,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
         {/* Out of Stock Overlay / Badge */}
         {!isInStock ? (
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
-            <span className="text-[10px] sm:text-xs font-black text-white uppercase tracking-wider bg-red-600 px-3 py-1 rounded-full shadow-lg border border-white/30 rotate-[-8deg]">
+            <span className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider bg-red-600 px-3 py-1 rounded-full shadow-lg border border-white/30 rotate-[-8deg]">
               STOCK OUT
             </span>
           </div>
@@ -113,12 +113,12 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
         <div>
           {/* Brand + Custom ID row */}
           <div className="flex items-center justify-between gap-2 mb-1.5">
-            <div className="flex items-center gap-1 text-[11px] font-bold text-[#2D5A27] bg-[#2D5A27]/5 px-2 py-0.5 rounded-md border border-[#2D5A27]/15 truncate">
+            <div className="flex items-center gap-1 text-[11px] font-semibold text-[#2D5A27] bg-[#2D5A27]/5 px-2 py-0.5 rounded-md border border-[#2D5A27]/15 truncate">
               <Building2 className="w-3 h-3 shrink-0" />
               <span className="truncate">{product.brand || 'कृषि उत्पाद'}</span>
             </div>
             {product.customId && (
-              <span className="text-[9px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 uppercase tracking-tight shrink-0">
+              <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 uppercase shrink-0">
                 {product.customId}
               </span>
             )}
@@ -129,7 +129,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
             {product.hindiName}
           </h3>
           {product.name && (
-            <p className="text-xs text-gray-500 font-medium line-clamp-1 mb-1.5">
+            <p className="text-xs text-gray-500 font-normal line-clamp-1 mb-1.5">
               {product.name}
             </p>
           )}
@@ -143,7 +143,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
 
           {/* Available Packaging Variants (उपलब्ध पैक) */}
           <div className="pt-2 border-t border-gray-100">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+            <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1 mb-1.5">
               <Package className="w-3 h-3 text-gray-400" />
               उपलब्ध पैक:
             </span>
@@ -161,9 +161,9 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
                       handleVariantSelect(v.id);
                     }}
                     className={cn(
-                      "text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer",
+                      "text-[11px] font-medium px-2.5 py-1 rounded-lg border transition-all cursor-pointer",
                       isSelected
-                        ? "bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs scale-105"
+                        ? "bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs scale-105 font-semibold"
                         : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
                     )}
                     title={`${v.quantity} - ₹${v.price}`}
@@ -185,7 +185,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
                 <span className="text-xs text-gray-400 font-medium">कीमत उपलब्ध नहीं</span>
               ) : (
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-base sm:text-lg font-extrabold text-[#2D5A27]">
+                  <span className="text-base sm:text-lg font-bold text-[#2D5A27]">
                     ₹{displayPrice}
                   </span>
                   {displayUnit && (
@@ -197,7 +197,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
               )}
             </div>
             {!isInStock && (
-              <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+              <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
                 स्टॉक खत्म
               </span>
             )}
@@ -214,7 +214,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
                 setTimeout(() => setIsAdded(false), 1400);
               }}
               className={cn(
-                "flex-1 h-10 py-2 px-2.5 rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer whitespace-nowrap",
+                "flex-1 h-10 py-2 px-2.5 rounded-xl text-xs font-semibold shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer whitespace-nowrap",
                 !isInStock
                   ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
                   : isAdded

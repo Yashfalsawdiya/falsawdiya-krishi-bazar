@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Plus Jakarta Sans", "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --color-primary: #2D5A27;
   --color-accent: #EAB308;
   --color-soil: #4A3728;
@@ -9,8 +9,51 @@
 }
 
 @layer base {
+  html {
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "kern" 1;
+  }
+
   body {
     @apply font-sans bg-[#F5F2ED] text-gray-900;
+    line-height: 1.5;
+    letter-spacing: 0;
+  }
+
+  /* Universal E-Commerce Heading & Subheading Standards */
+  h1, h2, h3, h4, h5, h6 {
+    text-rendering: optimizeLegibility;
+    line-height: 1.35;
+    letter-spacing: 0;
+  }
+
+  /* Clamp excessive heavy font weights (800/900) to professional, clean 700 / 600
+     Prevents Devanagari/Hindi glyphs from turning into bulky solid ink blocks */
+  .font-black {
+    font-weight: 700 !important;
+  }
+  .font-extrabold {
+    font-weight: 700 !important;
+  }
+
+  /* For small badges, pills, tags, labels, and buttons: keep them medium/semibold */
+  span.font-black,
+  span.font-extrabold,
+  label.font-black,
+  label.font-extrabold,
+  button.font-black,
+  button.font-extrabold,
+  p.font-black,
+  p.font-extrabold {
+    font-weight: 600 !important;
+  }
+
+  /* Avoid negative tracking on Hindi/Devanagari text to prevent letter collisions & clipping */
+  .tracking-tight,
+  .tracking-tighter {
+    letter-spacing: normal !important;
   }
 }
 
