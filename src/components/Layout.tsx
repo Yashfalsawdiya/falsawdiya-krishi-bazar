@@ -148,7 +148,7 @@ const Layout: React.FC = () => {
       <OfflineIndicator />
       <Header />
       <main 
-        className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 md:pb-12 pt-36 md:pt-24 lg:pt-[156px] transition-all"
+        className="flex-1 w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1740px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-24 md:pb-12 pt-36 md:pt-24 lg:pt-[156px] transition-all"
         style={desktopHeaderOffset !== null ? { paddingTop: `${desktopHeaderOffset}px` } : undefined}
       >
         <Outlet />

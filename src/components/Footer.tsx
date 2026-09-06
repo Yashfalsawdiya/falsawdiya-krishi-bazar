@@ -48,8 +48,8 @@ const Footer: React.FC = () => {
     <footer className="hidden lg:block w-full bg-[#16311A] text-white border-t border-[#23481F] shadow-2xl relative z-30">
       {/* Top Value / Trust Highlights Banner (Inspired by Competitor Agriculture Platform) */}
       <div className="bg-[#1C3E21] border-b border-[#2A562F]/60 py-6">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="grid grid-cols-4 gap-6">
+        <div className="max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1740px] mx-auto px-6 lg:px-8 xl:px-10 2xl:px-12">
+          <div className="grid grid-cols-4 gap-6 xl:gap-8 2xl:gap-10">
             <div className="flex items-center gap-3.5 px-3">
               <div className="w-12 h-12 rounded-2xl bg-[#EAB308]/15 border border-[#EAB308]/30 flex items-center justify-center shrink-0">
                 <ShieldCheck className="w-6 h-6 text-[#EAB308]" />
@@ -94,10 +94,10 @@ const Footer: React.FC = () => {
       </div>
 
       {/* Main Multi-Column Website Footer */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-12 gap-8 xl:gap-10">
+      <div className="max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1740px] mx-auto px-6 lg:px-8 xl:px-10 2xl:px-12 py-12 2xl:py-16">
+        <div className="grid grid-cols-12 gap-8 xl:gap-10 2xl:gap-12">
           {/* Brand Profile & Contact Information (Column: 4 out of 12) */}
-          <div className="col-span-12 xl:col-span-4 space-y-5 pr-0 xl:pr-4">
+          <div className="col-span-12 xl:col-span-4 space-y-5 pr-0 xl:pr-6 2xl:pr-10">
             <Link 
               to="/" 
               onClick={scrollToTop}
@@ -507,7 +507,7 @@ const Footer: React.FC = () => {
 
       {/* Bottom Copyright & Secure Payments Strip */}
       <div className="border-t border-[#23481F] bg-[#122715] py-5 text-xs text-gray-400">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1740px] mx-auto px-6 lg:px-8 xl:px-10 2xl:px-12 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-center md:text-left">
             <Award className="w-4 h-4 text-[#EAB308] shrink-0" />
             <p>

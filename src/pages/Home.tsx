@@ -313,7 +313,7 @@ const Home: React.FC = () => {
           deviceType === 'mobile' && "aspect-[5/4] sm:aspect-[4/3] max-h-[360px]",
           deviceType === 'tablet' && "aspect-auto h-[300px] sm:h-[320px] md:h-[350px]",
           deviceType === 'laptop' && "aspect-auto h-[340px] md:h-[360px] lg:h-[380px]",
-          deviceType === 'desktop' && "aspect-auto h-[380px] lg:h-[400px] xl:h-[420px]"
+          deviceType === 'desktop' && "aspect-auto h-[380px] lg:h-[400px] xl:h-[430px] 2xl:h-[480px]"
         )} 
         ref={emblaRef}
       >
@@ -445,7 +445,7 @@ const Home: React.FC = () => {
       )}
 
       {/* AI Intelligence Cards (Side by side on Tablet & Desktop) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 pt-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 xl:gap-6 2xl:gap-8 pt-1">
         {/* AI Voice Agent Entry Section */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -510,7 +510,7 @@ const Home: React.FC = () => {
       </div>
 
       {/* Weather, Mandi, & Schemes Dashboard Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 pt-1">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 xl:gap-6 2xl:gap-8 pt-1">
         <Link to="/weather" className="col-span-1">
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
@@ -593,7 +593,7 @@ const Home: React.FC = () => {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-bold text-[#4A3728]">श्रेणियाँ (Categories)</h3>
         </div>
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 2xl:grid-cols-10 gap-3 xl:gap-4 2xl:gap-5">
           {categories.map((cat, index) => (
             <motion.div
               key={cat.id}
@@ -624,7 +624,7 @@ const Home: React.FC = () => {
             सभी देखें <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
-        <div className="flex md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 overflow-x-auto md:overflow-x-visible pb-3 -mx-1 px-1 snap-x">
+        <div className="flex md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 xl:gap-5 2xl:gap-6 overflow-x-auto md:overflow-x-visible pb-3 -mx-1 px-1 snap-x">
           {featuredProducts.length === 0 ? (
             <div className="w-full col-span-full py-8 text-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-100 flex flex-col items-center gap-2">
               <ShoppingBag className="w-8 h-8 text-gray-200" />
@@ -653,7 +653,7 @@ const Home: React.FC = () => {
       </section>
 
       {/* WhatsApp & Social Support Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 xl:gap-6 2xl:gap-8">
         <button 
           onClick={() => {
             if (whatsappSection.mode === 'group' && whatsappSection.groupLink) {
@@ -842,7 +842,7 @@ const Home: React.FC = () => {
 
 
       {/* Farming Tips */}
-      <section className="bg-gradient-to-br from-[#EEF7EC] via-[#F4F9F2] to-[#E5F2E1] rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-[#CDE5C8] shadow-xs space-y-3">
+      <section className="bg-gradient-to-br from-[#EEF7EC] via-[#F4F9F2] to-[#E5F2E1] rounded-2xl sm:rounded-3xl 2xl:rounded-[2rem] p-4 sm:p-5 2xl:p-7 border border-[#CDE5C8] shadow-xs space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h3 className="font-extrabold text-[#1B4318] text-sm sm:text-base flex items-center gap-2 tracking-tight">
             <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-[#2D5A27]/10 border border-[#2D5A27]/15 flex items-center justify-center text-[#2D5A27] shrink-0">

@@ -244,11 +244,11 @@ const Header: React.FC = () => {
         {/* ======================================================== */}
         <div className="hidden lg:block w-full">
           {/* Tier 1: Main Header Bar */}
-          <div className="max-w-7xl mx-auto px-6 lg:px-8 py-3 flex items-center justify-between gap-6">
+          <div className="max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1740px] mx-auto px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 flex items-center justify-between gap-6">
             {/* Left: Brand Identity */}
             <div className="flex items-center gap-3.5 shrink-0">
               <div 
-                className="w-13 h-13 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-md p-1.5 cursor-pointer hover:scale-105 transition-transform"
+                className="w-13 h-13 2xl:w-14 2xl:h-14 bg-white rounded-full flex items-center justify-center overflow-hidden shadow-md p-1.5 cursor-pointer hover:scale-105 transition-transform"
                 onClick={!isAdmin ? handleLogoClick : undefined}
                 title="लोगो बड़ा करें"
               >
@@ -262,17 +262,17 @@ const Header: React.FC = () => {
                 />
               </div>
               <Link to={isAdmin ? "/admin" : "/"} className="group">
-                <h1 className="text-xl font-black tracking-tight text-white leading-tight group-hover:text-amber-300 transition-colors">
+                <h1 className="text-xl 2xl:text-2xl font-black tracking-tight text-white leading-tight group-hover:text-amber-300 transition-colors">
                   {branding.name}
                 </h1>
-                <p className="text-xs text-[#EAB308] font-bold tracking-wide">
+                <p className="text-xs 2xl:text-sm text-[#EAB308] font-bold tracking-wide">
                   {branding.tagline}
                 </p>
               </Link>
             </div>
 
             {/* Center: Search Bar (Inspired by BigHaat) */}
-            <div className="flex-1 max-w-xl mx-4">
+            <div className="flex-1 max-w-xl xl:max-w-2xl 2xl:max-w-3xl mx-4 2xl:mx-8">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -382,8 +382,8 @@ const Header: React.FC = () => {
 
           {/* Tier 2: Sub-Navigation Bar (Wide Horizontal Categories & Services) */}
           <div className="bg-[#20431D] border-t border-white/10 shadow-inner">
-            <div className="max-w-7xl mx-auto px-6 lg:px-8 py-2 flex items-center">
-              <nav className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5 w-full">
+            <div className="max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1740px] mx-auto px-6 lg:px-8 xl:px-10 2xl:px-12 py-2 flex items-center">
+              <nav className="flex items-center gap-1 xl:gap-2 2xl:gap-3 overflow-x-auto scrollbar-none py-0.5 w-full">
                 <NavLink 
                   to="/" 
                   end
