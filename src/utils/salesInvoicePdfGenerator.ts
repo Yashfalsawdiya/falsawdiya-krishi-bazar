@@ -1,6 +1,7 @@
 import html2canvas from 'html2canvas-pro';
 import { jsPDF } from 'jspdf';
 import { AccountingSale } from '../types/accounting';
+import { formatSaleItemInvoiceTitle } from './agriPackagingUtils';
 
 export interface GenerateInvoicePdfOptions {
   sale: AccountingSale;
@@ -41,32 +42,37 @@ function buildInvoiceHtml(
         const discount = item.bargainingDiscountShare || 0;
         const bg = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
 
-        const variantBadge = item.variantLabel ? `<span style="font-size: 10px; color: #065f46; font-weight: 700; background-color: #d1fae5; padding: 1px 5px; border-radius: 4px; margin-left: 4px; border: 1px solid #a7f3d0;">${item.variantLabel}</span>` : '';
-        const looseBadge = item.saleType === 'loose' ? `<span style="font-size: 10px; color: #1e40af; font-weight: 700; background-color: #dbeafe; padding: 1px 5px; border-radius: 4px; margin-left: 4px; border: 1px solid #bfdbfe;">💧 खुला (${item.looseQuantity || item.quantity} ${item.looseUnit || item.unit})</span>` : '';
+        const itemTitle = formatSaleItemInvoiceTitle(item);
         const batchBadge = item.batchNumber ? `<span style="font-size: 9px; color: #6b7280; margin-left: 4px;">बैच: ${item.batchNumber}</span>` : '';
 
         const qtyDisplay = item.saleType === 'loose'
           ? `${item.looseQuantity || item.quantity} ${item.looseUnit || item.unit}`
-          : `${item.quantity} ${item.unit}`;
+          : `${item.quantity} ${item.packagingType || item.unit || 'Pack'}${item.equivalentQuantityDisplay && item.quantity > 1 ? ` (${item.equivalentQuantityDisplay})` : ''}`;
+
+        const originalRateDisplay = (item.saleType === 'loose' && item.looseRateAmount && item.looseRateUnit)
+          ? `₹${item.looseRateAmount} <span style="font-size: 9px; color: #6b7280;">/${item.looseRateUnit}</span>`
+          : `₹${(item.originalSellingPrice || effectiveRate).toLocaleString()}`;
+
+        const effectiveRateDisplay = (item.saleType === 'loose')
+          ? `₹${(effectiveRate * (item.looseRateDenominator || 1)).toFixed(2)} <span style="font-size: 9px; color: #6b7280;">/${item.looseRateUnit || (item.unit)}</span>`
+          : `₹${effectiveRate.toLocaleString()}`;
 
         return `
           <tr style="background-color: ${bg}; border-bottom: 1px solid #e5e7eb;">
             <td style="padding: 8px; text-align: center; color: #6b7280;">${idx + 1}</td>
             <td style="padding: 8px;">
-              <div style="font-weight: 700; color: #111827; font-size: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">
-                <span>${item.hindiName || item.name}</span>
-                ${variantBadge}
-                ${looseBadge}
+              <div style="font-weight: 700; color: #111827; font-size: 12px;">
+                ${itemTitle}
               </div>
               <div style="display: flex; gap: 8px; align-items: center; margin-top: 2px;">
-                ${item.hindiName && item.name && item.hindiName !== item.name ? `<span style="font-size: 10px; color: #6b7280;">${item.name}</span>` : ''}
+                ${item.hindiName && item.name && item.hindiName !== item.name ? `<span style="font-size: 10px; color: #6b7280;">${item.hindiName}</span>` : ''}
                 ${batchBadge}
               </div>
             </td>
             <td style="padding: 8px; text-align: center; font-weight: 700; color: #1f2937;">${qtyDisplay}</td>
-            <td style="padding: 8px; text-align: right; color: #4b5563;">₹${(item.originalSellingPrice || effectiveRate).toLocaleString()}</td>
+            <td style="padding: 8px; text-align: right; color: #4b5563;">${originalRateDisplay}</td>
             <td style="padding: 8px; text-align: right; color: #047857; font-weight: 700;">${discount > 0 ? `-₹${discount.toLocaleString()}` : '-'}</td>
-            <td style="padding: 8px; text-align: right; color: #111827; font-weight: 700;">₹${effectiveRate.toLocaleString()}</td>
+            <td style="padding: 8px; text-align: right; color: #111827; font-weight: 700;">${effectiveRateDisplay}</td>
             <td style="padding: 8px; text-align: right; color: #111827; font-weight: 800; font-size: 12px;">₹${lineTotal.toLocaleString()}</td>
           </tr>
         `;

@@ -1,5 +1,6 @@
 import React from 'react';
 import { AccountingSale, AccountingSaleItem } from '../../types/accounting';
+import { formatSaleItemInvoiceTitle } from '../../utils/agriPackagingUtils';
 
 interface Props {
   sale: AccountingSale;
@@ -142,23 +143,13 @@ export const PrintableSalesInvoice: React.FC<Props> = ({ sale, customerOutstandi
                   <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/60'}>
                     <td className="p-2 text-center text-gray-500 font-medium">{idx + 1}</td>
                     <td className="p-2">
-                      <div className="font-bold text-gray-900 text-xs flex items-center flex-wrap gap-1">
-                        <span>{item.hindiName || item.name}</span>
-                        {item.variantLabel && (
-                          <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200">
-                            {item.variantLabel}
-                          </span>
-                        )}
-                        {item.saleType === 'loose' && (
-                          <span className="text-[10px] text-blue-800 font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                            💧 खुला ({item.looseQuantity || item.quantity} {item.looseUnit || item.unit})
-                          </span>
-                        )}
+                      <div className="font-bold text-gray-900 text-xs">
+                        {formatSaleItemInvoiceTitle(item)}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         {item.hindiName && item.name && item.hindiName !== item.name && (
                           <span className="text-[10px] text-gray-500 font-medium leading-tight">
-                            {item.name}
+                            {item.hindiName}
                           </span>
                         )}
                         {item.batchNumber && (
@@ -171,16 +162,24 @@ export const PrintableSalesInvoice: React.FC<Props> = ({ sale, customerOutstandi
                     <td className="p-2 text-center font-bold text-gray-800">
                       {item.saleType === 'loose'
                         ? `${item.looseQuantity || item.quantity} ${item.looseUnit || item.unit}`
-                        : `${item.quantity} ${item.unit}`}
+                        : `${item.quantity} ${item.packagingType || item.unit || 'Pack'}${item.equivalentQuantityDisplay && item.quantity > 1 ? ` (${item.equivalentQuantityDisplay})` : ''}`}
                     </td>
                     <td className="p-2 text-right text-gray-600">
-                      ₹{(item.originalSellingPrice || effectiveRate).toLocaleString()}
+                      {item.saleType === 'loose' && item.looseRateAmount && item.looseRateUnit ? (
+                        <span>₹{item.looseRateAmount} <span className="text-[9px] text-gray-500">/{item.looseRateUnit}</span></span>
+                      ) : (
+                        <span>₹{(item.originalSellingPrice || effectiveRate).toLocaleString()}</span>
+                      )}
                     </td>
                     <td className="p-2 text-right text-emerald-700 font-bold">
                       {discount > 0 ? `-₹${discount.toLocaleString()}` : '-'}
                     </td>
                     <td className="p-2 text-right text-gray-900 font-bold">
-                      ₹{effectiveRate.toLocaleString()}
+                      {item.saleType === 'loose' ? (
+                        <span>₹{(effectiveRate * (item.looseRateDenominator || 1)).toFixed(2)} <span className="text-[9px] text-gray-500">/{item.looseRateUnit || (item.unit)}</span></span>
+                      ) : (
+                        <span>₹{effectiveRate.toLocaleString()}</span>
+                      )}
                     </td>
                     <td className="p-2 text-right font-extrabold text-gray-900 text-xs">
                       ₹{lineTotal.toLocaleString()}

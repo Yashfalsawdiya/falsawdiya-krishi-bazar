@@ -54,6 +54,7 @@ export function calculateBargainingAllocation(
     quantity: number;
     costPrice: number;
     originalSellingPrice: number;
+    [key: string]: any;
   }>,
   negotiatedFinalTotal: number
 ): {
@@ -65,21 +66,46 @@ export function calculateBargainingAllocation(
   grossMarginPercent: number;
   allocatedItems: AccountingSaleItem[];
 } {
-  const subtotal = items.reduce((acc, it) => acc + (it.quantity * it.originalSellingPrice), 0);
-  const totalCOGS = items.reduce((acc, it) => acc + (it.quantity * it.costPrice), 0);
+  // Normalize items in case of loose sale items
+  const normalizedItems = items.map(it => {
+    let costPrice = it.costPrice;
+    let sellingPrice = it.originalSellingPrice;
+    let qty = it.quantity;
+
+    if (it.saleType === 'loose') {
+      if (it.costPerBaseUnit !== undefined && it.costPerBaseUnit > 0) {
+        costPrice = it.costPerBaseUnit;
+      }
+      if (it.sellingPricePerBaseUnit !== undefined && it.sellingPricePerBaseUnit > 0) {
+        sellingPrice = it.sellingPricePerBaseUnit;
+      }
+      if (it.looseQuantity !== undefined && it.looseQuantity > 0) {
+        qty = it.looseQuantity;
+      }
+    }
+    return {
+      ...it,
+      quantity: qty,
+      costPrice,
+      originalSellingPrice: sellingPrice,
+    };
+  });
+
+  const subtotal = normalizedItems.reduce((acc, it) => acc + (it.quantity * it.originalSellingPrice), 0);
+  const totalCOGS = normalizedItems.reduce((acc, it) => acc + (it.quantity * it.costPrice), 0);
   
   // If no negotiation or higher, discount is 0
   const finalTotal = Math.max(0, negotiatedFinalTotal);
   const bargainingDiscount = Math.max(0, subtotal - finalTotal);
 
   let allocatedDiscountRunning = 0;
-  const allocatedItems: AccountingSaleItem[] = items.map((it, idx) => {
+  const allocatedItems: AccountingSaleItem[] = normalizedItems.map((it, idx) => {
     const originalLineTotal = it.quantity * it.originalSellingPrice;
     const lineCostTotal = it.quantity * it.costPrice;
 
     let lineDiscountShare = 0;
     if (subtotal > 0 && bargainingDiscount > 0) {
-      if (idx === items.length - 1) {
+      if (idx === normalizedItems.length - 1) {
         // Last item absorbs any rounding difference to ensure exact penny match
         lineDiscountShare = Math.round((bargainingDiscount - allocatedDiscountRunning) * 100) / 100;
       } else {
@@ -746,6 +772,10 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
   let assignedInvoiceNo = '';
 
   await runTransaction(db, async (transaction) => {
+    // =========================================================================
+    // PHASE 1: ALL READ OPERATIONS FIRST (Mandatory Firestore rule)
+    // =========================================================================
+
     // 1. Read the counter atomically
     const counterSnap = await transaction.get(counterRef);
     let lastSeq = 0;
@@ -759,20 +789,17 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
     // Determine invoice number:
     // If invoiceNo is empty, starts with "OFF-", or is placeholder, generate strictly sequential FKB number
     const isPlaceholder = !saleData.invoiceNo || saleData.invoiceNo.startsWith('OFF-') || saleData.invoiceNo.startsWith('FKB-TEMP');
+    let shouldUpdateCounter = false;
+    let nextSeq = lastSeq;
     if (!isPlaceholder && saleData.invoiceNo) {
       assignedInvoiceNo = saleData.invoiceNo;
     } else {
-      const nextSeq = lastSeq + 1;
+      nextSeq = lastSeq + 1;
       assignedInvoiceNo = formatPOSInvoiceNo(nextSeq);
-      // Persist next sequence number atomically
-      transaction.set(counterRef, {
-        lastSequence: nextSeq,
-        prefix: 'FKB-',
-        updatedAt: now,
-      }, { merge: true });
+      shouldUpdateCounter = true;
     }
 
-    // 2. Read products for stock deductions (must read before any writes)
+    // 2. Read products for stock deductions (ALL READS MUST BE EXECUTED BEFORE ANY WRITES)
     const productReads: { ref: DocumentReference; snap: any; item: AccountingSaleItem }[] = [];
     for (const item of saleData.items) {
       if (item.productId) {
@@ -782,7 +809,7 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
       }
     }
 
-    // 3. Read customer if udhari
+    // 3. Read customer if udhari (READ OPERATION)
     let custRead: { ref: DocumentReference; snap: any } | null = null;
     if (saleData.udhariAmount > 0 && saleData.customerId) {
       const custRef = doc(db, 'accounting_customers', saleData.customerId);
@@ -790,9 +817,20 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
       custRead = { ref: custRef, snap: custSnap };
     }
 
-    // --- ALL READS COMPLETED: NOW EXECUTE ALL ATOMIC WRITES ---
+    // =========================================================================
+    // PHASE 2: ALL WRITE OPERATIONS AFTER ALL READS HAVE COMPLETED
+    // =========================================================================
 
-    // 4. Write Sale Document
+    // 4. Update sequence counter atomically (WRITE)
+    if (shouldUpdateCounter) {
+      transaction.set(counterRef, {
+        lastSequence: nextSeq,
+        prefix: 'FKB-',
+        updatedAt: now,
+      }, { merge: true });
+    }
+
+    // 5. Write Sale Document (WRITE)
     const fullSale: AccountingSale = {
       ...saleData,
       id: saleRef.id,
@@ -801,7 +839,7 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
     };
     transaction.set(saleRef, fullSale);
 
-    // 5. Deduct inventory stock and record audit movements
+    // 6. Deduct inventory stock and record audit movements (WRITES)
     for (const { ref: prodRef, snap: prodSnap, item } of productReads) {
       if (prodSnap.exists()) {
         const prodData = prodSnap.data() as AccountingProduct;
@@ -809,13 +847,78 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
         if (item.saleType === 'loose') {
           const currentLoose = prodData.looseStock?.availableBaseQty || 0;
           const deductBase = item.looseBaseQty || item.looseQuantity || 0;
-          const newLoose = Math.max(0, currentLoose - deductBase);
 
-          transaction.update(prodRef, {
+          // Check if a sealed pack needs to be / was opened
+          let newLoose = currentLoose;
+          let updatedVariants = prodData.packagingVariants ? [...prodData.packagingVariants] : [];
+          let packWasOpened = false;
+          let openedVariantLabel = '';
+          const targetVariantId = item.openedPackFromVariantId || (deductBase > currentLoose ? item.variantId : undefined);
+
+          if (targetVariantId && updatedVariants.length > 0) {
+            const varIndex = updatedVariants.findIndex(v => v.id === targetVariantId);
+            if (varIndex !== -1) {
+              const targetVar = { ...updatedVariants[varIndex] };
+              if ((targetVar.currentStockPacks || 0) > 0) {
+                targetVar.currentStockPacks = (targetVar.currentStockPacks || 0) - 1;
+                updatedVariants[varIndex] = targetVar;
+                packWasOpened = true;
+                openedVariantLabel = targetVar.label || `${targetVar.sizeValue} ${targetVar.sizeUnit}`;
+
+                // Calculate base quantity of this opened pack
+                let packBase = targetVar.baseQuantity;
+                if (!packBase || packBase <= 0) {
+                  const unit = (targetVar.sizeUnit || '').toLowerCase();
+                  if (unit === 'ltr' || unit === 'l') packBase = targetVar.sizeValue * 1000;
+                  else if (unit === 'kg') packBase = targetVar.sizeValue * 1000;
+                  else packBase = targetVar.sizeValue;
+                }
+
+                newLoose = Math.max(0, (currentLoose + packBase) - deductBase);
+              } else {
+                newLoose = Math.max(0, currentLoose - deductBase);
+              }
+            } else {
+              newLoose = Math.max(0, currentLoose - deductBase);
+            }
+          } else {
+            newLoose = Math.max(0, currentLoose - deductBase);
+          }
+
+          const isLiquid = prodData.unit === 'Ltr' || prodData.unit === 'Ml' || prodData.productType === 'liquid';
+          const detectedBaseUnit: 'ml' | 'g' = isLiquid ? 'ml' : 'g';
+
+          const updatePayload: Record<string, any> = {
             'looseStock.availableBaseQty': newLoose,
+            'looseStock.baseUnit': prodData.looseStock?.baseUnit || detectedBaseUnit,
             'looseStock.updatedAt': now,
             updatedAt: now,
-          });
+          };
+
+          if (packWasOpened) {
+            updatePayload.packagingVariants = updatedVariants;
+            updatePayload.currentStock = updatedVariants.reduce((sum, v) => sum + (v.currentStockPacks || 0), 0);
+            updatePayload['looseStock.lastOpenedFromVariantId'] = targetVariantId;
+
+            // Log pack opened stock movement
+            const packMovRef = doc(collection(db, 'accounting_stock_movements'));
+            transaction.set(packMovRef, {
+              id: packMovRef.id,
+              timestamp: now,
+              date: saleData.date,
+              productId: item.productId,
+              productName: item.hindiName || item.name,
+              variantId: targetVariantId,
+              variantLabel: openedVariantLabel,
+              type: 'pack_opened',
+              quantityChangePacks: -1,
+              balanceBaseUnitAfter: newLoose,
+              reason: `बिल #${assignedInvoiceNo} पर खुली बिक्री हेतु 1 सीलबंद पैकेट (${openedVariantLabel}) खोला गया`,
+              referenceId: saleRef.id,
+            });
+          }
+
+          transaction.update(prodRef, updatePayload);
 
           const movRef = doc(collection(db, 'accounting_stock_movements'));
           transaction.set(movRef, {

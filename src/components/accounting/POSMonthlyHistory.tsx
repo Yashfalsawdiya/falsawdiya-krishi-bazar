@@ -20,6 +20,7 @@ import {
   downloadSalesInvoicePDF 
 } from '../../utils/salesInvoicePdfGenerator';
 import { PrintableSalesInvoice } from './PrintableSalesInvoice';
+import { formatSaleItemInvoiceTitle } from '../../utils/agriPackagingUtils';
 
 interface POSMonthlyHistoryProps {
   onBackToBilling?: () => void;
@@ -692,7 +693,7 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
                     const formattedTime = sale.timestamp 
                       ? new Date(sale.timestamp).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
                       : '';
-                    const itemsSummary = sale.items?.map(it => it.hindiName || it.name).join(', ');
+                    const itemsSummary = sale.items?.map(it => formatSaleItemInvoiceTitle(it)).join(', ');
 
                     return (
                       <tr key={sale.id} className="hover:bg-emerald-50/30 transition-colors">
@@ -774,7 +775,7 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
                 const formattedTime = sale.timestamp 
                   ? new Date(sale.timestamp).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
                   : '';
-                const itemsSummary = sale.items?.map(it => it.hindiName || it.name).join(', ');
+                const itemsSummary = sale.items?.map(it => formatSaleItemInvoiceTitle(it)).join(', ');
 
                 return (
                   <div key={sale.id} className="p-4 space-y-2.5">

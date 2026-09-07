@@ -117,8 +117,18 @@ export interface AccountingSaleItem {
   looseQuantity?: number;
   looseUnit?: string;
   looseBaseQty?: number;
+  looseRateAmount?: number; // e.g. 30 in ₹30 / 10 g
+  looseRateUnit?: string; // e.g. "10 g", "100 g", "1 kg", "10 ml", etc.
+  looseRateDenominator?: number; // e.g. 10
+  costPerBaseUnit?: number; // e.g. 2.80 per gram
+  sellingPricePerBaseUnit?: number; // e.g. 3.00 per gram
   packSizeValue?: number;
   packSizeUnit?: string;
+  packagingType?: string;
+  packCount?: number;
+  equivalentQuantityDisplay?: string;
+  openedPackFromVariantId?: string;
+  openedPackBaseQty?: number;
 }
 
 export interface AccountingSale {

@@ -649,102 +649,6 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* WhatsApp & Social Support Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 xl:gap-6 2xl:gap-8">
-        <button 
-          onClick={() => {
-            if (whatsappSection.mode === 'group' && whatsappSection.groupLink) {
-              window.open(whatsappSection.groupLink, '_blank');
-            } else {
-              const message = encodeURIComponent("नमस्ते फल्सावदिया कृषि बाजार, मुझे खेती के बारे में जानकारी चाहिए।");
-              window.open(`https://wa.me/${contactInfo.whatsapp}?text=${message}`, '_blank');
-            }
-          }}
-          className="w-full bg-[#25D366]/10 border-2 border-[#25D366] rounded-2xl p-4 flex items-center gap-4 active:scale-95 transition-transform text-left"
-        >
-          <div className="bg-[#25D366] p-3 rounded-full shrink-0">
-            <Phone className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h4 className="font-bold text-[#128C7E]">{whatsappSection.title}</h4>
-            <p className="text-xs text-gray-700 font-medium">{whatsappSection.description}</p>
-            <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-[#25D366] uppercase">
-              {whatsappSection.mode === 'group' ? 'ग्रुप में शामिल हों' : 'मैसेज करें'} <ArrowRight className="w-3 h-3" />
-            </div>
-          </div>
-        </button>
-
-        {/* Social Media Cards (Side by Side) */}
-        {(facebookSection.enabled || instagramSection.enabled) && (
-          <div className={cn(
-            "grid gap-3",
-            facebookSection.enabled && instagramSection.enabled ? "grid-cols-2" : "grid-cols-1"
-          )}>
-            {/* Facebook Card */}
-            {facebookSection.enabled && (
-              <button 
-                onClick={() => {
-                  const url = facebookSection.pageUrl.trim() || 'https://www.facebook.com';
-                  window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
-                }}
-                className="w-full bg-[#1877F2]/10 border-2 border-[#1877F2] rounded-2xl p-3 sm:p-4 flex flex-col justify-between items-start gap-2.5 active:scale-95 transition-transform text-left cursor-pointer shadow-xs"
-              >
-                <div className="flex items-center gap-2.5 w-full">
-                  <div className="bg-[#1877F2] p-2.5 rounded-full shrink-0 shadow-xs">
-                    <Facebook className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="font-bold text-xs sm:text-sm text-[#1877F2] truncate">{facebookSection.title}</h4>
-                    <p className="text-[10px] sm:text-xs text-gray-600 font-medium line-clamp-1">{facebookSection.description}</p>
-                  </div>
-                </div>
-                <div className="w-full pt-1.5 border-t border-[#1877F2]/20 flex items-center justify-between text-[10px] font-bold text-[#1877F2] uppercase">
-                  <span className="truncate">{facebookSection.buttonText}</span>
-                  <ArrowRight className="w-3 h-3 shrink-0" />
-                </div>
-              </button>
-            )}
-
-            {/* Instagram Card */}
-            {instagramSection.enabled && (
-              <button 
-                onClick={() => {
-                  const url = instagramSection.profileUrl.trim() || 'https://www.instagram.com';
-                  window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
-                }}
-                className="w-full bg-[#E1306C]/10 border-2 border-[#E1306C] rounded-2xl p-3 sm:p-4 flex flex-col justify-between items-start gap-2.5 active:scale-95 transition-transform text-left cursor-pointer shadow-xs"
-              >
-                <div className="flex items-center gap-2.5 w-full">
-                  <div className="bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] p-2.5 rounded-full shrink-0 shadow-xs">
-                    <Instagram className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="font-bold text-xs sm:text-sm text-[#C13584] truncate">{instagramSection.title}</h4>
-                    <p className="text-[10px] sm:text-xs text-gray-600 font-medium line-clamp-1">{instagramSection.description}</p>
-                  </div>
-                </div>
-                <div className="w-full pt-1.5 border-t border-[#E1306C]/20 flex items-center justify-between text-[10px] font-bold text-[#C13584] uppercase">
-                  <span className="truncate">{instagramSection.buttonText}</span>
-                  <ArrowRight className="w-3 h-3 shrink-0" />
-                </div>
-              </button>
-            )}
-          </div>
-        )}
-
-        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start gap-3">
-          <div className="bg-[#F5F2ED] p-2 rounded-lg shrink-0">
-            <MapPin className="w-5 h-5 text-[#2D5A27]" />
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold text-gray-500 mb-1">हमारा पता (Our Address)</p>
-            <p className="text-xs text-[#4A3728] font-bold leading-relaxed">
-              {contactInfo.address}
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Partner Logos Slider */}
       <section className="py-4 overflow-hidden">
         <p className="text-[11px] font-semibold text-gray-500 mb-4 text-center">हमारे टॉप ब्रांड्स (Our Top Brands)</p>
@@ -837,6 +741,102 @@ const Home: React.FC = () => {
         </section>
       )}
 
+      {/* WhatsApp, Social Media & Address Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 xl:gap-6 2xl:gap-8">
+        <button 
+          onClick={() => {
+            if (whatsappSection.mode === 'group' && whatsappSection.groupLink) {
+              window.open(whatsappSection.groupLink, '_blank');
+            } else {
+              const message = encodeURIComponent("नमस्ते फल्सावदिया कृषि बाजार, मुझे खेती के बारे में जानकारी चाहिए।");
+              window.open(`https://wa.me/${contactInfo.whatsapp}?text=${message}`, '_blank');
+            }
+          }}
+          className="w-full bg-[#25D366]/10 border-2 border-[#25D366] rounded-2xl p-4 flex items-center gap-4 active:scale-95 transition-transform text-left"
+        >
+          <div className="bg-[#25D366] p-3 rounded-full shrink-0">
+            <Phone className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h4 className="font-bold text-[#128C7E]">{whatsappSection.title}</h4>
+            <p className="text-xs text-gray-700 font-medium">{whatsappSection.description}</p>
+            <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-[#25D366] uppercase">
+              {whatsappSection.mode === 'group' ? 'ग्रुप में शामिल हों' : 'मैसेज करें'} <ArrowRight className="w-3 h-3" />
+            </div>
+          </div>
+        </button>
+
+        {/* Social Media Cards (Side by Side) */}
+        {(facebookSection.enabled || instagramSection.enabled) && (
+          <div className={cn(
+            "grid gap-3",
+            facebookSection.enabled && instagramSection.enabled ? "grid-cols-2" : "grid-cols-1"
+          )}>
+            {/* Facebook Card */}
+            {facebookSection.enabled && (
+              <button 
+                onClick={() => {
+                  const url = facebookSection.pageUrl.trim() || 'https://www.facebook.com';
+                  window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
+                }}
+                className="w-full bg-[#1877F2]/10 border-2 border-[#1877F2] rounded-2xl p-3 sm:p-4 flex flex-col justify-between items-start gap-2.5 active:scale-95 transition-transform text-left cursor-pointer shadow-xs"
+              >
+                <div className="flex items-center gap-2.5 w-full">
+                  <div className="bg-[#1877F2] p-2.5 rounded-full shrink-0 shadow-xs">
+                    <Facebook className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-xs sm:text-sm text-[#1877F2] truncate">{facebookSection.title}</h4>
+                    <p className="text-[10px] sm:text-xs text-gray-600 font-medium line-clamp-1">{facebookSection.description}</p>
+                  </div>
+                </div>
+                <div className="w-full pt-1.5 border-t border-[#1877F2]/20 flex items-center justify-between text-[10px] font-bold text-[#1877F2] uppercase">
+                  <span className="truncate">{facebookSection.buttonText}</span>
+                  <ArrowRight className="w-3 h-3 shrink-0" />
+                </div>
+              </button>
+            )}
+
+            {/* Instagram Card */}
+            {instagramSection.enabled && (
+              <button 
+                onClick={() => {
+                  const url = instagramSection.profileUrl.trim() || 'https://www.instagram.com';
+                  window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
+                }}
+                className="w-full bg-[#E1306C]/10 border-2 border-[#E1306C] rounded-2xl p-3 sm:p-4 flex flex-col justify-between items-start gap-2.5 active:scale-95 transition-transform text-left cursor-pointer shadow-xs"
+              >
+                <div className="flex items-center gap-2.5 w-full">
+                  <div className="bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] p-2.5 rounded-full shrink-0 shadow-xs">
+                    <Instagram className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-xs sm:text-sm text-[#C13584] truncate">{instagramSection.title}</h4>
+                    <p className="text-[10px] sm:text-xs text-gray-600 font-medium line-clamp-1">{instagramSection.description}</p>
+                  </div>
+                </div>
+                <div className="w-full pt-1.5 border-t border-[#E1306C]/20 flex items-center justify-between text-[10px] font-bold text-[#C13584] uppercase">
+                  <span className="truncate">{instagramSection.buttonText}</span>
+                  <ArrowRight className="w-3 h-3 shrink-0" />
+                </div>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Address Card */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start gap-3">
+          <div className="bg-[#F5F2ED] p-2 rounded-lg shrink-0">
+            <MapPin className="w-5 h-5 text-[#2D5A27]" />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-gray-500 mb-1">हमारा पता (Our Address)</p>
+            <p className="text-xs text-[#4A3728] font-bold leading-relaxed">
+              {contactInfo.address}
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Farming Tips */}
       <section className="bg-gradient-to-br from-[#EEF7EC] via-[#F4F9F2] to-[#E5F2E1] rounded-2xl sm:rounded-3xl 2xl:rounded-[2rem] p-4 sm:p-5 2xl:p-7 border border-[#CDE5C8] shadow-xs space-y-3">

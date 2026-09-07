@@ -27,6 +27,7 @@ import {
 import { useAppContext } from '../../context/AppContext';
 import { PrintableSalesInvoice } from './PrintableSalesInvoice';
 import { downloadSalesInvoicePDF } from '../../utils/salesInvoicePdfGenerator';
+import { formatSaleItemInvoiceTitle } from '../../utils/agriPackagingUtils';
 
 interface Props {
   initialCustomerId?: string;
@@ -395,9 +396,13 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId, o
     let itemsText = '';
     if (sale.items && sale.items.length > 0) {
       itemsText = sale.items.map((it, idx) => {
+        const title = formatSaleItemInvoiceTitle(it);
         const rate = it.effectiveSellingPrice || it.originalSellingPrice;
         const total = it.totalEffectiveAmount || (it.quantity * rate);
-        return `${idx + 1}. *${it.hindiName || it.name}*\n   मात्रा: ${it.quantity} ${it.unit} | दर: ₹${rate}\n   कुल: ₹${total}`;
+        const qtyStr = it.saleType === 'loose'
+          ? `${it.looseQuantity || it.quantity} ${it.looseUnit || it.unit}`
+          : `${it.quantity} ${it.packagingType || it.unit || 'Pack'}`;
+        return `${idx + 1}. *${title}*\n   मात्रा: ${qtyStr} | दर: ₹${rate}\n   कुल: ₹${total}`;
       }).join('\n');
     } else {
       itemsText = `सामान बिक्री: ₹${sale.finalTotal || sale.subtotal}`;
@@ -1090,13 +1095,15 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                           <tr key={idx} className="hover:bg-gray-50/50">
                             <td className="p-2.5 text-gray-400">{idx + 1}</td>
                             <td className="p-2.5 font-bold text-gray-900">
-                              {it.hindiName || it.name}
-                              {it.hindiName && it.name && (
-                                <span className="block text-[10px] text-gray-400 font-normal">{it.name}</span>
+                              {formatSaleItemInvoiceTitle(it)}
+                              {it.hindiName && it.name && it.hindiName !== it.name && (
+                                <span className="block text-[10px] text-gray-400 font-normal">{it.hindiName}</span>
                               )}
                             </td>
                             <td className="p-2.5 text-center font-bold text-gray-800">
-                              {it.quantity} {it.unit}
+                              {it.saleType === 'loose'
+                                ? `${it.looseQuantity || it.quantity} ${it.looseUnit || it.unit}`
+                                : `${it.quantity} ${it.packagingType || it.unit || 'Pack'}`}
                             </td>
                             <td className="p-2.5 text-right text-gray-500">
                               ₹{it.originalSellingPrice || it.effectiveSellingPrice}

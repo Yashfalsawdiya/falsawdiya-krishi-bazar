@@ -26,7 +26,12 @@ import {
 import { 
   getProductVariants, 
   normalizeToBaseUnit, 
-  formatBaseUnitDisplay 
+  formatBaseUnitDisplay,
+  formatPackEquivalent,
+  getLooseRateOptions,
+  calculateLooseMetrics,
+  formatSaleItemInvoiceTitle,
+  formatPackagingVariantString
 } from '../../utils/agriPackagingUtils';
 import { PrintableSalesInvoice } from './PrintableSalesInvoice';
 import { downloadSalesInvoicePDF } from '../../utils/salesInvoicePdfGenerator';
@@ -51,19 +56,44 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     name: string;
     hindiName: string;
     unit: string;
-    quantity: number;
-    costPrice: number;
-    originalSellingPrice: number;
+    quantity: number; // For pack: pack count (1, 2, 3...). For loose: 1 line item
+    costPrice: number; // Cost per 1 pack (₹350), or calculated loose cost (₹140)
+    originalSellingPrice: number; // Selling price per 1 pack (₹400), or calculated loose price (₹160)
     currentStock: number;
+    saleType?: 'pack' | 'loose';
+
+    // Variant & Packaging Details
     variantId?: string;
     variantLabel?: string;
+    variantName?: string;
+    packagingType?: string; // "Bottle", "Packet", "Bag", "Pouch", etc.
+    packSizeValue?: number; // 500
+    packSizeUnit?: string; // "ml", "Ltr", "g", "kg"
+    packSize?: number;
+    packUnit?: string;
+    packBaseQty?: number; // 500 (in base ml or g)
+    packCount?: number; // 1, 2, 3...
+
+    // Full pack standard pricing for loose proportional calculations
+    fullPackCostPrice?: number;
+    fullPackSellingPrice?: number;
+
+    // Loose specific fields
+    isLooseEditing?: boolean;
+    looseQuantity?: number; // e.g. 50 (grams/ml)
+    looseUnit?: string; // "ml" or "g"
+    looseBaseQty?: number; // 50
+    costPerBaseUnit?: number; // e.g. ₹2.80/g
+    sellingPricePerBaseUnit?: number; // e.g. ₹3.00/g
+    looseRateAmount?: number; // e.g. 30 (in ₹30 / 10 g)
+    looseRateUnit?: string; // e.g. '10 g'
+    looseRateDenominator?: number; // e.g. 10
+    openedPackFromVariantId?: string;
+    openedPackBaseQty?: number;
+    openedPackDeducted?: boolean;
+
     batchNumber?: string;
     expiryDate?: string;
-    saleType?: 'pack' | 'loose';
-    looseQuantity?: number;
-    looseUnit?: string;
-    looseBaseQty?: number;
-    openedPackDeducted?: boolean;
   }
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -74,11 +104,14 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
   // Loose & Spray Dose Modal State
   const [looseModalProduct, setLooseModalProduct] = useState<AccountingProduct | null>(null);
   const [looseMode, setLooseMode] = useState<'direct' | 'pump'>('direct');
-  const [looseDirectQty, setLooseDirectQty] = useState<string>('100');
-  const [looseDirectUnit, setLooseDirectUnit] = useState<string>('ml');
+  const [looseDirectQty, setLooseDirectQty] = useState<string>('50');
+  const [looseDirectUnit, setLooseDirectUnit] = useState<'ml' | 'g'>('g');
   const [loosePumpCount, setLoosePumpCount] = useState<string>('3');
   const [looseDosePerPump, setLooseDosePerPump] = useState<string>('35');
   const [looseCustomPrice, setLooseCustomPrice] = useState<string>('');
+  const [looseModalRateUnit, setLooseModalRateUnit] = useState<string>('10 g');
+  const [looseModalRateMultiplier, setLooseModalRateMultiplier] = useState<number>(10);
+  const [looseModalCostPerBase, setLooseModalCostPerBase] = useState<number>(0);
   
   // Quick Add Customer modal
   const [showQuickCustomerModal, setShowQuickCustomerModal] = useState(false);
@@ -192,32 +225,54 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     ).slice(0, 10);
   }, [customers, customerSearchQuery]);
 
-  // Add Item to Cart (Pack / Packaging Variant)
+  // Add Item to Cart (Pack / Packaging Variant - SELECTED PACKAGING = DEFAULT SALE UNIT)
   const addItemToCart = (p: AccountingProduct, variant?: PackagingVariant) => {
     const variants = getProductVariants(p);
     const chosenVariant = variant || (variants.length === 1 ? variants[0] : null);
 
     const variantId = chosenVariant ? chosenVariant.id : undefined;
-    const cartItemId = `${p.id}_${variantId || 'base'}_pack`;
+    // CRITICAL: Ensure unique cartItemId per variant so different pack sizes are NEVER merged!
+    const variantKey = variantId || (chosenVariant ? `${chosenVariant.sizeValue}${chosenVariant.sizeUnit}_${chosenVariant.packagingType}` : 'base');
+    const cartItemId = `${p.id}_${variantKey}_pack`;
 
     setCartItems(prev => {
       const existing = prev.find(item => item.cartItemId === cartItemId);
       if (existing) {
         return prev.map(item => 
           item.cartItemId === cartItemId 
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { 
+                ...item, 
+                quantity: item.quantity + 1,
+                packCount: (item.packCount || item.quantity) + 1,
+              }
             : item
         );
       }
 
-      const variantLabel = chosenVariant 
-        ? (chosenVariant.label || `${chosenVariant.sizeValue} ${chosenVariant.sizeUnit} (${chosenVariant.packagingType})`)
-        : undefined;
+      // Detect packaging details
+      const packagingType = chosenVariant?.packagingType || (p.unit === 'Ltr' || p.unit === 'Ml' ? 'Bottle' : (p.unit === 'Kg' ? 'Bag' : p.unit || 'Pack'));
+      const packSizeValue = chosenVariant?.sizeValue || (p.unit === 'Ltr' || p.unit === 'Kg' ? 1 : undefined);
+      const packSizeUnit = chosenVariant?.sizeUnit || p.unit;
+      
+      let packBaseQty = chosenVariant?.baseQuantity;
+      if (!packBaseQty && packSizeValue && packSizeUnit) {
+        packBaseQty = normalizeToBaseUnit(packSizeValue, packSizeUnit);
+      }
 
+      const variantLabel = formatPackagingVariantString({
+        sizeValue: packSizeValue,
+        sizeUnit: packSizeUnit,
+        packagingType: packagingType,
+        variantLabel: chosenVariant?.label,
+      }) || (chosenVariant ? (chosenVariant.label || `${chosenVariant.sizeValue} ${chosenVariant.sizeUnit} (${packagingType})`) : `${p.name} (${packagingType})`);
+
+      // Purchase Cost & Selling Price per PACK (NOT per ml or per gram!)
       const costPrice = chosenVariant ? (chosenVariant.costPrice || p.costPrice || 0) : (p.costPrice || 0);
       const originalSellingPrice = chosenVariant ? (chosenVariant.sellingPrice || p.defaultSellingPrice || p.costPrice || 0) : (p.defaultSellingPrice || p.costPrice || 0);
       const currentStock = chosenVariant ? (chosenVariant.currentStockPacks ?? p.currentStock ?? 0) : (p.currentStock || 0);
-      const unit = chosenVariant ? (chosenVariant.sizeUnit || p.unit) : p.unit;
+
+      // Packaging unit (e.g. "Bottle", "Packet", "Bag")
+      const displayUnit = packagingType;
 
       const firstBatch = p.batches && p.batches.length > 0 ? p.batches[0] : undefined;
 
@@ -228,13 +283,23 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
           productId: p.id,
           name: p.name,
           hindiName: p.hindiName,
-          unit,
-          quantity: 1,
-          costPrice,
-          originalSellingPrice,
+          unit: displayUnit,
+          quantity: 1, // 1 complete pack / 1 Bottle
+          packCount: 1,
+          costPrice, // e.g. ₹350 per 500 ml Bottle
+          originalSellingPrice, // e.g. ₹400 per 500 ml Bottle
+          fullPackCostPrice: costPrice,
+          fullPackSellingPrice: originalSellingPrice,
           currentStock,
           variantId,
           variantLabel,
+          variantName: variantLabel,
+          packagingType,
+          packSizeValue,
+          packSizeUnit,
+          packSize: packSizeValue,
+          packUnit: packSizeUnit,
+          packBaseQty,
           batchNumber: firstBatch?.batchNumber,
           expiryDate: firstBatch?.expiryDate,
           saleType: 'pack',
@@ -243,28 +308,238 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     });
   };
 
+  // Switch a pack item in cart to loose sale with proportional pricing
+  const switchToLooseSale = (cartItemId: string, targetLooseQty?: number) => {
+    setCartItems(prev => prev.map(item => {
+      if (item.cartItemId !== cartItemId) return item;
+
+      const isLiquid = item.packSizeUnit === 'ml' || item.packSizeUnit === 'Ltr' || item.unit === 'Bottle' || item.unit === 'Ml' || item.unit === 'Ltr';
+      const baseUnit: 'g' | 'ml' = isLiquid ? 'ml' : 'g';
+
+      let packBase = item.packBaseQty;
+      if (!packBase || packBase <= 0) {
+        packBase = normalizeToBaseUnit(item.packSizeValue || 1, item.packSizeUnit || (isLiquid ? 'Ltr' : 'kg'));
+      }
+      if (!packBase || packBase <= 0) {
+        packBase = 250; // fallback
+      }
+
+      // Proportional cost per base unit (e.g. ₹700 / 250 g = ₹2.80/g)
+      const fullCost = item.fullPackCostPrice || item.costPrice || 0;
+      const costPerBaseUnit = packBase > 0 ? Number((fullCost / packBase).toFixed(4)) : 0;
+
+      // Selling rate setup: default derived from pack selling price
+      const fullPrice = item.fullPackSellingPrice || item.originalSellingPrice || fullCost;
+      const defaultPricePerBase = packBase > 0 ? Number((fullPrice / packBase).toFixed(4)) : Number((costPerBaseUnit * 1.15).toFixed(4));
+
+      // Default rate unit: 10 g for powder, 10 ml for liquid
+      const defaultRateUnit = baseUnit === 'g' ? '10 g' : '10 ml';
+      const defaultMultiplier = 10;
+      const defaultRateAmount = Math.round(defaultPricePerBase * defaultMultiplier * 100) / 100;
+      const effectivePricePerBase = defaultMultiplier > 0 ? (defaultRateAmount / defaultMultiplier) : defaultPricePerBase;
+
+      // Desired loose quantity (e.g. 50 g for 250g pack, or targetLooseQty)
+      let looseQty = targetLooseQty;
+      if (!looseQty || looseQty <= 0) {
+        if (packBase >= 500) {
+          looseQty = 100;
+        } else if (packBase >= 200) {
+          looseQty = 50;
+        } else {
+          looseQty = Math.max(10, Math.round(packBase / 2));
+        }
+      }
+
+      return {
+        ...item,
+        saleType: 'loose',
+        isLooseEditing: true,
+        unit: baseUnit,
+        quantity: looseQty, // actual loose quantity (e.g. 50)
+        costPrice: costPerBaseUnit, // cost per base unit (e.g. 2.80)
+        originalSellingPrice: effectivePricePerBase, // selling price per base unit (e.g. 3.00)
+        looseQuantity: looseQty,
+        looseUnit: baseUnit,
+        looseBaseQty: looseQty,
+        costPerBaseUnit,
+        sellingPricePerBaseUnit: effectivePricePerBase,
+        looseRateAmount: defaultRateAmount, // e.g. 30
+        looseRateUnit: defaultRateUnit, // e.g. '10 g'
+        looseRateDenominator: defaultMultiplier, // e.g. 10
+        openedPackFromVariantId: item.variantId,
+        openedPackBaseQty: packBase,
+      };
+    }));
+  };
+
+  // Update loose quantity for an item in loose mode
+  const updateLooseQty = (cartItemId: string, newLooseQty: number) => {
+    if (newLooseQty <= 0) return;
+    setCartItems(prev => prev.map(item => {
+      if (item.cartItemId !== cartItemId) return item;
+
+      const baseUnit = (item.looseUnit || (item.unit === 'ml' || item.unit === 'Ltr' ? 'ml' : 'g')) as 'g' | 'ml';
+      const packBase = item.packBaseQty || item.openedPackBaseQty || normalizeToBaseUnit(item.packSizeValue || 1, item.packSizeUnit || baseUnit);
+
+      const fullCost = item.fullPackCostPrice || 0;
+      let costPerBase = item.costPerBaseUnit;
+      if (!costPerBase || costPerBase <= 0) {
+        costPerBase = packBase > 0 && fullCost > 0 ? Number((fullCost / packBase).toFixed(4)) : item.costPrice;
+      }
+
+      const mult = item.looseRateDenominator || 1;
+      const rateAmt = item.looseRateAmount ?? ((item.sellingPricePerBaseUnit || item.originalSellingPrice) * mult);
+      const pricePerBase = mult > 0 ? (rateAmt / mult) : (item.sellingPricePerBaseUnit || item.originalSellingPrice);
+
+      return {
+        ...item,
+        quantity: newLooseQty,
+        looseQuantity: newLooseQty,
+        looseBaseQty: newLooseQty,
+        costPrice: costPerBase,
+        originalSellingPrice: pricePerBase,
+        costPerBaseUnit: costPerBase,
+        sellingPricePerBaseUnit: pricePerBase,
+      };
+    }));
+  };
+
+  // Update loose rate amount (e.g. changing 30 in ₹30 / 10 g)
+  const updateLooseRateAmount = (cartItemId: string, newRateAmount: number) => {
+    const rateAmt = Math.max(0, newRateAmount);
+    setCartItems(prev => prev.map(item => {
+      if (item.cartItemId !== cartItemId) return item;
+
+      const mult = item.looseRateDenominator || 1;
+      const pricePerBase = mult > 0 ? (rateAmt / mult) : rateAmt;
+
+      return {
+        ...item,
+        looseRateAmount: rateAmt,
+        sellingPricePerBaseUnit: pricePerBase,
+        originalSellingPrice: pricePerBase,
+      };
+    }));
+  };
+
+  // Update loose rate unit (e.g. switching from / 10 g to / 100 g or / 1 kg)
+  const updateLooseRateUnit = (cartItemId: string, newUnitLabel: string) => {
+    setCartItems(prev => prev.map(item => {
+      if (item.cartItemId !== cartItemId) return item;
+
+      const baseUnit = (item.looseUnit || 'g') as 'g' | 'ml';
+      const options = getLooseRateOptions(baseUnit);
+      const chosenOpt = options.find(o => o.label === newUnitLabel) || options[0];
+
+      // Current selling price per base unit (e.g. 3.00/g)
+      const currentPricePerBase = item.sellingPricePerBaseUnit || item.originalSellingPrice || 0;
+
+      // Automatically convert rate amount to the new unit
+      const newRateAmount = Math.round(currentPricePerBase * chosenOpt.multiplier * 100) / 100;
+      const newPricePerBase = chosenOpt.multiplier > 0 ? (newRateAmount / chosenOpt.multiplier) : currentPricePerBase;
+
+      return {
+        ...item,
+        looseRateUnit: chosenOpt.label,
+        looseRateDenominator: chosenOpt.multiplier,
+        looseRateAmount: newRateAmount,
+        sellingPricePerBaseUnit: newPricePerBase,
+        originalSellingPrice: newPricePerBase,
+      };
+    }));
+  };
+
+  // Direct line total setter (e.g. customer wants ₹150 worth of medicine)
+  const updateLooseLineTotal = (cartItemId: string, totalAmount: number) => {
+    const total = Math.max(0, totalAmount);
+    setCartItems(prev => prev.map(item => {
+      if (item.cartItemId !== cartItemId) return item;
+
+      const qty = item.looseQuantity || item.quantity || 1;
+      const pricePerBase = qty > 0 ? (total / qty) : 0;
+      const mult = item.looseRateDenominator || 1;
+      const rateAmt = Math.round(pricePerBase * mult * 100) / 100;
+
+      return {
+        ...item,
+        looseRateAmount: rateAmt,
+        sellingPricePerBaseUnit: pricePerBase,
+        originalSellingPrice: pricePerBase,
+      };
+    }));
+  };
+
+  // Revert loose item back to full sealed pack
+  const revertToPackSale = (cartItemId: string) => {
+    setCartItems(prev => prev.map(item => {
+      if (item.cartItemId !== cartItemId) return item;
+
+      return {
+        ...item,
+        saleType: 'pack',
+        isLooseEditing: false,
+        unit: item.packagingType || 'Pack',
+        quantity: 1,
+        packCount: 1,
+        costPrice: item.fullPackCostPrice || item.costPrice,
+        originalSellingPrice: item.fullPackSellingPrice || item.originalSellingPrice,
+        looseQuantity: undefined,
+        looseUnit: undefined,
+        looseBaseQty: undefined,
+        looseRateAmount: undefined,
+        looseRateUnit: undefined,
+        looseRateDenominator: undefined,
+        costPerBaseUnit: undefined,
+        sellingPricePerBaseUnit: undefined,
+        openedPackFromVariantId: undefined,
+        openedPackBaseQty: undefined,
+      };
+    }));
+  };
+
   // Open Loose / Spray Dose Modal
   const openLooseDoseModal = (p: AccountingProduct) => {
     setLooseModalProduct(p);
     setLooseMode('direct');
 
     const isLiquid = p.unit === 'Ltr' || p.unit === 'Ml' || p.productType === 'liquid';
-    const baseUnit = isLiquid ? 'ml' : 'g';
+    const baseUnit: 'g' | 'ml' = isLiquid ? 'ml' : 'g';
     setLooseDirectUnit(baseUnit);
 
     const doseVal = p.standardDoseInfo?.verifiedDosePer20LTank || (isLiquid ? 35 : 50);
     setLooseDosePerPump(String(doseVal));
     setLoosePumpCount('3');
-    setLooseDirectQty('100');
+    setLooseDirectQty(baseUnit === 'g' ? '50' : '100');
 
-    // Default rate per base unit
-    let ratePerBase = p.looseStock?.sellingPricePerBaseUnit || 0;
-    if (!ratePerBase) {
-      const defaultSelling = p.defaultSellingPrice || 0;
-      const baseQty = normalizeToBaseUnit(1, p.unit || (isLiquid ? 'Ltr' : 'kg'));
-      ratePerBase = baseQty > 0 ? Number((defaultSelling / baseQty).toFixed(2)) : 0.5;
+    // Determine packaging variant if available
+    const variants = getProductVariants(p);
+    const firstVariant = variants.length > 0 ? variants[0] : undefined;
+
+    let packBase = firstVariant?.baseQuantity;
+    if (!packBase || packBase <= 0) {
+      if (firstVariant?.sizeValue && firstVariant?.sizeUnit) {
+        packBase = normalizeToBaseUnit(firstVariant.sizeValue, firstVariant.sizeUnit);
+      } else {
+        packBase = normalizeToBaseUnit(1, p.unit || baseUnit);
+      }
     }
-    setLooseCustomPrice(String(ratePerBase));
+    if (!packBase || packBase <= 0) packBase = 250;
+
+    const fullCost = firstVariant?.costPrice || p.costPrice || 0;
+    const costPerBase = packBase > 0 ? Number((fullCost / packBase).toFixed(4)) : (p.looseStock?.costPerBaseUnit || 0);
+
+    const fullSelling = firstVariant?.sellingPrice || p.defaultSellingPrice || (fullCost * 1.15);
+    const sellingPerBase = packBase > 0 ? Number((fullSelling / packBase).toFixed(4)) : (p.looseStock?.sellingPricePerBaseUnit || Number((costPerBase * 1.15).toFixed(4)));
+
+    // Default rate unit: 10 g or 10 ml
+    const defaultUnitLabel = baseUnit === 'g' ? '10 g' : '10 ml';
+    const defaultMultiplier = 10;
+    const defaultRateAmt = Math.round(sellingPerBase * defaultMultiplier * 100) / 100;
+
+    setLooseModalRateUnit(defaultUnitLabel);
+    setLooseModalRateMultiplier(defaultMultiplier);
+    setLooseCustomPrice(String(defaultRateAmt));
+    setLooseModalCostPerBase(costPerBase);
   };
 
   // Confirm and Add Loose Item to Cart
@@ -272,7 +547,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     if (!looseModalProduct) return;
     const p = looseModalProduct;
     const isLiquid = p.unit === 'Ltr' || p.unit === 'Ml' || p.productType === 'liquid';
-    const baseUnit = isLiquid ? 'ml' : 'g';
+    const baseUnit: 'g' | 'ml' = isLiquid ? 'ml' : 'g';
 
     let requestedQty = 0;
     let label = '';
@@ -292,18 +567,16 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
       return;
     }
 
-    const ratePerUnit = Number(looseCustomPrice) || (p.looseStock?.sellingPricePerBaseUnit || 0.5);
-    const lineTotal = Math.round(requestedQty * ratePerUnit);
-
-    // Calculate cost per base unit
-    let costPerUnit = p.looseStock?.costPerBaseUnit || 0;
-    if (!costPerUnit) {
-      const baseQty = normalizeToBaseUnit(1, p.unit || (isLiquid ? 'Ltr' : 'kg'));
-      costPerUnit = baseQty > 0 ? ((p.costPrice || 0) / baseQty) : 0;
-    }
-    const lineCost = Math.round(requestedQty * costPerUnit);
+    const rateAmt = Number(looseCustomPrice) || 0;
+    const multiplier = looseModalRateMultiplier || 1;
+    const sellingPricePerBaseUnit = multiplier > 0 ? (rateAmt / multiplier) : rateAmt;
+    const costPerBaseUnit = looseModalCostPerBase || 0;
 
     const cartItemId = `${p.id}_loose_${Date.now()}`;
+
+    // Check if there is an existing packaging variant we can open if loose stock is insufficient
+    const variants = getProductVariants(p);
+    const openedPackVariant = variants.length > 0 ? variants[0] : undefined;
 
     setCartItems(prev => [
       ...prev,
@@ -313,15 +586,27 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
         name: p.name,
         hindiName: p.hindiName,
         unit: baseUnit,
-        quantity: 1, // 1 loose line item
-        originalSellingPrice: lineTotal,
-        costPrice: lineCost,
+        quantity: requestedQty, // actual loose quantity
+        costPrice: costPerBaseUnit, // proportional cost per base unit
+        originalSellingPrice: sellingPricePerBaseUnit, // selling price per base unit
+        costPerBaseUnit,
+        sellingPricePerBaseUnit,
+        looseRateAmount: rateAmt,
+        looseRateUnit: looseModalRateUnit,
+        looseRateDenominator: multiplier,
         currentStock: p.looseStock?.availableBaseQty || 0,
         saleType: 'loose',
         variantLabel: label,
         looseQuantity: requestedQty,
         looseUnit: baseUnit,
         looseBaseQty: requestedQty,
+        fullPackCostPrice: openedPackVariant ? (openedPackVariant.costPrice || p.costPrice) : p.costPrice,
+        fullPackSellingPrice: openedPackVariant ? (openedPackVariant.sellingPrice || p.defaultSellingPrice) : p.defaultSellingPrice,
+        packSizeValue: openedPackVariant?.sizeValue,
+        packSizeUnit: openedPackVariant?.sizeUnit,
+        packagingType: openedPackVariant?.packagingType,
+        openedPackFromVariantId: openedPackVariant?.id,
+        openedPackBaseQty: openedPackVariant ? normalizeToBaseUnit(openedPackVariant.sizeValue, openedPackVariant.sizeUnit) : undefined,
         openedPackDeducted: false,
       },
     ]);
@@ -334,7 +619,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
       removeItemFromCart(cartItemId);
       return;
     }
-    setCartItems(prev => prev.map(it => it.cartItemId === cartItemId ? { ...it, quantity: qty } : it));
+    setCartItems(prev => prev.map(it => it.cartItemId === cartItemId ? { ...it, quantity: qty, packCount: it.saleType !== 'loose' ? qty : undefined } : it));
   };
 
   const updateItemPrice = (cartItemId: string, price: number) => {
@@ -358,8 +643,11 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
   }, [subtotalBeforeBargain]);
 
   const negotiatedTotalNumber = useMemo(() => {
+    if (!customFinalTotalInput || customFinalTotalInput.trim() === '') {
+      return subtotalBeforeBargain;
+    }
     const val = Number(customFinalTotalInput);
-    return isNaN(val) ? subtotalBeforeBargain : val;
+    return (isNaN(val) || val <= 0) ? subtotalBeforeBargain : val;
   }, [customFinalTotalInput, subtotalBeforeBargain]);
 
   // Proportional Allocation Calculations
@@ -451,7 +739,36 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
         customerName: selectedCustomer ? selectedCustomer.name : 'नकद ग्राहक (Retail Cash Customer)',
         customerPhone: selectedCustomer?.phone || '',
         customerVillage: selectedCustomer?.village || '',
-        items: allocation.allocatedItems,
+        items: allocation.allocatedItems.map(it => {
+          const matchingCartItem = cartItems.find(c => c.cartItemId === (it as any).cartItemId);
+          const isPack = (matchingCartItem?.saleType || it.saleType) !== 'loose';
+          return {
+            ...it,
+            saleType: matchingCartItem?.saleType || it.saleType || 'pack',
+            variantId: matchingCartItem?.variantId || it.variantId,
+            variantLabel: matchingCartItem?.variantLabel || it.variantLabel,
+            variantName: matchingCartItem?.variantName || matchingCartItem?.variantLabel || it.variantLabel,
+            packagingType: matchingCartItem?.packagingType || it.packagingType,
+            packSizeValue: matchingCartItem?.packSizeValue || it.packSizeValue,
+            packSizeUnit: matchingCartItem?.packSizeUnit || it.packSizeUnit,
+            packSize: matchingCartItem?.packSizeValue || it.packSizeValue,
+            packUnit: matchingCartItem?.packSizeUnit || it.packSizeUnit,
+            packCount: isPack ? it.quantity : undefined,
+            equivalentQuantityDisplay: (isPack && matchingCartItem?.packSizeValue)
+              ? formatPackEquivalent(matchingCartItem.quantity, matchingCartItem.packSizeValue, matchingCartItem.packSizeUnit)
+              : undefined,
+            openedPackFromVariantId: matchingCartItem?.openedPackFromVariantId,
+            openedPackBaseQty: matchingCartItem?.openedPackBaseQty,
+            looseQuantity: matchingCartItem?.looseQuantity || it.looseQuantity,
+            looseUnit: matchingCartItem?.looseUnit || it.looseUnit,
+            looseBaseQty: matchingCartItem?.looseBaseQty || it.looseBaseQty,
+            looseRateAmount: matchingCartItem?.looseRateAmount || it.looseRateAmount,
+            looseRateUnit: matchingCartItem?.looseRateUnit || it.looseRateUnit,
+            looseRateDenominator: matchingCartItem?.looseRateDenominator || it.looseRateDenominator,
+            costPerBaseUnit: matchingCartItem?.costPerBaseUnit || it.costPerBaseUnit,
+            sellingPricePerBaseUnit: matchingCartItem?.sellingPricePerBaseUnit || it.sellingPricePerBaseUnit,
+          };
+        }),
         subtotal: allocation.subtotal,
         bargainingDiscount: allocation.bargainingDiscount,
         finalTotal: allocation.finalTotal,
@@ -964,151 +1281,375 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                   <span>बाईं तरफ से उत्पाद पर क्लिक करके बिल में जोड़ें</span>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
-                  {cartItems.map((item, idx) => {
-                    const allocItem = allocation.allocatedItems[idx];
-                    const lineTotal = item.quantity * item.originalSellingPrice;
-                    const isLoose = item.saleType === 'loose';
+                  <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
+                    {cartItems.map((item, idx) => {
+                      const allocItem = allocation.allocatedItems[idx];
+                      const lineTotal = item.quantity * item.originalSellingPrice;
+                      const isLoose = item.saleType === 'loose';
+                      const isPack = !isLoose;
 
-                    return (
-                      <div
-                        key={item.cartItemId}
-                        className="p-3 bg-gray-50 border border-gray-200 rounded-2xl space-y-2 text-xs"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0 pr-2">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <h4 className="font-bold text-gray-900 text-xs sm:text-sm">
-                                {item.hindiName || item.name}
-                              </h4>
-                              {item.variantLabel && !isLoose && (
-                                <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
-                                  {item.variantLabel}
-                                </span>
-                              )}
-                              {isLoose && (
-                                <span className="text-[10px] text-blue-800 font-bold bg-blue-100 px-2 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">
-                                  <Droplet className="w-3 h-3 text-blue-600" />
-                                  {item.variantLabel || `खुला (${item.looseQuantity} ${item.looseUnit})`}
-                                </span>
-                              )}
-                              {item.batchNumber && (
-                                <span className="text-[9px] text-gray-500 font-mono bg-gray-200 px-1.5 py-0.5 rounded">
-                                  B: {item.batchNumber}
-                                </span>
+                      // Equivalent quantity calculation for packs (e.g. 500 ml or 1.5 L)
+                      const equivalentQtyStr = (isPack && item.packSizeValue)
+                        ? formatPackEquivalent(item.quantity, item.packSizeValue, item.packSizeUnit)
+                        : '';
+
+                      // Packaging display label (e.g. "500 ml Bottle")
+                      const packDisplayLabel = item.variantLabel || `${item.packSizeValue || ''} ${item.packSizeUnit || ''} ${item.packagingType || item.unit}`;
+
+                      return (
+                        <div
+                          key={item.cartItemId}
+                          className="p-3.5 bg-white border border-gray-200 rounded-2xl space-y-2.5 text-xs shadow-xs hover:border-gray-300 transition-colors"
+                        >
+                          {/* Top Header: Title, Variant Badge, Stock/Cost Info, Delete */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h4 className="font-bold text-gray-900 text-sm">
+                                  {item.hindiName || item.name}
+                                </h4>
+                                
+                                {/* Packaging Variant Badge */}
+                                {isPack && (
+                                  <span className="text-[11px] text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                    {packDisplayLabel}
+                                  </span>
+                                )}
+
+                                {/* Loose Badge */}
+                                {isLoose && (
+                                  <span className="text-[11px] text-blue-800 font-bold bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 flex items-center gap-1">
+                                    <Droplet className="w-3 h-3 text-blue-600" />
+                                    खुला ({item.looseQuantity || item.quantity} {item.looseUnit || item.unit})
+                                  </span>
+                                )}
+
+                                {item.batchNumber && (
+                                  <span className="text-[9px] text-gray-500 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+                                    बैच: {item.batchNumber}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Pricing & Cost Transparency Display */}
+                              <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500 flex-wrap">
+                                {isPack ? (
+                                  <>
+                                    <span className="font-medium text-gray-600">
+                                      लागत: <strong className="text-gray-800">₹{item.costPrice}</strong> / {packDisplayLabel}
+                                    </span>
+                                    <span className="text-gray-300">•</span>
+                                    <span className="text-gray-500">
+                                      दर: ₹{item.originalSellingPrice} / {item.unit}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-medium text-blue-700">
+                                      💧 खुली बिक्री: लागत <strong>₹{allocItem?.totalCost ?? Math.round((item.looseQuantity || item.quantity) * (item.costPrice || 0))}</strong>
+                                      <span className="text-gray-500 font-normal"> (@ ₹{(item.costPrice || 0).toFixed(2)}/{item.looseUnit || 'g'})</span>
+                                    </span>
+                                    {item.packSizeValue && (
+                                      <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                                        ({item.packSizeValue} {item.packSizeUnit} पैक @ ₹{item.fullPackCostPrice || ''})
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => removeItemFromCart(item.cartItemId)}
+                              className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                              title="बिल से हटाएं"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {/* Main Row: Quantity Controls, Rate, Line Total */}
+                          <div className="grid grid-cols-12 gap-2.5 items-center pt-1 border-t border-gray-100">
+                            {/* Quantity (मात्रा) */}
+                            <div className="col-span-5">
+                              <label className="text-[10px] font-bold text-gray-500 block mb-0.5">मात्रा (Qty):</label>
+                              {isPack ? (
+                                <div>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => updateItemQty(item.cartItemId, Math.max(1, item.quantity - 1))}
+                                      className="w-7 h-7 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-700 rounded-lg font-bold flex items-center justify-center text-sm transition-transform"
+                                    >
+                                      -
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      step="1"
+                                      value={item.quantity}
+                                      onChange={e => updateItemQty(item.cartItemId, Math.max(1, parseInt(e.target.value) || 1))}
+                                      className="w-12 h-7 p-1 text-center font-bold text-gray-900 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none text-xs"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => updateItemQty(item.cartItemId, item.quantity + 1)}
+                                      className="w-7 h-7 bg-emerald-50 hover:bg-emerald-100 active:scale-95 text-emerald-800 rounded-lg font-bold flex items-center justify-center text-sm transition-transform"
+                                    >
+                                      +
+                                    </button>
+                                    <span className="text-xs font-semibold text-gray-700 ml-0.5">
+                                      {item.unit}
+                                    </span>
+                                  </div>
+                                  {/* Equivalent Quantity Display (e.g. 500 ml or 3 Bottles x 500 ml = 1.5 L) */}
+                                  {equivalentQtyStr && (
+                                    <div className="text-[10px] font-bold text-emerald-700 mt-1">
+                                      {item.quantity === 1 
+                                        ? `(${equivalentQtyStr})` 
+                                        : `${item.quantity} ${item.unit} = ${equivalentQtyStr}`}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => updateLooseQty(item.cartItemId, Math.max(1, (item.looseQuantity || item.quantity) - 10))}
+                                      className="w-6 h-7 bg-blue-50 hover:bg-blue-100 active:scale-95 text-blue-800 rounded font-bold flex items-center justify-center text-xs"
+                                    >
+                                      -
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      step="1"
+                                      value={item.looseQuantity || item.quantity}
+                                      onChange={e => updateLooseQty(item.cartItemId, Math.max(1, Number(e.target.value) || 1))}
+                                      className="w-16 h-7 p-1 text-center font-bold text-gray-900 bg-white border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => updateLooseQty(item.cartItemId, (item.looseQuantity || item.quantity) + 10)}
+                                      className="w-6 h-7 bg-blue-50 hover:bg-blue-100 active:scale-95 text-blue-800 rounded font-bold flex items-center justify-center text-xs"
+                                    >
+                                      +
+                                    </button>
+                                    <span className="text-xs font-bold text-blue-900 ml-0.5">{item.looseUnit || 'g'}</span>
+                                  </div>
+                                  {/* Quick Dose Pills */}
+                                  <div className="flex gap-1 mt-1">
+                                    {[10, 25, 50, 100, 250].map(val => (
+                                      <button
+                                        key={val}
+                                        type="button"
+                                        onClick={() => updateLooseQty(item.cartItemId, val)}
+                                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                                          (item.looseQuantity || item.quantity) === val
+                                            ? 'bg-blue-600 text-white border-blue-600'
+                                            : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
+                                        }`}
+                                      >
+                                        {val}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
                               )}
                             </div>
-                            <p className="text-[10px] text-gray-400 mt-0.5">
-                              {isLoose ? `कुल मात्रा: ${item.looseQuantity} ${item.looseUnit}` : `लागत: ₹${item.costPrice} /${item.unit}`}
-                            </p>
+
+                            {/* Rate (दर) */}
+                            <div className="col-span-4">
+                              <label className="text-[10px] font-bold text-gray-500 block mb-0.5">दर (Rate):</label>
+                              {isPack ? (
+                                <div>
+                                  <div className="relative">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₹</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={item.originalSellingPrice}
+                                      onChange={e => updateItemPrice(item.cartItemId, Number(e.target.value))}
+                                      className="w-full h-7 pl-5 pr-1.5 font-bold text-gray-900 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none text-xs"
+                                    />
+                                  </div>
+                                  <span className="text-[9px] text-gray-400 block mt-0.5 truncate">
+                                    /{item.unit}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="flex items-center gap-1">
+                                    <div className="relative flex-1 min-w-0">
+                                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₹</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="any"
+                                        value={item.looseRateAmount ?? Math.round((item.sellingPricePerBaseUnit || item.originalSellingPrice || 0) * (item.looseRateDenominator || 1) * 100) / 100}
+                                        onChange={e => updateLooseRateAmount(item.cartItemId, Number(e.target.value))}
+                                        className="w-full h-7 pl-4 pr-1 font-bold text-gray-900 bg-white border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs"
+                                      />
+                                    </div>
+                                    <select
+                                      value={item.looseRateUnit || (item.looseUnit === 'g' ? '10 g' : '10 ml')}
+                                      onChange={e => updateLooseRateUnit(item.cartItemId, e.target.value)}
+                                      className="h-7 px-1 text-[11px] font-bold text-blue-900 bg-blue-50 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
+                                    >
+                                      {getLooseRateOptions(item.looseUnit || 'g').map(opt => (
+                                        <option key={opt.label} value={opt.label}>
+                                          / {opt.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <span className="text-[9px] text-blue-700 font-medium block mt-0.5">
+                                    (₹{(item.sellingPricePerBaseUnit || item.originalSellingPrice || 0).toFixed(2)}/{item.looseUnit || 'g'})
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Line Total (कुल) */}
+                            <div className="col-span-3 text-right">
+                              <label className="text-[10px] font-bold text-gray-500 block mb-0.5">कुल (Total):</label>
+                              <div className="font-black text-gray-900 text-sm">
+                                ₹{lineTotal}
+                              </div>
+                              {/* Unit Profit */}
+                              {allocItem && (
+                                <div className={`text-[10px] font-bold ${allocItem.lineGrossProfit < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                                  लाभ: ₹{allocItem.lineGrossProfit} ({allocItem.lineMarginPercent}%)
+                                </div>
+                              )}
+                            </div>
                           </div>
+
+                          {/* INLINE LOOSE / PARTIAL SALE CONTROLS (Requirement 4, 5, 6) */}
+                          {isPack && item.packSizeValue && item.packSizeValue > 1 && (
+                            <div className="pt-1.5 border-t border-dashed border-gray-200 flex items-center justify-between text-[11px]">
+                              <button
+                                type="button"
+                                onClick={() => switchToLooseSale(item.cartItemId)}
+                                className="text-blue-700 hover:text-blue-900 font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                              >
+                                <Droplet className="w-3 h-3 text-blue-600" />
+                                <span>✂️ कम मात्रा / खुला बेचें (जैसे {Math.round(item.packSizeValue / 2)} {item.packSizeUnit})</span>
+                              </button>
+                              <span className="text-[10px] text-gray-400">
+                                पैक: {item.packSizeValue} {item.packSizeUnit}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* When in Loose Editing mode */}
+                          {isLoose && item.fullPackCostPrice && (
+                            <div className="p-2 bg-blue-50/70 border border-blue-200 rounded-xl space-y-1.5 text-[11px]">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-blue-900 flex items-center gap-1">
+                                  <Droplet className="w-3 h-3 text-blue-600" />
+                                  खुली बिक्री: {item.looseQuantity || item.quantity} {item.looseUnit || 'g'} × ₹{(item.sellingPricePerBaseUnit || item.originalSellingPrice || 0).toFixed(2)}/{item.looseUnit || 'g'} = ₹{lineTotal}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => revertToPackSale(item.cartItemId)}
+                                  className="text-emerald-800 hover:text-emerald-950 font-bold text-[10px] bg-emerald-100 hover:bg-emerald-200 px-2 py-0.5 rounded flex items-center gap-1 transition-colors cursor-pointer"
+                                >
+                                  <RotateCcw className="w-3 h-3" /> वापस पूरा पैक (1 {item.packagingType || 'Bottle'})
+                                </button>
+                              </div>
+
+                              <div className="text-[10px] text-blue-800 flex justify-between pt-0.5 border-t border-blue-100">
+                                <span>
+                                  लागत दर: ₹{(item.costPrice || 0).toFixed(2)}/{item.looseUnit || 'g'} (लागत: ₹{allocItem?.totalCost ?? Math.round((item.looseQuantity || item.quantity) * (item.costPrice || 0))})
+                                </span>
+                                <span>
+                                  दर: {item.looseRateAmount ? `₹${item.looseRateAmount}/${item.looseRateUnit}` : `₹${item.originalSellingPrice}`}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Bargaining share details if bargaining active */}
+                          {allocItem && allocation.bargainingDiscount > 0 && (
+                            <div className="pt-1.5 border-t border-gray-100 flex items-center justify-between text-[11px]">
+                              <span className="text-gray-500">
+                                मोलभाव शेयर: <span className="font-bold text-amber-700">-₹{allocItem.bargainingDiscountShare}</span> (प्रभावी दर: ₹{allocItem.effectiveSellingPrice})
+                              </span>
+                              <span className={`font-bold ${allocItem.isBelowCost ? 'text-red-600' : 'text-emerald-700'}`}>
+                                अंतिम लाभ: ₹{allocItem.lineGrossProfit} ({allocItem.lineMarginPercent}%)
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* BARGAINING / NEGOTIATION PROPORTIONAL CALCULATOR */}
+              {cartItems.length > 0 && (
+                <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                      <Percent className="w-4 h-4 text-emerald-600" />
+                      मोलभाव / अंतिम देय राशि (Bargaining & Final Amount)
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      कुल MRP योग: <strong className="text-gray-900">₹{subtotalBeforeBargain}</strong>
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-bold text-gray-600 block">
+                          ग्राहक द्वारा दी जाने वाली राशि (Final Agreed Bill):
+                        </label>
+                        {allocation.bargainingDiscount > 0 && (
                           <button
                             type="button"
-                            onClick={() => removeItemFromCart(item.cartItemId)}
-                            className="text-gray-400 hover:text-red-600 p-1"
-                            title="बिल से हटाएं"
+                            onClick={() => setCustomFinalTotalInput(String(subtotalBeforeBargain))}
+                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            MRP पर रीसेट करें
                           </button>
-                        </div>
-
-                        {/* Controls: Quantity & Unit Price */}
-                        <div className="grid grid-cols-12 gap-2 items-center">
-                          <div className="col-span-5 flex items-center gap-1">
-                            <span className="text-[11px] text-gray-500 font-bold">मात्रा:</span>
-                            <input
-                              type="number"
-                              min="0.1"
-                              step="any"
-                              value={item.quantity}
-                              onChange={e => updateItemQty(item.cartItemId, Number(e.target.value))}
-                              className="w-16 p-1.5 text-center font-bold bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                            />
-                            <span className="text-[11px] text-gray-500">{isLoose ? 'लाइन' : item.unit}</span>
-                          </div>
-
-                          <div className="col-span-4 flex items-center gap-1">
-                            <span className="text-[11px] text-gray-500 font-bold">दर: ₹</span>
-                            <input
-                              type="number"
-                              min="0"
-                              value={item.originalSellingPrice}
-                              onChange={e => updateItemPrice(item.cartItemId, Number(e.target.value))}
-                              className="w-20 p-1.5 text-center font-bold bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                            />
-                          </div>
-
-                          <div className="col-span-3 text-right font-extrabold text-gray-900 text-sm">
-                            ₹{lineTotal}
-                          </div>
-                        </div>
-
-                        {/* Proportional Bargaining Impact on this line */}
-                        {allocItem && allocation.bargainingDiscount > 0 && (
-                          <div className="pt-1.5 border-t border-gray-200/60 flex items-center justify-between text-[11px]">
-                            <span className="text-gray-500">
-                              मोलभाव शेयर: <span className="font-bold text-amber-700">-₹{allocItem.bargainingDiscountShare}</span> (प्रभावी दर: ₹{allocItem.effectiveSellingPrice})
-                            </span>
-                            <span className={`font-bold ${allocItem.isBelowCost ? 'text-red-600' : 'text-emerald-700'}`}>
-                              लाभ: ₹{allocItem.lineGrossProfit} ({allocItem.lineMarginPercent}%)
-                            </span>
-                          </div>
                         )}
                       </div>
-                    );
-                  })}
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-emerald-800">₹</span>
+                        <input
+                          type="number"
+                          value={customFinalTotalInput}
+                          onChange={e => setCustomFinalTotalInput(e.target.value)}
+                          placeholder={String(subtotalBeforeBargain)}
+                          className="w-full pl-8 pr-3 py-2 text-base font-extrabold text-emerald-900 bg-white border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-2.5 rounded-xl border border-emerald-100 text-xs space-y-1">
+                      <div className="flex justify-between text-gray-600">
+                        <span>दी गई छूट (Discount):</span>
+                        <strong className="text-amber-700">₹{allocation.bargainingDiscount}</strong>
+                      </div>
+                      <div className="flex justify-between text-gray-600">
+                        <span>माल की कुल लागत (COGS):</span>
+                        <span>₹{allocation.totalCOGS}</span>
+                      </div>
+                      <div className="flex justify-between font-bold pt-1 border-t border-gray-100">
+                        <span>सकल लाभ (Gross Profit):</span>
+                        <span className={allocation.grossProfit < 0 ? 'text-red-600' : 'text-emerald-700'}>
+                          ₹{allocation.grossProfit} ({allocation.grossMarginPercent}%)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
-            </div>
-
-            {/* BARGAINING / NEGOTIATION PROPORTIONAL CALCULATOR */}
-            {cartItems.length > 0 && (
-              <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                    <Percent className="w-4 h-4 text-emerald-600" />
-                    मोलभाव / अंतिम देय राशि (Bargaining & Final Amount)
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    कुल MRP योग: <strong className="text-gray-900">₹{subtotalBeforeBargain}</strong>
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                  <div>
-                    <label className="text-[11px] font-bold text-gray-600 block mb-1">
-                      ग्राहक द्वारा दी जाने वाली राशि (Final Agreed Bill):
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-emerald-800">₹</span>
-                      <input
-                        type="number"
-                        value={customFinalTotalInput}
-                        onChange={e => setCustomFinalTotalInput(e.target.value)}
-                        className="w-full pl-8 pr-3 py-2 text-base font-extrabold text-emerald-900 bg-white border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-2.5 rounded-xl border border-emerald-100 text-xs space-y-1">
-                    <div className="flex justify-between text-gray-600">
-                      <span>दी गई छूट (Discount):</span>
-                      <strong className="text-amber-700">₹{allocation.bargainingDiscount}</strong>
-                    </div>
-                    <div className="flex justify-between text-gray-600">
-                      <span>माल की कुल लागत (COGS):</span>
-                      <span>₹{allocation.totalCOGS}</span>
-                    </div>
-                    <div className="flex justify-between font-bold pt-1 border-t border-gray-100">
-                      <span>सकल लाभ (Gross Profit):</span>
-                      <span className={allocation.grossProfit < 0 ? 'text-red-600' : 'text-emerald-700'}>
-                        ₹{allocation.grossProfit} ({allocation.grossMarginPercent}%)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Payment Mode Selection */}
             {cartItems.length > 0 && (
@@ -1311,7 +1852,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
               <div className="text-right">
                 <span className="text-[10px] text-gray-500 block">खुला दर:</span>
                 <span className="text-xs font-bold text-gray-800">
-                  ₹{looseCustomPrice || looseModalProduct.looseStock?.sellingPricePerBaseUnit || 0} /{looseDirectUnit}
+                  ₹{looseCustomPrice || 0} / {looseModalRateUnit}
                 </span>
               </div>
             </div>
@@ -1349,19 +1890,19 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                   <input
                     type="number"
                     min="1"
-                    placeholder={`उदा. 100 ${looseDirectUnit}`}
+                    placeholder={`उदा. 50 ${looseDirectUnit}`}
                     value={looseDirectQty}
                     onChange={e => setLooseDirectQty(e.target.value)}
                     className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                   {/* Preset quick buttons */}
-                  <div className="flex gap-1.5 mt-2">
-                    {['50', '100', '150', '250', '500'].map(val => (
+                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                    {['10', '25', '50', '100', '150', '250', '500'].map(val => (
                       <button
                         key={val}
                         type="button"
                         onClick={() => setLooseDirectQty(val)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
                           looseDirectQty === val
                             ? 'bg-blue-600 text-white border-blue-600'
                             : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
@@ -1375,15 +1916,41 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
                 <div>
                   <label className="font-bold text-gray-700 block mb-1">
-                    दर प्रति {looseDirectUnit} (₹)
+                    दर (Selling Rate) *
                   </label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={looseCustomPrice}
-                    onChange={e => setLooseCustomPrice(e.target.value)}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="30"
+                        value={looseCustomPrice}
+                        onChange={e => setLooseCustomPrice(e.target.value)}
+                        className="w-full pl-7 pr-2.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                    <select
+                      value={looseModalRateUnit}
+                      onChange={e => {
+                        const newUnit = e.target.value;
+                        const opts = getLooseRateOptions(looseDirectUnit);
+                        const opt = opts.find(o => o.label === newUnit) || opts[0];
+                        setLooseModalRateUnit(opt.label);
+                        setLooseModalRateMultiplier(opt.multiplier);
+                      }}
+                      className="px-3 py-2.5 bg-blue-50 border border-blue-200 text-blue-900 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
+                    >
+                      {getLooseRateOptions(looseDirectUnit).map(opt => (
+                        <option key={opt.label} value={opt.label}>
+                          / {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <span className="text-[11px] text-gray-500 block mt-1">
+                    उदा. ₹30 / 10 g (प्रभावी: ₹{((Number(looseCustomPrice) || 0) / (looseModalRateMultiplier || 1)).toFixed(2)}/{looseDirectUnit})
+                  </span>
                 </div>
               </div>
             )}
@@ -1410,7 +1977,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                           key={cnt}
                           type="button"
                           onClick={() => setLoosePumpCount(cnt)}
-                          className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold border cursor-pointer ${
                             loosePumpCount === cnt
                               ? 'bg-blue-600 text-white border-blue-600'
                               : 'bg-gray-100 text-gray-600 border-gray-200'
@@ -1444,15 +2011,38 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
                 <div>
                   <label className="font-bold text-gray-700 block mb-1">
-                    दर प्रति {looseDirectUnit} (₹)
+                    दर (Selling Rate) *
                   </label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={looseCustomPrice}
-                    onChange={e => setLooseCustomPrice(e.target.value)}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="30"
+                        value={looseCustomPrice}
+                        onChange={e => setLooseCustomPrice(e.target.value)}
+                        className="w-full pl-7 pr-2.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                    <select
+                      value={looseModalRateUnit}
+                      onChange={e => {
+                        const newUnit = e.target.value;
+                        const opts = getLooseRateOptions(looseDirectUnit);
+                        const opt = opts.find(o => o.label === newUnit) || opts[0];
+                        setLooseModalRateUnit(opt.label);
+                        setLooseModalRateMultiplier(opt.multiplier);
+                      }}
+                      className="px-3 py-2.5 bg-blue-50 border border-blue-200 text-blue-900 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
+                    >
+                      {getLooseRateOptions(looseDirectUnit).map(opt => (
+                        <option key={opt.label} value={opt.label}>
+                          / {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Calculation Summary Box */}
@@ -1475,21 +2065,36 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
               const reqQty = looseMode === 'pump' 
                 ? (Number(loosePumpCount) || 0) * (Number(looseDosePerPump) || 0)
                 : (Number(looseDirectQty) || 0);
-              const rate = Number(looseCustomPrice) || 0;
-              const lineTotal = Math.round(reqQty * rate);
+              const rateAmt = Number(looseCustomPrice) || 0;
+              const mult = looseModalRateMultiplier || 1;
+              const pricePerBase = mult > 0 ? (rateAmt / mult) : rateAmt;
+              const lineTotal = Math.round(reqQty * pricePerBase);
+              const lineCost = Math.round(reqQty * (looseModalCostPerBase || 0) * 100) / 100;
+              const lineProfit = Math.round((lineTotal - lineCost) * 100) / 100;
+
               const openStock = looseModalProduct.looseStock?.availableBaseQty || 0;
               const willNeedPackOpen = reqQty > openStock;
 
               return (
                 <div className="space-y-2 pt-2 border-t border-gray-100">
-                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-2xl border border-gray-200">
-                    <div>
-                      <span className="text-[11px] text-gray-500 block">देय राशि (Line Total):</span>
-                      <span className="text-xl font-black text-gray-900">₹{lineTotal}</span>
+                  <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[11px] text-gray-500 block">देय राशि (Line Total):</span>
+                        <span className="text-xl font-black text-gray-900">₹{lineTotal}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[11px] text-gray-500 block">कुल मात्रा:</span>
+                        <span className="text-sm font-bold text-emerald-800">{reqQty} {looseDirectUnit}</span>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <span className="text-[11px] text-gray-500 block">कुल मात्रा:</span>
-                      <span className="text-sm font-bold text-emerald-800">{reqQty} {looseDirectUnit}</span>
+                    <div className="flex items-center justify-between pt-1 border-t border-gray-200 text-[11px]">
+                      <span className="text-gray-600">
+                        अनुमानित लागत: <strong>₹{lineCost}</strong> (@ ₹{(looseModalCostPerBase || 0).toFixed(2)}/{looseDirectUnit})
+                      </span>
+                      <span className={`font-bold ${lineProfit < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                        अनुमानित लाभ: ₹{lineProfit}
+                      </span>
                     </div>
                   </div>
 
@@ -1506,14 +2111,14 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                     <button
                       type="button"
                       onClick={() => setLooseModalProduct(null)}
-                      className="py-2.5 px-4 bg-gray-100 text-gray-700 rounded-xl font-bold text-xs hover:bg-gray-200 transition-colors"
+                      className="py-2.5 px-4 bg-gray-100 text-gray-700 rounded-xl font-bold text-xs hover:bg-gray-200 transition-colors cursor-pointer"
                     >
                       रद्द करें
                     </button>
                     <button
                       type="button"
                       onClick={handleConfirmLooseSale}
-                      className="py-2.5 px-4 bg-[#2D5A27] text-white rounded-xl font-bold text-xs hover:bg-[#23461e] active:scale-95 transition-all shadow-sm flex items-center justify-center gap-1.5"
+                      className="py-2.5 px-4 bg-[#2D5A27] text-white rounded-xl font-bold text-xs hover:bg-[#23461e] active:scale-95 transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Check className="w-4 h-4" />
                       बिल में जोड़ें
@@ -1553,13 +2158,18 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                 <span>{completedSale.customerPhone}</span>
               </div>
 
-              <div className="space-y-1">
-                {completedSale.items.map((it, idx) => (
-                  <div key={idx} className="flex justify-between text-[11px]">
-                    <span className="truncate flex-1">{it.hindiName || it.name} × {it.quantity} {it.unit}</span>
-                    <span className="font-bold">₹{it.totalEffectiveAmount}</span>
-                  </div>
-                ))}
+              <div className="space-y-1.5 py-1">
+                {completedSale.items.map((it, idx) => {
+                  const itemTitle = formatSaleItemInvoiceTitle(it);
+                  return (
+                    <div key={idx} className="flex justify-between text-[11px] py-0.5 border-b border-gray-100 last:border-b-0">
+                      <span className="flex-1 pr-2 font-medium text-gray-800">
+                        {itemTitle} × {it.quantity}
+                      </span>
+                      <span className="font-bold text-gray-900 whitespace-nowrap">₹{it.totalEffectiveAmount}</span>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="border-t pt-2 space-y-1 text-[11px]">
