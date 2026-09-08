@@ -460,7 +460,7 @@ export interface LooseRateUnitOption {
 }
 
 export function getLooseRateOptions(baseUnit: 'g' | 'ml' | string): LooseRateUnitOption[] {
-  const isLiquid = baseUnit === 'ml' || baseUnit === 'Ltr' || baseUnit === 'l' || baseUnit === 'मिली';
+  const isLiquid = baseUnit === 'ml' || baseUnit === 'Ltr' || baseUnit === 'l' || baseUnit === 'लीटर' || baseUnit === 'मिली';
   if (isLiquid) {
     return [
       { label: '10 ml', multiplier: 10, baseUnit: 'ml' },
@@ -470,11 +470,123 @@ export function getLooseRateOptions(baseUnit: 'g' | 'ml' | string): LooseRateUni
     ];
   }
   return [
-    { label: '10 g', multiplier: 10, baseUnit: 'g' },
-    { label: '100 g', multiplier: 100, baseUnit: 'g' },
     { label: '1 kg', multiplier: 1000, baseUnit: 'g' },
+    { label: '500 g', multiplier: 500, baseUnit: 'g' },
+    { label: '100 g', multiplier: 100, baseUnit: 'g' },
+    { label: '50 g', multiplier: 50, baseUnit: 'g' },
+    { label: '10 g', multiplier: 10, baseUnit: 'g' },
     { label: '1 g', multiplier: 1, baseUnit: 'g' },
   ];
+}
+
+export interface ProductPhysicalCategoryResult {
+  physicalType: 'liquid' | 'solid' | 'seed';
+  baseUnit: 'ml' | 'g';
+  allowedUnits: Array<{
+    unit: string;
+    label: string;
+    multiplierToBase: number;
+  }>;
+  defaultUnit: string;
+  primaryDoseMode: 'pump' | 'bigha';
+  supportsPumpDose: boolean;
+  supportsBighaDose: boolean;
+}
+
+/**
+ * Intelligently analyzes a product's Category, Form, Physical State,
+ * Packaging Unit, and Variants to determine physical category and allowed loose units.
+ */
+export function detectProductPhysicalCategory(product: AccountingProduct): ProductPhysicalCategoryResult {
+  if (!product) {
+    return {
+      physicalType: 'solid',
+      baseUnit: 'g',
+      allowedUnits: [
+        { unit: 'g', label: 'g (ग्राम)', multiplierToBase: 1 },
+        { unit: 'kg', label: 'kg (किलो)', multiplierToBase: 1000 },
+      ],
+      defaultUnit: 'g',
+      primaryDoseMode: 'bigha',
+      supportsPumpDose: true,
+      supportsBighaDose: true,
+    };
+  }
+
+  const categoryLower = (product.category || '').toLowerCase();
+  const unitLower = (product.unit || '').toLowerCase();
+  const productType = product.productType;
+  const variants = getProductVariants(product);
+  const textToScan = `${product.name || ''} ${product.hindiName || ''} ${unitLower}`.toLowerCase();
+
+  // 1. Check if explicitly Seed
+  const isSeed = categoryLower === 'seeds' || categoryLower === 'seed' || /बीज|seed|hybrid\s*seed/i.test(textToScan);
+  if (isSeed) {
+    const hasPacketVariant = variants.some(v => v.packagingType === 'Packet' || v.packagingType === 'Pouch');
+    const allowedUnits = [
+      { unit: 'kg', label: 'kg (किलो)', multiplierToBase: 1000 },
+      { unit: 'g', label: 'g (ग्राम)', multiplierToBase: 1 },
+    ];
+    if (hasPacketVariant) {
+      allowedUnits.push({ unit: 'packet', label: 'Packet (पैकेट)', multiplierToBase: 0 });
+    }
+    return {
+      physicalType: 'seed',
+      baseUnit: 'g',
+      allowedUnits,
+      defaultUnit: 'kg',
+      primaryDoseMode: 'bigha',
+      supportsPumpDose: false,
+      supportsBighaDose: true,
+    };
+  }
+
+  // 2. Liquid Detection:
+  // Check variants, unit, productType, or formulation keywords
+  const hasLiquidVariant = variants.some(v => 
+    v.sizeUnit === 'ml' || v.sizeUnit === 'Ltr' || 
+    v.packagingType === 'Bottle' || v.packagingType === 'Can' || v.packagingType === 'Drum'
+  );
+
+  const isLiquidUnit = /ltr|l|लीटर|ml|मिली|bottle|बोतल|can|केन|drum|ड्रम/.test(unitLower);
+  const isLiquidKeyword = /ec\b|sl\b|sc\b|fs\b|oil\b|syrup|liquid|तरल|लिक्विड/.test(textToScan);
+  const isLiquid = productType === 'liquid' || hasLiquidVariant || isLiquidUnit || (isLiquidKeyword && !/wp|wdg|sp|gr\b|दानेदार/.test(textToScan));
+
+  if (isLiquid) {
+    const primaryVariant = variants[0];
+    const isLargePack = primaryVariant ? (primaryVariant.sizeUnit === 'Ltr' || primaryVariant.baseQuantity >= 1000) : (unitLower.includes('ltr') || unitLower.includes('l'));
+
+    return {
+      physicalType: 'liquid',
+      baseUnit: 'ml',
+      allowedUnits: [
+        { unit: 'ml', label: 'ml (मिलीलीटर)', multiplierToBase: 1 },
+        { unit: 'L', label: 'Litre (लीटर)', multiplierToBase: 1000 },
+      ],
+      defaultUnit: isLargePack ? 'L' : 'ml',
+      primaryDoseMode: 'pump',
+      supportsPumpDose: true,
+      supportsBighaDose: true, // Soil application or area spray
+    };
+  }
+
+  // 3. Solid / Powder / Granule / Fertilizer:
+  const isFertilizer = categoryLower === 'fertilizers' || categoryLower === 'fertilizer' || /खाद|उर्वरक|urea|dap|duophos|potash|npk|zinc|boron|sulfur|जिंक|सल्फर/i.test(textToScan);
+  const primaryVariant = variants[0];
+  const isLargeSolidPack = primaryVariant ? (primaryVariant.sizeUnit === 'kg' || primaryVariant.baseQuantity >= 1000) : (unitLower.includes('kg') || unitLower.includes('bag') || unitLower.includes('बोरी') || unitLower.includes('कट्टा'));
+
+  return {
+    physicalType: 'solid',
+    baseUnit: 'g',
+    allowedUnits: [
+      { unit: 'g', label: 'g (ग्राम)', multiplierToBase: 1 },
+      { unit: 'kg', label: 'kg (किलोग्राम)', multiplierToBase: 1000 },
+    ],
+    defaultUnit: (isFertilizer || isLargeSolidPack) ? 'kg' : 'g',
+    primaryDoseMode: isFertilizer ? 'bigha' : 'pump',
+    supportsPumpDose: true,
+    supportsBighaDose: true,
+  };
 }
 
 /**

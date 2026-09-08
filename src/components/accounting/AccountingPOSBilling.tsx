@@ -126,6 +126,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
   // Bargaining / Negotiation Input
   const [customFinalTotalInput, setCustomFinalTotalInput] = useState<string>('');
+  const [isFinalAmountManuallyEdited, setIsFinalAmountManuallyEdited] = useState<boolean>(false);
   const [paymentMode, setPaymentMode] = useState<'cash' | 'online' | 'udhari' | 'split'>('cash');
   const [cashPaidInput, setCashPaidInput] = useState<string>('');
   const [onlinePaidInput, setOnlinePaidInput] = useState<string>('');
@@ -630,25 +631,62 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     setCartItems(prev => prev.filter(it => it.cartItemId !== cartItemId));
   };
 
-  // Base Calculation without bargaining
+  // Base Calculation without bargaining (Total MRP)
   const subtotalBeforeBargain = useMemo(() => {
-    return cartItems.reduce((acc, it) => acc + (it.quantity * it.originalSellingPrice), 0);
+    return Math.round(cartItems.reduce((acc, it) => acc + (it.quantity * it.originalSellingPrice), 0) * 100) / 100;
   }, [cartItems]);
 
-  // Keep customFinalTotalInput synced if user hasn't typed custom discount
+  // Keep customFinalTotalInput synced with Total MRP when in automatic mode (no manual edit)
   useEffect(() => {
-    if (customFinalTotalInput === '' || Number(customFinalTotalInput) === 0) {
+    if (cartItems.length === 0) {
+      setIsFinalAmountManuallyEdited(false);
+      setCustomFinalTotalInput('');
+      return;
+    }
+
+    // If Admin has NOT manually edited the final amount, maintain LIVE SYNC with Total MRP
+    if (!isFinalAmountManuallyEdited) {
       setCustomFinalTotalInput(subtotalBeforeBargain > 0 ? String(subtotalBeforeBargain) : '');
     }
-  }, [subtotalBeforeBargain]);
+  }, [cartItems.length, subtotalBeforeBargain, isFinalAmountManuallyEdited]);
+
+  // Reset to live MRP sync handler
+  const handleResetFinalAmountToMRP = () => {
+    setIsFinalAmountManuallyEdited(false);
+    setCustomFinalTotalInput(subtotalBeforeBargain > 0 ? String(subtotalBeforeBargain) : '');
+  };
+
+  const handleFinalAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setIsFinalAmountManuallyEdited(true);
+    setCustomFinalTotalInput(val);
+  };
+
+  const handleFinalAmountBlur = () => {
+    // If Admin clears the field or leaves it empty/zero, revert to live MRP sync
+    if (!customFinalTotalInput || customFinalTotalInput.trim() === '' || Number(customFinalTotalInput) === 0) {
+      setIsFinalAmountManuallyEdited(false);
+      setCustomFinalTotalInput(subtotalBeforeBargain > 0 ? String(subtotalBeforeBargain) : '');
+    } else if (Number(customFinalTotalInput) === subtotalBeforeBargain) {
+      // If Admin typed the exact MRP, revert to live auto-sync mode
+      setIsFinalAmountManuallyEdited(false);
+    }
+  };
 
   const negotiatedTotalNumber = useMemo(() => {
+    if (cartItems.length === 0 || subtotalBeforeBargain <= 0) {
+      return 0;
+    }
+    // If not manually edited, always strictly live-sync with Total MRP
+    if (!isFinalAmountManuallyEdited) {
+      return subtotalBeforeBargain;
+    }
     if (!customFinalTotalInput || customFinalTotalInput.trim() === '') {
       return subtotalBeforeBargain;
     }
     const val = Number(customFinalTotalInput);
     return (isNaN(val) || val <= 0) ? subtotalBeforeBargain : val;
-  }, [customFinalTotalInput, subtotalBeforeBargain]);
+  }, [cartItems.length, subtotalBeforeBargain, isFinalAmountManuallyEdited, customFinalTotalInput]);
 
   // Proportional Allocation Calculations
   const allocation = useMemo(() => {
@@ -802,6 +840,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
       setSelectedCustomerId('');
       setCustomerSearchQuery('');
       setCustomFinalTotalInput('');
+      setIsFinalAmountManuallyEdited(false);
       setBillNote('');
       
       // Refresh inventory & customers in background
@@ -1267,8 +1306,12 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                 {cartItems.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => setCartItems([])}
-                    className="text-xs text-red-500 hover:text-red-700 font-bold"
+                    onClick={() => {
+                      setCartItems([]);
+                      setIsFinalAmountManuallyEdited(false);
+                      setCustomFinalTotalInput('');
+                    }}
+                    className="text-xs text-red-500 hover:text-red-700 font-bold cursor-pointer"
                   >
                     पूरी लिस्ट खाली करें
                   </button>
@@ -1598,51 +1641,82 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                       <Percent className="w-4 h-4 text-emerald-600" />
                       मोलभाव / अंतिम देय राशि (Bargaining & Final Amount)
                     </span>
-                    <span className="text-xs text-gray-500">
-                      कुल MRP योग: <strong className="text-gray-900">₹{subtotalBeforeBargain}</strong>
+                    <span className="text-xs text-gray-600">
+                      कुल MRP योग: <strong className="text-gray-900 text-sm font-black">₹{subtotalBeforeBargain}</strong>
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
                     <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-[11px] font-bold text-gray-600 block">
-                          ग्राहक द्वारा दी जाने वाली राशि (Final Agreed Bill):
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-gray-700 flex items-center gap-1.5 flex-wrap">
+                          <span>ग्राहक द्वारा देय राशि (Final Agreed Bill):</span>
+                          {!isFinalAmountManuallyEdited ? (
+                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                              लाइव सिंक चालू
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                              मोलभाव (Custom)
+                            </span>
+                          )}
                         </label>
-                        {allocation.bargainingDiscount > 0 && (
+                        {(isFinalAmountManuallyEdited || allocation.bargainingDiscount > 0) && (
                           <button
                             type="button"
-                            onClick={() => setCustomFinalTotalInput(String(subtotalBeforeBargain))}
-                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+                            onClick={handleResetFinalAmountToMRP}
+                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer flex items-center gap-1"
+                            title="मोलभाव हटाकर कुल MRP के साथ लाइव सिंक करें"
                           >
+                            <RotateCcw className="w-3 h-3" />
                             MRP पर रीसेट करें
                           </button>
                         )}
                       </div>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-emerald-800">₹</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-emerald-800 text-base">₹</span>
                         <input
                           type="number"
                           value={customFinalTotalInput}
-                          onChange={e => setCustomFinalTotalInput(e.target.value)}
+                          onChange={handleFinalAmountChange}
+                          onBlur={handleFinalAmountBlur}
                           placeholder={String(subtotalBeforeBargain)}
-                          className="w-full pl-8 pr-3 py-2 text-base font-extrabold text-emerald-900 bg-white border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                          className="w-full pl-8 pr-8 py-2 text-base font-extrabold text-emerald-900 bg-white border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
+                        {isFinalAmountManuallyEdited && (
+                          <button
+                            type="button"
+                            onClick={handleResetFinalAmountToMRP}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100 cursor-pointer"
+                            title="रीसेट करें"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        {!isFinalAmountManuallyEdited 
+                          ? "आइटम्स जोड़ने या हटाने पर यह राशि कुल MRP के साथ अपने-आप सिंक रहेगी।"
+                          : "ग्राहक मोलभाव लागू है। MRP वापस लागू करने के लिए 'MRP पर रीसेट करें' दबाएं।"
+                        }
+                      </p>
                     </div>
 
                     <div className="bg-white p-2.5 rounded-xl border border-emerald-100 text-xs space-y-1">
                       <div className="flex justify-between text-gray-600">
                         <span>दी गई छूट (Discount):</span>
-                        <strong className="text-amber-700">₹{allocation.bargainingDiscount}</strong>
+                        <strong className={allocation.bargainingDiscount > 0 ? "text-amber-700 font-bold" : "text-gray-700"}>
+                          ₹{allocation.bargainingDiscount}
+                        </strong>
                       </div>
                       <div className="flex justify-between text-gray-600">
                         <span>माल की कुल लागत (COGS):</span>
-                        <span>₹{allocation.totalCOGS}</span>
+                        <span className="font-semibold text-gray-800">₹{allocation.totalCOGS}</span>
                       </div>
                       <div className="flex justify-between font-bold pt-1 border-t border-gray-100">
                         <span>सकल लाभ (Gross Profit):</span>
-                        <span className={allocation.grossProfit < 0 ? 'text-red-600' : 'text-emerald-700'}>
+                        <span className={allocation.grossProfit < 0 ? 'text-red-600 font-extrabold' : 'text-emerald-700 font-extrabold'}>
                           ₹{allocation.grossProfit} ({allocation.grossMarginPercent}%)
                         </span>
                       </div>

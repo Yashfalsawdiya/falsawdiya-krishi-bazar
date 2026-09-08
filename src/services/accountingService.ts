@@ -73,14 +73,16 @@ export function calculateBargainingAllocation(
     let qty = it.quantity;
 
     if (it.saleType === 'loose') {
+      const isLargeUnit = it.looseUnit === 'kg' || it.looseUnit === 'L' || it.looseUnit === 'Ltr' || it.looseUnit === 'लीटर' || it.looseUnit === 'किलो';
+      const unitMultiplier = isLargeUnit ? 1000 : 1;
+      const displayQty = it.looseQuantity !== undefined && it.looseQuantity > 0 ? it.looseQuantity : it.quantity;
+      qty = displayQty;
+
       if (it.costPerBaseUnit !== undefined && it.costPerBaseUnit > 0) {
-        costPrice = it.costPerBaseUnit;
+        costPrice = Math.round(it.costPerBaseUnit * unitMultiplier * 100) / 100;
       }
       if (it.sellingPricePerBaseUnit !== undefined && it.sellingPricePerBaseUnit > 0) {
-        sellingPrice = it.sellingPricePerBaseUnit;
-      }
-      if (it.looseQuantity !== undefined && it.looseQuantity > 0) {
-        qty = it.looseQuantity;
+        sellingPrice = Math.round(it.sellingPricePerBaseUnit * unitMultiplier * 100) / 100;
       }
     }
     return {
@@ -846,7 +848,8 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
 
         if (item.saleType === 'loose') {
           const currentLoose = prodData.looseStock?.availableBaseQty || 0;
-          const deductBase = item.looseBaseQty || item.looseQuantity || 0;
+          const isLargeUnit = item.looseUnit === 'kg' || item.looseUnit === 'L' || item.looseUnit === 'Ltr' || item.looseUnit === 'लीटर' || item.looseUnit === 'किलो';
+          const deductBase = item.looseBaseQty || (isLargeUnit ? ((item.looseQuantity || item.quantity || 0) * 1000) : (item.looseQuantity || item.quantity || 0));
 
           // Check if a sealed pack needs to be / was opened
           let newLoose = currentLoose;
