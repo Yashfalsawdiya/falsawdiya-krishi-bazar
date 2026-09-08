@@ -104,17 +104,29 @@ export const DEFAULT_DESKTOP_BANNERS: DeviceBanner[] = [
   }
 ];
 
+export interface ExactDimensionPreset {
+  dimensions: string; // e.g. "1920 × 720 px"
+  label: string; // e.g. "मानक (Standard / Best)"
+  isPrimary?: boolean;
+}
+
 export interface DeviceMetadataItem {
   id: DeviceType;
   label: string;
   hindiLabel: string;
   iconText: string;
   recommendedResolution: string;
+  exactResolutions: ExactDimensionPreset[];
   aspectRatioLabel: string;
+  aspectRatioFormula: string;
+  aspectRatioValue: number;
   containerAspectClass: string;
+  homeAspectClass: string;
+  previewAspectClass: string;
   description: string;
   minWidth: number;
   maxWidth?: number;
+  screenTargetText: string;
 }
 
 export const DEVICE_METADATA: Record<DeviceType, DeviceMetadataItem> = {
@@ -123,47 +135,87 @@ export const DEVICE_METADATA: Record<DeviceType, DeviceMetadataItem> = {
     label: 'Mobile',
     hindiLabel: 'मोबाइल',
     iconText: '📱',
-    recommendedResolution: '1080 × 864 px (5:4) या 1080 × 1080 px (1:1)',
-    aspectRatioLabel: '5:4 / 4:3',
-    containerAspectClass: 'w-full aspect-[5/4] sm:aspect-[4/3] max-h-[360px]',
-    description: 'स्मार्टफोन और छोटी स्क्रीन (768px से कम) के लिए। पोर्ट्रेट या स्क्वायर बैनर जो फोन में बिना कटिंग के शानदार दिखे।',
+    recommendedResolution: '1080 × 810 px (4:3) या 1200 × 900 px',
+    exactResolutions: [
+      { dimensions: '1080 × 810 px', label: 'मानक Full HD मोबाइल (सर्वश्रेष्ठ)', isPrimary: true },
+      { dimensions: '1200 × 900 px', label: 'अल्ट्रा HD मोबाइल' },
+      { dimensions: '800 × 600 px', label: 'हल्का व तीव्र लोडिंग' },
+    ],
+    aspectRatioLabel: '4:3 (1.33:1)',
+    aspectRatioFormula: '4:3 (1.33:1)',
+    aspectRatioValue: 4 / 3,
+    containerAspectClass: 'w-full aspect-[4/3]',
+    homeAspectClass: 'aspect-[4/3]',
+    previewAspectClass: 'aspect-[4/3] max-w-[320px] mx-auto',
+    description: 'स्मार्टफोन और छोटी स्क्रीन (768px से कम) के लिए। 4:3 अनुपात में मोबाइल स्क्रीन पर फोटो व टेक्स्ट बिना किसी कटिंग के बिल्कुल स्पष्ट दिखते हैं।',
     minWidth: 0,
     maxWidth: 767,
+    screenTargetText: '768px से कम स्मार्टफोन',
   },
   tablet: {
     id: 'tablet',
     label: 'Tablet',
     hindiLabel: 'टैबलेट',
     iconText: '📲',
-    recommendedResolution: '1600 × 900 px या 1280 × 800 px (16:9 / 16:10)',
-    aspectRatioLabel: '16:9 / 16:10',
-    containerAspectClass: 'w-full aspect-auto h-[300px] sm:h-[320px] md:h-[350px]',
-    description: 'आईपैड और टैबलेट स्क्रीन (768px से 1023px) के लिए। चौड़ा लैंडस्केप बैनर जो दोनों तरफ से सुरक्षित हो।',
+    recommendedResolution: '1600 × 900 px या 1280 × 720 px (16:9)',
+    exactResolutions: [
+      { dimensions: '1600 × 900 px', label: 'हाई-रेज़ोल्यूशन टैबलेट (iPad)', isPrimary: true },
+      { dimensions: '1280 × 720 px', label: 'मानक HD टैबलेट' },
+      { dimensions: '1024 × 576 px', label: 'कॉम्पैक्ट टैबलेट' },
+    ],
+    aspectRatioLabel: '16:9 (1.78:1)',
+    aspectRatioFormula: '16:9 (1.78:1)',
+    aspectRatioValue: 16 / 9,
+    containerAspectClass: 'w-full aspect-[16/9]',
+    homeAspectClass: 'aspect-[16/9]',
+    previewAspectClass: 'aspect-[16/9]',
+    description: 'आईपैड और टैबलेट स्क्रीन (768px से 1023px) के लिए। 16:9 लैंडस्केप बैनर जो होम पेज पर पूर्ण चौड़ाई में बिना कटे सटीक बैठता है।',
     minWidth: 768,
     maxWidth: 1023,
+    screenTargetText: '768px से 1023px टैबलेट स्क्रीन',
   },
   laptop: {
     id: 'laptop',
     label: 'Laptop',
     hindiLabel: 'लैपटॉप',
     iconText: '💻',
-    recommendedResolution: '1920 × 700 px या 1600 × 600 px (21:9 / 16:7)',
-    aspectRatioLabel: '21:9 / 16:7',
-    containerAspectClass: 'w-full aspect-auto h-[340px] md:h-[360px] lg:h-[380px]',
-    description: 'लैपटॉप और मीडियम मॉनिटर स्क्रीन (1024px से 1439px) के लिए। विस्तृत वाइड-स्क्रीन बैनर।',
+    recommendedResolution: '1920 × 820 px या 1600 × 685 px (21:9)',
+    exactResolutions: [
+      { dimensions: '1920 × 820 px', label: 'मानक फुल HD लैपटॉप (21:9)', isPrimary: true },
+      { dimensions: '1600 × 685 px', label: '14-15 इंच मीडियम लैपटॉप' },
+      { dimensions: '1440 × 616 px', label: 'कॉम्पैक्ट लैपटॉप स्क्रीन' },
+    ],
+    aspectRatioLabel: '21:9 (2.33:1)',
+    aspectRatioFormula: '21:9 (7:3 = 2.33:1)',
+    aspectRatioValue: 21 / 9,
+    containerAspectClass: 'w-full aspect-[21/9]',
+    homeAspectClass: 'aspect-[21/9]',
+    previewAspectClass: 'aspect-[21/9]',
+    description: 'लैपटॉप और मीडियम मॉनिटर (1024px से 1439px) के लिए। विस्तृत 21:9 वाइड-स्क्रीन बैनर जो होम पेज पर बिना किसी कटिंग के रेंडर होता है।',
     minWidth: 1024,
     maxWidth: 1439,
+    screenTargetText: '1024px से 1439px लैपटॉप स्क्रीन',
   },
   desktop: {
     id: 'desktop',
     label: 'Desktop',
     hindiLabel: 'डेस्कटॉप / कंप्यूटर',
     iconText: '🖥️',
-    recommendedResolution: '2560 × 800 px या 1920 × 640 px (24:9 / 3:1)',
-    aspectRatioLabel: '24:9 / 3:1',
-    containerAspectClass: 'w-full aspect-auto h-[380px] lg:h-[400px] xl:h-[420px]',
-    description: 'बड़े मॉनिटर और वाइड कंप्यूटर स्क्रीन (1440px या अधिक) के लिए। अल्ट्रा-वाइड पैनोरमा बैनर।',
+    recommendedResolution: '1920 × 720 px या 2400 × 900 px (24:9 / 8:3)',
+    exactResolutions: [
+      { dimensions: '1920 × 720 px', label: 'मानक वेब कंप्यूटर (24:9 / सर्वश्रेष्ठ)', isPrimary: true },
+      { dimensions: '2400 × 900 px', label: 'हाई-डेफिनिशन Widescreen (HD)' },
+      { dimensions: '2560 × 960 px', label: 'अल्ट्रा-वाइड 2K मॉनिटर' },
+    ],
+    aspectRatioLabel: '24:9 (8:3 / 2.67:1)',
+    aspectRatioFormula: '24:9 (8:3 = 2.67:1)',
+    aspectRatioValue: 8 / 3,
+    containerAspectClass: 'w-full aspect-[24/9]',
+    homeAspectClass: 'aspect-[24/9]',
+    previewAspectClass: 'aspect-[24/9]',
+    description: 'बड़े मॉनिटर और कंप्यूटर स्क्रीन (1440px या अधिक) के लिए। अल्ट्रा-वाइड पैनोरमा बैनर जो होम पेज पर 24:9 अनुपात में पूर्ण दिखता है।',
     minWidth: 1440,
+    screenTargetText: '1440px से बड़े मॉनिटर स्क्रीन',
   },
 };
 

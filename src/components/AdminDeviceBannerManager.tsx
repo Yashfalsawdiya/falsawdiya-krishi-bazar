@@ -56,12 +56,14 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
     subtitle: string;
     link: string;
     isActive: boolean;
+    fitMode: 'cover' | 'contain';
   }>({
     image: '',
     title: '',
     subtitle: '',
     link: '',
-    isActive: true
+    isActive: true,
+    fitMode: 'cover'
   });
 
   // Normalize device banners from current contentForm
@@ -168,6 +170,7 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
       link: newBanner.link.trim(),
       displayOrder: list.length + 1,
       isActive: newBanner.isActive,
+      fitMode: newBanner.fitMode || 'cover',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -185,9 +188,31 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
       title: '',
       subtitle: '',
       link: '',
-      isActive: true
+      isActive: true,
+      fitMode: 'cover'
     });
     setIsAddModalOpen(false);
+  };
+
+  const handleToggleFitMode = (banner: DeviceBanner) => {
+    const device = banner.deviceType;
+    const list = currentBannersMap[device] || [];
+    const newFitMode = banner.fitMode === 'contain' ? 'cover' : 'contain';
+    const updatedList = list.map(b => {
+      if (b.id === banner.id) {
+        return {
+          ...b,
+          fitMode: newFitMode,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return b;
+    });
+
+    commitBannersMap({
+      ...currentBannersMap,
+      [device]: updatedList
+    });
   };
 
   const handleUpdateEditingBanner = () => {
@@ -345,7 +370,8 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                   title: '',
                   subtitle: '',
                   link: '',
-                  isActive: true
+                  isActive: true,
+                  fitMode: 'cover'
                 });
                 setIsAddModalOpen(true);
               }}
@@ -378,17 +404,79 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
           </div>
         )}
 
-        {/* Recommended dimensions banner */}
-        <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-3.5 flex items-center justify-between flex-wrap gap-2 text-xs">
-          <div className="flex items-center gap-2 text-emerald-900 font-medium">
-            <Info className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>
-              <strong>सर्वश्रेष्ठ प्रदर्शन के लिए अनुशंसित आकार:</strong> {activeDeviceMeta.recommendedResolution}
-            </span>
+        {/* Hero Banner वास्तविक साइज गाइड (Actual Dimensions & Aspect Ratio Guide) */}
+        <div className="bg-gradient-to-br from-emerald-50/90 to-emerald-100/40 border border-emerald-200 rounded-3xl p-4 sm:p-5 space-y-3.5 shadow-xs">
+          <div className="flex items-start justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-3 text-emerald-950">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-700 text-white flex items-center justify-center font-black text-base shadow-xs shrink-0">
+                {activeDeviceMeta.iconText}
+              </div>
+              <div>
+                <h4 className="font-black text-emerald-950 text-sm sm:text-base flex items-center gap-2 flex-wrap">
+                  <span>{activeDeviceMeta.hindiLabel} के लिए वास्तविक होम पेज बैनर साइज</span>
+                  <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-900 font-bold border border-emerald-300">
+                    अनुपात: {activeDeviceMeta.aspectRatioLabel}
+                  </span>
+                </h4>
+                <p className="text-xs text-emerald-800 font-medium mt-0.5">
+                  होम पेज का हीरो स्लाइडर इसी सटीक अनुपात ({activeDeviceMeta.aspectRatioFormula}) में लॉक है। नीचे दिए गए सटीक पिक्सेल साइज का उपयोग करें:
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-[11px] bg-white px-3 py-1.5 rounded-xl border border-emerald-300 text-emerald-800 font-bold shadow-xs">
+              <Check className="w-4 h-4 text-emerald-600" />
+              <span>होम पेज व एडमिन प्रीव्यू 100% सिंक्रनाइज़्ड</span>
+            </div>
           </div>
-          <span className="text-[11px] text-emerald-700 bg-white/80 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold">
-            सुरक्षित क्रॉपिंग व नो-स्ट्रेच गारंटी
-          </span>
+
+          {/* Exact dimension presets grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+            {activeDeviceMeta.exactResolutions.map((preset, pIdx) => (
+              <div 
+                key={pIdx}
+                className={cn(
+                  "p-3 rounded-2xl border transition-all text-left relative",
+                  preset.isPrimary 
+                    ? "bg-white border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs" 
+                    : "bg-emerald-100/40 border-emerald-200"
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">
+                    {preset.label}
+                  </span>
+                  {preset.isPrimary && (
+                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-700 text-white shadow-xs">
+                      सर्वश्रेष्ठ
+                    </span>
+                  )}
+                </div>
+                <div className="text-base font-black text-emerald-950 font-mono mt-1">
+                  {preset.dimensions}
+                </div>
+                <div className="text-[11px] text-emerald-700 font-medium mt-0.5 flex items-center justify-between">
+                  <span>अनुपात: {activeDeviceMeta.aspectRatioFormula}</span>
+                  <span className="text-emerald-800 font-bold">0% क्रॉपिंग</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-white/90 rounded-2xl p-3 border border-emerald-200/80 text-xs text-emerald-900 flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold text-emerald-950 text-xs">
+                क्रॉपिंग (ऊपर/नीचे से फोटो कटने) से बचने का नियम:
+              </p>
+              <p className="text-[11px] text-emerald-800 leading-relaxed">
+                1. <strong>सटीक साइज बनाएं:</strong> यदि आप बैनर को <strong>{activeDeviceMeta.exactResolutions[0].dimensions}</strong> (अनुपात {activeDeviceMeta.aspectRatioFormula}) में डिजाइन करेंगे, तो होम पेज पर <strong>1 पिक्सेल भी नहीं कटेगा</strong>।
+              </p>
+              <p className="text-[11px] text-emerald-800 leading-relaxed">
+                2. <strong>अन्य साइज के लिए 'नो-क्रॉप' बटन:</strong> यदि आपके पास किसी अन्य अनुपात की फोटो है, तो नीचे बैनर कार्ड पर <strong>"🛡️ नो-क्रॉप (Contain)"</strong> बटन ऑन कर दें — फोटो बिना कटे 100% पूरी दिखेगी।
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -552,18 +640,34 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                     {/* Frame styled to match the device aspect ratio */}
                     <div className={cn(
                       "relative w-full rounded-2xl overflow-hidden shadow-inner border border-gray-200 bg-gradient-to-br from-emerald-900 via-green-800 to-[#1f3d1b]",
-                      activeDeviceTab === 'mobile' && "aspect-[5/4] max-w-[320px] mx-auto",
+                      activeDeviceTab === 'mobile' && "aspect-[4/3] max-w-[320px] mx-auto",
                       activeDeviceTab === 'tablet' && "aspect-[16/9]",
                       activeDeviceTab === 'laptop' && "aspect-[21/9]",
                       activeDeviceTab === 'desktop' && "aspect-[24/9]"
                     )}>
                       {banner.image ? (
-                        <SmartImage
-                          src={banner.image}
-                          alt={banner.title || 'Banner Preview'}
-                          className="absolute inset-0 w-full h-full"
-                          objectFit="cover"
-                        />
+                        banner.fitMode === 'contain' ? (
+                          <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-gray-950">
+                            {/* Ambient blur backdrop */}
+                            <div 
+                              className="absolute inset-0 w-full h-full bg-cover bg-center filter blur-xl opacity-40 scale-110"
+                              style={{ backgroundImage: `url(${typeof banner.image === 'string' ? banner.image : banner.image.primary})` }}
+                            />
+                            <SmartImage
+                              src={banner.image}
+                              alt={banner.title || 'Banner Preview'}
+                              className="relative z-10 w-full h-full"
+                              objectFit="contain"
+                            />
+                          </div>
+                        ) : (
+                          <SmartImage
+                            src={banner.image}
+                            alt={banner.title || 'Banner Preview'}
+                            className="absolute inset-0 w-full h-full"
+                            objectFit="cover"
+                          />
+                        )
                       ) : (
                         <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-white/70">
                           <Layers className="w-8 h-8 mb-2 opacity-50" />
@@ -613,6 +717,33 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                       <span>लिंक: {banner.link}</span>
                     </div>
                   )}
+
+                  {/* Fit Mode Toggle on Card */}
+                  <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-2xl border border-gray-200 text-xs">
+                    <div>
+                      <span className="font-bold text-gray-800 block text-[11px]">
+                        डिस्प्ले फिट मोड (Image Fit):
+                      </span>
+                      <span className="text-[10px] text-gray-500">
+                        {banner.fitMode === 'contain' 
+                          ? '🛡️ नो-क्रॉप (100% पूरा फोटो बिना कटे)' 
+                          : '🖼️ कवर मोड (फुल फ्रेम भरा हुआ)'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleFitMode(banner)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs",
+                        banner.fitMode === 'contain'
+                          ? "bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200"
+                          : "bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200"
+                      )}
+                      title="क्रॉपिंग रोकने या बदलने के लिए क्लिक करें"
+                    >
+                      {banner.fitMode === 'contain' ? '🛡️ नो-क्रॉप (Contain)' : '🖼️ कवर (Cover)'}
+                    </button>
+                  </div>
 
                   <div className="pt-2 flex items-center justify-between border-t border-gray-100 text-[11px] text-gray-400">
                     <span>क्रम संख्या: {banner.displayOrder}</span>
@@ -705,6 +836,39 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                     placeholder="जैसे: /products या /schemes या /agri-news"
                     className="w-full bg-gray-50 border border-gray-200 focus:border-[#2D5A27] focus:bg-white rounded-xl p-3.5 text-sm outline-none transition-all font-medium"
                   />
+                </div>
+
+                {/* Fit Mode in Add Modal */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700">फोटो डिस्प्ले मोड (Image Fit Mode)</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setNewBanner(prev => ({ ...prev, fitMode: 'cover' }))}
+                      className={cn(
+                        "p-3 rounded-2xl border text-left transition-all cursor-pointer",
+                        newBanner.fitMode !== 'contain' 
+                          ? "bg-emerald-50 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20 shadow-2xs" 
+                          : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                      )}
+                    >
+                      <div className="font-bold text-xs">🖼️ कवर मोड (Cover)</div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">अनुशंसित साइज ({activeDeviceMeta.exactResolutions[0].dimensions}) में 0% क्रॉप</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewBanner(prev => ({ ...prev, fitMode: 'contain' }))}
+                      className={cn(
+                        "p-3 rounded-2xl border text-left transition-all cursor-pointer",
+                        newBanner.fitMode === 'contain' 
+                          ? "bg-amber-50 border-amber-500 text-amber-950 ring-2 ring-amber-500/20 shadow-2xs" 
+                          : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                      )}
+                    >
+                      <div className="font-bold text-xs">🛡️ नो-क्रॉप (Contain)</div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">बिना कटे 100% पूरा फोटो दिखाएं (ब्लर्ड बैकग्राउंड)</div>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between p-3.5 bg-gray-50 rounded-xl border border-gray-200">
@@ -821,6 +985,39 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                     placeholder="जैसे: /products"
                     className="w-full bg-gray-50 border border-gray-200 focus:border-[#2D5A27] focus:bg-white rounded-xl p-3.5 text-sm outline-none transition-all font-medium"
                   />
+                </div>
+
+                {/* Fit Mode in Edit Modal */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700">फोटो डिस्प्ले मोड (Image Fit Mode)</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingBanner(prev => prev ? { ...prev, fitMode: 'cover' } : null)}
+                      className={cn(
+                        "p-3 rounded-2xl border text-left transition-all cursor-pointer",
+                        editingBanner.fitMode !== 'contain' 
+                          ? "bg-emerald-50 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20 shadow-2xs" 
+                          : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                      )}
+                    >
+                      <div className="font-bold text-xs">🖼️ कवर मोड (Cover)</div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">अनुशंसित साइज ({DEVICE_METADATA[editingBanner.deviceType].exactResolutions[0].dimensions}) में 0% क्रॉप</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingBanner(prev => prev ? { ...prev, fitMode: 'contain' } : null)}
+                      className={cn(
+                        "p-3 rounded-2xl border text-left transition-all cursor-pointer",
+                        editingBanner.fitMode === 'contain' 
+                          ? "bg-amber-50 border-amber-500 text-amber-950 ring-2 ring-amber-500/20 shadow-2xs" 
+                          : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                      )}
+                    >
+                      <div className="font-bold text-xs">🛡️ नो-क्रॉप (Contain)</div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">बिना कटे 100% पूरा फोटो दिखाएं (ब्लर्ड बैकग्राउंड)</div>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between p-3.5 bg-gray-50 rounded-xl border border-gray-200">

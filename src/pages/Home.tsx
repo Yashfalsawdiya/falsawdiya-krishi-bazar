@@ -310,10 +310,10 @@ const Home: React.FC = () => {
       <div 
         className={cn(
           "w-full overflow-hidden rounded-2xl shadow-lg relative group/slider",
-          deviceType === 'mobile' && "aspect-[5/4] sm:aspect-[4/3] max-h-[360px]",
-          deviceType === 'tablet' && "aspect-auto h-[300px] sm:h-[320px] md:h-[350px]",
-          deviceType === 'laptop' && "aspect-auto h-[340px] md:h-[360px] lg:h-[380px]",
-          deviceType === 'desktop' && "aspect-auto h-[380px] lg:h-[400px] xl:h-[430px] 2xl:h-[480px]"
+          deviceType === 'mobile' && "aspect-[4/3]",
+          deviceType === 'tablet' && "aspect-[16/9]",
+          deviceType === 'laptop' && "aspect-[21/9]",
+          deviceType === 'desktop' && "aspect-[24/9]"
         )} 
         ref={emblaRef}
       >
@@ -321,6 +321,7 @@ const Home: React.FC = () => {
           {activeDeviceBanners.map((banner, idx) => {
             const hasLink = Boolean(banner.link);
             const hasImage = Boolean(banner.image);
+            const isContain = banner.fitMode === 'contain';
 
             return (
               <div 
@@ -342,13 +343,30 @@ const Home: React.FC = () => {
                 )}
               >
                 {banner.image ? (
-                  <SmartImage 
-                    src={banner.image} 
-                    alt={banner.title || 'Hero Banner'} 
-                    className="absolute inset-0 w-full h-full"
-                    objectFit="cover"
-                    priority={idx === 0}
-                  />
+                  isContain ? (
+                    <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-gray-950">
+                      {/* Ambient blur background for safe no-crop fit */}
+                      <div 
+                        className="absolute inset-0 w-full h-full bg-cover bg-center filter blur-xl opacity-35 scale-110"
+                        style={{ backgroundImage: `url(${typeof banner.image === 'string' ? banner.image : banner.image.primary})` }}
+                      />
+                      <SmartImage 
+                        src={banner.image} 
+                        alt={banner.title || 'Hero Banner'} 
+                        className="relative z-10 w-full h-full"
+                        objectFit="contain"
+                        priority={idx === 0}
+                      />
+                    </div>
+                  ) : (
+                    <SmartImage 
+                      src={banner.image} 
+                      alt={banner.title || 'Hero Banner'} 
+                      className="absolute inset-0 w-full h-full"
+                      objectFit="cover"
+                      priority={idx === 0}
+                    />
+                  )
                 ) : (
                   <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-emerald-900 via-green-800 to-[#1f3d1b] flex items-center justify-center p-6" />
                 )}

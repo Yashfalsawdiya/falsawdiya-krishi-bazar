@@ -44,6 +44,9 @@ function buildInvoiceHtml(
 
         const itemTitle = formatSaleItemInvoiceTitle(item);
         const batchBadge = item.batchNumber ? `<span style="font-size: 9px; color: #6b7280; margin-left: 4px;">बैच: ${item.batchNumber}</span>` : '';
+        const doseBadge = item.variantLabel && (item.variantLabel.includes('डोज') || item.variantLabel.includes('पंप') || item.variantLabel.includes('बीघा'))
+          ? `<span style="font-size: 9px; color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 1px 4px; border-radius: 3px; font-weight: 600;">${item.variantLabel}</span>`
+          : '';
 
         const qtyDisplay = item.saleType === 'loose'
           ? `${item.looseQuantity || item.quantity} ${item.looseUnit || item.unit}`
@@ -64,8 +67,9 @@ function buildInvoiceHtml(
               <div style="font-weight: 700; color: #111827; font-size: 12px;">
                 ${itemTitle}
               </div>
-              <div style="display: flex; gap: 8px; align-items: center; margin-top: 2px;">
+              <div style="display: flex; gap: 6px; align-items: center; margin-top: 2px; flex-wrap: wrap;">
                 ${item.hindiName && item.name && item.hindiName !== item.name ? `<span style="font-size: 10px; color: #6b7280;">${item.hindiName}</span>` : ''}
+                ${doseBadge}
                 ${batchBadge}
               </div>
             </td>

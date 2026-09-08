@@ -487,7 +487,9 @@ export interface ProductPhysicalCategoryResult {
     label: string;
     multiplierToBase: number;
   }>;
+  availableUnits: string[];
   defaultUnit: string;
+  description: string;
   primaryDoseMode: 'pump' | 'bigha';
   supportsPumpDose: boolean;
   supportsBighaDose: boolean;
@@ -506,7 +508,9 @@ export function detectProductPhysicalCategory(product: AccountingProduct): Produ
         { unit: 'g', label: 'g (ग्राम)', multiplierToBase: 1 },
         { unit: 'kg', label: 'kg (किलो)', multiplierToBase: 1000 },
       ],
+      availableUnits: ['g', 'kg'],
       defaultUnit: 'g',
+      description: 'ठोस / पाउडर उत्पाद (Solid)',
       primaryDoseMode: 'bigha',
       supportsPumpDose: true,
       supportsBighaDose: true,
@@ -527,14 +531,18 @@ export function detectProductPhysicalCategory(product: AccountingProduct): Produ
       { unit: 'kg', label: 'kg (किलो)', multiplierToBase: 1000 },
       { unit: 'g', label: 'g (ग्राम)', multiplierToBase: 1 },
     ];
+    const availableUnits = ['kg', 'g'];
     if (hasPacketVariant) {
       allowedUnits.push({ unit: 'packet', label: 'Packet (पैकेट)', multiplierToBase: 0 });
+      availableUnits.push('packet');
     }
     return {
       physicalType: 'seed',
       baseUnit: 'g',
       allowedUnits,
+      availableUnits,
       defaultUnit: 'kg',
+      description: 'बीज उत्पाद (Seed)',
       primaryDoseMode: 'bigha',
       supportsPumpDose: false,
       supportsBighaDose: true,
@@ -563,7 +571,9 @@ export function detectProductPhysicalCategory(product: AccountingProduct): Produ
         { unit: 'ml', label: 'ml (मिलीलीटर)', multiplierToBase: 1 },
         { unit: 'L', label: 'Litre (लीटर)', multiplierToBase: 1000 },
       ],
+      availableUnits: ['ml', 'L'],
       defaultUnit: isLargePack ? 'L' : 'ml',
+      description: 'तरल उत्पाद (Liquid)',
       primaryDoseMode: 'pump',
       supportsPumpDose: true,
       supportsBighaDose: true, // Soil application or area spray
@@ -582,7 +592,9 @@ export function detectProductPhysicalCategory(product: AccountingProduct): Produ
       { unit: 'g', label: 'g (ग्राम)', multiplierToBase: 1 },
       { unit: 'kg', label: 'kg (किलोग्राम)', multiplierToBase: 1000 },
     ],
+    availableUnits: ['g', 'kg'],
     defaultUnit: (isFertilizer || isLargeSolidPack) ? 'kg' : 'g',
+    description: isFertilizer ? 'खाद / उर्वरक (Fertilizer)' : 'पाउडर / दानेदार उत्पाद (Solid/Powder)',
     primaryDoseMode: isFertilizer ? 'bigha' : 'pump',
     supportsPumpDose: true,
     supportsBighaDose: true,

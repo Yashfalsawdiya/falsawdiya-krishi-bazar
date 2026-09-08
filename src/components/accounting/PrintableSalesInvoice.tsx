@@ -152,6 +152,11 @@ export const PrintableSalesInvoice: React.FC<Props> = ({ sale, customerOutstandi
                             {item.hindiName}
                           </span>
                         )}
+                        {item.variantLabel && (item.variantLabel.includes('डोज') || item.variantLabel.includes('पंप') || item.variantLabel.includes('बीघा')) && (
+                          <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            {item.variantLabel}
+                          </span>
+                        )}
                         {item.batchNumber && (
                           <span className="text-[9px] text-gray-400 font-mono">
                             बैच: {item.batchNumber}

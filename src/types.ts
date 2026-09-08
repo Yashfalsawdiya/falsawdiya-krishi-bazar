@@ -14,6 +14,7 @@ export interface DeviceBanner {
   link?: string;
   displayOrder: number;
   isActive: boolean;
+  fitMode?: 'cover' | 'contain';
   createdAt?: string;
   updatedAt?: string;
 }
