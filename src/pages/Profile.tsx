@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, Key, ExternalLink, Save, LogOut, LogIn, ChevronRight, Info, Youtube, RefreshCw, CheckCircle2, AlertCircle, Loader2, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Scale, Truck, HelpCircle, Package, ArrowRight, Navigation } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
 import { cn } from '../lib/utils';
 import SmartImage from '../components/SmartImage';
 import { DeliveryPartner } from '../types';
@@ -63,21 +62,24 @@ const Profile: React.FC = () => {
     setTestStatus('testing');
     setSaveMessage('');
     try {
-      const genAI: any = new GoogleGenAI({ apiKey: apiKey.trim() });
-      
-      const result = await genAI.models.generateContent({ 
-        model: "gemini-3-flash-preview", 
-        contents: "test" 
+      const response = await fetch('/api/ai/test-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: apiKey.trim() }),
       });
+      const data = await response.json();
       
-      if (result) {
+      if (data.valid) {
         setTestStatus('success');
         setSaveMessage('✅ Valid API Key');
+      } else {
+        setTestStatus('error');
+        setSaveMessage(data.message || '❌ Invalid API Key');
       }
     } catch (error: any) {
       console.error("Key test failed:", error);
       setTestStatus('error');
-      setSaveMessage('❌ Invalid API Key');
+      setSaveMessage('❌ सर्वर से कनेक्शन में त्रुटि हुई');
     } finally {
       setTimeout(() => {
         setTestStatus('idle');
@@ -94,32 +96,29 @@ const Profile: React.FC = () => {
     setQuotaStatus('checking');
     setSaveMessage('');
     try {
-      const genAI: any = new GoogleGenAI({ apiKey: apiKey.trim() });
-      
-      // Test with a real generation call
-      const result = await genAI.models.generateContent({ 
-        model: "gemini-3-flash-preview", 
-        contents: "hi" 
+      const response = await fetch('/api/ai/test-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: apiKey.trim() }),
       });
+      const data = await response.json();
       
-      if (result) {
+      if (data.valid) {
         setQuotaStatus('available');
         setSaveMessage('🟢 आपकी Gemini API Key की आज की limit अभी उपलब्ध है।');
+      } else {
+        setQuotaStatus('exhausted');
+        const msg = data.message || '';
+        if (msg.includes('429') || msg.includes('quota') || msg.includes('limit')) {
+          setSaveMessage('🔴 आपकी Gemini API Key की आज की limit समाप्त हो चुकी है। कृपया कल पुनः प्रयास करें।');
+        } else {
+          setSaveMessage(data.message || '❌ Quota की जानकारी नहीं मिल सकी। कृपया अपनी API Key चेक करें।');
+        }
       }
     } catch (error: any) {
       console.error("Quota check failed:", error);
-      // 429 is the status code for quota exhaustion
-      const errorMsg = error.message?.toLowerCase() || "";
-      if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('exhausted')) {
-        setQuotaStatus('exhausted');
-        setSaveMessage('🔴 आपकी Gemini API Key की आज की limit समाप्त हो चुकी है। कृपया कल पुनः प्रयास करें।');
-      } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
-        setQuotaStatus('exhausted');
-        setSaveMessage('❌ Model not found. कृपया अपडेट की प्रतीक्षा करें।');
-      } else {
-        setQuotaStatus('exhausted');
-        setSaveMessage('❌ Quota की जानकारी नहीं मिल सकी। कृपया अपनी API Key चेक करें।');
-      }
+      setQuotaStatus('exhausted');
+      setSaveMessage('❌ सर्वर से कनेक्शन में त्रुटि हुई।');
     } finally {
       setTimeout(() => {
         setQuotaStatus('idle');

@@ -2,13 +2,11 @@ import { GoogleGenAI } from "@google/genai";
 import { getFriendlyAiError } from "../utils/aiErrorHandler";
 
 const getAI = (userApiKey?: string) => {
-  const apiKey = userApiKey || import.meta.env.VITE_GEMINI_API_KEY;
-  
-  if (!apiKey || apiKey.trim() === "") {
+  const apiKey = userApiKey && userApiKey.trim() ? userApiKey.trim() : undefined;
+  if (!apiKey) {
     return null;
   }
-  
-  return new GoogleGenAI({ apiKey: apiKey.trim() });
+  return new GoogleGenAI({ apiKey });
 };
 
 export interface DiseaseAnalysis {
@@ -17,14 +15,47 @@ export interface DiseaseAnalysis {
 }
 
 export async function detectDisease(base64Image: string | string[], userApiKey?: string): Promise<DiseaseAnalysis> {
+  if (!userApiKey || !userApiKey.trim()) {
+    throw {
+      type: 'key_missing',
+      message: 'फसल रोग जांच के लिए आपकी व्यक्तिगत Gemini API Key आवश्यक है। कृपया अपनी प्रोफाइल में Key दर्ज करें।',
+      helpUrl: 'https://aistudio.google.com/app/apikey'
+    };
+  }
+
+  const imageList: string[] = Array.isArray(base64Image) ? base64Image : [base64Image];
+  if (imageList.length === 0) {
+    throw new Error("NO_IMAGE_PROVIDED");
+  }
+
+  // 1. First try secure Server-Side AI endpoint (bypasses browser 403 / key issues)
+  try {
+    const res = await fetch('/api/ai/disease-detect', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(userApiKey && userApiKey.trim() ? { 'x-user-gemini-key': userApiKey.trim() } : {})
+      },
+      body: JSON.stringify({ images: imageList, userApiKey })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.analysis) {
+        return {
+          analysis: data.analysis,
+          keywords: data.keywords || []
+        };
+      }
+    }
+  } catch (apiErr) {
+    console.warn("Server AI disease detection failed, trying fallback...", apiErr);
+  }
+
+  // 2. Client SDK fallback
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
-    
-    const imageList: string[] = Array.isArray(base64Image) ? base64Image : [base64Image];
-    if (imageList.length === 0) {
-      throw new Error("NO_IMAGE_PROVIDED");
-    }
 
     const isMultiple = imageList.length > 1;
 
@@ -88,14 +119,14 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.6-flash",
         contents: { parts },
         config
       });
     } catch (modelErr) {
       console.warn("Primary model attempt failed, retrying with fallback model...", modelErr);
       response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents: { parts },
         config
       });
@@ -137,6 +168,42 @@ export async function askDiseaseReportChat({
   weatherSummary = "सामान्‍य",
   userApiKey
 }: DiseaseReportChatInput): Promise<string> {
+  if (!userApiKey || !userApiKey.trim()) {
+    throw {
+      type: 'key_missing',
+      message: 'AI डॉक्टर से चर्चा के लिए आपकी व्यक्तिगत Gemini API Key आवश्यक है। कृपया अपनी प्रोफाइल में Key दर्ज करें।',
+      helpUrl: 'https://aistudio.google.com/app/apikey'
+    };
+  }
+  // 1. First try secure Server-Side AI endpoint
+  try {
+    const res = await fetch('/api/ai/disease-chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(userApiKey && userApiKey.trim() ? { 'x-user-gemini-key': userApiKey.trim() } : {})
+      },
+      body: JSON.stringify({
+        userQuestion,
+        reportAnalysis,
+        chatHistory,
+        location,
+        weatherSummary,
+        userApiKey
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.reply) {
+        return data.reply;
+      }
+    }
+  } catch (apiErr) {
+    console.warn("Server AI disease chat failed, trying client fallback...", apiErr);
+  }
+
+  // 2. Client SDK fallback
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
@@ -189,7 +256,7 @@ ${historyPrompt}
       });
     } catch (e) {
       response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.6-flash",
         contents: prompt,
         config: {
           systemInstruction,
@@ -210,21 +277,53 @@ ${historyPrompt}
 }
 
 export async function getDynamicAdvice(weatherData: any, season: string, cropName: string, userApiKey?: string) {
+  if (!userApiKey || !userApiKey.trim()) {
+    throw {
+      type: 'key_missing',
+      message: 'आज की विस्तृत कृषि सलाह के लिए आपकी व्यक्तिगत Gemini API Key आवश्यक है। कृपया अपनी प्रोफाइल में Key दर्ज करें।',
+      helpUrl: 'https://aistudio.google.com/app/apikey'
+    };
+  }
+
   const CACHE_KEY = `agri_advice_${cropName}_${season}`;
   const CACHE_TIME_KEY = `${CACHE_KEY}_timestamp`;
   const CACHE_DURATION = 2 * 60 * 60 * 1000; // 2 hours
 
+  // 1. Try Server-Side AI endpoint first (reliable and secure)
+  try {
+    const res = await fetch('/api/ai/daily-advice', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(userApiKey && userApiKey.trim() ? { 'x-user-gemini-key': userApiKey.trim() } : {})
+      },
+      body: JSON.stringify({ weatherData, season, cropName, userApiKey })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.advice) {
+        const adviceText = data.advice;
+        localStorage.setItem(CACHE_KEY, adviceText);
+        localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+        return adviceText;
+      }
+    }
+  } catch (apiErr) {
+    console.warn("Server AI daily advice failed, trying fallback...", apiErr);
+  }
+
+  // 2. Client SDK fallback
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
     const now = new Date();
     const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-    const timeStr = now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
 
     const prompt = `आप एक विशेषज्ञ भारतीय कृषि वैज्ञानिक हैं। 
     आज की स्थिति (${dateStr}):
     - फसल: ${cropName}
-    - मौसम: ${weatherData.temp}°C, आर्द्रता: ${weatherData.humidity}%, बारिश: ${weatherData.rain}mm, स्थिति: ${weatherData.condition}
+    - मौसम: ${weatherData?.temp || 30}°C, आर्द्रता: ${weatherData?.humidity || 50}%, बारिश: ${weatherData?.rain || 0}mm, स्थिति: ${weatherData?.condition || 'सामान्य'}
     - स्थान: शामगढ़, मध्य प्रदेश
     
     आज के लिए किसानों को विस्तृत कृषि सलाह प्रदान करें। इसमें सिंचाई, उर्वरक और कीट प्रबंधन पर विशेष जोर हो।`;
@@ -232,7 +331,7 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.6-flash",
         contents: prompt,
         config: {
           systemInstruction: `You are a helpful Agri-Expert for farmers representing 'फल्सावदिया कृषि बाजार' in Shamgarh, MP. Our shop is at Dimple Chauraha and open 8:00 AM to 8:00 PM (सुबह 8:00 बजे से रात 8:00 बजे तक). Provide advice based on current weather. Today is ${dateStr}. Always use the name 'फल्सावदिया कृषि बाजार' strictly and never 'फालसावदिया'.`,
@@ -240,9 +339,8 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
         }
       });
     } catch (e) {
-      console.warn("Advice Search failed, fallback to knowledge...");
       response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.6-flash",
         contents: prompt,
         config: {
           systemInstruction: `You are a helpful Agri-Expert representing 'फल्सावदिया कृषि बाजार'. Shop timings: 8:00 AM to 8:00 PM (सुबह 8:00 बजे से रात 8:00 बजे तक). Provide advice for ${dateStr} based on local knowledge. Always use the name 'फल्सावदिया कृषि बाजार' strictly. Do NOT use 'फालसावदिया'.`
@@ -275,6 +373,35 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
 }
 
 export async function askAiQuestion(question: string, weatherData: any, userApiKey?: string) {
+  if (!userApiKey || !userApiKey.trim()) {
+    throw {
+      type: 'key_missing',
+      message: 'AI सवाल पूछने के लिए आपकी व्यक्तिगत Gemini API Key आवश्यक है। कृपया अपनी प्रोफाइल में Key दर्ज करें।',
+      helpUrl: 'https://aistudio.google.com/app/apikey'
+    };
+  }
+  // 1. Try Server-Side AI endpoint first
+  try {
+    const res = await fetch('/api/ai/ask-question', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(userApiKey && userApiKey.trim() ? { 'x-user-gemini-key': userApiKey.trim() } : {})
+      },
+      body: JSON.stringify({ question, weatherData, userApiKey })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.answer) {
+        return data.answer;
+      }
+    }
+  } catch (apiErr) {
+    console.warn("Server AI ask question failed, trying client fallback...", apiErr);
+  }
+
+  // 2. Client SDK fallback
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
@@ -289,7 +416,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.6-flash",
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाजार' located in Shamgarh, Mandsaur, MP.\n\nShop Profile:\n- Name: फल्सावदिया कृषि बाजार\n- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)\n- Timings: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)\n\nInstructions: Answer farmer questions in simple Hindi. Always mention that recommended products are available at 'फल्सावदिया कृषि बाजार'. STICT RULE: Do not use 'फालसावदिया'.",
@@ -297,9 +424,8 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
         }
       });
     } catch (e) {
-      console.warn("Chat Search failed, fallback to knowledge...");
       response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.6-flash",
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाजार'. Shop Timings: 8:00 AM to 8:00 PM (सुबह 8:00 बजे से रात 8:00 बजे तक). Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh, Mandsaur, MP. Answer in Hindi and properly guide people to our shop 'फल्सावदिया कृषि बाजार'. strictly avoid 'फालसावदिया'."
@@ -406,39 +532,39 @@ const DEFAULT_PRODUCT_KNOWLEDGE: ProductKnowledgeResult = {
   phi: "उपलब्ध नहीं है",
   rei: "उपलब्ध नहीं है",
   toxicity: "सामान्य",
-  safetyInstructions: "सावधानीपूर्वक उपयोग करें। बच्चों की पहुँच से दूर रखें।",
-  mixingOrder: "उपलब्ध नहीं है",
-  sprayTiming: "सुबह या शाम",
+  safetyInstructions: "सावधानीपूर्वक उपयोग करें। बच्चों की पहुँच से दूर रखें। सुरक्षात्मक दस्ताने और मास्क का प्रयोग करें।",
+  mixingOrder: "1. साफ पानी, 2. WP/WDG पाउडर, 3. SC/SL/EC लिक्विड, 4. सिलिकॉन स्टिकर/स्प्रेडर",
+  sprayTiming: "सुबह 8 से 11 या शाम 4 से 6 बजे जब धूप तेज न हो और हवा शांत हो",
   rainfastPeriod: "2 घंटे",
-  storage: "ठंडी और सूखी जगह पर रखें",
+  storage: "मूल डिब्बे में ठंडी, सूखी और छायादार जगह पर रखें",
   dosageLiquid: {
-    perLiter: "1-2 ml",
-    per15L: "15-30 ml",
-    per16L: "16-32 ml",
-    per20L: "20-40 ml",
-    per25L: "25-50 ml",
-    per200L: "200-400 ml",
-    per500L: "500-1000 ml",
-    perBigha: "100-200 ml"
+    perLiter: "लागू नहीं",
+    per15L: "लागू नहीं",
+    per16L: "लागू नहीं",
+    per20L: "लागू नहीं",
+    per25L: "लागू नहीं",
+    per200L: "लागू नहीं",
+    per500L: "लागू नहीं",
+    perBigha: "लागू नहीं"
   },
   dosagePowder: {
-    perLiter: "1-2 gm",
-    per15L: "15-30 gm",
-    per16L: "16-32 gm",
-    per20L: "20-40 gm",
-    per25L: "25-50 gm",
-    per200L: "200-400 gm",
-    per500L: "500-1000 gm",
-    perBigha: "100-200 gm"
+    perLiter: "लागू नहीं",
+    per15L: "लागू नहीं",
+    per16L: "लागू नहीं",
+    per20L: "लागू नहीं",
+    per25L: "लागू नहीं",
+    per200L: "लागू नहीं",
+    per500L: "लागू नहीं",
+    perBigha: "लागू नहीं"
   },
   dosageFertilizer: {
-    perPlant: "5-10 gm",
-    perPot: "2-5 gm",
-    perBigha: "10-15 kg",
-    perIrrigation: "उपलब्ध नहीं है",
-    perSpray: "उपलब्ध नहीं है",
-    perDrenching: "उपलब्ध नहीं है",
-    totalAmount: "उपलब्ध नहीं है"
+    perPlant: "लागू नहीं",
+    perPot: "लागू नहीं",
+    perBigha: "लागू नहीं",
+    perIrrigation: "लागू नहीं",
+    perSpray: "लागू नहीं",
+    perDrenching: "लागू नहीं",
+    totalAmount: "लागू नहीं"
   },
   cropSpecificDosage: [],
   hasExactMatch: false
@@ -611,24 +737,43 @@ function safeParseProductKnowledge(jsonText: string): ProductKnowledgeResult {
       ...parsed
     };
 
-    // Ensure object fields are actually objects
-    if (parsed.dosageLiquid && typeof parsed.dosageLiquid === 'object') {
-      result.dosageLiquid = { ...DEFAULT_PRODUCT_KNOWLEDGE.dosageLiquid, ...parsed.dosageLiquid };
-    } else {
-      result.dosageLiquid = { ...DEFAULT_PRODUCT_KNOWLEDGE.dosageLiquid };
+    const cleanDosageLiquid = { ...DEFAULT_PRODUCT_KNOWLEDGE.dosageLiquid, ...(parsed.dosageLiquid || {}) };
+    const cleanDosagePowder = { ...DEFAULT_PRODUCT_KNOWLEDGE.dosagePowder, ...(parsed.dosagePowder || {}) };
+    const cleanDosageFertilizer = { ...DEFAULT_PRODUCT_KNOWLEDGE.dosageFertilizer, ...(parsed.dosageFertilizer || {}) };
+
+    const formulation = String(parsed.formulation || '').toLowerCase();
+    const category = String(parsed.category || '').toLowerCase();
+    const isLiquid = formulation.includes('ec') || formulation.includes('sc') || formulation.includes('sl') || formulation.includes('fs') || formulation.includes('cs') || formulation.includes('liquid') || formulation.includes('तरल');
+    const isPowder = formulation.includes('wp') || formulation.includes('wdg') || formulation.includes('sp') || formulation.includes('sg') || formulation.includes('gr') || formulation.includes('powder') || formulation.includes('पाउडर') || formulation.includes('दानेदार');
+    const isFertilizer = category.includes('fertilizer') || category.includes('खाद') || category.includes('उर्वरक') || String(parsed.productName || '').includes('19:19:19') || String(parsed.productName || '').includes('0:0:50') || String(parsed.productName || '').includes('DAP') || String(parsed.productName || '').includes('Urea');
+
+    if (isLiquid && !isPowder) {
+      Object.keys(cleanDosagePowder).forEach((k) => {
+        if (!parsed.dosagePowder?.[k] || cleanDosagePowder[k as keyof typeof cleanDosagePowder] === '1-2 gm') {
+          (cleanDosagePowder as any)[k] = 'लागू नहीं (तरल उत्पाद)';
+        }
+      });
+      if (!isFertilizer) {
+        Object.keys(cleanDosageFertilizer).forEach((k) => {
+          (cleanDosageFertilizer as any)[k] = 'लागू नहीं (कीटनाशक/दवा उत्पाद)';
+        });
+      }
+    } else if (isPowder && !isLiquid) {
+      Object.keys(cleanDosageLiquid).forEach((k) => {
+        if (!parsed.dosageLiquid?.[k] || cleanDosageLiquid[k as keyof typeof cleanDosageLiquid] === '1-2 ml') {
+          (cleanDosageLiquid as any)[k] = 'लागू नहीं (पाउडर/दानेदार उत्पाद)';
+        }
+      });
+      if (!isFertilizer) {
+        Object.keys(cleanDosageFertilizer).forEach((k) => {
+          (cleanDosageFertilizer as any)[k] = 'लागू नहीं (दवा उत्पाद)';
+        });
+      }
     }
 
-    if (parsed.dosagePowder && typeof parsed.dosagePowder === 'object') {
-      result.dosagePowder = { ...DEFAULT_PRODUCT_KNOWLEDGE.dosagePowder, ...parsed.dosagePowder };
-    } else {
-      result.dosagePowder = { ...DEFAULT_PRODUCT_KNOWLEDGE.dosagePowder };
-    }
-
-    if (parsed.dosageFertilizer && typeof parsed.dosageFertilizer === 'object') {
-      result.dosageFertilizer = { ...DEFAULT_PRODUCT_KNOWLEDGE.dosageFertilizer, ...parsed.dosageFertilizer };
-    } else {
-      result.dosageFertilizer = { ...DEFAULT_PRODUCT_KNOWLEDGE.dosageFertilizer };
-    }
+    result.dosageLiquid = cleanDosageLiquid;
+    result.dosagePowder = cleanDosagePowder;
+    result.dosageFertilizer = cleanDosageFertilizer;
 
     // Ensure cropSpecificDosage is always an array of objects
     if (Array.isArray(parsed.cropSpecificDosage)) {
@@ -655,141 +800,128 @@ function safeParseProductKnowledge(jsonText: string): ProductKnowledgeResult {
 }
 
 export async function getProductKnowledge(query: string, userApiKey?: string): Promise<ProductKnowledgeResult> {
+  if (!userApiKey || !userApiKey.trim()) {
+    throw {
+      type: 'key_missing',
+      message: 'AI उत्पाद जानकारी के लिए आपकी व्यक्तिगत Gemini API Key आवश्यक है। कृपया अपनी प्रोफाइल में Key दर्ज करें।',
+      helpUrl: 'https://aistudio.google.com/app/apikey'
+    };
+  }
+  // 1. Try Server-Side AI endpoint first (reliable and secure)
+  try {
+    const res = await fetch('/api/ai/product-knowledge', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(userApiKey && userApiKey.trim() ? { 'x-user-gemini-key': userApiKey.trim() } : {})
+      },
+      body: JSON.stringify({ query, userApiKey })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.data) {
+        return safeParseProductKnowledge(JSON.stringify(data.data));
+      }
+    }
+  } catch (apiErr) {
+    console.warn("Server AI product knowledge failed, trying client fallback...", apiErr);
+  }
+
+  // 2. Client SDK fallback
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
 
-    const prompt = `You are a world-class Indian agricultural product expert. Your task is to provide exhaustive, accurate, and completely verified information for the agricultural product/technical queried by the user.
-    
-    User Query: "${query}"
+    const prompt = `आप भारत के एक शीर्ष कृषि वैज्ञानिक और इनपुट विशेषज्ञ हैं (फल्सावदिया कृषि बाजार, शामगढ़, म.प्र.)।
+उपयोगकर्ता द्वारा पूछे गए इस उत्पाद/कीटनाशक/फफूंदनाशक/खरपतवारनाशक/उर्वरक की आधिकारिक जानकारी Google Search और CIB&RC, ICAR, निर्माता कंपनी के लेबल क्लेम से खोजें:
+खोज प्रश्न: "${query.trim()}"
 
-    Search Google and official agricultural resources (CIB&RC, ICAR, IFFCO, Krishi Vigyan Kendra, etc.) to get details on this product/technical/formulation.
-    
-    Instructions:
-    1. If the product is not found or not official, write detailed alternative helpful info or mark 'hasExactMatch' as false and provide a helpful description in productName/usage.
-    2. Respond strictly in clear, simple HINDI that farmers can easily understand. Translate technical terms where appropriate or provide Hindi descriptions.
-    3. Ensure that the DOSAGE section is fully filled. Even if generic guidelines are available, calculate them for 1L, 15L, 16L, 20L, 25L, 200L, 500L, and 1 Bigha (बीघा) based on standard recommendations for this product class (Liquid / Powder / Fertilizer).
-    4. Provide crop-specific dosages for common crops (like Soybean, Wheat, Maize, Chickpea, Cotton, etc.) if applicable.
-    5. Return the result strictly as a valid JSON object matching the defined schema. Do not include markdown wraps or anything except the JSON string in response.`;
+महत्वपूर्ण निर्देश:
+1. उत्पाद का सही ब्रांड नाम, अधिकृत निर्माता कंपनी, सटीक टेक्निकल नाम (Active Ingredient प्रतिशत के साथ), फॉर्मूलेशन (EC, SC, SL, WDG, WP, SP, SG, GR, आदि) और श्रेणी की पुष्टि करें।
+2. डोज़ (Dosage) की पूर्ण सटीकता:
+   - यदि उत्पाद लिक्विड है: dosageLiquid में 1L, 15L, 16L, 20L, 25L, 200L, 500L, और 1 बीघा (मालवा: ~0.4 एकड़ = 60-80L पानी) की आधिकारिक अनुशंसित मात्रा लिखें। dosagePowder और dosageFertilizer में "लागू नहीं (तरल उत्पाद)" लिखें।
+   - यदि उत्पाद पाउडर/दानेदार है: dosagePowder में ग्राम/किलो में आधिकारिक मात्रा लिखें। dosageLiquid और dosageFertilizer में "लागू नहीं (पाउडर/दानेदार उत्पाद)" लिखें।
+   - यदि उत्पाद उर्वरक/खाद है: dosageFertilizer में प्रति पौधा, प्रति गमला, प्रति बीघा, प्रति स्प्रे (ग्राम/लीटर), ड्रेंचिंग/ड्रिप की सटीक मात्रा दें।
+3. लक्षित फसलें और नियंत्रित कीट/रोग/खरपतवार की आधिकारिक सूची हिंदी में दें।
+4. दुकान: 'फल्सावदिया कृषि बाजार', डिंपल चौराहा, शामगढ़ (म.प्र.)।
 
-    const responseSchema = {
-      type: "OBJECT" as any,
-      properties: {
-        productName: { type: "STRING" },
-        companyName: { type: "STRING" },
-        technicalName: { type: "STRING" },
-        category: { type: "STRING" },
-        formulation: { type: "STRING" },
-        activeIngredient: { type: "STRING" },
-        modeOfAction: { type: "STRING" },
-        fracIracHracGroup: { type: "STRING" },
-        targetCrops: { type: "STRING" },
-        targetPests: { type: "STRING" },
-        symptoms: { type: "STRING" },
-        usage: { type: "STRING" },
-        benefits: { type: "STRING" },
-        features: { type: "STRING" },
-        compatibleProducts: { type: "STRING" },
-        incompatibleProducts: { type: "STRING" },
-        waitingPeriod: { type: "STRING" },
-        phi: { type: "STRING" },
-        rei: { type: "STRING" },
-        toxicity: { type: "STRING" },
-        safetyInstructions: { type: "STRING" },
-        mixingOrder: { type: "STRING" },
-        sprayTiming: { type: "STRING" },
-        rainfastPeriod: { type: "STRING" },
-        storage: { type: "STRING" },
-        dosageLiquid: {
-          type: "OBJECT" as any,
-          properties: {
-            perLiter: { type: "STRING" },
-            per15L: { type: "STRING" },
-            per16L: { type: "STRING" },
-            per20L: { type: "STRING" },
-            per25L: { type: "STRING" },
-            per200L: { type: "STRING" },
-            per500L: { type: "STRING" },
-            perBigha: { type: "STRING" }
-          },
-          required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
-        },
-        dosagePowder: {
-          type: "OBJECT" as any,
-          properties: {
-            perLiter: { type: "STRING" },
-            per15L: { type: "STRING" },
-            per16L: { type: "STRING" },
-            per20L: { type: "STRING" },
-            per25L: { type: "STRING" },
-            per200L: { type: "STRING" },
-            per500L: { type: "STRING" },
-            perBigha: { type: "STRING" }
-          },
-          required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
-        },
-        dosageFertilizer: {
-          type: "OBJECT" as any,
-          properties: {
-            perPlant: { type: "STRING" },
-            perPot: { type: "STRING" },
-            perBigha: { type: "STRING" },
-            perIrrigation: { type: "STRING" },
-            perSpray: { type: "STRING" },
-            perDrenching: { type: "STRING" },
-            totalAmount: { type: "STRING" }
-          },
-          required: ["perPlant", "perPot", "perBigha", "perIrrigation", "perSpray", "perDrenching", "totalAmount"]
-        },
-        cropSpecificDosage: {
-          type: "ARRAY" as any,
-          items: {
-            type: "OBJECT" as any,
-            properties: {
-              cropName: { type: "STRING" },
-              dosage: { type: "STRING" },
-              usage: { type: "STRING" },
-              sprayTime: { type: "STRING" }
-            },
-            required: ["cropName", "dosage", "usage", "sprayTime"]
-          }
-        },
-        hasExactMatch: { type: "BOOLEAN" }
-      },
-      required: [
-        "productName", "companyName", "technicalName", "category", "formulation", "activeIngredient", 
-        "modeOfAction", "fracIracHracGroup", "targetCrops", "targetPests", "symptoms", "usage", 
-        "benefits", "features", "compatibleProducts", "incompatibleProducts", "waitingPeriod", 
-        "phi", "rei", "toxicity", "safetyInstructions", "mixingOrder", "sprayTiming", 
-        "rainfastPeriod", "storage", "dosageLiquid", "dosagePowder", "dosageFertilizer", 
-        "cropSpecificDosage", "hasExactMatch"
-      ]
-    };
-
-    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Always analyze the query with high precision, search Google for real-time validation, and provide complete details in Hindi as requested. Ensure the output is valid JSON strictly following the schema. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
+उत्तर को अनिवार्य रूप से केवल और केवल एक वैध JSON ऑब्जेक्ट के रूप में \`\`\`json और \`\`\` के अंदर दें। JSON संरचना:
+{
+  "productName": "ब्रांड नाम",
+  "companyName": "निर्माता कंपनी",
+  "technicalName": "सटीक टेक्निकल नाम",
+  "category": "Insecticide / Fungicide / Herbicide / Fertilizer / PGR / Seed",
+  "formulation": "जैसे 18.5% SC, 5% SG",
+  "activeIngredient": "सक्रिय संघटक विवरण",
+  "modeOfAction": "असर का वैज्ञानिक तरीका हिंदी में",
+  "fracIracHracGroup": "Group कोड",
+  "targetCrops": "अनुशंसित फसलें हिंदी में",
+  "targetPests": "नियंत्रित कीट या रोग हिंदी में",
+  "symptoms": "उपयोगी लक्षण",
+  "usage": "उपयोग विधि हिंदी में",
+  "benefits": "मुख्य लाभ",
+  "features": "तकनीकी विशेषताएं",
+  "compatibleProducts": "किनके साथ मिला सकते हैं",
+  "incompatibleProducts": "किनके साथ न मिलाएं",
+  "waitingPeriod": "कटाई पूर्व प्रतीक्षा अवधि (PHI)",
+  "phi": "दिनों में",
+  "rei": "घंटों में",
+  "toxicity": "टॉक्सिसिटी लेबल रंग",
+  "safetyInstructions": "सुरक्षा सावधानियां",
+  "mixingOrder": "टंकी में घोल बनाने का क्रम",
+  "sprayTiming": "छिड़काव का सही समय",
+  "rainfastPeriod": "बारिश से बचाव अवधि",
+  "storage": "भंडारण निर्देश",
+  "dosageLiquid": {
+    "perLiter": "...",
+    "per15L": "...",
+    "per16L": "...",
+    "per20L": "...",
+    "per25L": "...",
+    "per200L": "...",
+    "per500L": "...",
+    "perBigha": "..."
+  },
+  "dosagePowder": {
+    "perLiter": "...",
+    "per15L": "...",
+    "per16L": "...",
+    "per20L": "...",
+    "per25L": "...",
+    "per200L": "...",
+    "per500L": "...",
+    "perBigha": "..."
+  },
+  "dosageFertilizer": {
+    "perPlant": "...",
+    "perPot": "...",
+    "perBigha": "...",
+    "perIrrigation": "...",
+    "perSpray": "...",
+    "perDrenching": "...",
+    "totalAmount": "..."
+  },
+  "cropSpecificDosage": [
+    { "cropName": "सोयाबीन", "dosage": "...", "usage": "...", "sprayTime": "..." }
+  ],
+  "hasExactMatch": true
+}`;
 
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.6-flash",
         contents: prompt,
         config: {
-          systemInstruction,
           tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema
         }
       });
     } catch (searchError: any) {
-      console.warn("Google search grounding failed in getProductKnowledge. Retrying without search tool.", searchError);
+      console.warn("Google search grounding failed in getProductKnowledge. Retrying direct prompt.", searchError);
       response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.6-flash",
         contents: prompt,
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema
-        }
       });
     }
 
@@ -801,7 +933,7 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
       result.sources = chunks
         .filter((c: any) => c.web?.uri)
         .map((c: any) => ({
-          title: c.web.title || "Official Resource",
+          title: c.web.title || "अधिकृत कृषि स्रोत",
           uri: c.web.uri
         }));
     }
@@ -818,6 +950,35 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
 }
 
 export async function analyzeProductImage(base64Image: string, userApiKey?: string): Promise<ProductKnowledgeResult> {
+  if (!userApiKey || !userApiKey.trim()) {
+    throw {
+      type: 'key_missing',
+      message: 'AI फोटो पहचान के लिए आपकी व्यक्तिगत Gemini API Key आवश्यक है। कृपया अपनी प्रोफाइल में Key दर्ज करें।',
+      helpUrl: 'https://aistudio.google.com/app/apikey'
+    };
+  }
+  // 1. Try Server-Side AI endpoint first (reliable and secure)
+  try {
+    const res = await fetch('/api/ai/analyze-product-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(userApiKey && userApiKey.trim() ? { 'x-user-gemini-key': userApiKey.trim() } : {})
+      },
+      body: JSON.stringify({ base64Image, userApiKey })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.data) {
+        return safeParseProductKnowledge(JSON.stringify(data.data));
+      }
+    }
+  } catch (apiErr) {
+    console.warn("Server AI analyze product image failed, trying client fallback...", apiErr);
+  }
+
+  // 2. Client SDK fallback
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
@@ -937,7 +1098,7 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.6-flash",
         contents: [
           { text: prompt },
           {
@@ -949,15 +1110,12 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
         ],
         config: {
           systemInstruction,
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema
         }
       });
-    } catch (searchError: any) {
-      console.warn("Google search grounding failed in analyzeProductImage. Retrying without search tool.", searchError);
+    } catch (modelError: any) {
+      console.warn("Direct image recognition failed, retrying with fallback...", modelError);
       response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.6-flash",
         contents: [
           { text: prompt },
           {
@@ -967,11 +1125,6 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
             }
           }
         ],
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema
-        }
       });
     }
 

@@ -216,10 +216,18 @@ ${item.source || "कृषि जागरण"}
     }
   };
 
-  // Filter and sort the news items
-  const filteredAndSortedNews = news
-    .filter(item => isWithinLast7Days(item.date))
-    .sort((a, b) => parseDDMMYYYY(b.date).getTime() - parseDDMMYYYY(a.date).getTime());
+  // Filter and sort the news items (prefers last 7 days, but falls back to all news if empty)
+  const safeNews = Array.isArray(news) ? news : [];
+  const recentNews = safeNews.filter(item => item && item.date && isWithinLast7Days(item.date));
+  const effectiveNews = recentNews.length > 0 ? recentNews : safeNews;
+  const filteredAndSortedNews = [...effectiveNews].sort((a, b) => {
+    try {
+      if (!a?.date || !b?.date) return 0;
+      return parseDDMMYYYY(b.date).getTime() - parseDDMMYYYY(a.date).getTime();
+    } catch {
+      return 0;
+    }
+  });
 
   return (
     <div className="space-y-6 pb-16">

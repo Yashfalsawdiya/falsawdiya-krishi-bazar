@@ -247,7 +247,7 @@ const DiseaseDetection: React.FC = () => {
     if (images.length === 0) return;
     if (appLoading) return;
 
-    const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
+    const effectiveApiKey = userSettings?.geminiApiKey?.trim() || '';
     if (!effectiveApiKey) {
       setErrorMessage(undefined);
       setIsModalOpen(true);
@@ -347,8 +347,13 @@ const DiseaseDetection: React.FC = () => {
       text: m.text
     }));
 
+    const effectiveApiKey = userSettings?.geminiApiKey?.trim() || '';
+    if (!effectiveApiKey) {
+      setIsModalOpen(true);
+      return;
+    }
+
     try {
-      const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
       const aiReply = await askDiseaseReportChat({
         reportAnalysis: analysisResult.analysis,
         userQuestion: queryText,

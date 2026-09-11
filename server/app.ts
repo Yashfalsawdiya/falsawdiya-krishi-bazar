@@ -16,6 +16,19 @@ import {
   DEFAULT_SERVER_DELIVERY_TEMPLATE,
 } from './emailTemplates.js';
 import { handleScanBill, handleAccountingInsights } from './accountingRoutes.js';
+import {
+  handleAskAiQuestion,
+  handleGetDailyAdvice,
+  handleDetectDisease,
+  handleDiseaseChat,
+  handleProductKnowledge,
+  handleAnalyzeProductImage,
+  handleAgriNews,
+  handleMandiBhav,
+  handleSchemes,
+  handleLiveConfig,
+  handleTestKey,
+} from './aiRoutes.js';
 
 export const app = express();
 
@@ -1410,6 +1423,29 @@ app.get('/api/delivery/in-app-otp/:orderId', async (req: Request, res: Response)
 // ==========================================
 app.post('/api/accounting/scan-bill', handleScanBill);
 app.post('/api/accounting/insights', handleAccountingInsights);
+
+// ==========================================
+// UNIFIED SERVER-SIDE GEMINI AI ROUTES
+// ==========================================
+app.post('/api/ai/ask-question', handleAskAiQuestion);
+app.post('/api/ai/daily-advice', handleGetDailyAdvice);
+app.post('/api/ai/disease-detect', handleDetectDisease);
+app.post('/api/ai/disease-chat', handleDiseaseChat);
+app.post('/api/ai/product-knowledge', handleProductKnowledge);
+app.post('/api/ai/analyze-product-image', handleAnalyzeProductImage);
+app.post('/api/ai/agri-news', handleAgriNews);
+app.post('/api/ai/mandi-bhav', handleMandiBhav);
+app.post('/api/ai/schemes', handleSchemes);
+app.get('/api/ai/live-config', handleLiveConfig);
+app.post('/api/ai/test-key', handleTestKey);
+app.get('/api/ai/health', (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    status: 'ok',
+    hasGeminiKey: Boolean(process.env.GEMINI_API_KEY?.trim()),
+    timestamp: Date.now()
+  });
+});
 
 // Health check endpoint
 app.get('/api/health', async (_req: Request, res: Response) => {

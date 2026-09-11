@@ -244,7 +244,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(() => {
+    try {
+      const savedKey = localStorage.getItem('user_gemini_api_key');
+      if (savedKey && savedKey.trim()) {
+        return { geminiApiKey: savedKey.trim() };
+      }
+    } catch (e) {
+      console.warn("Could not read user_gemini_api_key from localStorage", e);
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(true);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const [allUsers, setAllUsers] = useState<UserRecord[]>([]);
@@ -323,8 +333,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const backupAdmins = contentData?.adminEmails || [];
               const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
 
+              const userApiKey = (userData.geminiApiKey || '').trim() || (localStorage.getItem('user_gemini_api_key') || '').trim();
+              if (userApiKey) {
+                try {
+                  localStorage.setItem('user_gemini_api_key', userApiKey);
+                } catch {}
+              }
               setIsAdmin(userData.role === 'admin' || isAdminEmail);
-              setUserSettings({ geminiApiKey: userData.geminiApiKey || '' });
+              setUserSettings({ geminiApiKey: userApiKey });
             } else {
               // Create default doc if missing
               const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
@@ -333,17 +349,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const backupAdmins = contentData?.adminEmails || [];
               const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
 
+              const localApiKey = (localStorage.getItem('user_gemini_api_key') || '').trim();
               const defaultSettings = {
                 uid: firebaseUser.uid,
                 email: firebaseUser.email,
                 displayName: firebaseUser.displayName || '',
                 role: isAdminEmail ? 'admin' : 'user',
                 isBlocked: false,
-                geminiApiKey: ''
+                geminiApiKey: localApiKey
               };
               await setDoc(doc(db, 'users', firebaseUser.uid), defaultSettings);
               setIsAdmin(isAdminEmail);
-              setUserSettings({ geminiApiKey: '' });
+              setUserSettings({ geminiApiKey: localApiKey });
             }
             setLoading(false);
           }, (error) => {
@@ -1186,12 +1203,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateUserSettings = async (settings: UserSettings) => {
+    const cleanKey = (settings.geminiApiKey || '').trim();
+    try {
+      if (cleanKey) {
+        localStorage.setItem('user_gemini_api_key', cleanKey);
+      } else {
+        localStorage.removeItem('user_gemini_api_key');
+      }
+    } catch (e) {
+      console.warn("Could not save to localStorage", e);
+    }
+    setUserSettings({ geminiApiKey: cleanKey });
+
     if (!user) return;
     try {
       await updateDoc(doc(db, 'users', user.uid), {
-        geminiApiKey: settings.geminiApiKey
+        geminiApiKey: cleanKey
       });
-      setUserSettings(settings);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
     }

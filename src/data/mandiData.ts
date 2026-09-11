@@ -85,8 +85,9 @@ export const CROPS_LIST = [
 ];
 
 // Helper to get hindi crop name from selection
-export function getHindiCropName(crop: string): string {
-  return crop.split(" (")[0];
+export function getHindiCropName(crop?: string): string {
+  if (!crop) return "";
+  return crop.split(" (")[0] || crop;
 }
 
 // Generate realistic seed-based fallback prices to ensure UI loads instantly and perfectly offline

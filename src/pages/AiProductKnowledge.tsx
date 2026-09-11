@@ -47,9 +47,19 @@ const normalizeText = (text: string): string => {
     .replace(/\s+/g, " "); // collapse spacing
 };
 
+const CACHE_KEY = 'pk_smart_cache_v3';
+
+// Clear legacy buggy caches that mapped general company names or sub-words
+try {
+  localStorage.removeItem('pk_smart_cache');
+  localStorage.removeItem('pk_smart_cache_v2');
+} catch (e) {
+  // ignore
+}
+
 const getCachedResult = (query: string): ProductKnowledgeResult | null => {
   try {
-    const rawCache = localStorage.getItem('pk_smart_cache');
+    const rawCache = localStorage.getItem(CACHE_KEY);
     if (!rawCache) return null;
     const cache: SmartCache = JSON.parse(rawCache);
     if (!cache.entries || !cache.index) return null;
@@ -76,7 +86,11 @@ const getCachedResult = (query: string): ProductKnowledgeResult | null => {
 
 const saveToCache = (query: string, data: ProductKnowledgeResult) => {
   try {
-    const rawCache = localStorage.getItem('pk_smart_cache');
+    if (!data.productName || data.productName.includes("पहचान नहीं") || data.productName.includes("उपलब्ध नहीं")) {
+      return;
+    }
+
+    const rawCache = localStorage.getItem(CACHE_KEY);
     let cache: SmartCache = { entries: {}, index: {} };
     if (rawCache) {
       try {
@@ -99,20 +113,14 @@ const saveToCache = (query: string, data: ProductKnowledgeResult) => {
       searchQuery: query
     };
 
-    // Create index mappings
-    cache.index[normQuery] = productId;
-    cache.index[normalizeText(data.productName)] = productId;
-    if (data.technicalName) {
-      cache.index[normalizeText(data.technicalName)] = productId;
-      if (data.technicalName.includes('+')) {
-        const parts = data.technicalName.split('+');
-        parts.forEach(part => {
-          cache.index[normalizeText(part)] = productId;
-        });
-      }
+    // STRICT 1-TO-1 INDEX MAPPING ONLY:
+    // Only map the exact query and the exact product name!
+    // NEVER map generic company names (e.g. "bayer") or sub-parts of technicals!
+    if (normQuery.length >= 2) {
+      cache.index[normQuery] = productId;
     }
-    if (data.companyName) {
-      cache.index[normalizeText(data.companyName)] = productId;
+    if (productId.length >= 2) {
+      cache.index[productId] = productId;
     }
 
     // Run a quick cleanup of expired items to keep localStorage size low
@@ -136,7 +144,7 @@ const saveToCache = (query: string, data: ProductKnowledgeResult) => {
     });
     cache.index = cleanedIndex;
 
-    localStorage.setItem('pk_smart_cache', JSON.stringify(cache));
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
   } catch (e) {
     console.error("Error saving to cache", e);
   }
@@ -296,13 +304,26 @@ export default function AiProductKnowledge() {
       );
       setIsBookmarked(exists);
 
-      // Auto-switch dosage tab based on product category/formulation
-      const formulationLower = result.formulation.toLowerCase();
-      const catLower = result.category.toLowerCase();
+      // Auto-switch dosage tab based on product category/formulation and non-empty dosage
+      const formulationLower = (result.formulation || '').toLowerCase();
+      const catLower = (result.category || '').toLowerCase();
+      const prodLower = (result.productName || '').toLowerCase();
       
-      if (formulationLower.includes('ec') || formulationLower.includes('sl') || formulationLower.includes('sc') || formulationLower.includes('liquid') || formulationLower.includes('लिक्लीड') || formulationLower.includes('तरल')) {
+      const isLiquidApp = result.dosageLiquid?.perLiter && !result.dosageLiquid.perLiter.includes('लागू नहीं');
+      const isPowderApp = result.dosagePowder?.perLiter && !result.dosagePowder.perLiter.includes('लागू नहीं');
+      const isFertilizerApp = (result.dosageFertilizer?.perBigha && !result.dosageFertilizer.perBigha.includes('लागू नहीं')) ||
+                             catLower.includes('fertilizer') || catLower.includes('खाद') || catLower.includes('उर्वरक') ||
+                             prodLower.includes('19:19:19') || prodLower.includes('0:0:50') || prodLower.includes('dap') || prodLower.includes('urea');
+      
+      if (isFertilizerApp && !isLiquidApp && !isPowderApp) {
+        setActiveDosageTab('fertilizer');
+      } else if (isLiquidApp && !isPowderApp) {
         setActiveDosageTab('liquid');
-      } else if (catLower.includes('fertilizer') || catLower.includes('खाद') || catLower.includes('urea') || catLower.includes('dap')) {
+      } else if (isPowderApp && !isLiquidApp) {
+        setActiveDosageTab('powder');
+      } else if (formulationLower.includes('ec') || formulationLower.includes('sl') || formulationLower.includes('sc') || formulationLower.includes('liquid') || formulationLower.includes('तरल')) {
+        setActiveDosageTab('liquid');
+      } else if (catLower.includes('fertilizer') || catLower.includes('खाद')) {
         setActiveDosageTab('fertilizer');
       } else {
         setActiveDosageTab('powder');
@@ -315,9 +336,8 @@ export default function AiProductKnowledge() {
     const term = searchQuery.trim();
     if (!term) return;
 
-    const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
+    const effectiveApiKey = userSettings?.geminiApiKey?.trim() || '';
     if (!effectiveApiKey) {
-      setApiKeyErrorMessage("AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key सेट करें।");
       setIsApiKeyModalOpen(true);
       return;
     }
@@ -348,6 +368,10 @@ export default function AiProductKnowledge() {
       autoSaveProduct(data);
     } catch (err: any) {
       console.error(err);
+      if (err?.type === 'key_missing' || err?.type === 'key_invalid' || err?.message?.includes('GEMINI_KEY') || err?.message?.includes('API_KEY')) {
+        setApiKeyErrorMessage(err.message || "AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key सेट करें।");
+        setIsApiKeyModalOpen(true);
+      }
       setError(err.message || "जानकारी खोजने में समस्या आई। कृपया पुनः प्रयास करें।");
     } finally {
       setIsLoading(false);
@@ -439,10 +463,8 @@ export default function AiProductKnowledge() {
   };
 
   const handleImageSearch = async (base64Img: string) => {
-    const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
+    const effectiveApiKey = userSettings?.geminiApiKey?.trim() || '';
     if (!effectiveApiKey) {
-      setIsLoading(false);
-      setApiKeyErrorMessage("AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key सेट करें।");
       setIsApiKeyModalOpen(true);
       return;
     }
@@ -472,6 +494,10 @@ export default function AiProductKnowledge() {
       }
     } catch (err: any) {
       console.error(err);
+      if (err?.type === 'key_missing' || err?.type === 'key_invalid' || err?.message?.includes('GEMINI_KEY') || err?.message?.includes('API_KEY')) {
+        setApiKeyErrorMessage(err.message || "AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key सेट करें।");
+        setIsApiKeyModalOpen(true);
+      }
       setError(err.message || "इमेज का विश्लेषण करने में समस्या आई। कृपया पुनः प्रयास करें।");
     } finally {
       setIsLoading(false);
@@ -525,16 +551,18 @@ export default function AiProductKnowledge() {
 
       if (user) {
         const userSavedProductRef = doc(db, 'users', user.uid, 'savedProducts', docId);
-        deleteDoc(userSavedProductRef).then(() => {
+        deleteDoc(userSavedProductRef).then(async () => {
+          if (updatedList.length === 0) return;
           const batch = writeBatch(db);
           updatedList.forEach((item) => {
             const itemDocId = getSafeDocId(item.productName);
             const itemRef = doc(db, 'users', user.uid, 'savedProducts', itemDocId);
-            batch.update(itemRef, { order: item.order });
+            // Use set with merge: true so we never hit "No document to update" if document does not exist yet
+            batch.set(itemRef, { ...item, order: item.order }, { merge: true });
           });
-          return batch.commit();
+          await batch.commit();
         }).catch(err => {
-          console.error("Error deleting from Firestore:", err);
+          console.warn("Notice syncing deletion to Firestore:", err);
         });
       }
 
@@ -1428,8 +1456,8 @@ ${result.safetyInstructions}
           )}
 
           {/* Quick Actions Panel */}
-          <div className="flex items-center justify-between bg-white border border-gray-100 p-3 rounded-2xl shadow-sm print:hidden">
-            <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-white border border-gray-100 p-3 rounded-2xl shadow-sm print:hidden">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <button 
                 onClick={() => {
                   setProductToDelete(result);
@@ -1439,7 +1467,16 @@ ${result.safetyInstructions}
                 title="Delete Saved Product"
               >
                 <Trash2 className="w-4.5 h-4.5 animate-none" />
-                <span className="text-xs font-black">सुरक्षित सूची से हटाएं (Delete)</span>
+                <span className="text-xs font-black">सुरक्षित सूची से हटाएं</span>
+              </button>
+
+              <button
+                onClick={() => handleSearch(result.productName || query, true)}
+                className="bg-[#2D5A27]/10 hover:bg-[#2D5A27]/20 text-[#2D5A27] px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                title="Google Search Grounding से दोबारा जांचें"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>AI लाइव पुनः जाँच (Recheck)</span>
               </button>
             </div>
 
@@ -1525,21 +1562,30 @@ ${result.safetyInstructions}
             <div className="flex border-b border-gray-100 print:hidden">
               <button 
                 onClick={() => setActiveDosageTab('liquid')}
-                className={`flex-1 py-3.5 text-xs font-black text-center border-b-2 transition-all ${activeDosageTab === 'liquid' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 py-3.5 px-2 text-xs font-black text-center border-b-2 transition-all cursor-pointer ${activeDosageTab === 'liquid' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
-                तरल उत्पाद (Liquid / ML)
+                <span>तरल उत्पाद (Liquid / ML)</span>
+                {result.dosageLiquid?.perLiter?.includes('लागू नहीं') && (
+                  <span className="block text-[9px] text-gray-400 font-normal mt-0.5">लागू नहीं</span>
+                )}
               </button>
               <button 
                 onClick={() => setActiveDosageTab('powder')}
-                className={`flex-1 py-3.5 text-xs font-black text-center border-b-2 transition-all ${activeDosageTab === 'powder' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 py-3.5 px-2 text-xs font-black text-center border-b-2 transition-all cursor-pointer ${activeDosageTab === 'powder' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
-                पाउडर/दानेदार (Powder / Gram)
+                <span>पाउडर/दानेदार (Powder / Gram)</span>
+                {result.dosagePowder?.perLiter?.includes('लागू नहीं') && (
+                  <span className="block text-[9px] text-gray-400 font-normal mt-0.5">लागू नहीं</span>
+                )}
               </button>
               <button 
                 onClick={() => setActiveDosageTab('fertilizer')}
-                className={`flex-1 py-3.5 text-xs font-black text-center border-b-2 transition-all ${activeDosageTab === 'fertilizer' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 py-3.5 px-2 text-xs font-black text-center border-b-2 transition-all cursor-pointer ${activeDosageTab === 'fertilizer' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
-                उर्वरक/खाद (Fertilizers / KG)
+                <span>उर्वरक/खाद (Fertilizers / KG)</span>
+                {result.dosageFertilizer?.perBigha?.includes('लागू नहीं') && (
+                  <span className="block text-[9px] text-gray-400 font-normal mt-0.5">लागू नहीं</span>
+                )}
               </button>
             </div>
 
