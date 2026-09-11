@@ -16,6 +16,12 @@ const Schemes: React.FC = () => {
   const loadSchemes = async (force: boolean = false) => {
     if (appLoading) return;
 
+    if (!userSettings?.geminiApiKey) {
+      setErrorMessage(undefined);
+      setIsModalOpen(true);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await fetchSchemes(userSettings?.geminiApiKey, force);
@@ -66,7 +72,7 @@ const Schemes: React.FC = () => {
             (Fetching latest schemes)
           </p>
         </div>
-      ) : (Array.isArray(schemes) && schemes.length > 0) ? (
+      ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {schemes.map((scheme: any, idx) => (
             <motion.div
@@ -111,18 +117,6 @@ const Schemes: React.FC = () => {
               <ChevronRight className="w-4 h-4 text-gray-300 shrink-0 ml-2" />
             </motion.div>
           ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-3xl p-8 text-center border border-gray-100 shadow-sm">
-          <Landmark className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-          <p className="text-sm font-bold text-gray-700">वर्तमान में योजनाएं लोड नहीं हो सकीं</p>
-          <p className="text-xs text-gray-400 mt-1 mb-4">कृपया ताज़ा करें बटन दबाकर पुनः प्रयास करें।</p>
-          <button
-            onClick={() => loadSchemes(true)}
-            className="px-4 py-2 bg-[#2D5A27] text-white text-xs font-bold rounded-xl active:scale-95 transition-all shadow-sm inline-flex items-center gap-2"
-          >
-            <RefreshCw className="w-3.5 h-3.5" /> पुनः प्रयास करें (Retry)
-          </button>
         </div>
       )}
 

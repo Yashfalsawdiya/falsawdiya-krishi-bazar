@@ -110,7 +110,7 @@ ${customersListStr || 'None provided'}
 6. **DATE FORMAT**: Convert date to standard "YYYY-MM-DD" if legible, otherwise return today or empty.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+      model: 'gemini-3.7-flash',
       contents: {
         parts: [
           {
@@ -244,7 +244,7 @@ Provide a concise, practical, and highly valuable Hindi business insight report:
 Strict Rule: Base all analysis 100% on the figures provided. Do NOT invent fake figures.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+      model: 'gemini-3.7-flash',
       contents: prompt,
     });
 

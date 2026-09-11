@@ -75,33 +75,9 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     }
   ];
 
-  // 1. Try Server-Side AI endpoint first (reliable and uses server key + search grounding)
-  try {
-    const res = await fetch('/api/ai/schemes', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(userApiKey && userApiKey.trim() ? { 'x-user-gemini-key': userApiKey.trim() } : {})
-      },
-      body: JSON.stringify({ userApiKey })
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && Array.isArray(data.schemes) && data.schemes.length > 0) {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(data.schemes));
-        localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
-        return data.schemes;
-      }
-    }
-  } catch (apiErr) {
-    console.warn("Server AI schemes fetch failed, trying client fallback...", apiErr);
-  }
-
-  // 2. Client SDK fallback
   try {
     const ai = getAI(userApiKey);
-    if (!ai) return fallbackData;
+    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
     
     const prompt = `आज ${dateStr} तक की जानकारी के अनुसार भारत (Central Govt) और मध्य प्रदेश (MP State Govt) की नवीनतम और सबसे महत्वपूर्ण 20 कृषि योजनाओं (Government Schemes for Farmers) की बहुत ही विस्तृत और प्रोफेशनल सूची प्रदान करें।
     
@@ -128,7 +104,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     try {
       console.log("Fetching detailed schemes with Grounding...");
       response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Government Scheme Consultant for Indian Farmers representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Provide professional, detailed, and current schemes in a structured JSON format.",
@@ -159,7 +135,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     } catch (searchError) {
       console.warn("Scheme grounding failed, using standard generation...", searchError);
       response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Government Scheme Consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Provide 20 most important agri schemes in JSON format using latest knowledge.",

@@ -373,12 +373,8 @@ const AiAgriExpert: React.FC = () => {
       processorRef.current.connect(audioContextRef.current.destination);
 
       // 3. Setup Gemini Session
-      const activeKey = userSettings?.geminiApiKey?.trim() || "";
-      if (!activeKey) {
-        throw new Error("AI कॉल शुरू करने के लिए आपकी व्यक्तिगत Gemini API Key आवश्यक है। कृपया अपनी प्रोफाइल में Key दर्ज करें।");
-      }
-
-      const ai = new GoogleGenAI({ apiKey: activeKey });
+      const apiKey = userSettings?.geminiApiKey || "";
+      const ai = new GoogleGenAI({ apiKey });
     const systemInstruction = `आप एक अनुभवी और दयालु भारतीय कृषि विशेषज्ञ (Agri-Expert) हैं। 
 आपका नाम 'कृषि साथी' है और आप 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar) से बात कर रही हैं। 
 

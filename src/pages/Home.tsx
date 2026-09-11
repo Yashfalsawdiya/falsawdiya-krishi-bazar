@@ -441,28 +441,24 @@ const Home: React.FC = () => {
       </div>
 
       {/* API Key Prompt */}
-      {!userSettings?.geminiApiKey?.trim() && (
+      {user && !userSettings?.geminiApiKey && (
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-purple-50 border border-purple-200 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm"
+          className="bg-purple-50 border border-purple-100 rounded-2xl p-4 flex items-center justify-between gap-3"
         >
           <div className="flex items-center gap-3">
-            <div className="bg-purple-100 p-2 rounded-xl shrink-0">
+            <div className="bg-purple-100 p-2 rounded-xl">
               <Key className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-purple-900">अपनी व्यक्तिगत AI Key सेट करें</h4>
-              <p className="text-[10px] text-purple-700">फसल डॉक्टर, वॉइस कॉल और सभी AI फीचर्स का उपयोग करने के लिए 1-बार अपनी फ्री Key डालें।</p>
+              <h4 className="text-xs font-bold text-purple-900">अपनी API Key सेट करें</h4>
+              <p className="text-[10px] text-purple-700">बिना किसी रुकावट के AI सुविधाओं का उपयोग करने के लिए अपनी Key डालें।</p>
             </div>
           </div>
-          <button 
-            type="button"
-            onClick={() => setIsModalOpen(true)}
-            className="bg-purple-700 hover:bg-purple-800 text-white text-[11px] font-bold px-3.5 py-2 rounded-xl whitespace-nowrap shadow transition-colors cursor-pointer"
-          >
+          <Link to="/profile" className="bg-purple-600 text-white text-[10px] font-bold px-3 py-2 rounded-lg whitespace-nowrap">
             अभी सेट करें
-          </button>
+          </Link>
         </motion.div>
       )}
 

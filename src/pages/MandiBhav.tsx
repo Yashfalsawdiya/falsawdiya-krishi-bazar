@@ -80,16 +80,16 @@ const MandiBhav: React.FC = () => {
   // Handle cascading state changes
   const handleStateChange = (state: string) => {
     setSelectedState(state);
-    const firstDistrict = Object.keys(STATE_MANDI_DATA[state] || {})[0] || "";
+    const firstDistrict = Object.keys(STATE_MANDI_DATA[state])[0];
     setSelectedDistrict(firstDistrict);
-    const firstMandi = STATE_MANDI_DATA[state]?.[firstDistrict]?.[0] || "";
+    const firstMandi = STATE_MANDI_DATA[state][firstDistrict][0];
     setSelectedMandi(firstMandi);
   };
 
   const handleDistrictChange = (district: string) => {
     setSelectedDistrict(district);
     const stateData = STATE_MANDI_DATA[selectedState];
-    const firstMandi = stateData?.[district]?.[0] || "";
+    const firstMandi = stateData[district][0];
     setSelectedMandi(firstMandi);
   };
 
@@ -123,26 +123,23 @@ const MandiBhav: React.FC = () => {
 
   // Filter items in current mandi
   const filteredItems = useMemo(() => {
-    if (!data || !Array.isArray(data.items)) return [];
+    if (!data || !data.items) return [];
     return data.items.filter(item => {
-      const comm = String(item?.commodity || "");
       const matchSearch = 
-        comm.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item?.quality && String(item.quality).toLowerCase().includes(searchQuery.toLowerCase()));
+        item.commodity.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.quality && item.quality.toLowerCase().includes(searchQuery.toLowerCase()));
       
-      const hindiCrop = getHindiCropName(selectedCropFilter);
       const matchCrop = 
         selectedCropFilter === "ALL" || 
-        comm.includes(hindiCrop) ||
-        (hindiCrop && comm.toLowerCase().includes(hindiCrop.toLowerCase()));
+        item.commodity === getHindiCropName(selectedCropFilter);
 
       return matchSearch && matchCrop;
     });
   }, [data, searchQuery, selectedCropFilter]);
 
   // Generate simulated historical price points for the selected item
-  const getHistoricalPoints = (avgPrice: any, seedOffset: number) => {
-    const base = parseInt(String(avgPrice || '3000')) || 3000;
+  const getHistoricalPoints = (avgPrice: string, seedOffset: number) => {
+    const base = parseInt(avgPrice) || 3000;
     const points = [];
     const count = 7;
     // Stable pseudo-random pattern based on average price
@@ -304,7 +301,7 @@ const MandiBhav: React.FC = () => {
                 </p>
               </div>
             </div>
-          ) : data && Array.isArray(data.items) && data.items.length > 0 ? (
+          ) : data ? (
             <motion.div 
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
@@ -315,12 +312,12 @@ const MandiBhav: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <p className="text-[11px] font-bold text-gray-700">
-                    मंडी: <span className="text-[#2D5A27] font-black">{data?.mandiName || selectedMandi}</span> ({data?.district || selectedDistrict}, {data?.state ? (typeof data.state === 'string' && data.state.includes(" (") ? data.state.split(" (")[0] : data.state) : (selectedState ? selectedState.split(" (")[0] : '')})
+                    मंडी: <span className="text-[#2D5A27] font-black">{data.mandiName}</span> ({data.district}, {data.state.split(" (")[0]})
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 text-gray-500 text-[10px] font-bold">
                   <RefreshCw className="w-3.5 h-3.5 text-[#2D5A27]" />
-                  अंतिम अपडेट: {data?.date || 'आज'}
+                  अंतिम अपडेट: {data.date}
                 </div>
               </div>
 
@@ -335,7 +332,7 @@ const MandiBhav: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {filteredItems.map((item, idx) => {
                     const isExpanded = expandedCardIndex === idx;
-                    const histData = getHistoricalPoints(item?.avgPrice || (item as any)?.modalPrice || item?.maxPrice, idx);
+                    const histData = getHistoricalPoints(item.avgPrice, idx);
                     const minHist = Math.min(...histData);
                     const maxHist = Math.max(...histData);
                     const priceRange = maxHist - minHist || 100;
@@ -381,22 +378,22 @@ const MandiBhav: React.FC = () => {
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-emerald-50 text-[#2D5A27] rounded-xl flex items-center justify-center font-bold text-sm">
-                              {item?.commodity ? String(item.commodity).charAt(0) : '🌾'}
+                              {item.commodity.charAt(0)}
                             </div>
                             <div>
                               <div className="flex items-center gap-1.5">
-                                <h4 className="font-black text-gray-800 text-sm">{item?.commodity || 'फसल'}</h4>
+                                <h4 className="font-black text-gray-800 text-sm">{item.commodity}</h4>
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-400 uppercase tracking-tight">
-                                  {item?.unit || '₹/क्विंटल'}
+                                  {item.unit}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2 mt-1">
-                                {item?.quality && (
+                                {item.quality && (
                                   <span className="text-[9px] bg-[#2D5A27]/5 text-[#2D5A27] font-semibold px-1.5 py-0.5 rounded">
                                     गुणवत्ता: {item.quality}
                                   </span>
                                 )}
-                                {item?.arrival && (
+                                {item.arrival && (
                                   <span className="text-[9px] bg-amber-500/5 text-amber-700 font-semibold px-1.5 py-0.5 rounded">
                                     आवक: {item.arrival}
                                   </span>
@@ -408,9 +405,9 @@ const MandiBhav: React.FC = () => {
                           <div className="flex items-center gap-3">
                             <div className="text-right">
                               <span className="text-[9px] font-bold text-gray-400 block uppercase">मॉडल भाव</span>
-                              <div className="text-base font-black text-[#2D5A27]">₹{item?.avgPrice || (item as any)?.modalPrice || item?.maxPrice || '0'}</div>
-                              <div className="text-[10px] font-bold text-gray-400 mt-0.5 bg-gray-50 px-1 rounded">
-                                ₹{item?.minPrice || '0'} - ₹{item?.maxPrice || '0'}
+                              <div className="text-base font-black text-[#2D5A27]">₹{item.avgPrice}</div>
+                              <div className="text-[10px] font-bold text-gray-400 mt-0.5 bg-gray-55 px-1 rounded">
+                                ₹{item.minPrice} - ₹{item.maxPrice}
                               </div>
                             </div>
                             <div>
@@ -436,9 +433,9 @@ const MandiBhav: React.FC = () => {
                               {/* Price Bar & Spread Gauge */}
                               <div className="space-y-1.5">
                                 <div className="flex justify-between text-[10px] font-bold text-gray-500">
-                                  <span>न्यूनतम: ₹{item?.minPrice || '0'}</span>
-                                  <span className="text-[#2D5A27]">मॉडल: ₹{item?.avgPrice || (item as any)?.modalPrice || item?.maxPrice || '0'}</span>
-                                  <span>अधिकतम: ₹{item?.maxPrice || '0'}</span>
+                                  <span>न्यूनतम: ₹{item.minPrice}</span>
+                                  <span className="text-[#2D5A27]">मॉडल: ₹{item.avgPrice}</span>
+                                  <span>अधिकतम: ₹{item.maxPrice}</span>
                                 </div>
                                 <div className="h-2 w-full bg-gray-200 rounded-full relative overflow-hidden flex">
                                   {/* Visual representation of range */}
@@ -509,11 +506,11 @@ const MandiBhav: React.FC = () => {
                               {/* Detailed Info Chips & WhatsApp Share button */}
                               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                                 <div className="text-[9px] text-gray-400 font-bold">
-                                  अपडेट: {item?.lastUpdated || data?.date || 'आज'}
+                                  अपडेट: {item.lastUpdated}
                                 </div>
                                 
                                 <a 
-                                  href={getWhatsAppShareLink(data?.mandiName || selectedMandi, item)}
+                                  href={getWhatsAppShareLink(data.mandiName, item)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="bg-[#25D366] text-white text-[10px] font-black px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-all hover:bg-[#20ba5a]"
