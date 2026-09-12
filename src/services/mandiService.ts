@@ -111,13 +111,10 @@ export async function fetchMandiBhav(
   try {
     const ai = getAI(apiKey);
     if (!ai) {
-      // If no API key is set, check if we have any cached data (even if expired) to maintain continuity
-      if (cachedData) {
-        try {
-          return JSON.parse(cachedData);
-        } catch (e) {}
-      }
-      return fallbackData;
+      throw {
+        type: 'key_missing',
+        message: 'मंडी भाव की ताज़ा AI जानकारी प्राप्त करने के लिए अपनी Gemini API Key जोड़ें।'
+      };
     }
 
     const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -205,6 +202,9 @@ export async function fetchMandiBhav(
     // Propagate key errors if critical
     const friendlyError = getFriendlyAiError(error);
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
+      if (forceRefresh) {
+        throw friendlyError;
+      }
       // For key error, we can still load expired cache safely
       if (cachedData) {
         try {

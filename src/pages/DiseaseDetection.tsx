@@ -17,6 +17,7 @@ import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
 import ApiKeyModal from '../components/ApiKeyModal';
+import useAiGuard from '../hooks/useAiGuard';
 
 export interface DiseaseChatMessage {
   id: string;
@@ -71,9 +72,15 @@ const DiseaseDetection: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<DiseaseAnalysis | null>(null);
   
-  // Modals & Errors
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | undefined>();
+  // Modals & Centralized AI Guard
+  const { 
+    apiKey: effectiveApiKey, 
+    requireApiKey, 
+    isApiKeyModalOpen, 
+    apiKeyModalMessage, 
+    openApiKeyModal, 
+    closeApiKeyModal 
+  } = useAiGuard();
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   
@@ -247,10 +254,7 @@ const DiseaseDetection: React.FC = () => {
     if (images.length === 0) return;
     if (appLoading) return;
 
-    const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
-    if (!effectiveApiKey) {
-      setErrorMessage(undefined);
-      setIsModalOpen(true);
+    if (!requireApiKey("फसल बीमारी की सटीक AI जाँच के लिए कृपया अपनी Gemini API Key जोड़ें।")) {
       return;
     }
 
@@ -313,8 +317,7 @@ const DiseaseDetection: React.FC = () => {
       const friendlyError = getFriendlyAiError(error);
       
       if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
-        setErrorMessage(friendlyError.message);
-        setIsModalOpen(true);
+        openApiKeyModal(friendlyError.message);
       } else {
         setAnalysisResult({ 
           analysis: friendlyError.message,
@@ -329,6 +332,10 @@ const DiseaseDetection: React.FC = () => {
   const handleSendChatMessage = async (inputQuery?: string) => {
     const queryText = (inputQuery || chatInputText).trim();
     if (!queryText || chatLoading || !analysisResult) return;
+
+    if (!requireApiKey("AI कृषि विशेषज्ञ से बातचीत करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) {
+      return;
+    }
 
     const userMsg: DiseaseChatMessage = {
       id: `user_${Date.now()}`,
@@ -348,7 +355,6 @@ const DiseaseDetection: React.FC = () => {
     }));
 
     try {
-      const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
       const aiReply = await askDiseaseReportChat({
         reportAnalysis: analysisResult.analysis,
         userQuestion: queryText,
@@ -438,9 +444,9 @@ const DiseaseDetection: React.FC = () => {
   return (
     <div className="space-y-6 pb-10">
       <ApiKeyModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        message={errorMessage}
+        isOpen={isApiKeyModalOpen} 
+        onClose={closeApiKeyModal} 
+        message={apiKeyModalMessage}
       />
 
       {/* Floating Notification Toast */}
@@ -621,7 +627,10 @@ const DiseaseDetection: React.FC = () => {
         {images.length === 0 && !analysisResult && (
           <div className="grid grid-cols-2 gap-3 pt-1">
             <button 
-              onClick={() => cameraInputRef.current?.click()}
+              onClick={() => {
+                if (!requireApiKey("फसल बीमारी की फोटो जाँचने के लिए कृपया अपनी Gemini API Key जोड़ें।")) return;
+                cameraInputRef.current?.click();
+              }}
               disabled={isCompressing}
               className="bg-white border-2 border-[#2D5A27] text-[#2D5A27] py-4 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-sm active:scale-95 transition-all hover:bg-emerald-50/40"
             >
@@ -629,7 +638,10 @@ const DiseaseDetection: React.FC = () => {
               <span className="text-xs">कैमरा (Camera)</span>
             </button>
             <button 
-              onClick={() => galleryInputRef.current?.click()}
+              onClick={() => {
+                if (!requireApiKey("गैलरी से फोटो जाँचने के लिए कृपया अपनी Gemini API Key जोड़ें।")) return;
+                galleryInputRef.current?.click();
+              }}
               disabled={isCompressing}
               className="bg-white border-2 border-[#2D5A27] text-[#2D5A27] py-4 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-sm active:scale-95 transition-all hover:bg-emerald-50/40"
             >

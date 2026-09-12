@@ -11,21 +11,29 @@ import {
   ChevronRight,
   Copy,
   Check,
-  Share2
+  Share2,
+  Key
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { cn } from '../lib/utils';
 import ApiKeyModal from '../components/ApiKeyModal';
+import useAiGuard from '../hooks/useAiGuard';
 
 const AgriNews: React.FC = () => {
-  const { userSettings, loading: appLoading } = useAppContext();
+  const { loading: appLoading } = useAppContext();
+  const { 
+    apiKey: effectiveApiKey, 
+    requireApiKey, 
+    isApiKeyModalOpen, 
+    apiKeyModalMessage, 
+    openApiKeyModal, 
+    closeApiKeyModal 
+  } = useAiGuard();
   
   // State variables
   const [news, setNews] = useState<AgriNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [silentSyncing, setSilentSyncing] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   
   // Metadata for smart banners
@@ -94,7 +102,7 @@ const AgriNews: React.FC = () => {
     }
 
     try {
-      const response = await fetchAgriNews(userSettings?.geminiApiKey, force);
+      const response = await fetchAgriNews(effectiveApiKey, force);
       
       setNews(response.items);
       setHasTodayNews(response.hasTodayNews);
@@ -105,8 +113,7 @@ const AgriNews: React.FC = () => {
     } catch (error: any) {
       console.error("AgriNews Load failed", error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
-        setErrorMessage(error.message);
-        setIsModalOpen(true);
+        openApiKeyModal(error.message);
       }
       setSyncFailed(true);
     } finally {
@@ -121,7 +128,7 @@ const AgriNews: React.FC = () => {
       // Load news initially from cache, and auto-checks / background-syncs if needed
       loadNews(false);
     }
-  }, [appLoading, userSettings?.geminiApiKey]);
+  }, [appLoading, effectiveApiKey]);
 
   const getCategoryColor = (cat: string) => {
     switch (cat) {
@@ -224,9 +231,9 @@ ${item.source || "कृषि जागरण"}
   return (
     <div className="space-y-6 pb-16">
       <ApiKeyModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        message={errorMessage}
+        isOpen={isApiKeyModalOpen} 
+        onClose={closeApiKeyModal} 
+        message={apiKeyModalMessage}
       />
 
       {/* Styled Page Header */}
@@ -246,7 +253,10 @@ ${item.source || "कृषि जागरण"}
 
         <div className="flex items-center justify-center gap-2 mt-4">
           <button 
-            onClick={() => loadNews(true)}
+            onClick={() => {
+              if (!requireApiKey("ताज़ा कृषि समाचार लोड करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) return;
+              loadNews(true);
+            }}
             disabled={loading || silentSyncing}
             className="text-[11px] font-black text-[#2D5A27] flex items-center gap-1.5 bg-white px-4 py-2 rounded-full border border-[#2D5A27]/15 shadow-sm hover:bg-[#2D5A27]/5 active:scale-95 transition-all disabled:opacity-50"
             id="btn-sync-news"
@@ -328,16 +338,34 @@ ${item.source || "कृषि जागरण"}
       ) : (
         <div className="space-y-4">
           {filteredAndSortedNews.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm">
-              <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-xs font-bold text-gray-500">पिछले 7 दिनों में कोई समाचार उपलब्ध नहीं है।</p>
-              <button 
-                onClick={() => loadNews(true)} 
-                className="mt-3 px-5 py-2 bg-[#2D5A27] text-white text-[11px] font-black rounded-full"
-              >
-                पुनः प्रयास करें
-              </button>
-            </div>
+            !effectiveApiKey ? (
+              <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-200">
+                  <Key className="w-8 h-8 text-amber-600" />
+                </div>
+                <h3 className="text-base font-bold text-gray-800 mb-2">API Key आवश्यक है</h3>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto mb-6">
+                  ताज़ा कृषि समाचार देखने के लिए कृपया अपनी Gemini API Key जोड़ें।
+                </p>
+                <button
+                  onClick={() => requireApiKey("ताज़ा कृषि समाचार लोड करने के लिए कृपया अपनी Gemini API Key जोड़ें।")}
+                  className="px-6 py-3 bg-[#2D5A27] text-white text-xs font-bold rounded-2xl shadow-md active:scale-95 transition-transform inline-flex items-center gap-2"
+                >
+                  <Key className="w-4 h-4" /> अपनी API Key दर्ज करें
+                </button>
+              </div>
+            ) : (
+              <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm">
+                <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-xs font-bold text-gray-500">पिछले 7 दिनों में कोई समाचार उपलब्ध नहीं है।</p>
+                <button 
+                  onClick={() => loadNews(true)} 
+                  className="mt-3 px-5 py-2 bg-[#2D5A27] text-white text-[11px] font-black rounded-full"
+                >
+                  पुनः प्रयास करें
+                </button>
+              </div>
+            )
           ) : (
             <div className="grid grid-cols-1 gap-4">
               {filteredAndSortedNews.map((item, idx) => {

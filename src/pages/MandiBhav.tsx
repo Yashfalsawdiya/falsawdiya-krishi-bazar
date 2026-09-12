@@ -17,13 +17,23 @@ import {
   Filter, 
   Share2, 
   ChevronDown, 
-  ChevronUp
+  ChevronUp,
+  Key
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import ApiKeyModal from '../components/ApiKeyModal';
+import useAiGuard from '../hooks/useAiGuard';
 
 const MandiBhav: React.FC = () => {
-  const { userSettings, loading: appLoading } = useAppContext();
+  const { loading: appLoading } = useAppContext();
+  const { 
+    apiKey: effectiveApiKey, 
+    requireApiKey, 
+    isApiKeyModalOpen, 
+    apiKeyModalMessage, 
+    openApiKeyModal, 
+    closeApiKeyModal 
+  } = useAiGuard();
   
   // State variables for navigation
   const [selectedState, setSelectedState] = useState<string>("मध्यप्रदेश (Madhya Pradesh)");
@@ -40,8 +50,6 @@ const MandiBhav: React.FC = () => {
   // Data fetching state
   const [data, setData] = useState<MandiData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [currentTime] = useState<Date>(new Date());
   
   // Loading Hindi tips
@@ -96,18 +104,21 @@ const MandiBhav: React.FC = () => {
   // Load Mandi Bhav
   const loadData = async (stateVal: string, distVal: string, mandiVal: string, forceRefresh: boolean = false) => {
     if (appLoading) return;
+    if (!effectiveApiKey) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setExpandedCardIndex(null);
     try {
       // In forceRefresh mode, we bypass caching temporarily by passing true to fetchMandiBhav 
       // (our mandiService is cache-aware, so if they click refresh, we generate or fetch new rates)
-      const result = await fetchMandiBhav(stateVal, distVal, mandiVal, userSettings?.geminiApiKey, forceRefresh);
+      const result = await fetchMandiBhav(stateVal, distVal, mandiVal, effectiveApiKey, forceRefresh);
       setData(result);
     } catch (error: any) {
       console.warn("Mandi load failed", error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
-        setErrorMessage(error.message);
-        setIsModalOpen(true);
+        openApiKeyModal(error.message);
       }
     } finally {
       setLoading(false);
@@ -119,7 +130,7 @@ const MandiBhav: React.FC = () => {
     if (!appLoading) {
       loadData(selectedState, selectedDistrict, selectedMandi);
     }
-  }, [selectedState, selectedDistrict, selectedMandi, appLoading, userSettings?.geminiApiKey]);
+  }, [selectedState, selectedDistrict, selectedMandi, appLoading, effectiveApiKey]);
 
   // Filter items in current mandi
   const filteredItems = useMemo(() => {
@@ -159,9 +170,9 @@ const MandiBhav: React.FC = () => {
   return (
     <div className="space-y-6 pb-16">
       <ApiKeyModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        message={errorMessage}
+        isOpen={isApiKeyModalOpen} 
+        onClose={closeApiKeyModal} 
+        message={apiKeyModalMessage}
       />
 
       {/* Hero Header */}
@@ -541,12 +552,31 @@ const MandiBhav: React.FC = () => {
 
               {/* Manual Refresh Button */}
               <button 
-                onClick={() => loadData(selectedState, selectedDistrict, selectedMandi, true)}
+                onClick={() => {
+                  if (!requireApiKey("लाइव मंडी भाव अपडेट करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) return;
+                  loadData(selectedState, selectedDistrict, selectedMandi, true);
+                }}
                 className="w-full py-4 rounded-2xl border-2 border-[#2D5A27] text-[#2D5A27] bg-white font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-[#2D5A27]/5"
               >
                 <RefreshCw className="w-4 h-4" /> ताज़ा भाव अपडेट करें (Sync Live Data)
               </button>
             </motion.div>
+          ) : !effectiveApiKey ? (
+            <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm mx-1 p-6">
+              <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-200">
+                <Key className="w-8 h-8 text-amber-600" />
+              </div>
+              <h3 className="text-base font-bold text-gray-800 mb-2">API Key आवश्यक है</h3>
+              <p className="text-xs text-gray-500 max-w-sm mx-auto mb-6">
+                लाइव मंडी भाव देखने के लिए कृपया अपनी Gemini API Key जोड़ें।
+              </p>
+              <button
+                onClick={() => requireApiKey("लाइव मंडी भाव देखने के लिए कृपया अपनी Gemini API Key जोड़ें।")}
+                className="px-6 py-3 bg-[#2D5A27] text-white text-xs font-bold rounded-2xl shadow-md active:scale-95 transition-transform inline-flex items-center gap-2"
+              >
+                <Key className="w-4 h-4" /> अपनी API Key दर्ज करें
+              </button>
+            </div>
           ) : (
             <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm mx-1">
               <AlertCircle className="w-12 h-12 text-gray-200 mx-auto mb-4" />

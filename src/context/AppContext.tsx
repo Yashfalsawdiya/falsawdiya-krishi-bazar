@@ -244,7 +244,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('falsawdiya_user_gemini_api_key')?.trim();
+      if (cached && cached.length > 5) {
+        return { geminiApiKey: cached };
+      }
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(true);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const [allUsers, setAllUsers] = useState<UserRecord[]>([]);
@@ -324,7 +332,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
 
               setIsAdmin(userData.role === 'admin' || isAdminEmail);
-              setUserSettings({ geminiApiKey: userData.geminiApiKey || '' });
+              const loadedKey = userData.geminiApiKey?.trim() || '';
+              if (loadedKey) {
+                localStorage.setItem('falsawdiya_user_gemini_api_key', loadedKey);
+              }
+              setUserSettings({ geminiApiKey: loadedKey });
             } else {
               // Create default doc if missing
               const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
@@ -333,17 +345,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const backupAdmins = contentData?.adminEmails || [];
               const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
 
+              const cachedDeviceKey = typeof window !== 'undefined' ? localStorage.getItem('falsawdiya_user_gemini_api_key')?.trim() || '' : '';
               const defaultSettings = {
                 uid: firebaseUser.uid,
                 email: firebaseUser.email,
                 displayName: firebaseUser.displayName || '',
                 role: isAdminEmail ? 'admin' : 'user',
                 isBlocked: false,
-                geminiApiKey: ''
+                geminiApiKey: cachedDeviceKey
               };
               await setDoc(doc(db, 'users', firebaseUser.uid), defaultSettings);
               setIsAdmin(isAdminEmail);
-              setUserSettings({ geminiApiKey: '' });
+              setUserSettings({ geminiApiKey: cachedDeviceKey });
             }
             setLoading(false);
           }, (error) => {
@@ -1186,12 +1199,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateUserSettings = async (settings: UserSettings) => {
+    const key = settings.geminiApiKey?.trim() || '';
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('falsawdiya_user_gemini_api_key', key);
+    }
+    setUserSettings({ geminiApiKey: key });
+
     if (!user) return;
     try {
       await updateDoc(doc(db, 'users', user.uid), {
-        geminiApiKey: settings.geminiApiKey
+        geminiApiKey: key
       });
-      setUserSettings(settings);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
     }

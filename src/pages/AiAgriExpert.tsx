@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Sparkles, AlertCircle, ChevronLeft, Loader2, User, Camera, CameraOff } from 'lucide-react';
 import ApiKeyModal from '../components/ApiKeyModal';
+import useAiGuard from '../hooks/useAiGuard';
 import { useAppContext } from '../context/AppContext';
 import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
 import { cn } from '../lib/utils';
@@ -13,11 +14,17 @@ const SAMPLE_RATE = 24000;
 const CHUNK_SIZE = 4096;
 
 const AiAgriExpert: React.FC = () => {
-  const { userSettings, appContent, loading: appLoading } = useAppContext();
+  const { appContent, loading: appLoading } = useAppContext();
   const navigate = useNavigate();
   
-  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
-  const [apiKeyErrorMessage, setApiKeyErrorMessage] = useState<string | undefined>();
+  const { 
+    apiKey: effectiveApiKey, 
+    requireApiKey, 
+    isApiKeyModalOpen, 
+    apiKeyModalMessage, 
+    openApiKeyModal, 
+    closeApiKeyModal 
+  } = useAiGuard();
   const [isCalling, setIsCalling] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const isMutedRef = useRef(false);
@@ -314,9 +321,7 @@ const AiAgriExpert: React.FC = () => {
   const startCall = async () => {
     if (appLoading) return;
 
-    if (!userSettings?.geminiApiKey) {
-      setApiKeyErrorMessage(undefined);
-      setIsApiKeyModalOpen(true);
+    if (!requireApiKey("AI कृषि विशेषज्ञ से लाइव बात करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) {
       return;
     }
 
@@ -373,8 +378,7 @@ const AiAgriExpert: React.FC = () => {
       processorRef.current.connect(audioContextRef.current.destination);
 
       // 3. Setup Gemini Session
-      const apiKey = userSettings?.geminiApiKey || "";
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
     const systemInstruction = `आप एक अनुभवी और दयालु भारतीय कृषि विशेषज्ञ (Agri-Expert) हैं। 
 आपका नाम 'कृषि साथी' है और आप 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar) से बात कर रही हैं। 
 
@@ -495,8 +499,7 @@ STRICT RULE ON NAME:
       const friendlyError = getFriendlyAiError(err);
       
       if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
-        setApiKeyErrorMessage(friendlyError.message);
-        setIsApiKeyModalOpen(true);
+        openApiKeyModal(friendlyError.message);
         setIsCalling(false);
         setStatus('idle');
         return;
@@ -536,8 +539,8 @@ STRICT RULE ON NAME:
     <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-between p-6 pb-24">
       <ApiKeyModal 
         isOpen={isApiKeyModalOpen} 
-        onClose={() => setIsApiKeyModalOpen(false)} 
-        message={apiKeyErrorMessage}
+        onClose={closeApiKeyModal} 
+        message={apiKeyModalMessage}
       />
       {/* Header */}
       <div className="w-full flex items-center justify-between lg:justify-center mb-8">

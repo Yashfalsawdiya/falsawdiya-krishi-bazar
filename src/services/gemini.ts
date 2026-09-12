@@ -2,13 +2,14 @@ import { GoogleGenAI } from "@google/genai";
 import { getFriendlyAiError } from "../utils/aiErrorHandler";
 
 const getAI = (userApiKey?: string) => {
-  const apiKey = userApiKey || import.meta.env.VITE_GEMINI_API_KEY;
+  // STRICT USER-SPECIFIC API KEY: We never fall back to shared/central environment keys
+  const apiKey = userApiKey?.trim();
   
-  if (!apiKey || apiKey.trim() === "") {
+  if (!apiKey || apiKey === "") {
     return null;
   }
   
-  return new GoogleGenAI({ apiKey: apiKey.trim() });
+  return new GoogleGenAI({ apiKey });
 };
 
 export interface DiseaseAnalysis {

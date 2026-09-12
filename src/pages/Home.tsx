@@ -10,6 +10,7 @@ import { fetchWeather, WeatherData } from '../services/weatherService';
 import { fetchMandiBhav, MandiData } from '../services/mandiService';
 import { getDynamicAdvice, askAiQuestion } from '../services/gemini';
 import ApiKeyModal from '../components/ApiKeyModal';
+import useAiGuard from '../hooks/useAiGuard';
 import { AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { 
@@ -76,7 +77,15 @@ import SmartImage from '../components/SmartImage';
 import { Product, ImageSource } from '../types';
 
 const Home: React.FC = () => {
-  const { products, categories, appContent, user, userSettings, loadProducts, loadCategoryData, loading: appLoading } = useAppContext();
+  const { products, categories, appContent, user, loadProducts, loadCategoryData, loading: appLoading } = useAppContext();
+  const { 
+    apiKey: effectiveApiKey, 
+    requireApiKey, 
+    isApiKeyModalOpen, 
+    apiKeyModalMessage, 
+    openApiKeyModal, 
+    closeApiKeyModal 
+  } = useAiGuard();
   const { addToCart } = useCart();
   const navigate = useNavigate();
 
@@ -129,8 +138,6 @@ const Home: React.FC = () => {
   const [mandi, setMandi] = useState<MandiData | null>(null);
   const [aiAdvice, setAiAdvice] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [apiKeyErrorMessage, setApiKeyErrorMessage] = useState<string | undefined>();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [userQuestion, setUserQuestion] = useState('');
   const [lastQuestion, setLastQuestion] = useState<string | null>(null);
@@ -207,22 +214,19 @@ const Home: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // We delay slightly to ensure userSettings are loaded
-    if (!appLoading) {
-      fetchMandiBhav('Shamgarh', userSettings?.geminiApiKey)
+    if (!appLoading && effectiveApiKey) {
+      fetchMandiBhav('Shamgarh', effectiveApiKey)
         .then(setMandi)
         .catch(err => {
-          console.warn("Mandi load failed, but service should have returned fallback", err);
+          console.warn("Mandi load failed", err);
         });
     }
-  }, [appLoading, userSettings?.geminiApiKey]);
+  }, [appLoading, effectiveApiKey]);
 
   const handleOpenChat = () => {
     if (appLoading) return;
 
-    if (!userSettings?.geminiApiKey) {
-      setApiKeyErrorMessage(undefined);
-      setIsModalOpen(true);
+    if (!requireApiKey("AI कृषि चैट का उपयोग करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) {
       return;
     }
     setIsChatOpen(true);
@@ -236,6 +240,10 @@ const Home: React.FC = () => {
     
     if (appLoading) return;
 
+    if (!requireApiKey("AI से प्रश्न पूछने के लिए कृपया अपनी Gemini API Key जोड़ें।")) {
+      return;
+    }
+
     const question = userQuestion.trim();
     setLastQuestion(question);
     setUserQuestion('');
@@ -243,13 +251,12 @@ const Home: React.FC = () => {
 
     setIsAiLoading(true);
     try {
-      const response = await askAiQuestion(question, weather, userSettings?.geminiApiKey);
+      const response = await askAiQuestion(question, weather, effectiveApiKey);
       setChatResponse(response);
     } catch (error: any) {
       console.error("AI Question failed:", error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
-        setApiKeyErrorMessage(error.message);
-        setIsModalOpen(true);
+        openApiKeyModal(error.message);
         setIsChatOpen(false);
       } else {
         setChatResponse(error.message || "त्रुटि हुई। कृपया पुनः प्रयास करें।");
@@ -262,9 +269,7 @@ const Home: React.FC = () => {
   const handleGetAiAdvice = async () => {
     if (appLoading) return;
 
-    if (!userSettings?.geminiApiKey) {
-      setApiKeyErrorMessage(undefined);
-      setIsModalOpen(true);
+    if (!requireApiKey("AI कृषि सलाह प्राप्त करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) {
       return;
     }
 
@@ -272,13 +277,12 @@ const Home: React.FC = () => {
 
     setIsAiLoading(true);
     try {
-      const advice = await getDynamicAdvice(weather, "Kharif", "Soybean", userSettings?.geminiApiKey);
+      const advice = await getDynamicAdvice(weather, "Kharif", "Soybean", effectiveApiKey);
       setAiAdvice(advice);
     } catch (error: any) {
       console.error("AI Advice failed:", error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
-        setApiKeyErrorMessage(error.message);
-        setIsModalOpen(true);
+        openApiKeyModal(error.message);
       } else {
         setAiAdvice(error.message || "सलाह उपलब्ध नहीं है।");
       }
@@ -295,9 +299,9 @@ const Home: React.FC = () => {
   return (
     <div className="space-y-6">
       <ApiKeyModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        message={apiKeyErrorMessage}
+        isOpen={isApiKeyModalOpen} 
+        onClose={closeApiKeyModal} 
+        message={apiKeyModalMessage}
       />
       <div className="flex items-center justify-between px-1">
         <p className="text-xs font-bold text-gray-500 flex items-center gap-1">
@@ -441,7 +445,7 @@ const Home: React.FC = () => {
       </div>
 
       {/* API Key Prompt */}
-      {user && !userSettings?.geminiApiKey && (
+      {!effectiveApiKey && (
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -453,12 +457,15 @@ const Home: React.FC = () => {
             </div>
             <div>
               <h4 className="text-xs font-bold text-purple-900">अपनी API Key सेट करें</h4>
-              <p className="text-[10px] text-purple-700">बिना किसी रुकावट के AI सुविधाओं का उपयोग करने के लिए अपनी Key डालें।</p>
+              <p className="text-[10px] text-purple-700">फसल रोग पहचान, AI वॉइस कॉल, ताज़ा मंडी भाव और कृषि सलाह के लिए अपनी Key जोड़ें।</p>
             </div>
           </div>
-          <Link to="/profile" className="bg-purple-600 text-white text-[10px] font-bold px-3 py-2 rounded-lg whitespace-nowrap">
+          <button 
+            onClick={() => openApiKeyModal()}
+            className="bg-purple-600 text-white text-[10px] font-bold px-3 py-2 rounded-lg whitespace-nowrap active:scale-95 transition-transform cursor-pointer"
+          >
             अभी सेट करें
-          </Link>
+          </button>
         </motion.div>
       )}
 

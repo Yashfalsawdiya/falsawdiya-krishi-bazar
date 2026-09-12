@@ -13,6 +13,8 @@ import {
 import { useAppContext } from '../context/AppContext';
 import { getProductKnowledge, ProductKnowledgeResult, analyzeProductImage } from '../services/gemini';
 import ApiKeyModal from '../components/ApiKeyModal';
+import useAiGuard from '../hooks/useAiGuard';
+import { getFriendlyAiError } from '../utils/aiErrorHandler';
 import { 
   collection, 
   doc, 
@@ -164,14 +166,20 @@ const getSafeDocId = (productName: string): string => {
 
 export default function AiProductKnowledge() {
   const navigate = useNavigate();
-  const { user, userSettings } = useAppContext();
+  const { user } = useAppContext();
+  const { 
+    apiKey: effectiveApiKey, 
+    requireApiKey, 
+    isApiKeyModalOpen, 
+    apiKeyModalMessage, 
+    openApiKeyModal, 
+    closeApiKeyModal 
+  } = useAiGuard();
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ProductKnowledgeResult | null>(null);
   const [isFromCache, setIsFromCache] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
-  const [apiKeyErrorMessage, setApiKeyErrorMessage] = useState<string | undefined>();
   
   // Image Search states and refs
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
@@ -315,10 +323,7 @@ export default function AiProductKnowledge() {
     const term = searchQuery.trim();
     if (!term) return;
 
-    const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
-    if (!effectiveApiKey) {
-      setApiKeyErrorMessage("AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key सेट करें।");
-      setIsApiKeyModalOpen(true);
+    if (!requireApiKey("AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) {
       return;
     }
 
@@ -347,8 +352,13 @@ export default function AiProductKnowledge() {
       setResult(data);
       autoSaveProduct(data);
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || "जानकारी खोजने में समस्या आई। कृपया पुनः प्रयास करें।");
+      console.error("AI Product Knowledge Search Error:", err);
+      const friendly = getFriendlyAiError(err);
+      if (friendly.type === 'key_missing' || friendly.type === 'key_invalid') {
+        openApiKeyModal(friendly.message);
+      } else {
+        setError(friendly.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -439,11 +449,8 @@ export default function AiProductKnowledge() {
   };
 
   const handleImageSearch = async (base64Img: string) => {
-    const effectiveApiKey = userSettings?.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || '';
-    if (!effectiveApiKey) {
+    if (!requireApiKey("AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) {
       setIsLoading(false);
-      setApiKeyErrorMessage("AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key सेट करें।");
-      setIsApiKeyModalOpen(true);
       return;
     }
 
@@ -471,8 +478,13 @@ export default function AiProductKnowledge() {
         setQuery(data.productName);
       }
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || "इमेज का विश्लेषण करने में समस्या आई। कृपया पुनः प्रयास करें।");
+      console.error("AI Product Image Search Error:", err);
+      const friendly = getFriendlyAiError(err);
+      if (friendly.type === 'key_missing' || friendly.type === 'key_invalid') {
+        openApiKeyModal(friendly.message);
+      } else {
+        setError(friendly.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -1231,8 +1243,8 @@ ${result.safetyInstructions}
       {/* API Key Modal */}
       <ApiKeyModal 
         isOpen={isApiKeyModalOpen}
-        onClose={() => setIsApiKeyModalOpen(false)}
-        message={apiKeyErrorMessage}
+        onClose={closeApiKeyModal}
+        message={apiKeyModalMessage}
       />
 
       {/* Header Panel */}

@@ -205,15 +205,9 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
   try {
     const ai = getAI(userApiKey);
     if (!ai) {
-      // No key, we fallback to our local cache cleanly
-      const hasToday = currentCache.some(item => item.date === todayStr);
-      return {
-        items: currentCache,
-        isCached: true,
-        isOfflineFallback: true,
-        syncFailed: false,
-        hasTodayNews: hasToday,
-        lastSyncedTime: lastSyncStr
+      throw {
+        type: 'key_missing',
+        message: 'कृषि समाचार की ताज़ा AI खबरें देखने के लिए कृपया अपनी Gemini API Key जोड़ें।'
       };
     }
 

@@ -36,15 +36,20 @@ const Profile: React.FC = () => {
   const isDeliveryPartner = Boolean(!isAdmin && partnerProfile && partnerProfile.isActive === true);
 
   useEffect(() => {
-    if (userSettings) {
-      setApiKey(userSettings.geminiApiKey || '');
+    if (userSettings?.geminiApiKey) {
+      setApiKey(userSettings.geminiApiKey);
+    } else {
+      const cached = localStorage.getItem('falsawdiya_user_gemini_api_key');
+      if (cached) setApiKey(cached);
     }
   }, [userSettings]);
 
   const handleSave = async () => {
     setIsSaving(true);
+    const cleanedKey = apiKey.trim();
     try {
-      await updateUserSettings({ geminiApiKey: apiKey });
+      localStorage.setItem('falsawdiya_user_gemini_api_key', cleanedKey);
+      await updateUserSettings({ geminiApiKey: cleanedKey });
       setSaveMessage('API Key सुरक्षित कर दी गई है!');
       setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {

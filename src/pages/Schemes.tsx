@@ -4,33 +4,37 @@ import { motion } from 'motion/react';
 import { Landmark, ChevronRight, Info, Loader2, ExternalLink, RefreshCw, X, Key } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import ApiKeyModal from '../components/ApiKeyModal';
+import useAiGuard from '../hooks/useAiGuard';
 
 const Schemes: React.FC = () => {
-  const { userSettings, loading: appLoading } = useAppContext();
+  const { loading: appLoading } = useAppContext();
+  const { 
+    apiKey: effectiveApiKey, 
+    requireApiKey, 
+    isApiKeyModalOpen, 
+    apiKeyModalMessage, 
+    openApiKeyModal, 
+    closeApiKeyModal 
+  } = useAiGuard();
   const [schemes, setSchemes] = useState<Scheme[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
   const loadSchemes = async (force: boolean = false) => {
     if (appLoading) return;
 
-    if (!userSettings?.geminiApiKey) {
-      setErrorMessage(undefined);
-      setIsModalOpen(true);
+    if (!effectiveApiKey) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const data = await fetchSchemes(userSettings?.geminiApiKey, force);
+      const data = await fetchSchemes(effectiveApiKey, force);
       setSchemes(data);
     } catch (error: any) {
       console.error(error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
-        setErrorMessage(error.message);
-        setIsModalOpen(true);
+        openApiKeyModal(error.message);
       }
     } finally {
       setLoading(false);
@@ -38,17 +42,19 @@ const Schemes: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!appLoading) {
+    if (!appLoading && effectiveApiKey) {
       loadSchemes(false);
+    } else if (!appLoading && !effectiveApiKey) {
+      setLoading(false);
     }
-  }, [appLoading, userSettings?.geminiApiKey]);
+  }, [appLoading, effectiveApiKey]);
 
   return (
     <div className="space-y-6 pb-10">
       <ApiKeyModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        message={errorMessage}
+        isOpen={isApiKeyModalOpen} 
+        onClose={closeApiKeyModal} 
+        message={apiKeyModalMessage}
       />
       <div className="text-center">
         <h2 className="text-xl font-bold text-[#4A3728] flex items-center justify-center gap-2">
@@ -57,7 +63,10 @@ const Schemes: React.FC = () => {
         </h2>
         <p className="text-sm text-gray-500">किसानों के लिए लाभकारी योजनाएं</p>
         <button 
-          onClick={() => loadSchemes(true)}
+          onClick={() => {
+            if (!requireApiKey("सरकारी योजनाएं ताज़ा करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) return;
+            loadSchemes(true);
+          }}
           className="mt-2 text-[10px] font-bold text-[#2D5A27] flex items-center gap-1 mx-auto bg-[#2D5A27]/5 px-3 py-1 rounded-full border border-[#2D5A27]/10 active:scale-95 transition-transform"
         >
           <RefreshCw className="w-3 h-3" /> ताज़ा करें (Refresh)
@@ -71,6 +80,22 @@ const Schemes: React.FC = () => {
             नवीनतम सरकारी योजनाएं खोजी जा रही हैं... <br/>
             (Fetching latest schemes)
           </p>
+        </div>
+      ) : !effectiveApiKey ? (
+        <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm mx-1 p-6">
+          <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-200">
+            <Key className="w-8 h-8 text-amber-600" />
+          </div>
+          <h3 className="text-base font-bold text-gray-800 mb-2">API Key आवश्यक है</h3>
+          <p className="text-xs text-gray-500 max-w-sm mx-auto mb-6">
+            नवीनतम सरकारी योजनाएं देखने के लिए कृपया अपनी Gemini API Key जोड़ें।
+          </p>
+          <button
+            onClick={() => requireApiKey("सरकारी योजनाएं देखने के लिए कृपया अपनी Gemini API Key जोड़ें।")}
+            className="px-6 py-3 bg-[#2D5A27] text-white text-xs font-bold rounded-2xl shadow-md active:scale-95 transition-transform inline-flex items-center gap-2"
+          >
+            <Key className="w-4 h-4" /> अपनी API Key दर्ज करें
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
