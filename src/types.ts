@@ -828,6 +828,54 @@ export interface DeliveryEmailTemplateConfig {
   lastUpdated?: number;
 }
 
-
-
-
+export interface AppContent {
+  branding: {
+    name: string;
+    tagline: string;
+    logo: string | ImageSource;
+    pwaIcon?: string | ImageSource;
+    androidIcon?: string | ImageSource;
+    splashLogo?: string | ImageSource;
+  };
+  loginText?: string;
+  adminEmails?: string[];
+  isAppActive?: boolean;
+  showBannerText?: boolean;
+  banners: { id: string; image: string | ImageSource; title: string; subtitle: string }[];
+  deviceBanners?: DeviceBannersMap;
+  videos: YouTubeVideoItem[];
+  youtubeChannel: {
+    url: string;
+    label: string;
+  };
+  partners: { id: string; name: string; logo: string | ImageSource }[];
+  whatsappSection: {
+    title: string;
+    description: string;
+    mode: 'direct' | 'group';
+    groupLink: string;
+  };
+  facebookSection?: {
+    enabled?: boolean;
+    title?: string;
+    description?: string;
+    pageUrl?: string;
+    buttonText?: string;
+  };
+  instagramSection?: {
+    enabled?: boolean;
+    title?: string;
+    description?: string;
+    profileUrl?: string;
+    buttonText?: string;
+  };
+  contactInfo: {
+    whatsapp: string;
+    address: string;
+  };
+  apiKeyGuideVideoUrl?: string;
+  deliveryServiceEnabled?: boolean;
+  isDeliveryActive?: boolean;
+  isDeliveryChargesEnabled?: boolean;
+  deliveryChargesAmount?: number;
+}

@@ -32,7 +32,8 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
 
   const CACHE_KEY = 'agri_schemes_cache';
   const CACHE_TIME_KEY = 'agri_schemes_cache_time';
-  const CACHE_DURATION = 10 * 1000; // 10 seconds for real-time update as requested by user ("Google से real-time में fetch हों")
+  // 24 Hours cache duration to prevent exhausting Gemini AI quotas, with instant local-first response
+  const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
   const cachedData = localStorage.getItem(CACHE_KEY);
   const cachedTime = localStorage.getItem(CACHE_TIME_KEY);

@@ -36,6 +36,8 @@ import {
 } from 'firebase/auth';
 import { validateLoginEmail } from '../utils/security';
 import { safeLocalStorageSet, sanitizeProductForStorage, cleanupStorageQuota } from '../utils/cacheManager';
+import { loadAllCachedData, syncDataIfVersionChanged, bumpMetadataVersion, IDB_KEYS } from '../utils/dataSyncManager';
+import { idbSet } from '../utils/idbStorage';
 
 export interface AppContent {
   branding: {
@@ -325,10 +327,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               }
 
               const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
-              // Check admin status against content or static list
-              const contentSnap = await getDoc(doc(db, 'settings', 'content'));
-              const contentData = contentSnap.exists() ? contentSnap.data() as AppContent : null;
-              const backupAdmins = contentData?.adminEmails || [];
+              const backupAdmins = appContent?.adminEmails || [];
               const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
 
               setIsAdmin(userData.role === 'admin' || isAdminEmail);
@@ -340,9 +339,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } else {
               // Create default doc if missing
               const mainAdminEmail = 'yashfalsawdiya36@gmail.com';
-              const contentSnap = await getDoc(doc(db, 'settings', 'content'));
-              const contentData = contentSnap.exists() ? contentSnap.data() as AppContent : null;
-              const backupAdmins = contentData?.adminEmails || [];
+              const backupAdmins = appContent?.adminEmails || [];
               const isAdminEmail = firebaseUser.email === mainAdminEmail || backupAdmins.includes(firebaseUser.email || '');
 
               const cachedDeviceKey = typeof window !== 'undefined' ? localStorage.getItem('falsawdiya_user_gemini_api_key')?.trim() || '' : '';
@@ -385,18 +382,115 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  // Global data loading effect
+  // Global data loading effect: Offline-First IndexedDB + Single Metadata Version Check
   useEffect(() => {
-    const unsubProducts = loadProducts();
-    const unsubCategories = loadCategoryData();
-    const unsubHelplines = loadHelplines();
-    const unsubAgriIssues = loadAgriIssues();
-    
+    let isMounted = true;
+
+    async function initData() {
+      // 1. Instant 0ms load from IndexedDB
+      const cached = await loadAllCachedData();
+      if (!isMounted) return;
+
+      if (cached.products.length > 0) setProducts(cached.products);
+      if (cached.categories.length > 0) setCategories(cached.categories);
+      if (cached.agriIssues.length > 0) setAgriIssues(cached.agriIssues);
+      if (cached.helplines.length > 0) setHelplines(cached.helplines);
+      if (cached.appContent) {
+        setAppContent(cached.appContent);
+        prefetchContentImages(cached.appContent);
+      }
+      if (cached.legalPages) setLegalPagesContent(mergeLegalPages(cached.legalPages));
+      if (cached.deliveryConfig) setDeliveryConfig(mergeDeliveryConfig(cached.deliveryConfig));
+      if (cached.invoiceTemplate) setInvoiceTemplate(mergeInvoiceTemplate(cached.invoiceTemplate));
+      if (cached.deliveryEmailTemplate) setDeliveryEmailTemplate(mergeDeliveryEmailTemplate(cached.deliveryEmailTemplate));
+
+      // 2. Intelligent single version check (consumes at most 1 Read, 0 reads if not updated)
+      try {
+        const syncRes = await syncDataIfVersionChanged(db, { isAdmin });
+        if (!isMounted) return;
+        if (syncRes.updated && syncRes.newData) {
+          if (syncRes.newData.products) setProducts(syncRes.newData.products);
+          if (syncRes.newData.categories) setCategories(syncRes.newData.categories);
+          if (syncRes.newData.agriIssues) setAgriIssues(syncRes.newData.agriIssues);
+          if (syncRes.newData.helplines) setHelplines(syncRes.newData.helplines);
+          if (syncRes.newData.appContent) {
+            setAppContent(syncRes.newData.appContent);
+            prefetchContentImages(syncRes.newData.appContent);
+          }
+          if (syncRes.newData.legalPages) setLegalPagesContent(mergeLegalPages(syncRes.newData.legalPages));
+          if (syncRes.newData.deliveryConfig) setDeliveryConfig(mergeDeliveryConfig(syncRes.newData.deliveryConfig));
+          if (syncRes.newData.invoiceTemplate) setInvoiceTemplate(mergeInvoiceTemplate(syncRes.newData.invoiceTemplate));
+          if (syncRes.newData.deliveryEmailTemplate) setDeliveryEmailTemplate(mergeDeliveryEmailTemplate(syncRes.newData.deliveryEmailTemplate));
+        }
+      } catch (err) {
+        console.warn('Background sync check warning:', err);
+      }
+    }
+
+    initData();
+
+    // 3. Admin-only live listeners (only when logged in as admin to observe live admin panel changes)
+    let unsubAdminProducts: Unsubscribe | undefined;
+    let unsubAdminContent: Unsubscribe | undefined;
+    let unsubAdminLegal: Unsubscribe | undefined;
+    let unsubAdminDelivery: Unsubscribe | undefined;
+    let unsubAdminInvoice: Unsubscribe | undefined;
+    let unsubAdminEmailTpl: Unsubscribe | undefined;
+
+    if (isAdmin) {
+      unsubAdminContent = onSnapshot(doc(db, 'settings', 'content'), (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data() as AppContent;
+          setAppContent(data);
+          idbSet(IDB_KEYS.APP_CONTENT, data);
+        }
+      });
+
+      unsubAdminLegal = onSnapshot(doc(db, 'settings', 'legalPages'), (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data() as Partial<LegalPagesContent>;
+          const merged = mergeLegalPages(data);
+          setLegalPagesContent(merged);
+          idbSet(IDB_KEYS.LEGAL_PAGES, merged);
+        }
+      });
+
+      unsubAdminDelivery = onSnapshot(doc(db, 'settings', 'deliveryConfig'), (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data() as Partial<DynamicDeliveryConfig>;
+          const merged = mergeDeliveryConfig(data);
+          setDeliveryConfig(merged);
+          idbSet(IDB_KEYS.DELIVERY_CONFIG, merged);
+        }
+      });
+
+      unsubAdminInvoice = onSnapshot(doc(db, 'settings', 'invoiceTemplate'), (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data() as Partial<InvoiceTemplateConfig>;
+          const merged = mergeInvoiceTemplate(data);
+          setInvoiceTemplate(merged);
+          idbSet(IDB_KEYS.INVOICE_TEMPLATE, merged);
+        }
+      });
+
+      unsubAdminEmailTpl = onSnapshot(doc(db, 'settings', 'deliveryEmailTemplate'), (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data() as Partial<DeliveryEmailTemplateConfig>;
+          const merged = mergeDeliveryEmailTemplate(data);
+          setDeliveryEmailTemplate(merged);
+          idbSet(IDB_KEYS.DELIVERY_EMAIL_TEMPLATE, merged);
+        }
+      });
+    }
+
     return () => {
-      if (unsubProducts) unsubProducts();
-      if (unsubCategories) unsubCategories();
-      if (unsubHelplines) unsubHelplines();
-      if (unsubAgriIssues) unsubAgriIssues();
+      isMounted = false;
+      if (unsubAdminProducts) unsubAdminProducts();
+      if (unsubAdminContent) unsubAdminContent();
+      if (unsubAdminLegal) unsubAdminLegal();
+      if (unsubAdminDelivery) unsubAdminDelivery();
+      if (unsubAdminInvoice) unsubAdminInvoice();
+      if (unsubAdminEmailTpl) unsubAdminEmailTpl();
     };
   }, [isAdmin]);
 
@@ -477,267 +571,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const loadProducts = () => {
-    // First, seed from cache if available for ultra-fast load
-    const cached = getCachedData<Product>('products');
-    if (cached && products.length === 0) {
-      setProducts(cached);
-    }
-
-    if (!isSyncNeeded() && cached && cached.length > 0) {
-      console.log("Using cached products, skipping Firebase fetch until 10 AM.");
-      return undefined;
-    }
-
-    const q = query(collection(db, 'products'), orderBy('hindiName'));
-    return onSnapshot(q, (snapshot) => {
-      const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-      setProducts(prods);
-      setCacheData('products', prods);
-      
-      // Prefetch images for all products to ensure offline availability
-      // But prioritize featured ones
-      const featured = prods.filter(p => p.isFeatured);
-      const others = prods.filter(p => !p.isFeatured);
-      
-      featured.forEach(p => prefetchImage(p.image, true));
-      others.forEach(p => prefetchImage(p.image));
-      
-      markSyncDone();
-      setIsQuotaExceeded(false);
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.LIST, 'products');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
+    // Products are preloaded via IndexedDB and synced via single version check
+    return undefined;
   };
 
   const loadCategoryData = () => {
-    // Initial data from mock if empty, or from cache
-    const cached = getCachedData<CategoryData>('categories');
-    if (cached && cached.length > 0) {
-      setCategories(cached);
-    }
-
-    if (!isSyncNeeded() && cached && cached.length > 0) {
-      console.log("Using cached categories, skipping Firebase fetch until 10 AM.");
-      return undefined;
-    }
-
-    const q = query(collection(db, 'categories'), orderBy('order'));
-    return onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryData));
-      if (!snapshot.empty) {
-        setCategories(data);
-        setCacheData('categories', data);
-        
-        // Prefetch all category icons
-        data.forEach(c => prefetchImage(c.icon));
-        
-        markSyncDone();
-      }
-      setIsQuotaExceeded(false);
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.LIST, 'categories');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
+    // Categories are preloaded via IndexedDB and synced via single version check
+    return undefined;
   };
 
   const loadAgriIssues = () => {
-    const cached = getCachedData<AgriIssue>('agriIssues');
-    if (cached && agriIssues.length === 0) {
-      setAgriIssues(cached);
-    }
-
-    if (!isSyncNeeded() && cached && cached.length > 0) {
-      console.log("Using cached agriIssues, skipping Firebase fetch until 10 AM.");
-      return undefined;
-    }
-
-    const q = collection(db, 'agriIssues');
-    return onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AgriIssue));
-      setAgriIssues(data);
-      setCacheData('agriIssues', data);
-      markSyncDone();
-      setIsQuotaExceeded(false);
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.LIST, 'agriIssues');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
+    // AgriIssues are preloaded via IndexedDB and synced via single version check
+    return undefined;
   };
 
   const loadHelplines = () => {
-    const cached = getCachedData<Helpline>('helplines');
-    if (cached && helplines.length === 0) {
-      setHelplines(cached);
-    }
-
-    const q = query(collection(db, 'helplines'), orderBy('order'));
-    return onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Helpline));
-      setHelplines(data);
-      setCacheData('helplines', data);
-      setIsQuotaExceeded(false);
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.LIST, 'helplines');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
+    // Helplines are preloaded via IndexedDB and synced via single version check
+    return undefined;
   };
-
-  // Dedicated effect for app content - important for branding
-  useEffect(() => {
-    // Always load branding from cache first
-    const cached = localStorage.getItem('agri_cache_app_content');
-    if (cached) {
-      setAppContent(JSON.parse(cached));
-    }
-
-    if (!isSyncNeeded() && cached) return;
-
-    const unsubscribeContent = onSnapshot(doc(db, 'settings', 'content'), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data() as AppContent;
-        setAppContent(data);
-        safeLocalStorageSet('agri_cache_app_content', JSON.stringify(data));
-        prefetchContentImages(data);
-        markSyncDone();
-      }
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.GET, 'settings/content');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
-    return () => unsubscribeContent();
-  }, [isAdmin]);
-
-  // Dedicated effect for legal & static pages content
-  useEffect(() => {
-    const cached = localStorage.getItem('agri_cache_legal_pages');
-    if (cached) {
-      try {
-        setLegalPagesContent(mergeLegalPages(JSON.parse(cached)));
-      } catch (e) {
-        console.error("Failed to parse cached legal pages:", e);
-      }
-    }
-
-    if (!isSyncNeeded() && cached) return;
-
-    const unsubscribeLegalPages = onSnapshot(doc(db, 'settings', 'legalPages'), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data() as Partial<LegalPagesContent>;
-        const merged = mergeLegalPages(data);
-        setLegalPagesContent(merged);
-        safeLocalStorageSet('agri_cache_legal_pages', JSON.stringify(data));
-      }
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.GET, 'settings/legalPages');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
-
-    return () => unsubscribeLegalPages();
-  }, [isAdmin]);
-
-  // Sync invoice template settings from Firestore
-  useEffect(() => {
-    const cached = localStorage.getItem('agri_cache_invoice_template');
-    if (cached) {
-      try {
-        setInvoiceTemplate(mergeInvoiceTemplate(JSON.parse(cached)));
-      } catch (e) {
-        console.error("Failed to parse cached invoice template:", e);
-      }
-    }
-
-    if (!isSyncNeeded() && cached) return;
-
-    const unsubscribeInvoiceTemplate = onSnapshot(doc(db, 'settings', 'invoiceTemplate'), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data() as Partial<InvoiceTemplateConfig>;
-        const merged = mergeInvoiceTemplate(data);
-        setInvoiceTemplate(merged);
-        safeLocalStorageSet('agri_cache_invoice_template', JSON.stringify(merged));
-      }
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.GET, 'settings/invoiceTemplate');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
-
-    return () => unsubscribeInvoiceTemplate();
-  }, [isAdmin]);
-
-  // Sync delivery email template from Firestore
-  useEffect(() => {
-    const cached = localStorage.getItem('agri_cache_delivery_email_template');
-    if (cached) {
-      try {
-        setDeliveryEmailTemplate(mergeDeliveryEmailTemplate(JSON.parse(cached)));
-      } catch (e) {
-        console.error("Failed to parse cached delivery email template:", e);
-      }
-    }
-
-    if (!isSyncNeeded() && cached) return;
-
-    const unsubscribeEmailTemplate = onSnapshot(doc(db, 'settings', 'deliveryEmailTemplate'), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data() as Partial<DeliveryEmailTemplateConfig>;
-        const merged = mergeDeliveryEmailTemplate(data);
-        setDeliveryEmailTemplate(merged);
-        safeLocalStorageSet('agri_cache_delivery_email_template', JSON.stringify(merged));
-      }
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.GET, 'settings/deliveryEmailTemplate');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
-
-    return () => unsubscribeEmailTemplate();
-  }, [isAdmin]);
-
-
-  // Sync dynamic delivery charge config from Firestore
-  useEffect(() => {
-    const cached = localStorage.getItem('agri_cache_delivery_config');
-    if (cached) {
-      try {
-        setDeliveryConfig(mergeDeliveryConfig(JSON.parse(cached)));
-      } catch (e) {
-        console.error("Failed to parse cached delivery config:", e);
-      }
-    }
-
-    if (!isSyncNeeded() && cached) return;
-
-    const unsubscribeDeliveryConfig = onSnapshot(doc(db, 'settings', 'deliveryConfig'), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data() as Partial<DynamicDeliveryConfig>;
-        const merged = mergeDeliveryConfig(data);
-        setDeliveryConfig(merged);
-        safeLocalStorageSet('agri_cache_delivery_config', JSON.stringify(merged));
-      }
-    }, (error) => {
-      const err = handleFirestoreError(error, OperationType.GET, 'settings/deliveryConfig');
-      if (err?.error.toLowerCase().includes('quota')) {
-        setIsQuotaExceeded(true);
-      }
-    });
-
-    return () => unsubscribeDeliveryConfig();
-  }, [isAdmin]);
 
   // Additional effect to listen for all users if admin
   useEffect(() => {
@@ -827,8 +678,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setProducts(prev => {
         const updated = [...prev, newProd];
         setCacheData('products', updated);
+        idbSet(IDB_KEYS.PRODUCTS, updated);
         return updated;
       });
+      await bumpMetadataVersion(db, 'products');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'products');
     }
@@ -838,11 +691,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setProducts(prev => {
       const updated = prev.map(p => p.id === updatedProduct.id ? updatedProduct : p);
       setCacheData('products', updated);
+      idbSet(IDB_KEYS.PRODUCTS, updated);
       return updated;
     });
     try {
       const { id, ...data } = updatedProduct;
       await setDoc(doc(db, 'products', id), data, { merge: true });
+      await bumpMetadataVersion(db, 'products');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `products/${updatedProduct.id}`);
     }
@@ -852,10 +707,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setProducts(prev => {
       const updated = prev.filter(p => p.id !== id);
       setCacheData('products', updated);
+      idbSet(IDB_KEYS.PRODUCTS, updated);
       return updated;
     });
     try {
       await deleteDoc(doc(db, 'products', id));
+      await bumpMetadataVersion(db, 'products');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
     }
@@ -972,24 +829,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addCategory = async (category: Omit<CategoryData, 'id'>) => {
     try {
-      await addDoc(collection(db, 'categories'), category);
+      const docRef = await addDoc(collection(db, 'categories'), category);
+      const newCat: CategoryData = { id: docRef.id, ...category };
+      setCategories(prev => {
+        const updated = [...prev, newCat];
+        setCacheData('categories', updated);
+        idbSet(IDB_KEYS.CATEGORIES, updated);
+        return updated;
+      });
+      await bumpMetadataVersion(db, 'categories');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'categories');
     }
   };
 
   const updateCategory = async (category: CategoryData) => {
+    setCategories(prev => {
+      const updated = prev.map(c => c.id === category.id ? category : c);
+      setCacheData('categories', updated);
+      idbSet(IDB_KEYS.CATEGORIES, updated);
+      return updated;
+    });
     try {
       const { id, ...data } = category;
       await setDoc(doc(db, 'categories', id), data, { merge: true });
+      await bumpMetadataVersion(db, 'categories');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `categories/${category.id}`);
     }
   };
 
   const deleteCategory = async (id: string) => {
+    setCategories(prev => {
+      const updated = prev.filter(c => c.id !== id);
+      setCacheData('categories', updated);
+      idbSet(IDB_KEYS.CATEGORIES, updated);
+      return updated;
+    });
     try {
       await deleteDoc(doc(db, 'categories', id));
+      await bumpMetadataVersion(db, 'categories');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `categories/${id}`);
     }
@@ -997,24 +876,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addAgriIssue = async (issue: Omit<AgriIssue, 'id'>) => {
     try {
-      await addDoc(collection(db, 'agriIssues'), issue);
+      const docRef = await addDoc(collection(db, 'agriIssues'), issue);
+      const newIssue: AgriIssue = { id: docRef.id, ...issue };
+      setAgriIssues(prev => {
+        const updated = [...prev, newIssue];
+        setCacheData('agriIssues', updated);
+        idbSet(IDB_KEYS.AGRI_ISSUES, updated);
+        return updated;
+      });
+      await bumpMetadataVersion(db, 'agriIssues');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'agriIssues');
     }
   };
 
   const updateAgriIssue = async (issue: AgriIssue) => {
+    setAgriIssues(prev => {
+      const updated = prev.map(i => i.id === issue.id ? issue : i);
+      setCacheData('agriIssues', updated);
+      idbSet(IDB_KEYS.AGRI_ISSUES, updated);
+      return updated;
+    });
     try {
       const { id, ...data } = issue;
       await setDoc(doc(db, 'agriIssues', id), data, { merge: true });
+      await bumpMetadataVersion(db, 'agriIssues');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `agriIssues/${issue.id}`);
     }
   };
 
   const deleteAgriIssue = async (id: string) => {
+    setAgriIssues(prev => {
+      const updated = prev.filter(i => i.id !== id);
+      setCacheData('agriIssues', updated);
+      idbSet(IDB_KEYS.AGRI_ISSUES, updated);
+      return updated;
+    });
     try {
       await deleteDoc(doc(db, 'agriIssues', id));
+      await bumpMetadataVersion(db, 'agriIssues');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `agriIssues/${id}`);
     }
@@ -1022,24 +923,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addHelpline = async (helpline: Omit<Helpline, 'id'>) => {
     try {
-      await addDoc(collection(db, 'helplines'), helpline);
+      const docRef = await addDoc(collection(db, 'helplines'), helpline);
+      const newHelpline: Helpline = { id: docRef.id, ...helpline };
+      setHelplines(prev => {
+        const updated = [...prev, newHelpline];
+        setCacheData('helplines', updated);
+        idbSet(IDB_KEYS.HELPLINES, updated);
+        return updated;
+      });
+      await bumpMetadataVersion(db, 'helplines');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'helplines');
     }
   };
 
   const updateHelpline = async (helpline: Helpline) => {
+    setHelplines(prev => {
+      const updated = prev.map(h => h.id === helpline.id ? helpline : h);
+      setCacheData('helplines', updated);
+      idbSet(IDB_KEYS.HELPLINES, updated);
+      return updated;
+    });
     try {
       const { id, ...data } = helpline;
       await setDoc(doc(db, 'helplines', id), data, { merge: true });
+      await bumpMetadataVersion(db, 'helplines');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `helplines/${helpline.id}`);
     }
   };
 
   const deleteHelpline = async (id: string) => {
+    setHelplines(prev => {
+      const updated = prev.filter(h => h.id !== id);
+      setCacheData('helplines', updated);
+      idbSet(IDB_KEYS.HELPLINES, updated);
+      return updated;
+    });
     try {
       await deleteDoc(doc(db, 'helplines', id));
+      await bumpMetadataVersion(db, 'helplines');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `helplines/${id}`);
     }
@@ -1048,9 +971,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateAppContent = async (content: AppContent) => {
     setAppContent(content);
     safeLocalStorageSet('agri_cache_app_content', JSON.stringify(content));
+    idbSet(IDB_KEYS.APP_CONTENT, content);
     prefetchContentImages(content);
     try {
       await setDoc(doc(db, 'settings', 'content'), content);
+      await bumpMetadataVersion(db, 'content');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/content');
     }
@@ -1062,6 +987,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const merged = mergeLegalPages(content);
       setLegalPagesContent(merged);
       localStorage.setItem('agri_cache_legal_pages', JSON.stringify(merged));
+      idbSet(IDB_KEYS.LEGAL_PAGES, merged);
+      await bumpMetadataVersion(db, 'legalPages');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/legalPages');
     }
@@ -1076,6 +1003,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await setDoc(doc(db, 'settings', 'legalPages'), updated);
       setLegalPagesContent(updated);
       localStorage.setItem('agri_cache_legal_pages', JSON.stringify(updated));
+      idbSet(IDB_KEYS.LEGAL_PAGES, updated);
+      await bumpMetadataVersion(db, 'legalPages');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/legalPages');
     }
@@ -1087,6 +1016,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const merged = mergeInvoiceTemplate(template);
       setInvoiceTemplate(merged);
       localStorage.setItem('agri_cache_invoice_template', JSON.stringify(merged));
+      idbSet(IDB_KEYS.INVOICE_TEMPLATE, merged);
+      await bumpMetadataVersion(db, 'invoiceTemplate');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/invoiceTemplate');
       throw error;
@@ -1099,6 +1030,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await setDoc(doc(db, 'settings', 'invoiceTemplate'), defaults);
       setInvoiceTemplate(defaults);
       localStorage.setItem('agri_cache_invoice_template', JSON.stringify(defaults));
+      idbSet(IDB_KEYS.INVOICE_TEMPLATE, defaults);
+      await bumpMetadataVersion(db, 'invoiceTemplate');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/invoiceTemplate');
       throw error;
@@ -1115,6 +1048,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const merged = mergeDeliveryEmailTemplate(payload);
       setDeliveryEmailTemplate(merged);
       localStorage.setItem('agri_cache_delivery_email_template', JSON.stringify(merged));
+      idbSet(IDB_KEYS.DELIVERY_EMAIL_TEMPLATE, merged);
+      await bumpMetadataVersion(db, 'deliveryEmailTemplate');
 
       // Also notify local server if running
       try {
@@ -1138,6 +1073,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await setDoc(doc(db, 'settings', 'deliveryEmailTemplate'), defaults);
       setDeliveryEmailTemplate(defaults);
       localStorage.setItem('agri_cache_delivery_email_template', JSON.stringify(defaults));
+      idbSet(IDB_KEYS.DELIVERY_EMAIL_TEMPLATE, defaults);
+      await bumpMetadataVersion(db, 'deliveryEmailTemplate');
 
       try {
         await fetch('/api/admin/delivery/email-template', {
@@ -1165,6 +1102,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const merged = mergeDeliveryConfig(payload);
       setDeliveryConfig(merged);
       localStorage.setItem('agri_cache_delivery_config', JSON.stringify(merged));
+      idbSet(IDB_KEYS.DELIVERY_CONFIG, merged);
+      await bumpMetadataVersion(db, 'deliveryConfig');
 
       // Synchronize with appContent so that any legacy consumers stay perfectly updated
       if (appContent) {
@@ -1174,6 +1113,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         setAppContent(updatedAppContent);
         localStorage.setItem('agri_cache_app_content', JSON.stringify(updatedAppContent));
+        idbSet(IDB_KEYS.APP_CONTENT, updatedAppContent);
         try {
           await setDoc(doc(db, 'settings', 'appContent'), { isDeliveryActive: config.isDeliveryActive }, { merge: true });
         } catch (e) {
@@ -1192,6 +1132,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await setDoc(doc(db, 'settings', 'deliveryConfig'), defaults);
       setDeliveryConfig(defaults);
       localStorage.setItem('agri_cache_delivery_config', JSON.stringify(defaults));
+      idbSet(IDB_KEYS.DELIVERY_CONFIG, defaults);
+      await bumpMetadataVersion(db, 'deliveryConfig');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/deliveryConfig');
       throw error;
