@@ -482,23 +482,9 @@ const Home: React.FC = () => {
           className="h-full"
         >
           <Link to="/ai-call" id="card-ai-agri-call" className="block h-full group focus:outline-none">
-            <div className="relative h-full bg-white hover:bg-gradient-to-br hover:from-white hover:via-emerald-50/20 hover:to-emerald-100/30 rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-emerald-900/10 hover:border-emerald-600/35 shadow-xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.98]">
+            <div className="relative h-full bg-white hover:bg-gradient-to-br hover:from-white hover:via-emerald-50/20 hover:to-emerald-100/30 rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-emerald-900/10 hover:border-emerald-600/35 shadow-xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-center cursor-pointer active:scale-[0.98]">
               {/* Subtle ambient decorative backdrops */}
               <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-emerald-500/15 to-teal-500/0 rounded-full blur-2xl group-hover:scale-125 group-hover:opacity-100 opacity-60 transition-all duration-500 pointer-events-none" />
-              
-              {/* Top micro badge bar */}
-              <div className="flex items-center justify-between gap-2 mb-3 relative z-10">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-[#2D5A27] border border-emerald-200/70 shadow-2xs">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-                  </span>
-                  लाइव AI कॉल
-                </span>
-                <span className="text-[10px] font-bold text-gray-500 bg-gray-50/90 px-2 py-0.5 rounded-full border border-gray-200/70">
-                  बोलकर समाधान पाएं
-                </span>
-              </div>
 
               {/* Main content row */}
               <div className="flex items-center gap-3.5 sm:gap-4 relative z-10">
@@ -542,20 +528,9 @@ const Home: React.FC = () => {
           className="h-full"
         >
           <Link to="/ai-product-knowledge" id="card-ai-product-knowledge" className="block h-full group focus:outline-none">
-            <div className="relative h-full bg-white hover:bg-gradient-to-br hover:from-white hover:via-amber-50/20 hover:to-emerald-50/30 rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-emerald-900/10 hover:border-emerald-600/35 shadow-xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.98]">
+            <div className="relative h-full bg-white hover:bg-gradient-to-br hover:from-white hover:via-amber-50/20 hover:to-emerald-50/30 rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-emerald-900/10 hover:border-emerald-600/35 shadow-xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-center cursor-pointer active:scale-[0.98]">
               {/* Subtle ambient decorative backdrop */}
               <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-amber-500/15 to-emerald-500/0 rounded-full blur-2xl group-hover:scale-125 group-hover:opacity-100 opacity-60 transition-all duration-500 pointer-events-none" />
-              
-              {/* Top micro badge bar */}
-              <div className="flex items-center justify-between gap-2 mb-3 relative z-10">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200/70 shadow-2xs">
-                  <Sparkles className="w-3 h-3 text-amber-600" />
-                  स्मार्ट डोज़ गाइड
-                </span>
-                <span className="text-[10px] font-bold text-gray-500 bg-gray-50/90 px-2 py-0.5 rounded-full border border-gray-200/70">
-                  दवाई व खाद सलाह
-                </span>
-              </div>
 
               {/* Main content row */}
               <div className="flex items-center gap-3.5 sm:gap-4 relative z-10">
@@ -780,7 +755,7 @@ const Home: React.FC = () => {
 
       {/* Partner Logos Slider */}
       <section className="py-4 overflow-hidden">
-        <p className="text-[11px] font-semibold text-gray-500 mb-4 text-center">हमारे टॉप ब्रांड्स (Our Top Brands)</p>
+        <p className="text-[11px] font-semibold text-gray-500 mb-4 text-center">Popular Brands</p>
         <div className="relative flex overflow-x-hidden">
           <motion.div 
             animate={{ x: ["0%", "-50%"] }}

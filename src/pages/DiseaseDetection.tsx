@@ -529,19 +529,17 @@ const DiseaseDetection: React.FC = () => {
               cameraInputRef.current?.click();
             }
           }}
-          className={`relative aspect-square w-full max-w-[340px] mx-auto rounded-[2.25rem] overflow-hidden bg-gradient-to-b from-white/80 via-emerald-50/40 to-emerald-100/30 backdrop-blur-md border-2 border-emerald-700/25 hover:border-emerald-600/60 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center p-6 ${
+          className={`relative aspect-square w-full max-w-[340px] mx-auto rounded-[2.25rem] overflow-hidden bg-white/90 backdrop-blur-md border border-gray-200 hover:border-emerald-600/40 shadow-xs hover:shadow-sm transition-all duration-300 flex flex-col items-center justify-center p-6 ${
             images.length === 0 ? 'cursor-pointer group/viewfinder' : ''
           }`}
         >
-          {/* Viewfinder Corner Reticle Brackets (Scanner aesthetics) */}
+          {/* Viewfinder Corner Reticle Brackets (Refined subtle aesthetics) */}
           {!activeImage && !isCompressing && (
             <>
-              <div className="absolute top-4 left-4 w-5 h-5 border-t-[2.5px] border-l-[2.5px] border-emerald-600/50 rounded-tl-xl pointer-events-none group-hover/viewfinder:border-emerald-700 transition-colors" />
-              <div className="absolute top-4 right-4 w-5 h-5 border-t-[2.5px] border-r-[2.5px] border-emerald-600/50 rounded-tr-xl pointer-events-none group-hover/viewfinder:border-emerald-700 transition-colors" />
-              <div className="absolute bottom-4 left-4 w-5 h-5 border-b-[2.5px] border-l-[2.5px] border-emerald-600/50 rounded-bl-xl pointer-events-none group-hover/viewfinder:border-emerald-700 transition-colors" />
-              <div className="absolute bottom-4 right-4 w-5 h-5 border-b-[2.5px] border-r-[2.5px] border-emerald-600/50 rounded-br-xl pointer-events-none group-hover/viewfinder:border-emerald-700 transition-colors" />
-              {/* Subtle scanning laser line hint */}
-              <div className="absolute inset-x-10 top-1/2 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent pointer-events-none" />
+              <div className="absolute top-4 left-4 w-5 h-5 border-t-2 border-l-2 border-gray-300/80 rounded-tl-xl pointer-events-none group-hover/viewfinder:border-emerald-600 transition-colors" />
+              <div className="absolute top-4 right-4 w-5 h-5 border-t-2 border-r-2 border-gray-300/80 rounded-tr-xl pointer-events-none group-hover/viewfinder:border-emerald-600 transition-colors" />
+              <div className="absolute bottom-4 left-4 w-5 h-5 border-b-2 border-l-2 border-gray-300/80 rounded-bl-xl pointer-events-none group-hover/viewfinder:border-emerald-600 transition-colors" />
+              <div className="absolute bottom-4 right-4 w-5 h-5 border-b-2 border-r-2 border-gray-300/80 rounded-br-xl pointer-events-none group-hover/viewfinder:border-emerald-600 transition-colors" />
             </>
           )}
 
@@ -586,23 +584,23 @@ const DiseaseDetection: React.FC = () => {
             </div>
           ) : (
             <div className="text-center select-none py-2">
-              {/* Modern Animated Lens Pod */}
+              {/* Clean Modern Camera Icon Pod (Neutral background with subtle soft emerald accent) */}
               <div className="relative mb-3.5 flex items-center justify-center">
-                <div className="absolute w-22 h-22 rounded-full bg-emerald-500/15 animate-ping opacity-60 pointer-events-none" />
-                <div className="absolute w-20 h-20 rounded-full bg-emerald-500/10 pointer-events-none" />
-                <div className="relative w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-gradient-to-br from-[#163814] via-[#245720] to-[#34782E] text-white flex items-center justify-center shadow-lg shadow-emerald-950/25 ring-4 ring-white/90 group-hover/viewfinder:scale-105 transition-transform duration-300">
-                  <Camera className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+                <div className="w-20 h-20 rounded-3xl bg-gray-50/90 border border-gray-200/90 shadow-xs flex items-center justify-center group-hover/viewfinder:scale-105 group-hover/viewfinder:border-emerald-500/40 group-hover/viewfinder:shadow-sm transition-all duration-300">
+                  <div className="w-12 h-12 rounded-2xl bg-white text-[#2D5A27] shadow-xs border border-gray-100 flex items-center justify-center">
+                    <Camera className="w-6 h-6 stroke-[2.2]" />
+                  </div>
                 </div>
               </div>
 
-              <p className="text-base sm:text-lg font-extrabold text-[#183D16] group-hover/viewfinder:text-[#2D5A27] transition-colors mb-1 tracking-tight">
+              <p className="text-base sm:text-lg font-extrabold text-gray-900 group-hover/viewfinder:text-[#2D5A27] transition-colors mb-1 tracking-tight">
                 पौधे की साफ़ फोटो जोड़ें
               </p>
-              <p className="text-xs text-gray-600 leading-relaxed max-w-[240px] mx-auto font-medium">
+              <p className="text-xs text-gray-500 leading-relaxed max-w-[240px] mx-auto font-medium">
                 पत्ती, तना या फल के प्रभावित हिस्से की साफ़ फोटो अपलोड करें
               </p>
               
-              <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full text-[11px] font-bold bg-white/90 text-[#1B4318] border border-emerald-700/20 shadow-2xs">
+              <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full text-[11px] font-bold bg-gray-100/80 text-gray-700 border border-gray-200/70 shadow-2xs">
                 <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span>AI इंस्टेंट रोग पहचान</span>
               </div>
@@ -666,14 +664,14 @@ const DiseaseDetection: React.FC = () => {
                 cameraInputRef.current?.click();
               }}
               disabled={isCompressing}
-              className="group relative bg-gradient-to-r from-[#183D16] via-[#245720] to-[#34782E] text-white py-3.5 px-3 rounded-2xl sm:rounded-3xl font-bold flex items-center justify-center gap-2.5 shadow-md shadow-emerald-950/20 hover:shadow-lg hover:shadow-emerald-900/30 active:scale-[0.98] transition-all duration-300 cursor-pointer overflow-hidden border border-emerald-400/20"
+              className="group bg-white hover:bg-gray-50/80 border-2 border-gray-200/90 hover:border-emerald-700/40 text-gray-800 hover:text-[#1B4318] py-3.5 px-3 rounded-2xl sm:rounded-3xl font-bold flex items-center justify-center gap-2.5 shadow-xs hover:shadow-md active:scale-[0.98] transition-all duration-300 cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-xs flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform shadow-xs">
-                <Camera className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#2D5A27] flex items-center justify-center shrink-0 group-hover:bg-[#2D5A27] group-hover:text-white transition-all duration-300 shadow-2xs">
+                <Camera className="w-5 h-5" />
               </div>
               <div className="text-left min-w-0">
                 <div className="text-xs sm:text-[13px] font-extrabold tracking-tight truncate">कैमरा (Camera)</div>
-                <div className="text-[10px] text-emerald-100/90 font-medium truncate">तुरंत फोटो लें</div>
+                <div className="text-[10px] text-gray-500 font-medium truncate">तुरंत फोटो लें</div>
               </div>
             </button>
 
@@ -684,9 +682,9 @@ const DiseaseDetection: React.FC = () => {
                 galleryInputRef.current?.click();
               }}
               disabled={isCompressing}
-              className="group bg-white/80 hover:bg-white backdrop-blur-md border-2 border-emerald-900/15 hover:border-emerald-700/40 text-gray-800 hover:text-[#1B4318] py-3.5 px-3 rounded-2xl sm:rounded-3xl font-bold flex items-center justify-center gap-2.5 shadow-xs hover:shadow-md active:scale-[0.98] transition-all duration-300 cursor-pointer"
+              className="group bg-white hover:bg-gray-50/80 border-2 border-gray-200/90 hover:border-emerald-700/40 text-gray-800 hover:text-[#1B4318] py-3.5 px-3 rounded-2xl sm:rounded-3xl font-bold flex items-center justify-center gap-2.5 shadow-xs hover:shadow-md active:scale-[0.98] transition-all duration-300 cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-xl bg-emerald-100/70 text-[#1B4318] flex items-center justify-center shrink-0 group-hover:bg-[#2D5A27] group-hover:text-white transition-all duration-300 shadow-2xs">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#2D5A27] flex items-center justify-center shrink-0 group-hover:bg-[#2D5A27] group-hover:text-white transition-all duration-300 shadow-2xs">
                 <ImageIcon className="w-5 h-5" />
               </div>
               <div className="text-left min-w-0">
