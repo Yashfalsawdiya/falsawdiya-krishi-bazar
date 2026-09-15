@@ -26,6 +26,7 @@ import { DEFAULT_VIDEOS } from '../utils/youtubeUtils';
 import { SafeErrorBoundary } from '../components/SafeErrorBoundary';
 import { AccountingDashboard } from '../components/accounting/AccountingDashboard';
 import { Calculator } from 'lucide-react';
+import { sortCategoriesByOrder } from '../utils/categoryUtils';
 
 const Admin: React.FC = () => {
   const { 
@@ -39,6 +40,8 @@ const Admin: React.FC = () => {
     allUsers, updateUserStatus,
     loadProducts, loadCategoryData, loadAgriIssues, loadHelplines
   } = useAppContext();
+
+  const sortedCategories = React.useMemo(() => sortCategoriesByOrder(categories), [categories]);
 
   React.useEffect(() => {
     if (isAdmin) {
@@ -914,7 +917,7 @@ const Admin: React.FC = () => {
                 >
                   सभी श्रेणियां (All)
                 </button>
-                {categories.map((cat) => (
+                {sortedCategories.map((cat) => (
                   <button
                     key={cat.id}
                     onClick={() => setProductCategoryFilter(cat.id)}
@@ -1062,7 +1065,7 @@ const Admin: React.FC = () => {
                 <p className="text-sm text-gray-400">कोई श्रेणी नहीं मिली।</p>
               </div>
             ) : (
-              categories.map((cat, idx) => (
+              sortedCategories.map((cat, idx) => (
                 <motion.div 
                   layout
                   key={`${cat.id}-${idx}`} 
@@ -1123,7 +1126,7 @@ const Admin: React.FC = () => {
                 <p className="text-sm text-gray-400 font-medium">कोई श्रेणी उपलब्ध नहीं है।</p>
               </div>
             ) : (
-              categories.map((cat, idx) => {
+              sortedCategories.map((cat, idx) => {
                 const hasMessage = !!cat.importantInfo;
                 const isEnabled = !!cat.isInfoEnabled;
 
@@ -2431,7 +2434,7 @@ const Admin: React.FC = () => {
                     onChange={e => setProductForm({...productForm, category: e.target.value})}
                     className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium appearance-none"
                   >
-                    {categories.map(cat => (
+                    {sortedCategories.map(cat => (
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
                   </select>

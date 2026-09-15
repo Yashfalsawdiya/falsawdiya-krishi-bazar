@@ -8,10 +8,12 @@ import ImageZoomModal from '../components/ImageZoomModal';
 import ProductDetailModal from '../components/ProductDetailModal';
 import KrishiBazaarProductCard from '../components/KrishiBazaarProductCard';
 import { Product, ImageSource } from '../types';
+import { sortCategoriesByOrder } from '../utils/categoryUtils';
 
 const Products: React.FC = () => {
   const navigate = useNavigate();
   const { products, categories, loadProducts, loadCategoryData } = useAppContext();
+  const sortedCategories = useMemo(() => sortCategoriesByOrder(categories), [categories]);
   const { addToCart } = useCart();
   const [searchParams] = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -147,7 +149,7 @@ const Products: React.FC = () => {
         >
           सभी (All)
         </button>
-        {categories.map((cat) => (
+        {sortedCategories.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setSelectedCategory(cat.id)}

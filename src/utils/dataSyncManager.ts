@@ -25,6 +25,7 @@ import {
   InvoiceTemplateConfig,
   DeliveryEmailTemplateConfig
 } from '../types';
+import { sortCategoriesByOrder } from './categoryUtils';
 
 export const IDB_KEYS = {
   PRODUCTS: 'fkb_products_cache',
@@ -91,7 +92,7 @@ export async function loadAllCachedData() {
 
     return {
       products: products || [],
-      categories: categories || [],
+      categories: sortCategoriesByOrder(categories || []),
       agriIssues: agriIssues || [],
       helplines: helplines || [],
       appContent: appContent || null,
@@ -210,8 +211,9 @@ export async function syncDataIfVersionChanged(
     const products: Product[] = [];
     productsSnap.forEach(d => products.push({ id: d.id, ...d.data() } as Product));
 
-    const categories: CategoryData[] = [];
-    categoriesSnap.forEach(d => categories.push({ id: d.id, ...d.data() } as CategoryData));
+    const categoriesRaw: CategoryData[] = [];
+    categoriesSnap.forEach(d => categoriesRaw.push({ id: d.id, ...d.data() } as CategoryData));
+    const categories = sortCategoriesByOrder(categoriesRaw);
 
     const agriIssues: AgriIssue[] = [];
     issuesSnap.forEach(d => agriIssues.push({ id: d.id, ...d.data() } as AgriIssue));

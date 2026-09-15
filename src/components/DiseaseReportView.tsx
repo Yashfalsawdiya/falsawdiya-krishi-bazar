@@ -457,32 +457,49 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
       )}
 
       {/* 6. STORE ADVISORY, TIMINGS & CONSULTATION BANNER */}
-      <div className="bg-gradient-to-br from-[#2D5A27] to-[#1E3F1A] rounded-3xl p-5 text-white shadow-lg space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center text-yellow-300">
-              <Sparkles className="w-4 h-4" />
+      <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 space-y-4">
+        <div className="flex items-center justify-between gap-2 border-b border-gray-100 pb-3.5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#2D5A27]/10 text-[#2D5A27] flex items-center justify-center border border-[#2D5A27]/20 shrink-0">
+              <Store className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="font-extrabold text-white text-sm">
+              <h4 className="font-extrabold text-[#2D5A27] text-base leading-tight">
                 फल्सावदिया कृषि बाजार
               </h4>
-              <p className="text-[10px] text-emerald-200">शामगढ़ (मंदसौर) • अधिकृत कृषि सेवा केंद्र</p>
+              <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+                शामगढ़ (मंदसौर) • अधिकृत कृषि सेवा केंद्र
+              </p>
             </div>
           </div>
-          <span className="bg-yellow-400 text-black text-[10px] font-black px-2.5 py-1 rounded-full uppercase">
+          <span className="bg-amber-100 text-amber-900 border border-amber-200/80 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0 flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-amber-600" />
             विश्वसनीय
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-emerald-100">
-          <div className="bg-white/10 backdrop-blur-md p-2.5 rounded-xl flex items-center gap-2">
-            <Clock className="w-4 h-4 text-yellow-300 shrink-0" />
-            <span>दुकान समय: <strong>सुबह 8:00 से रात 8:00 बजे</strong></span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+          <div className="bg-[#FAF8F5] p-3 rounded-2xl border border-gray-100 flex items-start gap-2.5">
+            <Clock className="w-4 h-4 text-[#2D5A27] shrink-0 mt-0.5" />
+            <div>
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                दुकान का समय
+              </span>
+              <p className="font-bold text-gray-800 leading-snug mt-0.5">
+                सुबह 8:00 से रात 8:00 बजे तक
+              </p>
+            </div>
           </div>
-          <div className="bg-white/10 backdrop-blur-md p-2.5 rounded-xl flex items-start gap-2">
-            <MapPin className="w-4 h-4 text-yellow-300 shrink-0 mt-0.5" />
-            <span className="leading-snug">डिम्पल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़ (458883)</span>
+          <div className="bg-[#FAF8F5] p-3 rounded-2xl border border-gray-100 flex items-start gap-2.5">
+            <MapPin className="w-4 h-4 text-[#2D5A27] shrink-0 mt-0.5" />
+            <div>
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                दुकान का पता
+              </span>
+              <p className="font-bold text-gray-800 leading-snug mt-0.5">
+                डिम्पल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़ (458883)
+              </p>
+            </div>
           </div>
         </div>
 
@@ -490,7 +507,7 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
         <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
           <button
             onClick={onReset}
-            className="flex-1 bg-white/15 hover:bg-white/20 active:scale-95 text-white py-3.5 rounded-2xl text-xs font-bold transition-transform flex items-center justify-center gap-2 border border-white/20"
+            className="flex-1 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-700 py-3.5 rounded-2xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 border border-gray-200"
           >
             <RotateCcw className="w-4 h-4" />
             <span>नई फोटो जाँचें</span>
@@ -499,7 +516,7 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
             href={`https://wa.me/${whatsappNumber}?text=${whatsappMessage}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-[2] bg-[#25D366] hover:bg-[#20ba59] active:scale-95 text-white py-3.5 rounded-2xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-md transition-transform"
+            className="flex-[2] bg-[#25D366] hover:bg-[#20ba59] active:scale-95 text-white py-3.5 rounded-2xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all"
           >
             <MessageCircle className="w-4 h-4 fill-white" />
             <span>विशेषज्ञ से WhatsApp पर बात करें</span>

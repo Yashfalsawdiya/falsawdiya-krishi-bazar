@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen, Info, ChevronRight, ChevronLeft, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Facebook, Instagram, Plus } from 'lucide-react';
+import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen, Info, ChevronRight, ChevronLeft, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Facebook, Instagram, Plus, MessageCircle, Copy, Check, Store, Clock } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
@@ -20,6 +20,7 @@ import {
 } from '../utils/deviceBanners';
 import { normalizeVideos, resolveVideoThumbnail } from '../utils/youtubeUtils';
 import { DeviceBanner } from '../types';
+import { sortCategoriesByOrder } from '../utils/categoryUtils';
 
 const BANNERS = [
   {
@@ -78,6 +79,7 @@ import { Product, ImageSource } from '../types';
 
 const Home: React.FC = () => {
   const { products, categories, appContent, user, loadProducts, loadCategoryData, loading: appLoading } = useAppContext();
+  const sortedCategories = useMemo(() => sortCategoriesByOrder(categories), [categories]);
   const { 
     apiKey: effectiveApiKey, 
     requireApiKey, 
@@ -100,6 +102,7 @@ const Home: React.FC = () => {
 
   const deviceType = useDeviceType();
   const [selectedBannerIndex, setSelectedBannerIndex] = useState(0);
+  const [copiedAddress, setCopiedAddress] = useState(false);
 
   const deviceBannersMap = React.useMemo(() => {
     return normalizeDeviceBanners(appContent);
@@ -470,31 +473,60 @@ const Home: React.FC = () => {
       )}
 
       {/* AI Intelligence Cards (Side by side on Tablet & Desktop) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 xl:gap-6 2xl:gap-8 pt-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 md:gap-4 xl:gap-6 2xl:gap-8 pt-1">
         {/* AI Voice Agent Entry Section */}
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="h-full"
         >
-          <Link to="/ai-call">
-            <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-6 shadow-md border border-gray-100 relative overflow-hidden group active:scale-95 transition-all h-full flex flex-col justify-between">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D5A27]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#2D5A27]/10 transition-colors" />
-              <div className="flex items-center gap-4 sm:gap-5">
+          <Link to="/ai-call" id="card-ai-agri-call" className="block h-full group focus:outline-none">
+            <div className="relative h-full bg-white hover:bg-gradient-to-br hover:from-white hover:via-emerald-50/20 hover:to-emerald-100/30 rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-emerald-900/10 hover:border-emerald-600/35 shadow-xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.98]">
+              {/* Subtle ambient decorative backdrops */}
+              <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-emerald-500/15 to-teal-500/0 rounded-full blur-2xl group-hover:scale-125 group-hover:opacity-100 opacity-60 transition-all duration-500 pointer-events-none" />
+              
+              {/* Top micro badge bar */}
+              <div className="flex items-center justify-between gap-2 mb-3 relative z-10">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-[#2D5A27] border border-emerald-200/70 shadow-2xs">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                  </span>
+                  लाइव AI कॉल
+                </span>
+                <span className="text-[10px] font-bold text-gray-500 bg-gray-50/90 px-2 py-0.5 rounded-full border border-gray-200/70">
+                  बोलकर समाधान पाएं
+                </span>
+              </div>
+
+              {/* Main content row */}
+              <div className="flex items-center gap-3.5 sm:gap-4 relative z-10">
+                {/* Icon Squircle */}
                 <div className="relative shrink-0">
-                  <div className="absolute inset-0 bg-[#2D5A27] rounded-2xl blur-lg opacity-20 animate-pulse" />
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl flex items-center justify-center text-white relative z-10 shadow-lg">
-                    <Phone className="w-7 h-7 sm:w-8 sm:h-8 animate-bounce" />
+                  <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-[#1B4318] via-[#245720] to-[#34782E] text-white flex items-center justify-center shadow-md shadow-emerald-950/20 group-hover:scale-105 group-hover:shadow-emerald-900/30 transition-all duration-300 ring-2 ring-emerald-500/20">
+                    <PhoneCall className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                   </div>
                 </div>
-                <div className="flex-1 min-w-0 py-0.5">
-                  <h3 className="text-lg sm:text-xl font-bold text-[#4A3728] leading-normal pt-1 pb-0.5 truncate">AI कृषि विशेषज्ञ कॉल</h3>
-                  <p className="text-xs text-gray-600 font-normal mt-0.5 line-clamp-1 leading-normal py-0.5">सीधे बात करें और समस्या का हल पाएं</p>
-                  <div className="flex items-center gap-1.5 mt-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
-                    <span className="text-[11px] font-medium text-[#2D5A27] truncate py-0.5">इंसानों की तरह बातचीत</span>
+
+                {/* Text info */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base sm:text-lg font-extrabold text-gray-900 group-hover:text-[#2D5A27] transition-colors leading-snug truncate">
+                    AI कृषि विशेषज्ञ कॉल
+                  </h3>
+                  <p className="text-xs sm:text-[13px] text-gray-600 font-medium line-clamp-1 mt-0.5">
+                    सीधे बात करें और समस्या का हल पाएं
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                      <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                      इंसानों की तरह बातचीत
+                    </span>
                   </div>
                 </div>
-                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all shrink-0">
+
+                {/* Arrow CTA */}
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-50 text-[#2D5A27] border border-emerald-100 group-hover:bg-[#2D5A27] group-hover:text-white group-hover:border-[#2D5A27] flex items-center justify-center shrink-0 transition-all duration-300 shadow-2xs group-hover:translate-x-1">
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
               </div>
@@ -504,28 +536,54 @@ const Home: React.FC = () => {
 
         {/* AI Product Knowledge Entry Section */}
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.05 }}
+          className="h-full"
         >
-          <Link to="/ai-product-knowledge">
-            <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-6 shadow-md border border-gray-100 relative overflow-hidden group active:scale-95 transition-all h-full flex flex-col justify-between">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D5A27]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#2D5A27]/10 transition-colors" />
-              <div className="flex items-center gap-4 sm:gap-5">
+          <Link to="/ai-product-knowledge" id="card-ai-product-knowledge" className="block h-full group focus:outline-none">
+            <div className="relative h-full bg-white hover:bg-gradient-to-br hover:from-white hover:via-amber-50/20 hover:to-emerald-50/30 rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-emerald-900/10 hover:border-emerald-600/35 shadow-xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.98]">
+              {/* Subtle ambient decorative backdrop */}
+              <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-amber-500/15 to-emerald-500/0 rounded-full blur-2xl group-hover:scale-125 group-hover:opacity-100 opacity-60 transition-all duration-500 pointer-events-none" />
+              
+              {/* Top micro badge bar */}
+              <div className="flex items-center justify-between gap-2 mb-3 relative z-10">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200/70 shadow-2xs">
+                  <Sparkles className="w-3 h-3 text-amber-600" />
+                  स्मार्ट डोज़ गाइड
+                </span>
+                <span className="text-[10px] font-bold text-gray-500 bg-gray-50/90 px-2 py-0.5 rounded-full border border-gray-200/70">
+                  दवाई व खाद सलाह
+                </span>
+              </div>
+
+              {/* Main content row */}
+              <div className="flex items-center gap-3.5 sm:gap-4 relative z-10">
+                {/* Icon Squircle */}
                 <div className="relative shrink-0">
-                  <div className="absolute inset-0 bg-[#2D5A27] rounded-2xl blur-lg opacity-20 animate-pulse" />
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl flex items-center justify-center text-white relative z-10 shadow-lg">
-                    <Sprout className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+                  <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-[#1E5128] via-[#2D5A27] to-[#407B37] text-white flex items-center justify-center shadow-md shadow-emerald-950/20 group-hover:scale-105 group-hover:shadow-emerald-900/30 transition-all duration-300 ring-2 ring-emerald-500/20">
+                    <Sprout className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                   </div>
                 </div>
-                <div className="flex-1 min-w-0 py-0.5">
-                  <h3 className="text-lg sm:text-xl font-bold text-[#4A3728] leading-normal pt-1 pb-0.5 truncate">AI उत्पाद जानकारी</h3>
-                  <p className="text-xs text-gray-600 font-normal mt-0.5 line-clamp-1 leading-normal py-0.5">दवाई, खाद या टेक्निकल का सही डोज़ जानें</p>
-                  <div className="flex items-center gap-1.5 mt-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
-                    <span className="text-[11px] font-medium text-[#2D5A27] truncate py-0.5">सटीक डोज़ और उपयोग विधि</span>
+
+                {/* Text info */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base sm:text-lg font-extrabold text-gray-900 group-hover:text-[#2D5A27] transition-colors leading-snug truncate">
+                    AI उत्पाद जानकारी
+                  </h3>
+                  <p className="text-xs sm:text-[13px] text-gray-600 font-medium line-clamp-1 mt-0.5">
+                    दवाई, खाद या टेक्निकल का सही डोज़ जानें
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-900 bg-amber-100/70 px-2 py-0.5 rounded-md">
+                      <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                      सटीक डोज़ और उपयोग विधि
+                    </span>
                   </div>
                 </div>
-                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gray-50 rounded-full flex items-center justify-center text-[#2D5A27] group-hover:bg-[#2D5A27] group-hover:text-white transition-all shrink-0">
+
+                {/* Arrow CTA */}
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-50 text-[#2D5A27] border border-emerald-100 group-hover:bg-[#2D5A27] group-hover:text-white group-hover:border-[#2D5A27] flex items-center justify-center shrink-0 transition-all duration-300 shadow-2xs group-hover:translate-x-1">
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
               </div>
@@ -612,29 +670,75 @@ const Home: React.FC = () => {
 
       {/* Categories */}
       <section className="pt-2">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-bold text-[#4A3728]">श्रेणियाँ (Categories)</h3>
+        <div className="flex items-center justify-between mb-3 px-0.5">
+          <div className="flex items-center gap-2">
+            <h3 className="text-base sm:text-lg font-extrabold text-[#2A1F18] tracking-tight">
+              श्रेणियाँ (Categories)
+            </h3>
+            <span className="text-[10px] font-extrabold bg-[#2D5A27]/10 text-[#2D5A27] px-2 py-0.5 rounded-full border border-[#2D5A27]/15">
+              {sortedCategories.length}
+            </span>
+          </div>
+          <Link 
+            to="/products" 
+            className="text-xs font-bold text-[#2D5A27] hover:text-[#1E3F1A] flex items-center gap-1 transition-colors"
+          >
+            <span>सभी उत्पाद</span>
+            <ArrowRight className="w-3 h-3" />
+          </Link>
         </div>
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 2xl:grid-cols-10 gap-3 xl:gap-4 2xl:gap-5">
-          {categories.map((cat, index) => (
-            <motion.div
-              key={cat.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.05 }}
-              onClick={() => navigate(`/products?category=${cat.id}`)}
-              className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center text-center gap-2 cursor-pointer active:scale-95 transition-transform"
-            >
-              <div className="text-3xl w-10 h-10 flex items-center justify-center overflow-hidden">
-                {typeof cat.icon === 'string' ? (
-                  cat.icon
-                ) : (
-                  <SmartImage src={cat.icon} alt={cat.name} className="w-full h-full" objectFit="contain" priority={index < 4} />
-                )}
-              </div>
-              <span className="text-[11px] font-bold text-[#2D5A27] leading-tight">{cat.name}</span>
-            </motion.div>
-          ))}
+
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 2xl:grid-cols-10 gap-2.5 sm:gap-3.5 xl:gap-4 2xl:gap-5">
+          {sortedCategories.map((cat, index) => {
+            const nameMatch = (cat.name || '').match(/^(.*?)(?:\s*\((.*?)\))?$/);
+            const mainName = nameMatch && nameMatch[1] ? nameMatch[1].trim() : cat.name;
+            const subName = nameMatch && nameMatch[2] ? nameMatch[2].trim() : '';
+
+            return (
+              <motion.div
+                key={cat.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.03, duration: 0.2 }}
+                onClick={() => navigate(`/products?category=${cat.id}`)}
+                className="group relative bg-white hover:bg-gradient-to-b hover:from-white hover:to-emerald-50/30 p-2.5 sm:p-3 rounded-2xl sm:rounded-3xl border border-gray-200/80 hover:border-[#2D5A27]/30 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col items-center text-center justify-between gap-2 cursor-pointer active:scale-95 select-none overflow-hidden"
+              >
+                {/* Subtle top hover line indicator */}
+                <div className="absolute top-0 left-3 right-3 h-[2px] bg-gradient-to-r from-transparent via-[#2D5A27]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                {/* Modern Icon Vessel / Pod */}
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-b from-[#F7FAF6] to-[#EEF5EC] group-hover:from-[#EAF4E6] group-hover:to-[#DCEBD9] border border-emerald-900/5 group-hover:border-[#2D5A27]/20 flex items-center justify-center p-2 shadow-2xs group-hover:scale-105 transition-all duration-300 shrink-0">
+                  {typeof cat.icon === 'string' ? (
+                    <span className="text-2xl sm:text-3xl leading-none select-none">{cat.icon}</span>
+                  ) : (
+                    <SmartImage 
+                      src={cat.icon} 
+                      alt={cat.name} 
+                      className="w-full h-full object-contain filter drop-shadow-2xs" 
+                      objectFit="contain" 
+                      priority={index < 4} 
+                    />
+                  )}
+                </div>
+
+                {/* Typography with clean Hindi and English hierarchy */}
+                <div className="w-full flex flex-col items-center">
+                  <span className="font-extrabold text-[11px] sm:text-xs text-[#1E3F1A] group-hover:text-[#2D5A27] transition-colors leading-tight line-clamp-1">
+                    {mainName}
+                  </span>
+                  {subName ? (
+                    <span className="text-[9px] sm:text-[10px] font-semibold text-gray-400 group-hover:text-emerald-700/80 transition-colors tracking-tight line-clamp-1 mt-0.5">
+                      {subName}
+                    </span>
+                  ) : (
+                    <span className="text-[9px] text-transparent leading-tight select-none">
+                      -
+                    </span>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       </section>
 
@@ -767,8 +871,9 @@ const Home: React.FC = () => {
       )}
 
       {/* WhatsApp, Social Media & Address Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 xl:gap-6 2xl:gap-8">
-        <button 
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 md:gap-4 xl:gap-6 2xl:gap-8">
+        {/* Modern WhatsApp Card */}
+        <div 
           onClick={() => {
             if (whatsappSection.mode === 'group' && whatsappSection.groupLink) {
               window.open(whatsappSection.groupLink, '_blank');
@@ -777,19 +882,49 @@ const Home: React.FC = () => {
               window.open(`https://wa.me/${contactInfo.whatsapp}?text=${message}`, '_blank');
             }
           }}
-          className="w-full bg-[#25D366]/10 border-2 border-[#25D366] rounded-2xl p-4 flex items-center gap-4 active:scale-95 transition-transform text-left"
+          className="bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 border border-emerald-200/80 hover:border-emerald-400 rounded-3xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 text-left cursor-pointer active:scale-[0.99] group relative overflow-hidden"
         >
-          <div className="bg-[#25D366] p-3 rounded-full shrink-0">
-            <Phone className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h4 className="font-bold text-[#128C7E]">{whatsappSection.title}</h4>
-            <p className="text-xs text-gray-700 font-medium">{whatsappSection.description}</p>
-            <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-[#25D366] uppercase">
-              {whatsappSection.mode === 'group' ? 'ग्रुप में शामिल हों' : 'मैसेज करें'} <ArrowRight className="w-3 h-3" />
+          {/* Subtle Ambient Glow */}
+          <div className="absolute -right-8 -bottom-8 w-28 h-28 bg-[#25D366]/10 rounded-full blur-2xl pointer-events-none group-hover:bg-[#25D366]/20 transition-colors" />
+
+          {/* Top Header */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-[#25D366] to-[#1ebe57] text-white flex items-center justify-center shadow-md shadow-[#25D366]/25 group-hover:scale-105 transition-transform shrink-0">
+                <MessageCircle className="w-6 h-6 fill-white" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse shrink-0" />
+                  <span className="text-[10px] font-bold text-[#128C7E] uppercase tracking-wider">
+                    {whatsappSection.mode === 'group' ? 'कृषि समुदाय ग्रुप' : 'सीधी सहायता'}
+                  </span>
+                </div>
+                <h4 className="font-extrabold text-sm sm:text-base text-gray-900 group-hover:text-[#128C7E] transition-colors truncate">
+                  {whatsappSection.title}
+                </h4>
+              </div>
             </div>
+            <span className="bg-emerald-100/90 text-[#128C7E] border border-emerald-200 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0">
+              WhatsApp
+            </span>
           </div>
-        </button>
+
+          {/* Description */}
+          <p className="text-xs text-gray-600 font-medium leading-relaxed line-clamp-2">
+            {whatsappSection.description}
+          </p>
+
+          {/* Action Row */}
+          <div className="pt-2 border-t border-emerald-100/80 flex items-center justify-between mt-auto text-xs font-bold text-[#128C7E]">
+            <span className="flex items-center gap-1.5 group-hover:gap-2 transition-all">
+              {whatsappSection.mode === 'group' ? 'ग्रुप में शामिल हों' : 'मैसेज करें'}
+            </span>
+            <span className="w-7 h-7 rounded-xl bg-[#25D366] group-hover:bg-[#20ba59] text-white flex items-center justify-center shadow-xs group-hover:translate-x-0.5 transition-all">
+              <ArrowRight className="w-3.5 h-3.5" />
+            </span>
+          </div>
+        </div>
 
         {/* Social Media Cards (Side by Side) */}
         {(facebookSection.enabled || instagramSection.enabled) && (
@@ -797,68 +932,147 @@ const Home: React.FC = () => {
             "grid gap-3",
             facebookSection.enabled && instagramSection.enabled ? "grid-cols-2" : "grid-cols-1"
           )}>
-            {/* Facebook Card */}
+            {/* Modern Facebook Card */}
             {facebookSection.enabled && (
-              <button 
+              <div 
                 onClick={() => {
                   const url = facebookSection.pageUrl.trim() || 'https://www.facebook.com';
                   window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
                 }}
-                className="w-full bg-[#1877F2]/10 border-2 border-[#1877F2] rounded-2xl p-3 sm:p-4 flex flex-col justify-between items-start gap-2.5 active:scale-95 transition-transform text-left cursor-pointer shadow-xs"
+                className="bg-gradient-to-br from-blue-50/70 via-white to-blue-50/30 border border-blue-200/80 hover:border-blue-400 rounded-3xl p-3.5 sm:p-4 flex flex-col justify-between gap-3 active:scale-[0.99] transition-all text-left cursor-pointer shadow-xs hover:shadow-md group relative overflow-hidden"
               >
-                <div className="flex items-center gap-2.5 w-full">
-                  <div className="bg-[#1877F2] p-2.5 rounded-full shrink-0 shadow-xs">
-                    <Facebook className="w-5 h-5 text-white" />
+                <div className="flex items-center justify-between w-full">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-[#1877F2] to-[#0D65D9] text-white flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform shrink-0">
+                    <Facebook className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                   </div>
-                  <div className="min-w-0">
-                    <h4 className="font-bold text-xs sm:text-sm text-[#1877F2] truncate">{facebookSection.title}</h4>
-                    <p className="text-[10px] sm:text-xs text-gray-600 font-medium line-clamp-1">{facebookSection.description}</p>
-                  </div>
+                  <span className="text-[10px] font-bold text-blue-600 bg-blue-100/70 px-2 py-0.5 rounded-full border border-blue-200/60">
+                    Facebook
+                  </span>
                 </div>
-                <div className="w-full pt-1.5 border-t border-[#1877F2]/20 flex items-center justify-between text-[10px] font-bold text-[#1877F2] uppercase">
-                  <span className="truncate">{facebookSection.buttonText}</span>
-                  <ArrowRight className="w-3 h-3 shrink-0" />
+
+                <div>
+                  <h4 className="font-extrabold text-xs sm:text-sm text-gray-900 group-hover:text-[#1877F2] transition-colors truncate">
+                    {facebookSection.title}
+                  </h4>
+                  <p className="text-[10px] sm:text-xs text-gray-500 font-medium line-clamp-1 mt-0.5">
+                    {facebookSection.description}
+                  </p>
                 </div>
-              </button>
+
+                <div className="pt-2 border-t border-blue-100/80 flex items-center justify-between text-[10px] sm:text-xs font-extrabold text-[#1877F2]">
+                  <span className="truncate">{facebookSection.buttonText || 'प्रोफाइल देखें'}</span>
+                  <span className="w-6 h-6 rounded-lg bg-blue-50 group-hover:bg-[#1877F2] group-hover:text-white text-[#1877F2] flex items-center justify-center transition-colors">
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                  </span>
+                </div>
+              </div>
             )}
 
-            {/* Instagram Card */}
+            {/* Modern Instagram Card */}
             {instagramSection.enabled && (
-              <button 
+              <div 
                 onClick={() => {
                   const url = instagramSection.profileUrl.trim() || 'https://www.instagram.com';
                   window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
                 }}
-                className="w-full bg-[#E1306C]/10 border-2 border-[#E1306C] rounded-2xl p-3 sm:p-4 flex flex-col justify-between items-start gap-2.5 active:scale-95 transition-transform text-left cursor-pointer shadow-xs"
+                className="bg-gradient-to-br from-pink-50/70 via-white to-purple-50/30 border border-pink-200/80 hover:border-pink-400 rounded-3xl p-3.5 sm:p-4 flex flex-col justify-between gap-3 active:scale-[0.99] transition-all text-left cursor-pointer shadow-xs hover:shadow-md group relative overflow-hidden"
               >
-                <div className="flex items-center gap-2.5 w-full">
-                  <div className="bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] p-2.5 rounded-full shrink-0 shadow-xs">
-                    <Instagram className="w-5 h-5 text-white" />
+                <div className="flex items-center justify-between w-full">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] text-white flex items-center justify-center shadow-md shadow-pink-500/20 group-hover:scale-105 transition-transform shrink-0">
+                    <Instagram className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                   </div>
-                  <div className="min-w-0">
-                    <h4 className="font-bold text-xs sm:text-sm text-[#C13584] truncate">{instagramSection.title}</h4>
-                    <p className="text-[10px] sm:text-xs text-gray-600 font-medium line-clamp-1">{instagramSection.description}</p>
-                  </div>
+                  <span className="text-[10px] font-bold text-pink-600 bg-pink-100/70 px-2 py-0.5 rounded-full border border-pink-200/60">
+                    Instagram
+                  </span>
                 </div>
-                <div className="w-full pt-1.5 border-t border-[#E1306C]/20 flex items-center justify-between text-[10px] font-bold text-[#C13584] uppercase">
-                  <span className="truncate">{instagramSection.buttonText}</span>
-                  <ArrowRight className="w-3 h-3 shrink-0" />
+
+                <div>
+                  <h4 className="font-extrabold text-xs sm:text-sm text-gray-900 group-hover:text-[#DD2A7B] transition-colors truncate">
+                    {instagramSection.title}
+                  </h4>
+                  <p className="text-[10px] sm:text-xs text-gray-500 font-medium line-clamp-1 mt-0.5">
+                    {instagramSection.description}
+                  </p>
                 </div>
-              </button>
+
+                <div className="pt-2 border-t border-pink-100/80 flex items-center justify-between text-[10px] sm:text-xs font-extrabold text-[#DD2A7B]">
+                  <span className="truncate">{instagramSection.buttonText || 'प्रोफाइल देखें'}</span>
+                  <span className="w-6 h-6 rounded-lg bg-pink-50 group-hover:bg-[#DD2A7B] group-hover:text-white text-[#DD2A7B] flex items-center justify-center transition-colors">
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                  </span>
+                </div>
+              </div>
             )}
           </div>
         )}
 
-        {/* Address Card */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start gap-3">
-          <div className="bg-[#F5F2ED] p-2 rounded-lg shrink-0">
-            <MapPin className="w-5 h-5 text-[#2D5A27]" />
+        {/* Modern Address & Store Card */}
+        <div className="bg-gradient-to-br from-amber-50/40 via-white to-emerald-50/30 border border-gray-200/90 hover:border-[#2D5A27]/40 rounded-3xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 text-left relative overflow-hidden group">
+          {/* Header Row */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-[#2D5A27] to-[#1E3F1A] text-white flex items-center justify-center shadow-md shadow-[#2D5A27]/20 group-hover:scale-105 transition-transform shrink-0">
+                <MapPin className="w-5 h-5 text-yellow-300" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">
+                  हमारा स्थायी पता
+                </span>
+                <h4 className="font-extrabold text-sm sm:text-base text-gray-900 leading-snug">
+                  फल्सावदिया कृषि बाजार
+                </h4>
+              </div>
+            </div>
+            <span className="bg-[#2D5A27]/10 text-[#2D5A27] border border-[#2D5A27]/20 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0">
+              शामगढ़
+            </span>
           </div>
-          <div>
-            <p className="text-[11px] font-semibold text-gray-500 mb-1">हमारा पता (Our Address)</p>
-            <p className="text-xs text-[#4A3728] font-bold leading-relaxed">
-              {contactInfo.address}
-            </p>
+
+          {/* Address Content */}
+          <p className="text-xs sm:text-[13px] font-bold text-gray-800 leading-relaxed">
+            {contactInfo.address || 'डिम्पल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़ (458883)'}
+          </p>
+
+          {/* Timings Badge */}
+          <div className="bg-white p-2 rounded-xl border border-gray-100 flex items-center gap-2 text-[11px] text-gray-600 shadow-2xs">
+            <Clock className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
+            <span>दुकान समय: <strong className="text-gray-800">सुबह 8:00 से रात 8:00 बजे तक</strong></span>
+          </div>
+
+          {/* Action Buttons Row */}
+          <div className="pt-2 border-t border-gray-100 flex items-center gap-2">
+            <button
+              onClick={() => {
+                const mapQuery = encodeURIComponent("डिंपल चौराहा क्षत्रिय खाती मांगलिक भवन शामगढ़ मंदसौर 458883");
+                window.open(`https://www.google.com/maps/search/?api=1&query=${mapQuery}`, '_blank');
+              }}
+              className="flex-1 bg-white hover:bg-gray-50 active:scale-95 border border-gray-200 py-2 rounded-xl text-xs font-bold text-gray-700 flex items-center justify-center gap-1.5 shadow-2xs transition-all"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-[#2D5A27]" />
+              <span>मैप पर देखें</span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const addressToCopy = contactInfo.address || 'डिम्पल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)';
+                navigator.clipboard.writeText(addressToCopy);
+                setCopiedAddress(true);
+                setTimeout(() => setCopiedAddress(false), 2000);
+              }}
+              className="flex-1 bg-[#2D5A27]/10 hover:bg-[#2D5A27]/15 active:scale-95 text-[#2D5A27] py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-[#2D5A27]/20 transition-all"
+            >
+              {copiedAddress ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>कॉपी हुआ!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>पता कॉपी करें</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>

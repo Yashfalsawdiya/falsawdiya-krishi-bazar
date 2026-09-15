@@ -38,6 +38,7 @@ import { validateLoginEmail } from '../utils/security';
 import { safeLocalStorageSet, sanitizeProductForStorage, cleanupStorageQuota } from '../utils/cacheManager';
 import { loadAllCachedData, syncDataIfVersionChanged, bumpMetadataVersion, IDB_KEYS } from '../utils/dataSyncManager';
 import { idbSet } from '../utils/idbStorage';
+import { sortCategoriesByOrder } from '../utils/categoryUtils';
 
 export interface AppContent {
   branding: {
@@ -392,7 +393,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!isMounted) return;
 
       if (cached.products.length > 0) setProducts(cached.products);
-      if (cached.categories.length > 0) setCategories(cached.categories);
+      if (cached.categories.length > 0) setCategories(sortCategoriesByOrder(cached.categories));
       if (cached.agriIssues.length > 0) setAgriIssues(cached.agriIssues);
       if (cached.helplines.length > 0) setHelplines(cached.helplines);
       if (cached.appContent) {
@@ -410,7 +411,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!isMounted) return;
         if (syncRes.updated && syncRes.newData) {
           if (syncRes.newData.products) setProducts(syncRes.newData.products);
-          if (syncRes.newData.categories) setCategories(syncRes.newData.categories);
+          if (syncRes.newData.categories) setCategories(sortCategoriesByOrder(syncRes.newData.categories));
           if (syncRes.newData.agriIssues) setAgriIssues(syncRes.newData.agriIssues);
           if (syncRes.newData.helplines) setHelplines(syncRes.newData.helplines);
           if (syncRes.newData.appContent) {
@@ -832,7 +833,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const docRef = await addDoc(collection(db, 'categories'), category);
       const newCat: CategoryData = { id: docRef.id, ...category };
       setCategories(prev => {
-        const updated = [...prev, newCat];
+        const updated = sortCategoriesByOrder([...prev, newCat]);
         setCacheData('categories', updated);
         idbSet(IDB_KEYS.CATEGORIES, updated);
         return updated;
@@ -845,7 +846,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateCategory = async (category: CategoryData) => {
     setCategories(prev => {
-      const updated = prev.map(c => c.id === category.id ? category : c);
+      const updated = sortCategoriesByOrder(prev.map(c => c.id === category.id ? category : c));
       setCacheData('categories', updated);
       idbSet(IDB_KEYS.CATEGORIES, updated);
       return updated;

@@ -519,10 +519,32 @@ const DiseaseDetection: React.FC = () => {
         onChange={handleAddMoreUpload}
       />
 
-      {/* Main Photo Preview & Upload Area */}
-      <div className="bg-white rounded-3xl p-4 shadow-xl border border-gray-100 space-y-4">
-        {/* Large Main Photo Frame */}
-        <div className="relative aspect-square w-full max-w-[320px] mx-auto bg-gray-50 rounded-3xl border-4 border-dashed border-[#2D5A27]/20 flex flex-col items-center justify-center overflow-hidden shadow-inner transition-all">
+      {/* Main Photo Preview & Upload Area (Frameless Modern UI without white outer card) */}
+      <div className="space-y-4">
+        {/* Large Main Photo Frame / Viewfinder */}
+        <div 
+          onClick={() => {
+            if (images.length === 0 && !isCompressing) {
+              if (!requireApiKey("फसल बीमारी की फोटो जाँचने के लिए कृपया अपनी Gemini API Key जोड़ें।")) return;
+              cameraInputRef.current?.click();
+            }
+          }}
+          className={`relative aspect-square w-full max-w-[340px] mx-auto rounded-[2.25rem] overflow-hidden bg-gradient-to-b from-white/80 via-emerald-50/40 to-emerald-100/30 backdrop-blur-md border-2 border-emerald-700/25 hover:border-emerald-600/60 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center p-6 ${
+            images.length === 0 ? 'cursor-pointer group/viewfinder' : ''
+          }`}
+        >
+          {/* Viewfinder Corner Reticle Brackets (Scanner aesthetics) */}
+          {!activeImage && !isCompressing && (
+            <>
+              <div className="absolute top-4 left-4 w-5 h-5 border-t-[2.5px] border-l-[2.5px] border-emerald-600/50 rounded-tl-xl pointer-events-none group-hover/viewfinder:border-emerald-700 transition-colors" />
+              <div className="absolute top-4 right-4 w-5 h-5 border-t-[2.5px] border-r-[2.5px] border-emerald-600/50 rounded-tr-xl pointer-events-none group-hover/viewfinder:border-emerald-700 transition-colors" />
+              <div className="absolute bottom-4 left-4 w-5 h-5 border-b-[2.5px] border-l-[2.5px] border-emerald-600/50 rounded-bl-xl pointer-events-none group-hover/viewfinder:border-emerald-700 transition-colors" />
+              <div className="absolute bottom-4 right-4 w-5 h-5 border-b-[2.5px] border-r-[2.5px] border-emerald-600/50 rounded-br-xl pointer-events-none group-hover/viewfinder:border-emerald-700 transition-colors" />
+              {/* Subtle scanning laser line hint */}
+              <div className="absolute inset-x-10 top-1/2 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent pointer-events-none" />
+            </>
+          )}
+
           {isCompressing ? (
             <div className="text-center p-8 space-y-3">
               <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin mx-auto" />
@@ -530,7 +552,7 @@ const DiseaseDetection: React.FC = () => {
               <p className="text-[10px] text-gray-400">कृपया एक क्षण प्रतीक्षा करें</p>
             </div>
           ) : activeImage ? (
-            <div className="relative w-full h-full group">
+            <div className="relative w-full h-full group rounded-2xl overflow-hidden">
               <img 
                 src={activeImage} 
                 alt="Crop Problem" 
@@ -563,21 +585,34 @@ const DiseaseDetection: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="text-center p-6">
-              <div className="w-20 h-20 bg-[#F5F2ED] rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
-                <Camera className="w-10 h-10 text-[#2D5A27] opacity-40" />
+            <div className="text-center select-none py-2">
+              {/* Modern Animated Lens Pod */}
+              <div className="relative mb-3.5 flex items-center justify-center">
+                <div className="absolute w-22 h-22 rounded-full bg-emerald-500/15 animate-ping opacity-60 pointer-events-none" />
+                <div className="absolute w-20 h-20 rounded-full bg-emerald-500/10 pointer-events-none" />
+                <div className="relative w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-gradient-to-br from-[#163814] via-[#245720] to-[#34782E] text-white flex items-center justify-center shadow-lg shadow-emerald-950/25 ring-4 ring-white/90 group-hover/viewfinder:scale-105 transition-transform duration-300">
+                  <Camera className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+                </div>
               </div>
-              <p className="text-sm text-gray-700 font-bold mb-1">कोई फोटो नहीं चुनी गई</p>
-              <p className="text-[11px] text-gray-500 leading-relaxed max-w-[240px] mx-auto">
-                पौधे के प्रभावित हिस्से की साफ़ फोटो अपलोड करें
+
+              <p className="text-base sm:text-lg font-extrabold text-[#183D16] group-hover/viewfinder:text-[#2D5A27] transition-colors mb-1 tracking-tight">
+                पौधे की साफ़ फोटो जोड़ें
               </p>
+              <p className="text-xs text-gray-600 leading-relaxed max-w-[240px] mx-auto font-medium">
+                पत्ती, तना या फल के प्रभावित हिस्से की साफ़ फोटो अपलोड करें
+              </p>
+              
+              <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full text-[11px] font-bold bg-white/90 text-[#1B4318] border border-emerald-700/20 shadow-2xs">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>AI इंस्टेंट रोग पहचान</span>
+              </div>
             </div>
           )}
         </div>
 
         {/* Multi-Photo Thumbnail Strip & 'Add More' Controls */}
         {images.length > 0 && (
-          <div className="space-y-2 pt-1">
+          <div className="space-y-2 pt-1 max-w-[340px] mx-auto">
             <div className="flex items-center justify-between px-1">
               <span className="text-xs font-extrabold text-[#4A3728]">
                 चुनी गई Photos ({images.length}/{MAX_PHOTOS}):
@@ -623,28 +658,41 @@ const DiseaseDetection: React.FC = () => {
 
         {/* Initial Upload Action Buttons (when no photos) */}
         {images.length === 0 && !analysisResult && (
-          <div className="grid grid-cols-2 gap-3 pt-1">
+          <div className="grid grid-cols-2 gap-3 max-w-[340px] mx-auto pt-1">
             <button 
+              id="btn-scan-camera"
               onClick={() => {
                 if (!requireApiKey("फसल बीमारी की फोटो जाँचने के लिए कृपया अपनी Gemini API Key जोड़ें।")) return;
                 cameraInputRef.current?.click();
               }}
               disabled={isCompressing}
-              className="bg-white border-2 border-[#2D5A27] text-[#2D5A27] py-4 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-sm active:scale-95 transition-all hover:bg-emerald-50/40"
+              className="group relative bg-gradient-to-r from-[#183D16] via-[#245720] to-[#34782E] text-white py-3.5 px-3 rounded-2xl sm:rounded-3xl font-bold flex items-center justify-center gap-2.5 shadow-md shadow-emerald-950/20 hover:shadow-lg hover:shadow-emerald-900/30 active:scale-[0.98] transition-all duration-300 cursor-pointer overflow-hidden border border-emerald-400/20"
             >
-              <Camera className="w-6 h-6" />
-              <span className="text-xs">कैमरा (Camera)</span>
+              <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-xs flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                <Camera className="w-5 h-5 text-white" />
+              </div>
+              <div className="text-left min-w-0">
+                <div className="text-xs sm:text-[13px] font-extrabold tracking-tight truncate">कैमरा (Camera)</div>
+                <div className="text-[10px] text-emerald-100/90 font-medium truncate">तुरंत फोटो लें</div>
+              </div>
             </button>
+
             <button 
+              id="btn-scan-gallery"
               onClick={() => {
                 if (!requireApiKey("गैलरी से फोटो जाँचने के लिए कृपया अपनी Gemini API Key जोड़ें।")) return;
                 galleryInputRef.current?.click();
               }}
               disabled={isCompressing}
-              className="bg-white border-2 border-[#2D5A27] text-[#2D5A27] py-4 rounded-2xl font-bold flex flex-col items-center justify-center gap-2 shadow-sm active:scale-95 transition-all hover:bg-emerald-50/40"
+              className="group bg-white/80 hover:bg-white backdrop-blur-md border-2 border-emerald-900/15 hover:border-emerald-700/40 text-gray-800 hover:text-[#1B4318] py-3.5 px-3 rounded-2xl sm:rounded-3xl font-bold flex items-center justify-center gap-2.5 shadow-xs hover:shadow-md active:scale-[0.98] transition-all duration-300 cursor-pointer"
             >
-              <ImageIcon className="w-6 h-6" />
-              <span className="text-xs">गैलरी (Gallery)</span>
+              <div className="w-10 h-10 rounded-xl bg-emerald-100/70 text-[#1B4318] flex items-center justify-center shrink-0 group-hover:bg-[#2D5A27] group-hover:text-white transition-all duration-300 shadow-2xs">
+                <ImageIcon className="w-5 h-5" />
+              </div>
+              <div className="text-left min-w-0">
+                <div className="text-xs sm:text-[13px] font-extrabold tracking-tight truncate">गैलरी (Gallery)</div>
+                <div className="text-[10px] text-gray-500 font-medium truncate">फ़ोन से चुनें</div>
+              </div>
             </button>
           </div>
         )}
