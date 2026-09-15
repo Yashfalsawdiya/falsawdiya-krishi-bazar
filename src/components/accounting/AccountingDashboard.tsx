@@ -15,7 +15,6 @@ import {
   resetTestAccountingData
 } from '../../services/accountingService';
 import { AccountingPOSBilling } from './AccountingPOSBilling';
-import { AccountingSmartScanner } from './AccountingSmartScanner';
 import { AccountingCustomerLedger } from './AccountingCustomerLedger';
 import { AccountingInventory } from './AccountingInventory';
 import { AccountingPurchases } from './AccountingPurchases';
@@ -23,7 +22,7 @@ import { AccountingExpenses } from './AccountingExpenses';
 
 export const AccountingDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'pos' | 'scanner' | 'ledger' | 'inventory' | 'purchases' | 'expenses'
+    'overview' | 'pos' | 'ledger' | 'inventory' | 'purchases' | 'expenses'
   >('overview');
 
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('today');
@@ -103,7 +102,6 @@ export const AccountingDashboard: React.FC = () => {
         {[
           { id: 'overview', label: 'वित्तीय डैशबोर्ड (Overview)', icon: TrendingUp },
           { id: 'pos', label: 'पीओएस बिक्री (POS Bill)', icon: ShoppingBag },
-          { id: 'scanner', label: 'AI स्मार्ट स्कैनर (Vision)', icon: Sparkles },
           { id: 'ledger', label: 'किसान उधारी खाता (Khata)', icon: Users },
           { id: 'inventory', label: 'स्टॉक व इन्वेंट्री', icon: Package },
           { id: 'purchases', label: 'थोक खरीद (Purchases)', icon: Truck },
@@ -131,10 +129,6 @@ export const AccountingDashboard: React.FC = () => {
       {/* RENDER ACTIVE TAB */}
       {activeTab === 'pos' && (
         <AccountingPOSBilling onSaleComplete={() => loadReport()} />
-      )}
-
-      {activeTab === 'scanner' && (
-        <AccountingSmartScanner onEntrySaved={() => loadReport()} />
       )}
 
       {activeTab === 'ledger' && (
@@ -496,12 +490,12 @@ export const AccountingDashboard: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('scanner')}
+              onClick={() => setActiveTab('purchases')}
               className="p-4 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-3xl text-left transition-all group"
             >
-              <Sparkles className="w-5 h-5 text-amber-700 mb-2 group-hover:scale-110 transition-transform" />
-              <div className="font-bold text-gray-900 text-xs">AI बिल स्कैन करें</div>
-              <p className="text-[10px] text-gray-500">फोटो खींचें और सेव करें</p>
+              <Truck className="w-5 h-5 text-amber-700 mb-2 group-hover:scale-110 transition-transform" />
+              <div className="font-bold text-gray-900 text-xs">थोक खरीद दर्ज करें</div>
+              <p className="text-[10px] text-gray-500">सप्लायर बिल व आवक स्टॉक</p>
             </button>
 
             <button

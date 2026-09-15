@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { getFriendlyAiError } from '../utils/aiErrorHandler';
 import SmartImage from '../components/SmartImage';
 import Markdown from 'react-markdown';
+import DiseaseDiagnosisReport from '../components/disease/DiseaseDiagnosisReport';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -689,134 +690,19 @@ const DiseaseDetection: React.FC = () => {
       <AnimatePresence>
         {analysisResult && (
           <div className="space-y-6">
-            {/* AI Report Card */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100 space-y-4"
-            >
-              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-                <div className="flex items-center gap-3">
-                  <div className="bg-[#EAB308] p-2 rounded-xl">
-                    <AlertCircle className="w-5 h-5 text-[#2D5A27]" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-[#4A3728]">
-                      जाँच का परिणाम (AI Result)
-                    </h3>
-                    {activeScanId && (
-                      <p className="text-[10px] text-gray-400 font-medium">रिपोर्ट ID: {activeScanId}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="prose prose-sm max-w-none">
-                <div className="markdown-body text-sm leading-relaxed text-gray-700">
-                  <Markdown>{analysisResult.analysis}</Markdown>
-                </div>
-              </div>
-              
-              <div className="pt-4 space-y-3">
-                <div className="bg-blue-50 p-3 rounded-xl flex items-start gap-2">
-                  <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-blue-700 font-medium">
-                    यह जानकारी AI द्वारा {images.length > 1 ? `${images.length} तस्वीरों के आधार पर` : 'दी गई है'}। बड़े पैमाने पर छिड़काव से पहले कृषि विशेषज्ञ की सलाह अवश्य लें।
-                  </p>
-                </div>
-                
-                <div className="flex gap-2">
-                  <button 
-                    onClick={reset}
-                    className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl text-sm font-bold active:scale-95 transition-transform"
-                  >
-                    फिर से जाँचें
-                  </button>
-                  <a 
-                    href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
-                      `नमस्ते फल्सावदिया कृषि बाजार विशेषज्ञ,\n\n` +
-                      `मैंने अभी ऐप के माध्यम से अपनी फसल की जाँच की है (${images.length} फोटो स्कैन)।\n\n` +
-                      `*AI द्वारा दी गई जाँच रिपोर्ट:*\n${analysisResult.analysis}\n\n` +
-                      `*मेरा सवाल:* कृपया इस रिपोर्ट को देखें और मुझे सही दवा और मात्रा के बारे में विस्तार से बताएं।\n\n` +
-                      `धन्यवाद!`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-[2] bg-[#25D366] text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"
-                  >
-                    विशेषज्ञ से पूछें (WhatsApp)
-                  </a>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Matched Products Section */}
-            {matchedProducts.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-4"
-              >
-                <div className="flex items-center justify-between px-1">
-                  <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
-                    <ShoppingCart className="w-5 h-5 text-[#2D5A27]" />
-                    दुकान पर उपलब्ध समाधान (Available at Shop)
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 gap-3">
-                  {matchedProducts.map((product, idx) => (
-                    <div 
-                      key={`${product.id}-${idx}`}
-                      onClick={() => setSelectedProduct(product)}
-                      className="w-full text-left bg-white rounded-3xl p-4 shadow-sm border border-gray-100 flex items-center justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer relative group"
-                    >
-                      <div className="flex items-center gap-4 min-w-0 flex-1">
-                        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-50 flex-shrink-0">
-                          <SmartImage 
-                            src={product.image} 
-                            alt={product.name} 
-                            className="w-full h-full" 
-                            objectFit="cover"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-gray-900 text-base leading-tight mb-1">
-                            {product.hindiName || product.name}
-                          </h4>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[9px] bg-[#2D5A27] text-white px-2 py-0.5 rounded-full font-black uppercase tracking-tighter shadow-sm">
-                              {product.brand || getCategoryName(product.category)}
-                            </span>
-                            <span className="text-[10px] text-gray-400 font-bold">
-                              📦 {product.unit || 'Pack'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                addToCart(product, product.variants?.[0]);
-                                setAddedProductId(product.id);
-                                setTimeout(() => setAddedProductId(null), 1200);
-                              }}
-                              className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shadow-sm flex items-center gap-1.5 active:scale-95 transition-all outline-none ${
-                                addedProductId === product.id 
-                                  ? "bg-green-600 text-white" 
-                                  : "bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90"
-                              }`}
-                            >
-                              <ShoppingCart className="w-3.5 h-3.5" />
-                              {addedProductId === product.id ? 'Added ✓' : 'Add To Cart'}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <ArrowRight className="w-5 h-5 text-gray-300 shrink-0 group-hover:translate-x-1 transition-transform" />
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
+            {/* Redesigned Premium Agricultural Disease Diagnosis Report */}
+            <DiseaseDiagnosisReport
+              analysisResult={analysisResult}
+              images={images}
+              activeScanId={activeScanId}
+              onReset={reset}
+              whatsappNumber={whatsappNumber}
+              matchedProducts={matchedProducts}
+              onSelectProduct={setSelectedProduct}
+              onAddToCart={addToCart}
+              addedProductId={addedProductId}
+              getCategoryName={getCategoryName}
+            />
 
             {/* ============================================================ */}
             {/* CONTEXT-AWARE AI CHAT SECTION FOR THIS DISEASE SCAN REPORT */}
