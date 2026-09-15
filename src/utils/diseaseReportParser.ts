@@ -1,359 +1,387 @@
-import { ParsedDiseaseReport, TreatmentItem } from '../types/diseaseReport';
+/**
+ * Utility to clean and parse crop disease detection reports into structured,
+ * pointwise, section-wise data for professional UI rendering.
+ */
+
+export interface ChemicalMedicine {
+  medicineName: string;
+  dosagePump: string;
+  dosageAcre?: string;
+  instructions?: string;
+  raw: string;
+}
+
+export interface OrganicMedicine {
+  methodName: string;
+  dosage: string;
+  instructions?: string;
+  raw: string;
+}
+
+export interface ParsedDiseaseReport {
+  cropName: string;
+  problemType: string;
+  diseaseName: string;
+  severity: 'MILD' | 'MODERATE' | 'SEVERE';
+  severityLabel: string;
+  symptoms: string[];
+  treatmentNotice?: string;
+  chemicalControl: ChemicalMedicine[];
+  organicControl: OrganicMedicine[];
+  preventionTips: string[];
+  shopNotice?: string;
+  rawCleanedText: string;
+  hasStructuredSections: boolean;
+}
 
 /**
- * Normalizes raw string by removing HTML break tags, non-breaking spaces,
- * standardizing newlines and converting bold tags to markdown.
+ * Removes any literal <br>, <br/>, and markdown formatting tags cleanly
  */
-export function normalizeDiseaseText(rawText: string): string {
-  if (!rawText) return '';
-
-  return rawText
-    // Replace html br tags with newlines
+export function cleanRawReportText(text: string): string {
+  if (!text) return '';
+  return text
     .replace(/<br\s*\/?>/gi, '\n')
-    // Replace non-breaking spaces
-    .replace(/&nbsp;/gi, ' ')
-    // Replace strong/b tags with markdown asterisks
-    .replace(/<\/?(strong|b)>/gi, '**')
-    // Standardize newlines
+    .replace(/<\/?(?:p|div|span|strong|b|i|em)>/gi, '')
     .replace(/\r\n/g, '\n')
-    // Collapse excessive empty newlines (more than 2)
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
 /**
- * Splits text into individual clean points / sentences
+ * Strips leading bullets, numbers, and asterisks
  */
-function extractBulletPoints(textBlock: string): string[] {
-  if (!textBlock) return [];
-  const lines = textBlock.split('\n');
-  const points: string[] = [];
-
-  for (let line of lines) {
-    line = line.trim();
-    if (!line) continue;
-
-    // Check if line starts with numbered list e.g. "1.", "1)", "- ", "* ", "•"
-    const cleaned = line
-      .replace(/^(\d+[\.\)]|\-|\*|•)\s*/, '')
-      .trim();
-
-    if (cleaned && cleaned.length > 3) {
-      points.push(cleaned);
-    }
-  }
-
-  return points;
+function cleanBullet(text: string): string {
+  return text
+    .replace(/^\s*(?:[\d]+[\.\)]|[-•*]+)\s*/, '')
+    .replace(/^\*\*|\*\*$/g, '')
+    .trim();
 }
 
 /**
- * Parses dosage info (pump dosage, acre dosage) from treatment instruction text
+ * Parse chemical medicine line into name, dosage, and instructions
  */
-function extractDosageHighlights(text: string): { pumpDosage?: string; acreDosage?: string } {
-  let pumpDosage: string | undefined;
-  let acreDosage: string | undefined;
+function parseChemicalLine(line: string): ChemicalMedicine {
+  const cleaned = cleanBullet(line);
+  
+  // Split on the first colon if available (e.g. "Name (Active): Dosage instructions")
+  const colonIndex = cleaned.indexOf(':');
+  if (colonIndex > 0) {
+    const namePart = cleaned.substring(0, colonIndex).replace(/\*\*/g, '').trim();
+    const rest = cleaned.substring(colonIndex + 1).trim();
 
-  // Search for pump dosage pattern e.g. "15-18 मिलीलीटर प्रति 15 लीटर पंप", "10 ग्राम प्रति 15 लीटर"
-  const pumpMatch = text.match(/(\d+(?:[\.–\-]\d+)?\s*(?:मिलीलीटर|एमएल|ml|ग्राम|gm|g|लीटर|L)\s*(?:प्रति|\/)?\s*(?:15|16|20)?\s*(?:लीटर)?\s*(?:पंप|पानी))/i);
-  if (pumpMatch) {
-    pumpDosage = pumpMatch[1].trim();
-  }
+    // Try to extract pump and acre dosages
+    let dosagePump = rest;
+    let dosageAcre = '';
+    let instructions = '';
 
-  // Search for acre/bigha dosage pattern e.g. "(180 मिलीलीटर प्रति एकड़)", "100 ग्राम प्रति एकड़"
-  const acreMatch = text.match(/(\d+(?:[\.–\-]\d+)?\s*(?:मिलीलीटर|एमएल|ml|ग्राम|gm|g|लीटर|L)\s*(?:प्रति|\/)?\s*(?:एकड़|बीघा))/i);
-  if (acreMatch) {
-    acreDosage = acreMatch[1].trim();
-  }
-
-  return { pumpDosage, acreDosage };
-}
-
-/**
- * Parses treatment lines into structured TreatmentItems
- */
-function parseTreatmentLines(
-  textBlock: string,
-  type: 'chemical' | 'organic' | 'preventive' | 'general'
-): TreatmentItem[] {
-  if (!textBlock) return [];
-  const lines = textBlock.split('\n');
-  const items: TreatmentItem[] = [];
-  let currentStep = 1;
-
-  for (let line of lines) {
-    line = line.trim();
-    if (!line) continue;
-
-    // Ignore intro / shop lines inside treatment section if they aren't steps
-    if (line.startsWith('किसान भाइयों') || line.includes('दुकान पर उपलब्ध')) {
-      continue;
+    // Match acre dosage if present in brackets or separate phrase
+    const acreMatch = rest.match(/\(?(\d+(?:[-–]\d+)?\s*(?:मिलीलीटर|मिली|ग्राम|ml|gm|g)\s*(?:प्रति\s*(?:एकड़|बीघा)|\/\s*एकड़))\)?/i);
+    if (acreMatch) {
+      dosageAcre = acreMatch[1].trim();
     }
 
-    // Check if line represents a step (numbered or bold bullet)
-    const stepMatch = line.match(/^(?:(\d+)[\.\)]|\-|\*|•)?\s*(?:\*\*(.*?)\*\*|\b([^:]+)\b)\s*:\s*(.*)$/);
-
-    if (stepMatch) {
-      const explicitNum = stepMatch[1] ? parseInt(stepMatch[1], 10) : currentStep;
-      const rawTitle = (stepMatch[2] || stepMatch[3] || '').trim();
-      const rawDetails = (stepMatch[4] || '').trim();
-
-      // Extract technical name if in parentheses
-      let title = rawTitle;
-      let technicalName: string | undefined;
-      const techMatch = rawTitle.match(/^(.*?)\s*\((.*?)\)$/);
-      if (techMatch) {
-        title = techMatch[1].trim();
-        technicalName = techMatch[2].trim();
-      }
-
-      const { pumpDosage, acreDosage } = extractDosageHighlights(rawDetails);
-      const combinedDosage = [pumpDosage, acreDosage].filter(Boolean).join(' | ');
-
-      items.push({
-        id: `trt_${type}_${currentStep}`,
-        stepNumber: explicitNum || currentStep,
-        title: title || rawTitle,
-        technicalName,
-        dosage: combinedDosage || '',
-        pumpDosage,
-        acreDosage,
-        instructions: rawDetails,
-        type
-      });
-      currentStep++;
-    } else {
-      // Fallback: simple line
-      const cleanLine = line.replace(/^(\d+[\.\)]|\-|\*|•)\s*/, '').trim();
-      if (cleanLine.length > 5) {
-        const { pumpDosage, acreDosage } = extractDosageHighlights(cleanLine);
-        items.push({
-          id: `trt_${type}_${currentStep}`,
-          stepNumber: currentStep,
-          title: cleanLine.length > 35 ? cleanLine.substring(0, 35) + '...' : cleanLine,
-          dosage: [pumpDosage, acreDosage].filter(Boolean).join(' | '),
-          pumpDosage,
-          acreDosage,
-          instructions: cleanLine,
-          type
-        });
-        currentStep++;
-      }
+    // Match pump dosage
+    const pumpMatch = rest.match(/(\d+(?:[-–]\d+)?\s*(?:मिलीलीटर|मिली|ग्राम|ml|gm|g)\s*(?:प्रति\s*(?:15|20)?\s*(?:लीटर|ली)?\s*(?:पंप|पानी)|प्रति\s*पंप|\/\s*15\s*लीटर))/i);
+    if (pumpMatch) {
+      dosagePump = pumpMatch[1].trim();
     }
-  }
 
-  return items;
-}
+    // Instructions
+    const instMatch = rest.match(/(?:की दर से छिड़काव करें|स्प्रे करें|घोल बनाकर छिड़कें|का छिड़काव करें)[^\.]*/i);
+    if (instMatch) {
+      instructions = instMatch[0].trim();
+    }
 
-/**
- * Main parser that translates the Gemini disease diagnosis text into
- * a strongly typed, structured representation for the UI.
- */
-export function parseDiseaseReport(
-  rawText: string,
-  imageCount: number = 1,
-  keywords: string[] = []
-): ParsedDiseaseReport {
-  const normalized = normalizeDiseaseText(rawText);
-
-  if (!normalized) {
     return {
-      isStructured: false,
-      cropName: 'अज्ञात फसल',
-      pestOrDiseaseType: 'जाँच परिणाम',
-      specificName: 'फसल रोग रिपोर्ट',
-      confidenceScore: 90,
-      severity: 'सामान्य',
-      severityCode: 'LOW',
-      symptoms: [],
-      causes: [],
-      chemicalTreatments: [],
-      organicTreatments: [],
-      preventionTips: [],
-      warnings: [],
-      shopAdvisories: [],
-      unparsedMarkdown: rawText
+      medicineName: namePart,
+      dosagePump: dosagePump || rest,
+      dosageAcre: dosageAcre || undefined,
+      instructions: instructions || (dosagePump !== rest ? rest : undefined),
+      raw: cleaned
     };
   }
 
-  // 1. Extract Crop Name
+  return {
+    medicineName: cleaned,
+    dosagePump: '',
+    raw: cleaned
+  };
+}
+
+/**
+ * Parse organic control line
+ */
+function parseOrganicLine(line: string): OrganicMedicine {
+  const cleaned = cleanBullet(line);
+  const colonIndex = cleaned.indexOf(':');
+  if (colonIndex > 0) {
+    const namePart = cleaned.substring(0, colonIndex).replace(/\*\*/g, '').trim();
+    const rest = cleaned.substring(colonIndex + 1).trim();
+    return {
+      methodName: namePart,
+      dosage: rest,
+      raw: cleaned
+    };
+  }
+  return {
+    methodName: cleaned,
+    dosage: '',
+    raw: cleaned
+  };
+}
+
+/**
+ * Core parser function to convert any raw text analysis into a pointwise,
+ * structured, section-wise report.
+ */
+export function parseDiseaseReport(
+  rawText: string,
+  preStructured?: {
+    cropName?: string;
+    problemType?: string;
+    diseaseName?: string;
+    severity?: string;
+    symptoms?: string[];
+    chemicalControl?: any[];
+    organicControl?: any[];
+    preventionTips?: string[];
+    shopNotice?: string;
+  }
+): ParsedDiseaseReport {
+  const cleanedText = cleanRawReportText(rawText);
+
+  // If pre-structured fields were passed directly from Gemini JSON response
+  if (
+    preStructured &&
+    (preStructured.cropName || preStructured.diseaseName || (preStructured.symptoms && preStructured.symptoms.length > 0))
+  ) {
+    let severity: 'MILD' | 'MODERATE' | 'SEVERE' = 'MODERATE';
+    let severityLabel = 'मध्यम प्रभाव (Action Recommended)';
+
+    const sevStr = (preStructured.severity || '').toLowerCase();
+    if (sevStr.includes('mild') || sevStr.includes('सामान्य') || sevStr.includes('शुरुआती')) {
+      severity = 'MILD';
+      severityLabel = 'शुरुआती / सामान्य प्रभाव (Mild)';
+    } else if (sevStr.includes('severe') || sevStr.includes('गंभीर') || sevStr.includes('क्रिटिकल')) {
+      severity = 'SEVERE';
+      severityLabel = 'गंभीर / तत्काल रोकथाम आवश्यक (Severe)';
+    }
+
+    const chemicalControl: ChemicalMedicine[] = (preStructured.chemicalControl || []).map(c => ({
+      medicineName: c.medicineName || c.name || '',
+      dosagePump: c.dosagePump || c.dosage || '',
+      dosageAcre: c.dosageAcre,
+      instructions: c.instructions,
+      raw: `${c.medicineName}: ${c.dosagePump || c.dosage}`
+    }));
+
+    const organicControl: OrganicMedicine[] = (preStructured.organicControl || []).map(o => ({
+      methodName: o.methodName || o.name || '',
+      dosage: o.dosage || '',
+      instructions: o.instructions,
+      raw: `${o.methodName}: ${o.dosage}`
+    }));
+
+    return {
+      cropName: preStructured.cropName || 'फसल (Crop)',
+      problemType: preStructured.problemType || 'कीट / रोग प्रकोप',
+      diseaseName: preStructured.diseaseName || 'लक्षित समस्या',
+      severity,
+      severityLabel,
+      symptoms: preStructured.symptoms || [],
+      treatmentNotice: preStructured.shopNotice || 'किसान भाइयों, ये सभी उत्तम दवाएं हमारी दुकान फल्सावदिया कृषि बाजार पर उपलब्ध हैं।',
+      chemicalControl,
+      organicControl,
+      preventionTips: preStructured.preventionTips || [],
+      shopNotice: preStructured.shopNotice,
+      rawCleanedText: cleanedText,
+      hasStructuredSections: true
+    };
+  }
+
+  // --- REGEX FALLBACK PARSER FOR RAW TEXT (HISTORICAL SCANS & STORED DATA) ---
+  
+  // 1. Crop Name
   let cropName = '';
-  let cropScientificOrEng: string | undefined;
-  const cropMatch = normalized.match(/(?:\*\*|#{1,4}\s*)(?:फसल का नाम|Crop Name)[\s\:\*]*([^\n]+)/i);
+  const cropMatch = cleanedText.match(/(?:फसल का नाम|फसल|Crop Name)[:\s*]+([^\n\r]+)/i);
   if (cropMatch) {
-    const rawCrop = cropMatch[1].trim();
-    const bracketMatch = rawCrop.match(/^(.*?)\s*\((.*?)\)$/);
-    if (bracketMatch) {
-      cropName = bracketMatch[1].trim();
-      cropScientificOrEng = bracketMatch[2].trim();
+    cropName = cropMatch[1].replace(/\*\*/g, '').trim();
+  }
+
+  // 2. Problem Type (Disease / Pest / Deficiency)
+  let problemType = '';
+  const probMatch = cleanedText.match(/(?:कीट का प्रकार|बीमारी या कीट का प्रकार|समस्या का प्रकार|रोग का प्रकार|कीट वर्ग|Disease or Pest Type|Pest Type)[:\s*]+([^\n\r]+)/i);
+  if (probMatch) {
+    problemType = probMatch[1].replace(/\*\*/g, '').trim();
+  } else {
+    // Deduce from keywords in text
+    if (/रस चूसक|थ्रिप्स|एफिड|माहू|सफेद मक्खी|sucking/i.test(cleanedText)) {
+      problemType = 'रस चूसक कीट (Sucking Pest)';
+    } else if (/इल्ली|कैटरपिलर|chewing|borer/i.test(cleanedText)) {
+      problemType = 'चबाने वाला कीट / इल्ली (Chewing Pest)';
+    } else if (/फफूंद|फंगस|fungal|झुलसा|ब्लाइट|mildew/i.test(cleanedText)) {
+      problemType = 'फफूंद जनित रोग (Fungal Disease)';
+    } else if (/जीवाणु|बैक्टीरिया|bacterial/i.test(cleanedText)) {
+      problemType = 'जीवाणु जनित रोग (Bacterial Disease)';
+    } else if (/पोषण|कमी|deficiency|पीलापन/i.test(cleanedText)) {
+      problemType = 'पोषक तत्व की कमी (Nutrient Deficiency)';
     } else {
-      cropName = rawCrop;
+      problemType = 'फसल रोग / कीट समस्या';
     }
   }
 
-  // 2. Extract Pest / Disease Type
-  let pestOrDiseaseType = '';
-  const typeMatch = normalized.match(/(?:\*\*|#{1,4}\s*)(?:बीमारी या कीट का प्रकार|कीट का प्रकार|रोग का प्रकार|कीट या रोग का प्रकार|Disease or Pest Type|Pest Type|Disease Type)[\s\:\*]*([^\n]+)/i);
-  if (typeMatch) {
-    pestOrDiseaseType = typeMatch[1].trim();
+  // 3. Specific Name (Disease or Pest Name)
+  let diseaseName = '';
+  const nameMatch = cleanedText.match(/(?:विशिष्ट नाम|बीमारी का नाम|रोग का नाम|कीट का नाम|Specific Name)[:\s*]+([^\n\r]+)/i);
+  if (nameMatch) {
+    diseaseName = nameMatch[1].replace(/\*\*/g, '').trim();
   }
 
-  // 3. Extract Specific Name (Disease or Pest)
-  let specificName = '';
-  let scientificName: string | undefined;
-  const specificMatch = normalized.match(/(?:\*\*|#{1,4}\s*)(?:विशिष्ट नाम|नाम|Specific Name|Disease Name|Pest Name)[\s\:\*]*([^\n]+)/i);
-  if (specificMatch) {
-    const rawSpecific = specificMatch[1].trim();
-    const bracketMatch = rawSpecific.match(/^(.*?)\s*\((.*?)\)$/);
-    if (bracketMatch) {
-      specificName = bracketMatch[1].trim();
-      scientificName = bracketMatch[2].trim();
-    } else {
-      specificName = rawSpecific;
-    }
-  }
-
-  // Fallbacks if not extracted
-  if (!specificName && keywords.length > 0) {
-    specificName = keywords.slice(0, 2).join(', ');
-  }
-  if (!specificName) {
-    specificName = 'फसल रोग एवं कीट समस्या';
-  }
-  if (!cropName) {
-    cropName = 'फसल / पौधा';
-  }
-  if (!pestOrDiseaseType) {
-    pestOrDiseaseType = 'रोग / कीट संक्रमण';
-  }
-
-  // 4. Extract Symptoms Block
-  let symptoms: string[] = [];
-  const symptomsBlockMatch = normalized.match(
-    /(?:\*\*|#{1,4}\s*)(?:लक्षण|Symptoms)[\s\:\*]*([\s\S]*?)(?=\n\s*(?:\*\*|#{1,4}\s*)(?:अनुशंसित उपचार|उपचार|रासायनिक नियंत्रण|कारण|Treatment|Chemical Control)|\n\s*किसान भाइयों|$)/i
-  );
+  // 4. Symptoms (लक्षण) Pointwise Extraction
+  const symptoms: string[] = [];
+  const symptomsBlockMatch = cleanedText.match(/(?:लक्षण|Symptoms)[:\s*]*\n([\s\S]*?)(?=(?:अनुशंसित उपचार|उपचार|उपाय|Recommended Treatment|रासायनिक नियंत्रण|$))/i);
   if (symptomsBlockMatch) {
-    symptoms = extractBulletPoints(symptomsBlockMatch[1]);
-  }
+    const rawSymptoms = symptomsBlockMatch[1];
+    // Split by numbered list or bullet points
+    const lines = rawSymptoms.split('\n');
+    let currentPoint = '';
 
-  // 5. Extract Possible Causes (if any)
-  let causes: string[] = [];
-  const causesBlockMatch = normalized.match(
-    /(?:\*\*|#{1,4}\s*)(?:कारण|संभावित कारण|Causes|Possible Causes)[\s\:\*]*([\s\S]*?)(?=\n\s*(?:\*\*|#{1,4}\s*)(?:अनुशंसित उपचार|उपचार|लक्षण|रासायनिक नियंत्रण)|$)/i
-  );
-  if (causesBlockMatch) {
-    causes = extractBulletPoints(causesBlockMatch[1]);
-  }
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
 
-  // 6. Extract Treatment Intro
-  let treatmentIntro: string | undefined;
-  const treatmentIntroMatch = normalized.match(
-    /(?:\*\*|#{1,4}\s*)(?:अनुशंसित उपचार|उपचार|Recommended Treatment)[\s\:\*]*([^\n]+(?:\n[^\n\*\#]+)?)/i
-  );
-  if (treatmentIntroMatch) {
-    const introCandidate = treatmentIntroMatch[1].trim();
-    if (!introCandidate.startsWith('**') && !introCandidate.startsWith('#') && introCandidate.length > 10) {
-      treatmentIntro = introCandidate;
+      if (/^(?:[\d]+[\.\)]|[-•*])\s+/.test(trimmed)) {
+        if (currentPoint) symptoms.push(cleanBullet(currentPoint));
+        currentPoint = trimmed;
+      } else if (currentPoint) {
+        currentPoint += ' ' + trimmed;
+      } else {
+        currentPoint = trimmed;
+      }
+    }
+    if (currentPoint) {
+      symptoms.push(cleanBullet(currentPoint));
     }
   }
 
-  // 7. Extract Chemical Control Block
-  let chemicalTreatments: TreatmentItem[] = [];
-  const chemicalBlockMatch = normalized.match(
-    /(?:\*\*|#{1,4}\s*)(?:रासायनिक नियंत्रण|Chemical Control|Chemical Treatment)[\s\:\*]*([\s\S]*?)(?=\n\s*(?:\*\*|#{1,4}\s*)(?:जैविक नियंत्रण|Organic Control|बचाव एवं सावधानियां|बचाव|सावधानियां|Prevention)|\n\s*अधिक जानकारी|$)/i
-  );
-  if (chemicalBlockMatch) {
-    chemicalTreatments = parseTreatmentLines(chemicalBlockMatch[1], 'chemical');
+  // 5. Treatment Notice
+  let treatmentNotice = '';
+  const noticeMatch = cleanedText.match(/(?:अनुशंसित उपचार|उपचार|Recommended Treatment)[^\n]*\n+([^:\n][^\n]*)/i);
+  if (noticeMatch && !noticeMatch[1].includes('रासायनिक नियंत्रण')) {
+    treatmentNotice = noticeMatch[1].replace(/\*\*/g, '').trim();
   }
 
-  // 8. Extract Organic Control Block
-  let organicTreatments: TreatmentItem[] = [];
-  const organicBlockMatch = normalized.match(
-    /(?:\*\*|#{1,4}\s*)(?:जैविक नियंत्रण|Organic Control|जैविक उपचार)[\s\:\*]*([\s\S]*?)(?=\n\s*(?:\*\*|#{1,4}\s*)(?:बचाव एवं सावधानियां|बचाव|सावधानियां|Prevention)|\n\s*अधिक जानकारी|$)/i
-  );
-  if (organicBlockMatch) {
-    organicTreatments = parseTreatmentLines(organicBlockMatch[1], 'organic');
-  }
+  // 6. Chemical Control (रासायनिक नियंत्रण) Pointwise Extraction
+  const chemicalControl: ChemicalMedicine[] = [];
+  const chemBlockMatch = cleanedText.match(/(?:रासायनिक नियंत्रण|Chemical Control)[:\s*]*\n([\s\S]*?)(?=(?:जैविक नियंत्रण|Organic Control|बचाव एवं सावधानियां|बचाव|Prevention|$))/i);
+  if (chemBlockMatch) {
+    const rawChem = chemBlockMatch[1];
+    const lines = rawChem.split('\n');
+    let currentLine = '';
 
-  // Fallback: If neither Chemical nor Organic subheadings were present, parse general treatment block
-  if (chemicalTreatments.length === 0 && organicTreatments.length === 0) {
-    const generalTreatmentMatch = normalized.match(
-      /(?:\*\*|#{1,4}\s*)(?:अनुशंसित उपचार|उपचार|Recommended Treatment|Treatment)[\s\:\*]*([\s\S]*?)(?=\n\s*(?:\*\*|#{1,4}\s*)(?:बचाव एवं सावधानियां|बचाव|सावधानियां|Prevention)|\n\s*अधिक जानकारी|$)/i
-    );
-    if (generalTreatmentMatch) {
-      chemicalTreatments = parseTreatmentLines(generalTreatmentMatch[1], 'chemical');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (/^(?:[\d]+[\.\)]|[-•*])\s+/.test(trimmed)) {
+        if (currentLine) chemicalControl.push(parseChemicalLine(currentLine));
+        currentLine = trimmed;
+      } else if (currentLine) {
+        currentLine += ' ' + trimmed;
+      } else {
+        currentLine = trimmed;
+      }
+    }
+    if (currentLine) {
+      chemicalControl.push(parseChemicalLine(currentLine));
     }
   }
 
-  // 9. Extract Prevention & Precautions Block
-  let preventionTips: string[] = [];
-  const preventionBlockMatch = normalized.match(
-    /(?:\*\*|#{1,4}\s*)(?:बचाव एवं सावधानियां|बचाव|सावधानियां|रोकथाम|Prevention & Precautions|Prevention)[\s\:\*]*([\s\S]*?)(?=\n\s*अधिक जानकारी|\n\s*दुकान का समय|$)/i
-  );
-  if (preventionBlockMatch) {
-    preventionTips = extractBulletPoints(preventionBlockMatch[1]);
+  // 7. Organic Control (जैविक नियंत्रण) Pointwise Extraction
+  const organicControl: OrganicMedicine[] = [];
+  const orgBlockMatch = cleanedText.match(/(?:जैविक नियंत्रण|Organic Control)[:\s*]*\n([\s\S]*?)(?=(?:बचाव एवं सावधानियां|बचाव|Prevention|अधिक जानकारी|दुकान|$))/i);
+  if (orgBlockMatch) {
+    const rawOrg = orgBlockMatch[1];
+    const lines = rawOrg.split('\n');
+    let currentLine = '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (/^(?:[\d]+[\.\)]|[-•*])\s+/.test(trimmed)) {
+        if (currentLine) organicControl.push(parseOrganicLine(currentLine));
+        currentLine = trimmed;
+      } else if (currentLine) {
+        currentLine += ' ' + trimmed;
+      } else {
+        currentLine = trimmed;
+      }
+    }
+    if (currentLine) {
+      organicControl.push(parseOrganicLine(currentLine));
+    }
   }
 
-  // 10. Extract Shop Advisory & Timings
-  let shopAdvisories: string[] = [];
-  const shopMatch = normalized.match(/(?:अधिक जानकारी और उच्च गुणवत्ता वाले कृषि उत्पादों के लिए हमारी दुकान[\s\S]*?(?:शामगढ़|8:00 PM|458883)[^\n]*)/i);
+  // 8. Prevention & Precautions (बचाव एवं सावधानियां) Pointwise Extraction
+  const preventionTips: string[] = [];
+  const prevBlockMatch = cleanedText.match(/(?:बचाव एवं सावधानियां|बचाव|सावधानियां|Prevention & Precautions|Prevention)[:\s*]*\n([\s\S]*?)(?=(?:अधिक जानकारी|दुकान|नोट|$))/i);
+  if (prevBlockMatch) {
+    const rawPrev = prevBlockMatch[1];
+    const lines = rawPrev.split('\n');
+    let currentPoint = '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (/^(?:[\d]+[\.\)]|[-•*])\s+/.test(trimmed)) {
+        if (currentPoint) preventionTips.push(cleanBullet(currentPoint));
+        currentPoint = trimmed;
+      } else if (currentPoint) {
+        currentPoint += ' ' + trimmed;
+      } else {
+        currentPoint = trimmed;
+      }
+    }
+    if (currentPoint) {
+      preventionTips.push(cleanBullet(currentPoint));
+    }
+  }
+
+  // 9. Shop Notice / Address
+  let shopNotice = '';
+  const shopMatch = cleanedText.match(/(?:अधिक जानकारी और उच्च गुणवत्ता|हमारी दुकान 'फल्सावदिया कृषि बाजार')[^\n]*[\s\S]*$/i);
   if (shopMatch) {
-    shopAdvisories.push(shopMatch[0].trim());
+    shopNotice = shopMatch[0].replace(/\*\*/g, '').trim();
   }
 
-  // 11. Extract Warnings / Spray Precautions
-  const warnings: string[] = [];
-  const sprayPrecaution = preventionTips.find(p => p.includes('छिड़काव') && (p.includes('सुबह') || p.includes('हवा')));
-  if (sprayPrecaution) {
-    warnings.push(sprayPrecaution);
+  // Determine Severity
+  let severity: 'MILD' | 'MODERATE' | 'SEVERE' = 'MODERATE';
+  let severityLabel = 'मध्यम प्रभाव (Action Recommended)';
+
+  if (/गंभीर|तत्काल|भारी प्रकोप|severe|critical|झुलसा|सड़न|विनाशकारी/i.test(cleanedText)) {
+    severity = 'SEVERE';
+    severityLabel = 'गंभीर / तत्काल रोकथाम आवश्यक (Severe)';
+  } else if (/शुरुआती|सामान्य|हल्का|कम|mild/i.test(cleanedText)) {
+    severity = 'MILD';
+    severityLabel = 'शुरुआती लक्षण / सामान्य (Mild)';
   }
 
-  // 12. Calculate Severity & SeverityCode
-  let severity: 'सामान्य' | 'मध्यम' | 'गंभीर' | 'अति गंभीर' = 'मध्यम';
-  let severityCode: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'MEDIUM';
-
-  const lower = normalized.toLowerCase();
-  if (lower.includes('अति गंभीर') || lower.includes('गंभीर नुकसान') || lower.includes('तुरंत छिड़काव')) {
-    severity = 'गंभीर';
-    severityCode = 'HIGH';
-  } else if (lower.includes('हल्का') || lower.includes('शुरुआती') || lower.includes('प्रारंभिक')) {
-    severity = 'सामान्य';
-    severityCode = 'LOW';
-  } else {
-    severity = 'मध्यम';
-    severityCode = 'MEDIUM';
-  }
-
-  // 13. Confidence Score calculation
-  let confidenceScore = 95;
-  const confMatch = normalized.match(/(?:सटीकता|विश्वसनीयता|Confidence)[\s\:\*]*(\d{2})%/i);
-  if (confMatch) {
-    confidenceScore = parseInt(confMatch[1], 10);
-  } else {
-    // Multi-photo increases confidence
-    confidenceScore = imageCount >= 2 ? 97 : 94;
-  }
-
-  const isStructured = (symptoms.length > 0 || chemicalTreatments.length > 0 || organicTreatments.length > 0);
+  const hasStructuredSections = Boolean(
+    cropName || diseaseName || symptoms.length > 0 || chemicalControl.length > 0 || preventionTips.length > 0
+  );
 
   return {
-    isStructured,
-    cropName,
-    cropScientificOrEng,
-    pestOrDiseaseType,
-    specificName,
-    scientificName,
-    confidenceScore,
+    cropName: cropName || 'पौधे / फसल की पहचान',
+    problemType: problemType || 'फसल कीट या रोग',
+    diseaseName: diseaseName || 'लक्षित कीट / फफूंद समस्या',
     severity,
-    severityCode,
-    summary: `${cropName} में ${specificName} (${pestOrDiseaseType}) के विशिष्ट लक्षण पाए गए हैं।`,
+    severityLabel,
     symptoms,
-    causes,
-    treatmentIntro,
-    chemicalTreatments,
-    organicTreatments,
+    treatmentNotice,
+    chemicalControl,
+    organicControl,
     preventionTips,
-    warnings,
-    shopAdvisories,
-    unparsedMarkdown: !isStructured ? normalized : undefined
+    shopNotice,
+    rawCleanedText: cleanedText,
+    hasStructuredSections
   };
 }

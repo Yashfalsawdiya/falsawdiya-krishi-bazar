@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { getFriendlyAiError } from '../utils/aiErrorHandler';
 import SmartImage from '../components/SmartImage';
 import Markdown from 'react-markdown';
-import DiseaseDiagnosisReport from '../components/disease/DiseaseDiagnosisReport';
+import { DiseaseReportView } from '../components/DiseaseReportView';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -270,10 +270,7 @@ const DiseaseDetection: React.FC = () => {
       const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' }) + 
                       ' ' + now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
 
-      let detectedTitle = 'फसल रोग रिपोर्ट';
-      if (analysis.keywords && analysis.keywords.length > 0) {
-        detectedTitle = analysis.keywords.slice(0, 2).join(', ');
-      }
+      let detectedTitle = analysis.diseaseName || analysis.cropName || (analysis.keywords && analysis.keywords.length > 0 ? analysis.keywords.slice(0, 2).join(', ') : 'फसल रोग रिपोर्ट');
 
       const photoCountText = images.length > 1 ? ` (${images.length} फोटो की संयुक्त जाँच)` : '';
 
@@ -690,19 +687,82 @@ const DiseaseDetection: React.FC = () => {
       <AnimatePresence>
         {analysisResult && (
           <div className="space-y-6">
-            {/* Redesigned Premium Agricultural Disease Diagnosis Report */}
-            <DiseaseDiagnosisReport
+            {/* AI Professional Section-wise Pointwise Report Card */}
+            <DiseaseReportView
               analysisResult={analysisResult}
-              images={images}
-              activeScanId={activeScanId}
+              reportId={activeScanId}
+              imagesCount={images.length}
               onReset={reset}
               whatsappNumber={whatsappNumber}
-              matchedProducts={matchedProducts}
-              onSelectProduct={setSelectedProduct}
-              onAddToCart={addToCart}
-              addedProductId={addedProductId}
-              getCategoryName={getCategoryName}
             />
+
+            {/* Matched Products Section */}
+            {matchedProducts.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-4"
+              >
+                <div className="flex items-center justify-between px-1">
+                  <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+                    <ShoppingCart className="w-5 h-5 text-[#2D5A27]" />
+                    दुकान पर उपलब्ध समाधान (Available at Shop)
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                  {matchedProducts.map((product, idx) => (
+                    <div 
+                      key={`${product.id}-${idx}`}
+                      onClick={() => setSelectedProduct(product)}
+                      className="w-full text-left bg-white rounded-3xl p-4 shadow-sm border border-gray-100 flex items-center justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer relative group"
+                    >
+                      <div className="flex items-center gap-4 min-w-0 flex-1">
+                        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-50 flex-shrink-0">
+                          <SmartImage 
+                            src={product.image} 
+                            alt={product.name} 
+                            className="w-full h-full" 
+                            objectFit="cover"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-gray-900 text-base leading-tight mb-1">
+                            {product.hindiName || product.name}
+                          </h4>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[9px] bg-[#2D5A27] text-white px-2 py-0.5 rounded-full font-black uppercase tracking-tighter shadow-sm">
+                              {product.brand || getCategoryName(product.category)}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-bold">
+                              📦 {product.unit || 'Pack'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToCart(product, product.variants?.[0]);
+                                setAddedProductId(product.id);
+                                setTimeout(() => setAddedProductId(null), 1200);
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shadow-sm flex items-center gap-1.5 active:scale-95 transition-all outline-none ${
+                                addedProductId === product.id 
+                                  ? "bg-green-600 text-white" 
+                                  : "bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90"
+                              }`}
+                            >
+                              <ShoppingCart className="w-3.5 h-3.5" />
+                              {addedProductId === product.id ? 'Added ✓' : 'Add To Cart'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-gray-300 shrink-0 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
 
             {/* ============================================================ */}
             {/* CONTEXT-AWARE AI CHAT SECTION FOR THIS DISEASE SCAN REPORT */}

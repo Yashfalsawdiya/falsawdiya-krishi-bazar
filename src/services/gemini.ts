@@ -12,9 +12,31 @@ const getAI = (userApiKey?: string) => {
   return new GoogleGenAI({ apiKey });
 };
 
+export interface ChemicalItem {
+  medicineName: string;
+  dosagePump: string;
+  dosageAcre?: string;
+  instructions?: string;
+}
+
+export interface OrganicItem {
+  methodName: string;
+  dosage: string;
+  instructions?: string;
+}
+
 export interface DiseaseAnalysis {
   analysis: string;
   keywords: string[];
+  cropName?: string;
+  problemType?: string;
+  diseaseName?: string;
+  severity?: string;
+  symptoms?: string[];
+  chemicalControl?: ChemicalItem[];
+  organicControl?: OrganicItem[];
+  preventionTips?: string[];
+  shopNotice?: string;
 }
 
 export async function detectDisease(base64Image: string | string[], userApiKey?: string): Promise<DiseaseAnalysis> {
@@ -38,28 +60,30 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
             Identify:
             1. **Crop Name (फसल का नाम)**
             2. **Disease or Pest Type (बीमारी या कीट का प्रकार)**: Identify if it is a fungal/bacterial/viral disease, a Sucking Pest, Chewing Pest, or Nutrient Deficiency.
-            3. **Specific Name (नाम)**: Name of the disease or specific pest.
-            4. **Symptoms (लक्षण)**: Detailed symptoms observed across the provided photos.
-            5. **Recommended Treatment (उपचार)**: Detailed chemical and organic solutions with dosage (per 15L/20L pump and per Bigha/Acre).
-            6. **Prevention & Precautions (बचाव एवं सावधानियां)**: Long-term prevention tips and spray recommendations.
+            3. **Specific Name (नाम)**: Name of the disease or specific pest with scientific name.
+            4. **Symptoms (लक्षण)**: Pointwise detailed symptoms observed across the provided photos.
+            5. **Recommended Treatment (उपचार)**: Pointwise chemical and organic solutions with dosage (per 15L/20L pump and per Bigha/Acre).
+            6. **Prevention & Precautions (बचाव एवं सावधानियां)**: Pointwise long-term prevention tips and spray recommendations.
             
             FORMATTING INSTRUCTIONS:
             1. Provide the analysis in CLEAR, SIMPLE, RESPECTFUL HINDI with English scientific/technical terms in brackets.
-            2. At the very end of your response, provide a list of search keywords (active ingredients or pesticide categories) separated by commas that can be used to search for real products in a store.`
+            2. NEVER use HTML tags like <br> or <p>. Use clean standard newlines and bullet points.
+            3. At the very end of your response, provide a list of search keywords (active ingredients or pesticide categories) separated by commas that can be used to search for real products in a store.`
       : `You are an expert Indian agricultural scientist and plant pathologist. 
             Analyze this photo of a crop leaf or plant. 
             
             Identify:
             1. **Crop Name (फसल का नाम)**
             2. **Disease or Pest Type (बीमारी या कीट का प्रकार)**: Identify if it is a disease, a Sucking Pest, or a Chewing Pest.
-            3. **Specific Name (नाम)**: Name of the disease or specific pest.
-            4. **Symptoms (लक्षण)**: What is visible in the photo?
-            5. **Recommended Treatment (उपचार)**: Detailed chemical and organic solutions with dosage.
-            6. **Prevention (बचाव)**: Long-term prevention tips.
+            3. **Specific Name (नाम)**: Name of the disease or specific pest with scientific name.
+            4. **Symptoms (लक्षण)**: Pointwise what is visible in the photo.
+            5. **Recommended Treatment (उपचार)**: Pointwise chemical and organic solutions with dosage.
+            6. **Prevention (बचाव)**: Pointwise long-term prevention tips.
             
             FORMATTING INSTRUCTIONS:
             1. Provide the analysis in CLEAR, SIMPLE HINDI with English terms in brackets.
-            2. At the very end of your response, provide a list of search keywords (active ingredients or pesticide categories) separated by commas that can be used to search for real products in a store.`;
+            2. NEVER use HTML tags like <br> or <p>. Use clean standard newlines and bullet points.
+            3. At the very end of your response, provide a list of search keywords (active ingredients or pesticide categories) separated by commas that can be used to search for real products in a store.`;
 
     const parts: any[] = [{ text: prompt }];
 
@@ -74,12 +98,44 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
     });
 
     const config = {
-      systemInstruction: "You are an expert plant pathologist representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Located in Shamgarh, MP. Our shop is located at Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Our shop timings are 8:00 AM to 8:00 PM every day (सुबह 8:00 बजे से रात 8:00 बजे तक). Always provide detailed analysis in Hindi, mention that recommended products are available at our shop 'फल्सावदिया कृषि बाजार'. STRICT RULE: ONLY use 'फल्सावदिया' for the name. Never use 'फालसावदिया' (no extra aa matra). Return structured JSON.",
+      systemInstruction: "You are an expert plant pathologist representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Located in Shamgarh, MP. Our shop is located at Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Our shop timings are 8:00 AM to 8:00 PM every day (सुबह 8:00 बजे से रात 8:00 बजे तक). Always provide detailed analysis in Hindi, mention that recommended products are available at our shop 'फल्सावदिया कृषि बाजार'. STRICT RULE: ONLY use 'फल्सावदिया' for the name. Never use 'फालसावदिया' (no extra aa matra). NEVER include HTML tags like <br> or <p> anywhere. Return structured JSON with both complete analysis text and structured pointwise fields.",
       responseMimeType: "application/json",
       responseSchema: {
         type: "OBJECT" as any,
         properties: {
-          analysis: { type: "STRING" },
+          analysis: { type: "STRING", description: "Complete text report without HTML tags" },
+          cropName: { type: "STRING", description: "Crop name in Hindi with English in brackets" },
+          problemType: { type: "STRING", description: "Pest or disease category, e.g. रस चूसक कीट, फफूंद जनित रोग" },
+          diseaseName: { type: "STRING", description: "Specific pest or disease name with scientific name" },
+          severity: { type: "STRING", description: "Severity level: 'सामान्य (Mild)' or 'मध्यम (Moderate)' or 'गंभीर (Severe)'" },
+          symptoms: { type: "ARRAY" as any, items: { type: "STRING" }, description: "Pointwise list of observed symptoms" },
+          chemicalControl: {
+            type: "ARRAY" as any,
+            items: {
+              type: "OBJECT" as any,
+              properties: {
+                medicineName: { type: "STRING" },
+                dosagePump: { type: "STRING" },
+                dosageAcre: { type: "STRING" },
+                instructions: { type: "STRING" }
+              },
+              required: ["medicineName", "dosagePump"]
+            }
+          },
+          organicControl: {
+            type: "ARRAY" as any,
+            items: {
+              type: "OBJECT" as any,
+              properties: {
+                methodName: { type: "STRING" },
+                dosage: { type: "STRING" },
+                instructions: { type: "STRING" }
+              },
+              required: ["methodName", "dosage"]
+            }
+          },
+          preventionTips: { type: "ARRAY" as any, items: { type: "STRING" }, description: "Pointwise list of precautions" },
+          shopNotice: { type: "STRING" },
           keywords: { type: "ARRAY" as any, items: { type: "STRING" } }
         },
         required: ["analysis", "keywords"]
@@ -102,7 +158,11 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
       });
     }
 
-    return cleanAndParseJson<DiseaseAnalysis>(response.text);
+    const parsed = cleanAndParseJson<DiseaseAnalysis>(response.text);
+    if (parsed.analysis) {
+      parsed.analysis = parsed.analysis.replace(/<br\s*\/?>/gi, '\n');
+    }
+    return parsed;
   } catch (error: any) {
     const friendlyError = getFriendlyAiError(error);
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
