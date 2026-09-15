@@ -482,38 +482,47 @@ const Home: React.FC = () => {
           className="h-full"
         >
           <Link to="/ai-call" id="card-ai-agri-call" className="block h-full group focus:outline-none">
-            <div className="relative h-full bg-white hover:bg-gradient-to-br hover:from-white hover:via-emerald-50/20 hover:to-emerald-100/30 rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-emerald-900/10 hover:border-emerald-600/35 shadow-xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-center cursor-pointer active:scale-[0.98]">
-              {/* Subtle ambient decorative backdrops */}
-              <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-emerald-500/15 to-teal-500/0 rounded-full blur-2xl group-hover:scale-125 group-hover:opacity-100 opacity-60 transition-all duration-500 pointer-events-none" />
+            <div className="relative h-full bg-gradient-to-br from-white via-white to-emerald-50/40 rounded-3xl p-5 sm:p-6 border border-gray-200/90 hover:border-emerald-600/40 shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.99]">
+              {/* Ambient decorative glow */}
+              <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-emerald-500/10 to-teal-500/0 rounded-full blur-2xl group-hover:scale-125 group-hover:opacity-100 opacity-40 transition-all duration-500 pointer-events-none" />
 
-              {/* Main content row */}
-              <div className="flex items-center gap-3.5 sm:gap-4 relative z-10">
-                {/* Icon Squircle */}
-                <div className="relative shrink-0">
-                  <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-[#1B4318] via-[#245720] to-[#34782E] text-white flex items-center justify-center shadow-md shadow-emerald-950/20 group-hover:scale-105 group-hover:shadow-emerald-900/30 transition-all duration-300 ring-2 ring-emerald-500/20">
-                    <PhoneCall className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+              <div>
+                {/* Header Row: Clean Icon Pod + Live Status Chip */}
+                <div className="flex items-center justify-between gap-2 mb-3.5 relative z-10">
+                  <div className="w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-emerald-50 text-[#183D16] border border-emerald-200/80 flex items-center justify-center shadow-2xs group-hover:scale-105 group-hover:bg-[#2D5A27] group-hover:text-white transition-all duration-300">
+                    <PhoneCall className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
+                  </div>
+
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-[#183D16] border border-emerald-200/80 shadow-2xs">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                    </span>
+                    <span>लाइव वॉयस कॉल</span>
                   </div>
                 </div>
 
-                {/* Text info */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base sm:text-lg font-extrabold text-gray-900 group-hover:text-[#2D5A27] transition-colors leading-snug truncate">
+                {/* Title & Description */}
+                <div className="relative z-10 space-y-1">
+                  <h3 className="text-base sm:text-lg font-black text-gray-900 group-hover:text-[#2D5A27] transition-colors tracking-tight">
                     AI कृषि विशेषज्ञ कॉल
                   </h3>
-                  <p className="text-xs sm:text-[13px] text-gray-600 font-medium line-clamp-1 mt-0.5">
-                    सीधे बात करें और समस्या का हल पाएं
+                  <p className="text-xs sm:text-[13px] text-gray-600 font-medium leading-relaxed">
+                    सीधे बोलकर बात करें और फसल समस्या का तुरंत समाधान पाएं
                   </p>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md">
-                      <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
-                      इंसानों की तरह बातचीत
-                    </span>
-                  </div>
                 </div>
+              </div>
 
-                {/* Arrow CTA */}
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-50 text-[#2D5A27] border border-emerald-100 group-hover:bg-[#2D5A27] group-hover:text-white group-hover:border-[#2D5A27] flex items-center justify-center shrink-0 transition-all duration-300 shadow-2xs group-hover:translate-x-1">
-                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              {/* Bottom Action Footer */}
+              <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between gap-2 relative z-10">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  इंसानों की तरह बातचीत
+                </span>
+                
+                <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-800 group-hover:bg-[#2D5A27] group-hover:text-white group-hover:border-[#2D5A27] font-bold text-xs transition-all duration-300 shadow-2xs">
+                  <span>कॉल करें</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
             </div>
@@ -528,38 +537,44 @@ const Home: React.FC = () => {
           className="h-full"
         >
           <Link to="/ai-product-knowledge" id="card-ai-product-knowledge" className="block h-full group focus:outline-none">
-            <div className="relative h-full bg-white hover:bg-gradient-to-br hover:from-white hover:via-amber-50/20 hover:to-emerald-50/30 rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-emerald-900/10 hover:border-emerald-600/35 shadow-xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-center cursor-pointer active:scale-[0.98]">
-              {/* Subtle ambient decorative backdrop */}
-              <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-amber-500/15 to-emerald-500/0 rounded-full blur-2xl group-hover:scale-125 group-hover:opacity-100 opacity-60 transition-all duration-500 pointer-events-none" />
+            <div className="relative h-full bg-gradient-to-br from-white via-white to-amber-50/30 rounded-3xl p-5 sm:p-6 border border-gray-200/90 hover:border-emerald-600/40 shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.99]">
+              {/* Ambient decorative glow */}
+              <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-amber-500/10 to-emerald-500/0 rounded-full blur-2xl group-hover:scale-125 group-hover:opacity-100 opacity-40 transition-all duration-500 pointer-events-none" />
 
-              {/* Main content row */}
-              <div className="flex items-center gap-3.5 sm:gap-4 relative z-10">
-                {/* Icon Squircle */}
-                <div className="relative shrink-0">
-                  <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-[#1E5128] via-[#2D5A27] to-[#407B37] text-white flex items-center justify-center shadow-md shadow-emerald-950/20 group-hover:scale-105 group-hover:shadow-emerald-900/30 transition-all duration-300 ring-2 ring-emerald-500/20">
-                    <Sprout className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+              <div>
+                {/* Header Row: Clean Icon Pod + Smart Guide Chip */}
+                <div className="flex items-center justify-between gap-2 mb-3.5 relative z-10">
+                  <div className="w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-amber-50 text-amber-800 border border-amber-200/80 flex items-center justify-center shadow-2xs group-hover:scale-105 group-hover:bg-[#2D5A27] group-hover:text-white transition-all duration-300">
+                    <Sprout className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
+                  </div>
+
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200/80 shadow-2xs">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>स्मार्ट डोज़ गाइड</span>
                   </div>
                 </div>
 
-                {/* Text info */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base sm:text-lg font-extrabold text-gray-900 group-hover:text-[#2D5A27] transition-colors leading-snug truncate">
+                {/* Title & Description */}
+                <div className="relative z-10 space-y-1">
+                  <h3 className="text-base sm:text-lg font-black text-gray-900 group-hover:text-[#2D5A27] transition-colors tracking-tight">
                     AI उत्पाद जानकारी
                   </h3>
-                  <p className="text-xs sm:text-[13px] text-gray-600 font-medium line-clamp-1 mt-0.5">
-                    दवाई, खाद या टेक्निकल का सही डोज़ जानें
+                  <p className="text-xs sm:text-[13px] text-gray-600 font-medium leading-relaxed">
+                    दवाई, खाद या टेक्निकल का सही प्रति एकड़ डोज़ और उपयोग विधि जानें
                   </p>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-900 bg-amber-100/70 px-2 py-0.5 rounded-md">
-                      <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
-                      सटीक डोज़ और उपयोग विधि
-                    </span>
-                  </div>
                 </div>
+              </div>
 
-                {/* Arrow CTA */}
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-50 text-[#2D5A27] border border-emerald-100 group-hover:bg-[#2D5A27] group-hover:text-white group-hover:border-[#2D5A27] flex items-center justify-center shrink-0 transition-all duration-300 shadow-2xs group-hover:translate-x-1">
-                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              {/* Bottom Action Footer */}
+              <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between gap-2 relative z-10">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  सटीक डोज़ और उपयोग विधि
+                </span>
+                
+                <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-800 group-hover:bg-[#2D5A27] group-hover:text-white group-hover:border-[#2D5A27] font-bold text-xs transition-all duration-300 shadow-2xs">
+                  <span>डोज़ जानें</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
             </div>
