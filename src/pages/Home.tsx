@@ -102,7 +102,6 @@ const Home: React.FC = () => {
 
   const deviceType = useDeviceType();
   const [selectedBannerIndex, setSelectedBannerIndex] = useState(0);
-  const [copiedAddress, setCopiedAddress] = useState(false);
 
   const deviceBannersMap = React.useMemo(() => {
     return normalizeDeviceBanners(appContent);
@@ -584,75 +583,150 @@ const Home: React.FC = () => {
 
       {/* Weather, Mandi, & Schemes Dashboard Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 xl:gap-6 2xl:gap-8 pt-1">
-        <Link to="/weather" className="col-span-1">
+        {/* Weather Card */}
+        <Link to="/weather" className="col-span-1 block h-full group focus:outline-none">
           <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-gradient-to-br from-[#2D5A27] to-[#3D7A35] rounded-2xl p-4 text-white h-full flex flex-col justify-between shadow-md relative overflow-hidden"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="relative h-full bg-gradient-to-br from-sky-50/80 via-white to-amber-50/40 rounded-3xl p-4 sm:p-5 border border-sky-200/80 hover:border-sky-400 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden cursor-pointer active:scale-[0.98]"
           >
-            <div className="relative z-10 flex flex-col justify-between h-full">
-              <div className="flex justify-between items-start">
-                <CloudSun className="w-8 h-8 text-[#EAB308]" />
-                <span className="text-[10px] font-bold opacity-70 uppercase">मौसम</span>
+            {/* Ambient decorative glow */}
+            <div className="absolute -top-8 -right-8 w-24 h-24 bg-sky-400/15 rounded-full blur-xl group-hover:scale-125 transition-all duration-500 pointer-events-none" />
+
+            {/* Header: Squircle Icon + Tag */}
+            <div className="flex items-center justify-between relative z-10">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-sky-400 via-sky-500 to-blue-600 text-white flex items-center justify-center shadow-md shadow-sky-500/20 group-hover:scale-105 transition-transform shrink-0">
+                <CloudSun className="w-5 h-5 sm:w-6 sm:h-6 text-amber-200" />
               </div>
+              <span className="text-[10px] font-bold text-sky-800 bg-sky-100/70 px-2.5 py-0.5 rounded-full border border-sky-200/70 shrink-0">
+                मौसम
+              </span>
+            </div>
+
+            {/* Content */}
+            <div className="relative z-10 my-2">
               {weather ? (
-                <div className="mt-2">
-                  <h2 className="text-2xl font-bold leading-none">{weather.temp}°C</h2>
-                  <p className="text-[10px] font-medium mt-1 truncate">{weather.condition}</p>
+                <div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight leading-none">
+                      {weather.temp}°C
+                    </span>
+                  </div>
+                  <p className="text-[11px] sm:text-xs font-semibold text-gray-600 mt-1 truncate">
+                    {weather.condition || 'मुख्यतः साफ'}
+                  </p>
                 </div>
               ) : (
-                <Loader2 className="w-5 h-5 animate-spin opacity-50 my-2" />
+                <div className="my-2">
+                  <Loader2 className="w-5 h-5 animate-spin text-sky-600" />
+                </div>
               )}
+            </div>
+
+            {/* Action Footer */}
+            <div className="pt-2 border-t border-sky-100/80 flex items-center justify-between text-[11px] font-bold text-sky-800 relative z-10">
+              <span className="truncate">7 दिन का मौसम</span>
+              <span className="w-6 h-6 rounded-lg bg-sky-100/80 group-hover:bg-sky-600 group-hover:text-white text-sky-700 flex items-center justify-center transition-colors shrink-0">
+                <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+              </span>
             </div>
           </motion.div>
         </Link>
 
-        <Link to="/mandi" className="col-span-1">
+        {/* Mandi Bhav Card */}
+        <Link to="/mandi" className="col-span-1 block h-full group focus:outline-none">
           <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-white rounded-2xl p-4 border border-gray-100 h-full flex flex-col justify-between shadow-sm relative group overflow-hidden"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.05 }}
+            className="relative h-full bg-gradient-to-br from-emerald-50/80 via-white to-amber-50/30 rounded-3xl p-4 sm:p-5 border border-emerald-200/80 hover:border-[#2D5A27]/60 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden cursor-pointer active:scale-[0.98]"
           >
-            <div className="relative z-10 flex flex-col justify-between h-full">
-              <div className="flex justify-between items-start">
-                <TrendingUp className="w-8 h-8 text-[#2D5A27]" />
-                <span className="text-[10px] font-bold text-gray-400 uppercase">मंडी भाव</span>
+            {/* Ambient decorative glow */}
+            <div className="absolute -top-8 -right-8 w-24 h-24 bg-emerald-400/15 rounded-full blur-xl group-hover:scale-125 transition-all duration-500 pointer-events-none" />
+
+            {/* Header: Squircle Icon + Tag */}
+            <div className="flex items-center justify-between relative z-10">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-[#2D5A27] to-[#1E3F1A] text-white flex items-center justify-center shadow-md shadow-[#2D5A27]/20 group-hover:scale-105 transition-transform shrink-0">
+                <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-amber-300" />
               </div>
+              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-2.5 py-0.5 rounded-full border border-emerald-200/70 shrink-0">
+                मंडी भाव
+              </span>
+            </div>
+
+            {/* Content */}
+            <div className="relative z-10 my-2">
               {mandi ? (
-                <div className="animate-in fade-in duration-500 mt-2">
-                  <p className="text-[10px] font-bold text-gray-500 truncate">{mandi.items[0]?.commodity}</p>
-                  <h2 className="text-xl font-bold text-[#2D5A27] leading-none">₹{mandi.items[0]?.avgPrice}</h2>
-                  <p className="text-[9px] text-gray-400 mt-1 truncate">{mandi.mandiName} मंडी</p>
+                <div>
+                  <span className="text-[11px] font-bold text-gray-500 block truncate">
+                    {mandi.items[0]?.commodity || 'सोयाबीन (Soybean)'}
+                  </span>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="text-2xl sm:text-3xl font-black text-[#2D5A27] tracking-tight leading-none">
+                      ₹{mandi.items[0]?.avgPrice || '4600'}
+                    </span>
+                    <span className="text-[10px] font-bold text-gray-400">/क्विंटल</span>
+                  </div>
+                  <p className="text-[10px] font-semibold text-gray-400 mt-1 truncate">
+                    {mandi.mandiName} मंडी
+                  </p>
                 </div>
               ) : (
-                <div className="flex flex-col gap-1 my-2">
-                  <div className="h-4 w-12 bg-gray-100 rounded animate-pulse" />
-                  <div className="h-6 w-20 bg-gray-100 rounded animate-pulse mt-1" />
+                <div className="flex flex-col gap-1.5 my-2">
+                  <div className="h-4 w-16 bg-gray-100 rounded animate-pulse" />
+                  <div className="h-6 w-24 bg-gray-100 rounded animate-pulse" />
                 </div>
               )}
             </div>
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-              <ArrowRight className="w-3 h-3 text-gray-300" />
+
+            {/* Action Footer */}
+            <div className="pt-2 border-t border-emerald-100/80 flex items-center justify-between text-[11px] font-bold text-[#2D5A27] relative z-10">
+              <span className="truncate">ताज़ा भाव देखें</span>
+              <span className="w-6 h-6 rounded-lg bg-emerald-100/80 group-hover:bg-[#2D5A27] group-hover:text-white text-[#2D5A27] flex items-center justify-center transition-colors shrink-0">
+                <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+              </span>
             </div>
           </motion.div>
         </Link>
 
         {/* Government Schemes Banner (Takes full width of mobile, 1 column on md+) */}
-        <Link to="/schemes" className="col-span-2 md:col-span-1">
+        <Link to="/schemes" className="col-span-2 md:col-span-1 block h-full group focus:outline-none">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-[#2D5A27] to-[#3D7A35] rounded-2xl p-4 text-white shadow-md flex items-center justify-between overflow-hidden relative h-full"
+            transition={{ duration: 0.3, delay: 0.1 }}
+            className="relative h-full bg-gradient-to-br from-indigo-50/70 via-white to-amber-50/40 rounded-3xl p-4 sm:p-5 border border-indigo-200/80 hover:border-indigo-400 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden cursor-pointer active:scale-[0.98]"
           >
-            <div className="relative z-10">
-              <h3 className="text-base sm:text-lg font-bold flex items-center gap-2">
-                <Landmark className="w-5 h-5 text-[#EAB308] shrink-0" />
+            {/* Ambient decorative glow */}
+            <div className="absolute -top-8 -right-8 w-24 h-24 bg-indigo-400/15 rounded-full blur-xl group-hover:scale-125 transition-all duration-500 pointer-events-none" />
+
+            {/* Header: Squircle Icon + Tag */}
+            <div className="flex items-center justify-between relative z-10">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700 text-white flex items-center justify-center shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform shrink-0">
+                <Landmark className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100/70 px-2.5 py-0.5 rounded-full border border-indigo-200/70 shrink-0">
+                सरकारी योजना
+              </span>
+            </div>
+
+            {/* Content */}
+            <div className="relative z-10 my-2">
+              <h3 className="text-sm sm:text-base font-black text-gray-900 group-hover:text-indigo-900 transition-colors leading-snug">
                 सरकारी योजनाएं
               </h3>
-              <p className="text-xs text-white/80 mt-1">PM-Kisan, सब्सिडी और बीमा</p>
-              <div className="mt-3 inline-flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold backdrop-blur-sm">
-                अभी देखें <ArrowRight className="w-3 h-3" />
-              </div>
+              <p className="text-[11px] sm:text-xs font-semibold text-gray-600 mt-1 line-clamp-1 sm:line-clamp-2">
+                PM-Kisan, सब्सिडी, फसल बीमा और सभी लाभ
+              </p>
+            </div>
+
+            {/* Action Footer */}
+            <div className="pt-2 border-t border-indigo-100/80 flex items-center justify-between text-[11px] font-bold text-indigo-700 relative z-10">
+              <span className="truncate">योजनाएं व पात्रता देखें</span>
+              <span className="w-6 h-6 rounded-lg bg-indigo-100/80 group-hover:bg-indigo-600 group-hover:text-white text-indigo-700 flex items-center justify-center transition-colors shrink-0">
+                <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+              </span>
             </div>
           </motion.div>
         </Link>
@@ -807,50 +881,91 @@ const Home: React.FC = () => {
 
       {/* YouTube Videos Section */}
       {videos.length > 0 && (
-        <section className="space-y-3" id="home-youtube-videos-section">
+        <section className="space-y-3.5" id="home-youtube-videos-section">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-[#4A3728] flex items-center gap-2">
-              <Youtube className="w-6 h-6 text-red-600" />
-              खेती की वीडियो (Videos)
+            <h3 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-red-50 border border-red-200/80 flex items-center justify-center text-red-600 shadow-2xs">
+                <Youtube className="w-4 h-4 text-red-600" />
+              </div>
+              <span>खेती की वीडियो (Videos)</span>
             </h3>
             <a 
               href={youtubeChannel.url} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-xs font-bold text-red-600 flex items-center gap-1 hover:underline transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100/80 border border-red-200/70 transition-all shadow-2xs"
             >
-              {youtubeChannel.label} <ExternalLink className="w-3 h-3" />
+              <span>{youtubeChannel.label || 'चैनल देखें'}</span>
+              <ExternalLink className="w-3 h-3" />
             </a>
           </div>
           
           <div className="overflow-hidden -mx-4 px-4" ref={emblaVideoRef}>
-            <div className="flex gap-4">
+            <div className="flex gap-3.5 sm:gap-4">
               {videos.map((video, idx) => (
-                <div key={`${video.id}-${idx}`} className="flex-[0_0_85%] sm:flex-[0_0_45%] md:flex-[0_0_31%] lg:flex-[0_0_23%] min-w-0">
+                <div key={`${video.id}-${idx}`} className="flex-[0_0_82%] sm:flex-[0_0_46%] md:flex-[0_0_32%] lg:flex-[0_0_24%] min-w-0">
                   <a 
                     href={video.videoUrl}
-                    target="_blank"
+                    target="_blank" 
                     rel="noopener noreferrer"
-                    className="block bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 active:scale-95 transition-transform group"
+                    className="block h-full bg-gradient-to-br from-white via-white to-red-50/20 rounded-3xl overflow-hidden border border-gray-200/90 hover:border-red-300 shadow-xs hover:shadow-md active:scale-[0.98] transition-all duration-300 group flex flex-col justify-between relative"
                   >
-                    <div className="aspect-video relative bg-gray-900">
+                    {/* Thumbnail Frame */}
+                    <div className="aspect-video relative bg-gray-900 overflow-hidden">
                       <SmartImage 
                         src={resolveVideoThumbnail(video)} 
                         alt={video.title} 
-                        className="absolute inset-0 w-full h-full"
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         objectFit="cover"
                       />
-                      <div className="absolute inset-0 bg-black/15 flex items-center justify-center group-hover:bg-black/25 transition-colors">
-                        <div className="bg-red-600 text-white w-14 h-10 rounded-[14px] flex items-center justify-center shadow-xl group-hover:scale-105 transition-transform">
-                          <Play className="w-6 h-6 fill-white text-white ml-1" />
+                      {/* Vignette Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent group-hover:via-black/25 transition-colors" />
+
+                      {/* YouTube Brand Chip at Bottom-Right */}
+                      <div className="absolute bottom-2.5 right-2.5 z-10">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-black/80 backdrop-blur-xs text-white shadow-xs">
+                          <Youtube className="w-3 h-3 text-red-500 fill-red-500" />
+                          <span>YouTube</span>
+                        </span>
+                      </div>
+
+                      {/* Modern Frosted Center Play Pod */}
+                      <div className="absolute inset-0 flex items-center justify-center z-10">
+                        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/45 backdrop-blur-md text-white border border-white/40 flex items-center justify-center shadow-xl group-hover:scale-115 group-hover:bg-red-600 group-hover:border-red-600 transition-all duration-300">
+                          <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white text-white ml-0.5" />
                         </div>
                       </div>
                     </div>
-                    <div className="p-3">
-                      <h4 className="text-sm font-bold text-gray-800 line-clamp-2">{video.title}</h4>
-                      {video.description && (
-                        <p className="text-xs text-gray-500 line-clamp-1 mt-1">{video.description}</p>
-                      )}
+
+                    {/* Card Body & Action Footer */}
+                    <div className="p-3.5 sm:p-4 flex flex-col justify-between flex-1 gap-3">
+                      <div className="space-y-1">
+                        <h4 className="text-xs sm:text-sm font-black text-gray-900 group-hover:text-red-600 transition-colors line-clamp-2 leading-snug">
+                          {video.title}
+                        </h4>
+                        {video.description ? (
+                          <p className="text-[11px] text-gray-500 font-medium line-clamp-1">
+                            {video.description}
+                          </p>
+                        ) : (
+                          <p className="text-[10px] font-semibold text-gray-400">
+                            फल्सावदिया कृषि बाजार
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Modern Action Footer */}
+                      <div className="pt-2.5 border-t border-gray-100 flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-gray-400 flex items-center gap-1.5 group-hover:text-red-600 transition-colors">
+                          <Youtube className="w-3.5 h-3.5 text-red-600" />
+                          <span>वीडियो गाइड</span>
+                        </span>
+                        
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 text-red-600 border border-red-200/60 font-bold text-xs group-hover:bg-red-600 group-hover:text-white group-hover:border-red-600 transition-all shadow-2xs">
+                          <span>देखें</span>
+                          <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                        </div>
+                      </div>
                     </div>
                   </a>
                 </div>
@@ -997,72 +1112,54 @@ const Home: React.FC = () => {
         )}
 
         {/* Modern Address & Store Card */}
-        <div className="bg-gradient-to-br from-amber-50/40 via-white to-emerald-50/30 border border-gray-200/90 hover:border-[#2D5A27]/40 rounded-3xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 text-left relative overflow-hidden group">
+        <div 
+          onClick={() => {
+            const mapQuery = encodeURIComponent("डिंपल चौराहा क्षत्रिय खाती मांगलिक भवन शामगढ़ मंदसौर 458883");
+            window.open(`https://www.google.com/maps/search/?api=1&query=${mapQuery}`, '_blank');
+          }}
+          className="bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 border border-emerald-200/80 hover:border-[#2D5A27]/60 rounded-3xl p-4 sm:p-5 flex flex-col justify-between gap-3.5 active:scale-[0.99] transition-all text-left cursor-pointer shadow-xs hover:shadow-md group relative overflow-hidden"
+        >
           {/* Header Row */}
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-[#2D5A27] to-[#1E3F1A] text-white flex items-center justify-center shadow-md shadow-[#2D5A27]/20 group-hover:scale-105 transition-transform shrink-0">
-                <MapPin className="w-5 h-5 text-yellow-300" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-[#2D5A27] to-[#1E3F1A] text-white flex items-center justify-center shadow-md shadow-[#2D5A27]/20 group-hover:scale-105 transition-transform shrink-0">
+                <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
               </div>
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800/70 block">
                   हमारा स्थायी पता
                 </span>
-                <h4 className="font-extrabold text-sm sm:text-base text-gray-900 leading-snug">
+                <h4 className="font-extrabold text-xs sm:text-sm text-gray-900 group-hover:text-[#2D5A27] transition-colors leading-snug">
                   फल्सावदिया कृषि बाजार
                 </h4>
               </div>
             </div>
-            <span className="bg-[#2D5A27]/10 text-[#2D5A27] border border-[#2D5A27]/20 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0">
+            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-2.5 py-0.5 rounded-full border border-emerald-200/70 shrink-0">
               शामगढ़
             </span>
           </div>
 
-          {/* Address Content */}
-          <p className="text-xs sm:text-[13px] font-bold text-gray-800 leading-relaxed">
-            {contactInfo.address || 'डिम्पल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़ (458883)'}
-          </p>
+          {/* Address Content & Timings */}
+          <div className="space-y-2">
+            <p className="text-xs sm:text-[13px] font-medium text-gray-700 leading-relaxed">
+              {contactInfo.address || 'डिम्पल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)'}
+            </p>
 
-          {/* Timings Badge */}
-          <div className="bg-white p-2 rounded-xl border border-gray-100 flex items-center gap-2 text-[11px] text-gray-600 shadow-2xs">
-            <Clock className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
-            <span>दुकान समय: <strong className="text-gray-800">सुबह 8:00 से रात 8:00 बजे तक</strong></span>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/90 border border-emerald-100/80 text-[11px] font-semibold text-gray-600 shadow-2xs">
+              <Clock className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
+              <span>दुकान समय: <strong className="text-gray-900 font-bold">सुबह 8:00 से रात 8:00 बजे तक</strong></span>
+            </div>
           </div>
 
-          {/* Action Buttons Row */}
-          <div className="pt-2 border-t border-gray-100 flex items-center gap-2">
-            <button
-              onClick={() => {
-                const mapQuery = encodeURIComponent("डिंपल चौराहा क्षत्रिय खाती मांगलिक भवन शामगढ़ मंदसौर 458883");
-                window.open(`https://www.google.com/maps/search/?api=1&query=${mapQuery}`, '_blank');
-              }}
-              className="flex-1 bg-white hover:bg-gray-50 active:scale-95 border border-gray-200 py-2 rounded-xl text-xs font-bold text-gray-700 flex items-center justify-center gap-1.5 shadow-2xs transition-all"
-            >
-              <ExternalLink className="w-3.5 h-3.5 text-[#2D5A27]" />
-              <span>मैप पर देखें</span>
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const addressToCopy = contactInfo.address || 'डिम्पल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)';
-                navigator.clipboard.writeText(addressToCopy);
-                setCopiedAddress(true);
-                setTimeout(() => setCopiedAddress(false), 2000);
-              }}
-              className="flex-1 bg-[#2D5A27]/10 hover:bg-[#2D5A27]/15 active:scale-95 text-[#2D5A27] py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-[#2D5A27]/20 transition-all"
-            >
-              {copiedAddress ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>कॉपी हुआ!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>पता कॉपी करें</span>
-                </>
-              )}
-            </button>
+          {/* Modern Action Footer (matching Facebook / Instagram social cards) */}
+          <div className="pt-2.5 border-t border-emerald-100/80 flex items-center justify-between text-xs font-extrabold text-[#2D5A27]">
+            <span className="flex items-center gap-1.5">
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>गूगल मैप पर लोकेशन देखें</span>
+            </span>
+            <span className="w-7 h-7 rounded-xl bg-emerald-50 group-hover:bg-[#2D5A27] group-hover:text-white text-[#2D5A27] flex items-center justify-center transition-all shadow-2xs">
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </span>
           </div>
         </div>
       </div>
