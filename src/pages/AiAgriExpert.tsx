@@ -536,38 +536,65 @@ STRICT RULE ON NAME:
   }, [endCall]);
 
   return (
-    <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-between p-6 pb-24">
+    <div className="min-h-screen bg-gradient-to-b from-[#F7FAF6] via-[#F4F7F2] to-[#EAF2E8] flex flex-col items-center justify-between p-4 sm:p-6 pb-20 sm:pb-24 relative overflow-hidden select-none">
+      {/* Ambient background glow orbs */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 sm:w-96 h-80 sm:h-96 bg-gradient-to-br from-emerald-400/15 via-teal-300/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/3 left-1/2 -translate-x-1/2 w-64 sm:w-80 h-64 sm:h-80 bg-gradient-to-tr from-amber-300/10 to-emerald-400/10 rounded-full blur-3xl pointer-events-none" />
+
       <ApiKeyModal 
         isOpen={isApiKeyModalOpen} 
         onClose={closeApiKeyModal} 
         message={apiKeyModalMessage}
       />
+
       {/* Header */}
-      <div className="w-full flex items-center justify-between lg:justify-center mb-8">
+      <div className="w-full max-w-lg flex items-center justify-between z-20 mb-4 sm:mb-6">
         <button 
           onClick={() => navigate(-1)}
-          className="lg:hidden p-3 bg-white rounded-2xl shadow-sm border border-gray-100 active:scale-95 transition-transform cursor-pointer"
+          className="p-2.5 sm:p-3 bg-white/90 backdrop-blur-md rounded-2xl shadow-2xs border border-gray-200/80 active:scale-95 transition-transform cursor-pointer text-gray-700 hover:text-gray-900"
           title="वापस जाएँ (Back)"
         >
-          <ChevronLeft className="w-6 h-6 text-gray-500" />
+          <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
+
         <div className="flex flex-col items-center">
-          <h2 className="text-sm font-black text-[#4A3728] uppercase tracking-widest">AI विशेषज्ञ कॉल</h2>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", 
-              status === 'connected' ? 'bg-green-500' : status === 'connecting' ? 'bg-yellow-500' : 'bg-gray-300')} />
-            <span className="text-[10px] font-bold text-gray-400">
-              {status === 'connected' ? 'लाइव बातचीत' : status === 'connecting' ? 'कनेक्ट हो रहा है...' : 'तैयार है'}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/95 backdrop-blur-md border border-emerald-200/80 shadow-2xs">
+            <span className="relative flex h-2 w-2">
+              <span className={cn(
+                "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                status === 'connected' ? 'bg-emerald-400' : status === 'connecting' ? 'bg-amber-400' : 'bg-emerald-500'
+              )} />
+              <span className={cn(
+                "relative inline-flex rounded-full h-2 w-2",
+                status === 'connected' ? 'bg-emerald-500' : status === 'connecting' ? 'bg-amber-500' : 'bg-emerald-600'
+              )} />
             </span>
+            <span className="text-xs font-black text-[#1B4318]">
+              {status === 'connected' ? 'लाइव बातचीत' : status === 'connecting' ? 'कनेक्ट हो रहा है...' : 'AI कृषि साथी'}
+            </span>
+            <span className="text-[10px] font-bold text-gray-400 border-l border-gray-200 pl-2">24×7</span>
           </div>
         </div>
-        <div className="w-12 lg:hidden" /> {/* Spacer */}
+
+        {/* Speaker Volume Toggle */}
+        <button
+          onClick={() => setIsSpeakerOn(!isSpeakerOn)}
+          className={cn(
+            "p-2.5 sm:p-3 rounded-2xl shadow-2xs border transition-all active:scale-95 cursor-pointer",
+            isSpeakerOn 
+              ? "bg-white/90 backdrop-blur-md text-[#1B4318] border-gray-200/80 hover:bg-emerald-50" 
+              : "bg-red-50 text-red-600 border-red-200"
+          )}
+          title={isSpeakerOn ? "स्पीकर चालू" : "स्पीकर बंद"}
+        >
+          {isSpeakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+        </button>
       </div>
 
       {/* Main Experience */}
-      <div className="flex-1 flex flex-col items-center justify-center w-full space-y-12">
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md z-10 space-y-6 sm:space-y-8 my-auto">
         {/* Profile Avatar or Video Feed */}
-        <div className="relative w-full max-w-sm aspect-square flex items-center justify-center">
+        <div className="relative w-full aspect-square max-w-[270px] sm:max-w-[310px] flex items-center justify-center">
           <AnimatePresence mode="wait">
             {isCalling && isCameraOn ? (
               <motion.div 
@@ -575,7 +602,7 @@ STRICT RULE ON NAME:
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="relative w-full h-full rounded-[3rem] overflow-hidden border-8 border-white shadow-2xl bg-black"
+                className="relative w-full h-full rounded-[2.5rem] overflow-hidden border-4 border-white shadow-2xl bg-black"
               >
                 <video 
                   ref={videoRef}
@@ -584,9 +611,16 @@ STRICT RULE ON NAME:
                   muted
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/20">
+
+                {/* Viewfinder target brackets */}
+                <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg pointer-events-none" />
+                <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg pointer-events-none" />
+                <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg pointer-events-none" />
+                <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-emerald-400 rounded-br-lg pointer-events-none" />
+
+                <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">
                   <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-[10px] font-black text-white uppercase tracking-widest">LIVE CAMERA</span>
+                  <span className="text-[10px] font-black text-white tracking-wider uppercase">LIVE SCAN</span>
                 </div>
               </motion.div>
             ) : (
@@ -597,23 +631,58 @@ STRICT RULE ON NAME:
                 exit={{ opacity: 0, scale: 0.95 }}
                 className="relative flex items-center justify-center"
               >
-                <AnimatePresence>
-                  {status === 'connected' && (
-                    <motion.div 
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.1, 0.3] }}
-                      transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                      className="absolute inset-0 bg-[#2D5A27] rounded-full blur-2xl"
-                    />
-                  )}
-                </AnimatePresence>
-                <div className={cn(
-                  "relative w-48 h-48 rounded-full border-8 border-white shadow-2xl flex items-center justify-center bg-gradient-to-br transition-all duration-1000",
-                  status === 'connected' ? "from-[#2D5A27] to-[#3D7A35]" : "from-gray-200 to-gray-300"
-                )}>
-                  <div className="flex flex-col items-center text-white">
-                    <Sparkles className={cn("w-16 h-16 mb-2", status === 'connected' ? "text-yellow-400" : "text-white/50")} />
-                    <span className="text-xl font-black">{status === 'connected' ? "कृषि साथी" : "कृषि साथी"}</span>
+                {/* Ambient dynamic ripple rings */}
+                <motion.div 
+                  animate={status === 'connected' 
+                    ? { scale: [1, 1.25, 1], opacity: [0.35, 0.1, 0.35] } 
+                    : { scale: [1, 1.12, 1], opacity: [0.22, 0.08, 0.22] }
+                  }
+                  transition={{ repeat: Infinity, duration: status === 'connected' ? 2 : 3.5, ease: "easeInOut" }}
+                  className="absolute -inset-6 sm:-inset-8 bg-gradient-to-tr from-emerald-500/30 to-teal-400/20 rounded-full blur-xl pointer-events-none"
+                />
+
+                <motion.div 
+                  animate={status === 'connected' 
+                    ? { scale: [1, 1.15, 1], opacity: [0.5, 0.2, 0.5] } 
+                    : { scale: [1, 1.06, 1], opacity: [0.3, 0.12, 0.3] }
+                  }
+                  transition={{ repeat: Infinity, duration: status === 'connected' ? 1.5 : 3, ease: "easeInOut", delay: 0.3 }}
+                  className="absolute -inset-3 sm:-inset-4 bg-emerald-400/25 rounded-full blur-md pointer-events-none"
+                />
+
+                {/* The Central Glowing AI Agritech Orb */}
+                <div className="relative w-48 h-48 sm:w-56 sm:h-56 rounded-full p-1 bg-gradient-to-tr from-emerald-300 via-white to-teal-200 shadow-2xl flex items-center justify-center">
+                  <div className={cn(
+                    "w-full h-full rounded-full flex flex-col items-center justify-center relative overflow-hidden transition-all duration-700 shadow-inner",
+                    status === 'connected' 
+                      ? "bg-gradient-to-br from-[#123815] via-[#1C4D21] to-[#2E7A35]" 
+                      : "bg-gradient-to-br from-[#183D16] via-[#245720] to-[#3B7A32]"
+                  )}>
+                    {/* Internal lighting flares */}
+                    <div className="absolute -top-8 -left-8 w-28 h-28 bg-white/20 rounded-full blur-xl pointer-events-none" />
+                    <div className="absolute -bottom-8 -right-8 w-28 h-28 bg-emerald-400/20 rounded-full blur-xl pointer-events-none" />
+
+                    {/* AI Sparkles & Badge */}
+                    <div className="relative z-10 flex flex-col items-center text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center mb-1.5 shadow-xs">
+                        <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-amber-300 animate-pulse drop-shadow-md" />
+                      </div>
+                      <span className="text-lg sm:text-xl font-black text-white tracking-wide drop-shadow-sm">
+                        कृषि साथी
+                      </span>
+                      <span className="text-[11px] font-bold text-emerald-200/90 tracking-wider uppercase mt-0.5">
+                        AI वॉयस डॉक्टर
+                      </span>
+
+                      {/* Animated Soundwave Equalizer */}
+                      <div className="flex items-center gap-1 mt-2.5 px-3 py-1 rounded-full bg-black/20 backdrop-blur-sm border border-white/10">
+                        <span className={cn("w-1 rounded-full transition-all duration-300", status === 'connected' ? "h-4 bg-emerald-400 animate-pulse" : "h-2 bg-white/60 animate-pulse")} />
+                        <span className={cn("w-1 rounded-full transition-all duration-300", status === 'connected' ? "h-6 bg-amber-300 animate-pulse" : "h-3.5 bg-white/80 animate-pulse")} style={{ animationDelay: '150ms' }} />
+                        <span className={cn("w-1 rounded-full transition-all duration-300", status === 'connected' ? "h-5 bg-emerald-300 animate-pulse" : "h-4.5 bg-white animate-pulse")} style={{ animationDelay: '300ms' }} />
+                        <span className={cn("w-1 rounded-full transition-all duration-300", status === 'connected' ? "h-6 bg-yellow-300 animate-pulse" : "h-3.5 bg-white/80 animate-pulse")} style={{ animationDelay: '450ms' }} />
+                        <span className={cn("w-1 rounded-full transition-all duration-300", status === 'connected' ? "h-3.5 bg-emerald-400 animate-pulse" : "h-2 bg-white/60 animate-pulse")} style={{ animationDelay: '600ms' }} />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -623,109 +692,140 @@ STRICT RULE ON NAME:
           <canvas ref={canvasRef} className="hidden" />
         </div>
 
-        {/* Display Status/Timer */}
-        <div className="text-center w-full px-8">
+        {/* Display Status/Timer/Info */}
+        <div className="text-center w-full px-4 sm:px-6">
           {status === 'connected' ? (
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="space-y-2"
+              className="space-y-2 bg-white/90 backdrop-blur-md p-4 rounded-3xl border border-emerald-100 shadow-xs max-w-xs mx-auto"
             >
-              <p className="text-3xl font-mono font-bold text-[#4A3728]">{formatDuration(callDuration)}</p>
-              <p className="text-sm text-green-600 font-black animate-pulse uppercase tracking-wider">बातचीत जारी है...</p>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200/60">
+                <span className="w-2 h-2 rounded-full bg-emerald-600 animate-ping" />
+                <span>लाइव बातचीत जारी है</span>
+              </div>
+              <p className="text-3xl sm:text-4xl font-mono font-black text-gray-900 tracking-tight">{formatDuration(callDuration)}</p>
+              <p className="text-xs text-gray-500 font-semibold">बोलें, AI आपकी समस्या सुन रहा है...</p>
             </motion.div>
           ) : status === 'connecting' ? (
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-3 bg-white/85 backdrop-blur-md p-4 rounded-3xl border border-emerald-100 shadow-xs max-w-xs mx-auto">
               <Loader2 className="w-8 h-8 text-[#2D5A27] animate-spin" />
-              <p className="text-sm font-bold text-gray-500">नमस्ते! कनेक्ट हो रहा है...</p>
+              <div>
+                <p className="text-sm font-black text-gray-900">AI विशेषज्ञ से कनेक्ट हो रहा है...</p>
+                <p className="text-xs text-gray-500 font-medium mt-0.5">कृपया 2 सेकंड रुकें</p>
+              </div>
             </div>
           ) : status === 'requesting_permission' ? (
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-3 bg-white/90 backdrop-blur-md p-5 rounded-3xl border border-emerald-100 shadow-xs max-w-xs mx-auto">
               <motion.div
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ repeat: Infinity, duration: 2 }}
-                className="w-12 h-12 bg-[#2D5A27]/10 rounded-full flex items-center justify-center"
+                animate={{ scale: [1, 1.15, 1] }}
+                transition={{ repeat: Infinity, duration: 1.5 }}
+                className="w-12 h-12 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-center shadow-xs"
               >
-                <Mic className="w-6 h-6 text-[#2D5A27]" />
+                <Mic className="w-6 h-6 text-[#183D16]" />
               </motion.div>
-              <p className="text-sm font-bold text-[#2D5A27]">माइक अनुमति मांग रहे हैं...</p>
-              <p className="text-[10px] text-gray-400 font-medium max-w-[200px]">कृपया ऊपर आने वाले ब्राउज़र पॉपअप में 'Allow' चुनें</p>
+              <div>
+                <p className="text-sm font-black text-gray-900">माइक अनुमति की आवश्यकता है</p>
+                <p className="text-xs text-gray-500 font-medium mt-1 leading-relaxed">बातचीत के लिए कृपया ऊपर ब्राउज़र पॉपअप में <strong className="text-[#183D16]">'Allow'</strong> चुनें</p>
+              </div>
             </div>
           ) : error ? (
-            <div className="flex flex-col items-center gap-4 bg-white p-8 rounded-[2.5rem] border border-red-50 shadow-sm max-w-sm mx-auto">
-              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
-                <AlertCircle className="w-8 h-8 text-red-500" />
+            <div className="flex flex-col items-center gap-3 bg-white p-6 rounded-3xl border border-red-100 shadow-sm max-w-xs mx-auto">
+              <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center border border-red-100">
+                <AlertCircle className="w-6 h-6 text-red-500" />
               </div>
-              <p className="text-sm font-black text-red-600 leading-relaxed">{error}</p>
+              <p className="text-xs font-bold text-red-600 leading-relaxed text-center">{error}</p>
               
-              <div className="w-full space-y-2">
-                <button 
-                  onClick={permissionGranted ? startCall : requestPermissions}
-                  className="w-full text-sm font-black text-white bg-red-500 py-4 rounded-2xl shadow-lg active:scale-95 transition-transform"
-                >
-                  {permissionGranted ? "फिर से कोशिश करें" : "अनुमति दें (Allow Permission)"}
-                </button>
-              </div>
+              <button 
+                onClick={permissionGranted ? startCall : requestPermissions}
+                className="w-full text-xs font-black text-white bg-red-500 hover:bg-red-600 py-3 rounded-xl shadow-md active:scale-95 transition-transform cursor-pointer"
+              >
+                {permissionGranted ? "फिर से कोशिश करें" : "अनुमति दें (Allow)"}
+              </button>
             </div>
           ) : (
-            <div className="space-y-4 max-w-xs mx-auto">
-              <h3 className="text-xl font-black text-[#4A3728]">विशेषज्ञ से सीधी बात</h3>
-              <p className="text-xs text-gray-500 font-medium leading-relaxed">
-                बिल्कुल इंसानों की तरह बात करने वाला हमारा AI एक्सपर्ट खेती की किसी भी समस्या का तुरंत समाधान देगा। 
+            <div className="space-y-3 max-w-sm mx-auto">
+              <h3 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">विशेषज्ञ से सीधी बात</h3>
+              <p className="text-xs sm:text-sm text-gray-600 font-medium leading-relaxed">
+                फसल, कीट, खाद या दवाई की समस्या बताएं — इंसानों की तरह बात करके तुरंत समाधान पाएं।
               </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="w-full max-w-xs space-y-8">
-        <div className="flex items-center justify-around">
+      {/* Controls Floating Dock */}
+      <div className="w-full max-w-xs z-20 space-y-3 sm:space-y-4">
+        <div className="bg-white/90 backdrop-blur-xl p-3 sm:p-4 rounded-full border border-emerald-900/10 shadow-xl shadow-emerald-950/5 flex items-center justify-around">
+          {/* Mute Button */}
           <button 
             disabled={!isCalling || status !== 'connected'}
             onClick={() => setIsMuted(!isMuted)}
+            title={isMuted ? "अनम्यूट करें" : "म्यूट करें"}
             className={cn(
-              "w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-95",
-              isMuted ? "bg-red-500 text-white" : "bg-white text-gray-400 border border-gray-100 shadow-sm",
-              (status === 'requesting_permission' || (!isCalling && !permissionGranted)) && "opacity-50 cursor-not-allowed"
+              "w-14 h-14 sm:w-15 sm:h-15 rounded-full flex items-center justify-center transition-all active:scale-95 cursor-pointer",
+              isMuted 
+                ? "bg-red-500 text-white shadow-md shadow-red-500/25" 
+                : "bg-emerald-50 text-[#183D16] border border-emerald-200/80 hover:bg-emerald-100",
+              (status === 'requesting_permission' || (!isCalling && !permissionGranted)) && "opacity-40 cursor-not-allowed"
             )}
           >
-            {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+            {isMuted ? <MicOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Mic className="w-5 h-5 sm:w-6 sm:h-6" />}
           </button>
 
-          <button 
-            disabled={status === 'connecting' || status === 'requesting_permission'}
-            onClick={isCalling ? endCall : startCall}
-            className={cn(
-              "w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-2xl active:scale-95 hover:scale-105",
-              isCalling ? "bg-red-500 shadow-red-200" : "bg-[#2D5A27] hover:bg-[#3D7A35] shadow-green-200",
-              (status === 'requesting_permission' || status === 'connecting') && "opacity-50 cursor-not-allowed"
+          {/* Hero Call Action Button */}
+          <div className="relative">
+            {!isCalling && (
+              <span className="animate-ping absolute inset-0 rounded-full bg-emerald-400 opacity-40 pointer-events-none" />
             )}
-          >
-            {isCalling ? <PhoneOff className="w-10 h-10 text-white" /> : <Phone className="w-10 h-10 text-white" />}
-          </button>
+            <button 
+              disabled={status === 'connecting' || status === 'requesting_permission'}
+              onClick={isCalling ? endCall : startCall}
+              title={isCalling ? "कॉल समाप्त करें" : "कॉल शुरू करें"}
+              className={cn(
+                "relative w-20 h-20 sm:w-22 sm:h-22 rounded-full flex items-center justify-center transition-all shadow-xl active:scale-95 hover:scale-105 cursor-pointer ring-4",
+                isCalling 
+                  ? "bg-gradient-to-tr from-red-600 to-rose-500 text-white ring-red-400/30 shadow-red-500/30" 
+                  : "bg-gradient-to-tr from-[#183D16] via-[#245720] to-[#34782E] text-white ring-emerald-500/30 shadow-emerald-950/30",
+                (status === 'requesting_permission' || status === 'connecting') && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {isCalling ? <PhoneOff className="w-8 h-8 sm:w-9 sm:h-9 text-white" /> : <Phone className="w-8 h-8 sm:w-9 sm:h-9 text-white" />}
+            </button>
+          </div>
 
+          {/* Camera Button */}
           <button 
             onClick={() => setIsCameraOn(!isCameraOn)}
+            title={isCameraOn ? "कैमरा बंद करें" : "कैमरा चालू करें"}
             className={cn(
-              "w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-95",
-              isCameraOn ? "bg-[#2D5A27] text-white shadow-lg" : "bg-white text-gray-400 border border-gray-100 shadow-sm",
-              status === 'connecting' && "opacity-50 cursor-not-allowed"
+              "w-14 h-14 sm:w-15 sm:h-15 rounded-full flex items-center justify-center transition-all active:scale-95 cursor-pointer",
+              isCameraOn 
+                ? "bg-[#2D5A27] text-white shadow-md shadow-emerald-900/25" 
+                : "bg-emerald-50 text-[#183D16] border border-emerald-200/80 hover:bg-emerald-100",
+              status === 'connecting' && "opacity-40 cursor-not-allowed"
             )}
           >
-            {isCameraOn ? <Camera className="w-6 h-6" /> : <CameraOff className="w-6 h-6" />}
+            {isCameraOn ? <Camera className="w-5 h-5 sm:w-6 sm:h-6" /> : <CameraOff className="w-5 h-5 sm:w-6 sm:h-6" />}
           </button>
         </div>
 
-        {!isCalling && (
-          <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest"
-          >
-            {status === 'requesting_permission' ? 'अनुमति का इंतज़ार...' : 'कॉल शुरू करने के लिए हरा बटन दबाएं'}
-          </motion.p>
-        )}
+        {/* Guidance / Status hint */}
+        <p className="text-center text-[11px] font-bold text-gray-500 tracking-wide flex items-center justify-center gap-1.5">
+          {status === 'requesting_permission' ? (
+            'अनुमति का इंतज़ार...'
+          ) : isCalling ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <span>कॉल समाप्त करने के लिए लाल बटन दबाएं</span>
+            </>
+          ) : (
+            <>
+              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+              <span>कॉल शुरू करने के लिए हरा बटन दबाएं</span>
+            </>
+          )}
+        </p>
       </div>
     </div>
   );
