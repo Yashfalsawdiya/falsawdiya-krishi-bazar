@@ -388,6 +388,18 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true }));
 
+// Global CORS Middleware
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+    return;
+  }
+  next();
+});
+
 // Helper to get active credentials for Razorpay
 const getActiveRazorpayCredentials = () => {
   const isLive = serverConfig.mode === 'live';
@@ -1416,6 +1428,7 @@ app.post('/api/accounting/insights', handleAccountingInsights);
 // MANDI BHAV LIVE PRICES ROUTE
 // ==========================================
 app.get('/api/mandi/prices', handleGetMandiPrices);
+app.get('/mandi/prices', handleGetMandiPrices);
 
 // Health check endpoint
 app.get('/api/health', async (_req: Request, res: Response) => {

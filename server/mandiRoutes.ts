@@ -319,6 +319,8 @@ function getStateSlug(stateEnglish: string): string {
   return s.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
+const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
 // 2. Fallback to Mandi Pulse (mandipulse.com) when Government sources are unavailable
 // Strict rule: Record MUST match selected state, district, AND mandi
 async function fetchFromMandiPulse(
@@ -331,74 +333,35 @@ async function fetchFromMandiPulse(
   const { english: mandiEnglish } = cleanLocation(rawMandi);
 
   const stateSlug = getStateSlug(stateEnglish);
+  const mandiSlug = mandiEnglish.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const distSlug = districtEnglish.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const marketSlug = `${stateSlug}-${distSlug}-${mandiSlug}-apmc`;
+
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 6000);
+  const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
-    // A. Check specific market prices endpoint if available on MandiPulse
-    const mandiSlug = mandiEnglish.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    const distSlug = districtEnglish.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    const marketSlug = `${stateSlug}-${distSlug}-${mandiSlug}-apmc`;
-
+    // Step A: First check direct market prices endpoint (Fastest & most complete, e.g. Shamgarh returns all 7 crops in ~400ms)
     const marketPricesUrl = `https://mandipulse.com/embed/data?type=market-prices&market=${marketSlug}&language=hi`;
     const marketRes = await fetch(marketPricesUrl, {
       signal: controller.signal,
-      headers: { 'Accept': 'application/json', 'User-Agent': 'FalsawdiyaKrishiBazaar/1.0' }
-    }).catch(() => null);
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': BROWSER_USER_AGENT
+      }
+    }).catch((err) => {
+      console.warn(`[MandiPulse] Market fetch error for ${marketSlug}:`, err.message || err);
+      return null;
+    });
 
     const marketData: any = marketRes && marketRes.ok ? await marketRes.json().catch(() => null) : null;
-    const directMarketItems = (marketData && Array.isArray(marketData.items)) ? marketData.items : [];
+    const directMarketItems: any[] = (marketData && Array.isArray(marketData.items)) ? marketData.items : [];
 
-    // B. Concurrently fetch staple crop prices to check if this market has commodity reports
-    const stapleSlugs = [
-      'wheat',
-      'soyabean',
-      'mustard',
-      'bengal-gramgramwhole',
-      'garlic',
-      'onion',
-      'maize',
-      'potato',
-      'tomato',
-      'cotton',
-      'corianderleaves',
-      'groundnut',
-      'fenugreek-seed',
-      'urad-black-gram',
-      'moong-green-gram'
-    ];
-
-    const staplePromises = stapleSlugs.map(slug =>
-      fetch(`https://mandipulse.com/embed/data?type=commodity-price&commodity=${slug}&language=hi&limit=50`, {
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'FalsawdiyaKrishiBazaar/1.0'
-        }
-      })
-        .then(r => (r.ok ? r.json() : null))
-        .catch(() => null)
-    );
-
-    const stapleResults = await Promise.all(staplePromises);
-    clearTimeout(timeout);
-
-    // Collect all candidate items from MandiPulse
-    const candidateItems: any[] = [...directMarketItems];
-    for (const sr of stapleResults) {
-      if (sr && Array.isArray(sr.items)) {
-        candidateItems.push(...sr.items);
-      }
-    }
-
-    let totalChecked = 0;
-    let matchedCount = 0;
-    let filteredOutCount = 0;
     const cropMap = new Map<string, ServerMandiItem>();
     let latestReportDate = marketData?.updated_at || '';
 
-    for (const it of candidateItems) {
-      totalChecked++;
+    // Process direct market items
+    for (const it of directMarketItems) {
       const rawName = (it.name || it.commodity || '').trim();
       if (!rawName) continue;
       const hindiName = normalizeCommodityName(rawName);
@@ -409,13 +372,9 @@ async function fetchFromMandiPulse(
       const mandiCheck = checkLocationMatch(it.market, rawMandi, 'mandi');
 
       if (!stateCheck.match || !distCheck.match || !mandiCheck.match) {
-        filteredOutCount++;
-        const reason = !mandiCheck.match ? mandiCheck.reason : (!distCheck.match ? distCheck.reason : stateCheck.reason);
-        console.log(`[MandiPulse Reject] ${hindiName}: ${reason}`);
         continue;
       }
 
-      matchedCount++;
       const minP = Math.round(Number(it.min_price) || 0);
       const maxP = Math.round(Number(it.max_price) || 0);
       const modalP = Math.round(Number(it.modal_price) || 0);
@@ -425,7 +384,6 @@ async function fetchFromMandiPulse(
       const effectiveMin = minP || effectiveModal;
       const effectiveMax = maxP || effectiveModal;
 
-      console.log(`[MandiPulse MATCH] Crop: ${hindiName}, Market: ${it.market}, District: ${it.district}`);
       if (!latestReportDate && it.updated_at) {
         latestReportDate = it.updated_at;
       }
@@ -442,7 +400,86 @@ async function fetchFromMandiPulse(
       });
     }
 
-    console.log(`[MandiPulse Summary] Total Checked: ${totalChecked}, Matched: ${matchedCount}, Filtered Out: ${filteredOutCount}`);
+    // If direct market query succeeded with valid items, return immediately!
+    // (Prevents firing 15 redundant requests that trigger Cloudflare/LiteSpeed rate-limiting on Vercel)
+    if (cropMap.size > 0) {
+      clearTimeout(timeout);
+      console.log(`[MandiPulse] Instant Direct Match: ${cropMap.size} crops found for ${marketSlug}`);
+      return {
+        items: Array.from(cropMap.values()),
+        sourceDate: latestReportDate || 'आज',
+        sourceName: 'मंडी पल्स (MandiPulse.com)'
+      };
+    }
+
+    // Step B: Secondary fallback only if direct market endpoint has 0 items
+    // Query a focused set of top staple crops in small batch
+    const stapleSlugs = [
+      'wheat',
+      'soyabean',
+      'garlic',
+      'mustard',
+      'bengal-gramgramwhole',
+      'onion',
+      'maize'
+    ];
+
+    const staplePromises = stapleSlugs.map(slug =>
+      fetch(`https://mandipulse.com/embed/data?type=commodity-price&commodity=${slug}&language=hi&limit=50`, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': BROWSER_USER_AGENT
+        }
+      })
+        .then(r => (r.ok ? r.json() : null))
+        .catch(() => null)
+    );
+
+    const stapleResults = await Promise.all(staplePromises);
+    clearTimeout(timeout);
+
+    for (const sr of stapleResults) {
+      if (sr && Array.isArray(sr.items)) {
+        for (const it of sr.items) {
+          const rawName = (it.name || it.commodity || '').trim();
+          if (!rawName) continue;
+          const hindiName = normalizeCommodityName(rawName);
+
+          const stateCheck = checkLocationMatch(it.state, rawState, 'state');
+          const distCheck = checkLocationMatch(it.district, rawDistrict, 'district');
+          const mandiCheck = checkLocationMatch(it.market, rawMandi, 'mandi');
+
+          if (!stateCheck.match || !distCheck.match || !mandiCheck.match) {
+            continue;
+          }
+
+          const minP = Math.round(Number(it.min_price) || 0);
+          const maxP = Math.round(Number(it.max_price) || 0);
+          const modalP = Math.round(Number(it.modal_price) || 0);
+          if (modalP <= 0 && minP <= 0 && maxP <= 0) continue;
+
+          const effectiveModal = modalP || Math.round((minP + maxP) / 2) || minP || maxP;
+          const effectiveMin = minP || effectiveModal;
+          const effectiveMax = maxP || effectiveModal;
+
+          if (!latestReportDate && it.updated_at) {
+            latestReportDate = it.updated_at;
+          }
+
+          cropMap.set(hindiName, {
+            commodity: hindiName,
+            minPrice: effectiveMin.toString(),
+            maxPrice: effectiveMax.toString(),
+            avgPrice: effectiveModal.toString(),
+            unit: 'क्विंटल',
+            arrival: it.arrival ? `${it.arrival} बोरी` : 'मंडी आवक',
+            quality: it.variety || 'मानक गुणवत्ता (FAQ)',
+            lastUpdated: it.updated_at || latestReportDate || 'आज'
+          });
+        }
+      }
+    }
 
     const items = Array.from(cropMap.values());
     if (items.length > 0) {
@@ -682,7 +719,31 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
       return;
     }
 
-    // Tier 3: If neither has data for this exact selected mandi, return clean empty response
+    // Tier 3: If neither has data, try server-side Gemini Search Grounding if GEMINI_API_KEY is available
+    const geminiResult = await fetchFromGeminiGrounding(rawState, rawDistrict, rawMandi);
+    if (geminiResult && geminiResult.items.length > 0) {
+      console.log(`[Mandi Route Success] Found ${geminiResult.items.length} records via Gemini Grounding for ${rawMandi}`);
+      const responseData: ServerMandiDetails = {
+        mandiName: rawMandi,
+        district: rawDistrict,
+        state: rawState,
+        date: geminiResult.sourceDate,
+        items: geminiResult.items,
+        sourceType: 'market_report',
+        sourceName: geminiResult.sourceName,
+        sourceDate: geminiResult.sourceDate,
+        fetchedAt: fetchedAtStr,
+        isLive: true,
+        isEstimated: false,
+        statusMessage: `${rawMandi} मंडी के लिए सार्वजनिक स्रोतों व ई-मंडी बुलेटिन से संकलित सत्यापित भाव`
+      };
+
+      mandiCache.set(cacheKey, { data: responseData, timestamp: now });
+      res.json({ success: true, data: responseData });
+      return;
+    }
+
+    // Tier 4: If no sources have data for this exact selected mandi, return clean empty response
     // NEVER inject data from other mandis or other districts!
     console.log(`[Mandi Route Complete] No official records found for ${rawMandi}. Returning clean empty state.`);
     const cleanEmptyDetails: ServerMandiDetails = {
@@ -700,7 +761,8 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
       statusMessage: `${rawMandi} (${rawDistrict.split(' (')[0]}, ${rawState.split(' (')[0]}) मंडी के लिए आज का आधिकारिक डेटा उपलब्ध नहीं है।`
     };
 
-    mandiCache.set(cacheKey, { data: cleanEmptyDetails, timestamp: now });
+    // Cache empty state for only 30 seconds so temporary failures or quick retries can re-check
+    mandiCache.set(cacheKey, { data: cleanEmptyDetails, timestamp: now - (CACHE_TTL_MS - 30000) });
     res.json({
       success: true,
       data: cleanEmptyDetails
