@@ -10,34 +10,13 @@ export interface FriendlyError {
 }
 
 export const getFriendlyAiError = (error: any): FriendlyError => {
-  let errorString = '';
-  if (!error) {
-    errorString = '';
-  } else if (typeof error === 'string') {
-    errorString = error;
-  } else if (error?.message) {
-    errorString = error.message;
-  } else if (error?.error?.message) {
-    errorString = error.error.message;
-  } else if (error?.statusText) {
-    errorString = error.statusText;
-  } else {
-    try {
-      errorString = JSON.stringify(error);
-    } catch {
-      errorString = String(error);
-    }
-  }
-
-  const lower = errorString.toLowerCase();
+  const errorString = error?.message || String(error);
   
   // 1. Missing API Key
   if (
-    lower.includes('gemini_key_not_set') || 
-    lower.includes('api_key_missing') || 
-    lower.includes('user_api_key_missing') ||
-    lower.includes('api key not found') ||
-    lower.includes('missing api key')
+    errorString.includes('GEMINI_KEY_NOT_SET') || 
+    errorString.includes('API_KEY_MISSING') || 
+    errorString.includes('USER_API_KEY_MISSING')
   ) {
     return {
       type: 'key_missing',
@@ -48,12 +27,10 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
 
   // 2. Invalid API Key
   if (
-    lower.includes('api_key_invalid') || 
-    lower.includes('invalid_api_key') ||
-    (lower.includes('400') && lower.includes('invalid')) ||
-    (lower.includes('403') && lower.includes('permission')) ||
-    lower.includes('invalid_argument') ||
-    lower.includes('api key not valid')
+    errorString.includes('API_KEY_INVALID') || 
+    errorString.includes('400') && errorString.includes('invalid') ||
+    errorString.includes('403') && errorString.includes('permission') ||
+    errorString.includes('invalid_argument')
   ) {
     return {
       type: 'key_invalid',
@@ -64,11 +41,10 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
 
   // 3. Internet / Network Connectivity
   if (
-    (typeof navigator !== 'undefined' && !navigator.onLine) || 
-    lower.includes('fetch') || 
-    lower.includes('network error') ||
-    lower.includes('failed to fetch') ||
-    lower.includes('networkrequestfailed')
+    !navigator.onLine || 
+    errorString.includes('fetch') || 
+    errorString.includes('Network Error') ||
+    errorString.includes('Failed to fetch')
   ) {
     return {
       type: 'network',
@@ -79,10 +55,9 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
 
   // 4. API limit / Quota exceeded
   if (
-    lower.includes('429') || 
-    lower.includes('resource_exhausted') || 
-    lower.includes('quota') ||
-    lower.includes('rate limit')
+    errorString.includes('429') || 
+    errorString.includes('RESOURCE_EXHAUSTED') || 
+    errorString.includes('quota')
   ) {
     return {
       type: 'quota',
@@ -93,12 +68,10 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
 
   // 5. Server Issues
   if (
-    lower.includes('500') || 
-    lower.includes('service_unavailable') || 
-    lower.includes('503') ||
-    lower.includes('502') ||
-    lower.includes('504') ||
-    lower.includes('deadline exceeded')
+    errorString.includes('500') || 
+    errorString.includes('SERVICE_UNAVAILABLE') || 
+    errorString.includes('503') ||
+    errorString.includes('deadline exceeded')
   ) {
     return {
       type: 'server',

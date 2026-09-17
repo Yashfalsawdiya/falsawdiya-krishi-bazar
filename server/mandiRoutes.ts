@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { GoogleGenAI, Type } from '@google/genai';
 
-export type MandiSourceType = 'govt' | 'mandipulse' | 'market_report' | 'estimated';
+export type MandiSourceType = 'govt' | 'market_report' | 'estimated';
 
 export interface ServerMandiItem {
   commodity: string;
@@ -76,41 +76,12 @@ const COMMODITY_MAP: Record<string, string> = {
   'pigeon pea': 'तुअर',
   'barley': 'जौ',
   'jau': 'जौ',
-  'asalia': 'असालिया',
-  'isabgul': 'ईसबगोल',
-  'psyllium': 'ईसबगोल',
-  'linseed': 'अलसी',
-  'flaxseed': 'अलसी',
-  'nigella': 'कलौंजी',
-  'kalonji': 'कलौंजी',
-  'sesamum': 'तिल',
-  'sesame': 'तिल',
-  'til': 'तिल',
-  'chia': 'चिया सीड्स',
-  'quinoa': 'क्विनोआ',
-  'basil': 'तुलसी बीज',
-  'green peas': 'मटर',
-  'pea': 'मटर',
-  'absinthe': 'नागदौना',
-  'ambrette': 'कस्तूरी भिंडी'
 };
-
-// MandiPulse state-level link cache (6 hours)
-const stateMandiLinkCache = new Map<string, { links: string[]; timestamp: number }>();
-const STATE_CACHE_TTL = 6 * 60 * 60 * 1000;
-
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-}
 
 function normalizeCommodityName(name: string): string {
   const lower = name.toLowerCase().trim();
-  const sortedKeys = Object.keys(COMMODITY_MAP).sort((a, b) => b.length - a.length);
-  for (const key of sortedKeys) {
-    if (lower.includes(key)) return COMMODITY_MAP[key];
+  for (const [key, val] of Object.entries(COMMODITY_MAP)) {
+    if (lower.includes(key)) return val;
   }
   return name.trim();
 }
@@ -226,160 +197,7 @@ async function fetchFromGovtOgd(
   }
 }
 
-// 2. Query Mandi Pulse (mandipulse.com live APMC directory)
-async function fetchFromMandiPulse(
-  stateEnglish: string,
-  districtEnglish: string,
-  mandiEnglish: string
-): Promise<{ items: ServerMandiItem[]; sourceDate: string; mandiPulseUrl: string } | null> {
-  const stateSlug = slugify(stateEnglish);
-  const distSlug = slugify(districtEnglish);
-  let mandiSlug = slugify(mandiEnglish);
-
-  // Normalize common mandi variations
-  if (mandiSlug.includes('piplya') || mandiSlug.includes('pipliya')) mandiSlug = 'piplya';
-
-  const candidateUrls = [
-    `https://mandipulse.com/mandi/${stateSlug}-${distSlug}-${mandiSlug}-apmc`,
-    `https://mandipulse.com/mandi/${stateSlug}-${distSlug}-${mandiSlug}fv-apmc`,
-    `https://mandipulse.com/mandi/${stateSlug}-${distSlug}-${mandiSlug}`,
-  ];
-
-  let chosenUrl = '';
-  let htmlData = '';
-
-  const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-  };
-
-  for (const url of candidateUrls) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4500);
-      const res = await fetch(url, { signal: controller.signal, headers });
-      clearTimeout(timeout);
-      if (res.ok) {
-        const text = await res.text();
-        if (text.includes('commodity-item')) {
-          chosenUrl = url;
-          htmlData = text;
-          break;
-        }
-      }
-    } catch {
-      // try next candidate
-    }
-  }
-
-  // If not found in direct candidates, resolve from state directory
-  if (!chosenUrl) {
-    try {
-      let stateLinks: string[] = [];
-      const cachedState = stateMandiLinkCache.get(stateSlug);
-      if (cachedState && Date.now() - cachedState.timestamp < STATE_CACHE_TTL) {
-        stateLinks = cachedState.links;
-      } else {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 4500);
-        const stateRes = await fetch(`https://mandipulse.com/mandi-bhav/${stateSlug}`, {
-          signal: controller.signal,
-          headers
-        });
-        clearTimeout(timeout);
-        if (stateRes.ok) {
-          const stateHtml = await stateRes.text();
-          const regex = /href="(https:\/\/mandipulse\.com\/mandi\/[^"]+)"/gi;
-          let match;
-          while ((match = regex.exec(stateHtml)) !== null) {
-            stateLinks.push(match[1]);
-          }
-          stateMandiLinkCache.set(stateSlug, { links: stateLinks, timestamp: Date.now() });
-        }
-      }
-
-      // Find matching link for district and mandi
-      const matching = stateLinks.filter(u => u.includes(distSlug));
-      const specific = matching.find(u => u.includes(mandiSlug)) || matching[0];
-
-      if (specific) {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 4500);
-        const res = await fetch(specific, { signal: controller.signal, headers });
-        clearTimeout(timeout);
-        if (res.ok) {
-          const text = await res.text();
-          if (text.includes('commodity-item')) {
-            chosenUrl = specific;
-            htmlData = text;
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('[MandiPulse State Directory] Error:', err);
-    }
-  }
-
-  if (!chosenUrl || !htmlData) {
-    return null;
-  }
-
-  // Extract report date from page
-  let reportDate = '';
-  const dateMatch = htmlData.match(/as of\s+(\d{1,2}\s+[A-Za-z]+\s+\d{4})/i) || htmlData.match(/(\d{1,2}\s+[A-Za-z]+\s+\d{4})/);
-  if (dateMatch) {
-    reportDate = dateMatch[1];
-  }
-
-  const parts = htmlData.split(/class="[^"]*commodity-item[^"]*"/);
-  const items: ServerMandiItem[] = [];
-
-  for (let i = 1; i < parts.length; i++) {
-    const part = parts[i];
-    const nameMatch = part.match(/<h3[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i);
-    const modalMatch = part.match(/Modal Price[\s\S]*?₹([\d,]+)/i);
-    const minMatch = part.match(/Min:[\s\S]*?₹([\d,]+)/i);
-    const maxMatch = part.match(/Max:[\s\S]*?₹([\d,]+)/i);
-    const varietyMatch = part.match(/Variety:[\s\S]*?<strong>([^<]+)<\/strong>/i);
-    const gradeMatch = part.match(/Grade:[\s\S]*?<strong>([^<]+)<\/strong>/i);
-    const dateRowMatch = part.match(/<div class="small text-muted mt-2">\s*([^<]+?)\s*<\/div>/i);
-
-    if (nameMatch && (modalMatch || minMatch)) {
-      const rawName = nameMatch[1].trim();
-      const modal = modalMatch ? parseInt(modalMatch[1].replace(/,/g, ''), 10) : 0;
-      const min = minMatch ? parseInt(minMatch[1].replace(/,/g, ''), 10) : modal;
-      const max = maxMatch ? parseInt(maxMatch[1].replace(/,/g, ''), 10) : modal;
-      const variety = varietyMatch ? varietyMatch[1].trim() : '';
-      const grade = gradeMatch ? gradeMatch[1].trim() : '';
-      const itemDate = dateRowMatch ? dateRowMatch[1].trim() : reportDate;
-
-      const cleanHindiName = normalizeCommodityName(rawName);
-
-      items.push({
-        commodity: cleanHindiName,
-        minPrice: min.toString(),
-        maxPrice: max.toString(),
-        avgPrice: (modal || Math.round((min + max) / 2)).toString(),
-        unit: 'क्विंटल',
-        arrival: variety ? `किस्म: ${variety}` : 'दैनिक आवक',
-        quality: grade ? `ग्रेड: ${grade}` : (variety || 'मानक / FAQ'),
-        lastUpdated: itemDate || reportDate || 'ताज़ा'
-      });
-    }
-  }
-
-  if (items.length > 0) {
-    return {
-      items,
-      sourceDate: reportDate || 'आज',
-      mandiPulseUrl: chosenUrl
-    };
-  }
-
-  return null;
-}
-
-// 3. Fetch real market rates using Gemini Search Grounding (Server-Side Backup)
+// 2. Fetch real market rates using Gemini 2.5 Flash Search Grounding (Server-Side)
 async function fetchFromGeminiGrounding(
   stateClean: string,
   districtClean: string,
@@ -571,30 +389,7 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
       return;
     }
 
-    // Tier 2: Try Mandi Pulse (mandipulse.com live APMC data)
-    const mandiPulseResult = await fetchFromMandiPulse(stateInfo.english, districtInfo.english, mandiInfo.english);
-    if (mandiPulseResult && mandiPulseResult.items.length > 0) {
-      const responseData: ServerMandiDetails = {
-        mandiName: rawMandi,
-        district: rawDistrict,
-        state: rawState,
-        date: mandiPulseResult.sourceDate,
-        items: mandiPulseResult.items,
-        sourceType: 'mandipulse',
-        sourceName: 'मंडी पल्स (MandiPulse.com - APMC Live)',
-        sourceDate: mandiPulseResult.sourceDate,
-        fetchedAt: fetchedAtStr,
-        isLive: true,
-        isEstimated: false,
-        statusMessage: 'मंडी पल्स पोर्टल से प्राप्त ताज़ा दैनिक मंडी भाव'
-      };
-
-      mandiCache.set(cacheKey, { data: responseData, timestamp: now });
-      res.json({ success: true, data: responseData });
-      return;
-    }
-
-    // Tier 3: Try Real-time Google Search Grounding with Gemini Backup
+    // Tier 2: Try Real-time Google Search Grounding with Gemini 2.5 Flash
     const groundingResult = await fetchFromGeminiGrounding(
       `${stateInfo.hindi} (${stateInfo.english})`,
       `${districtInfo.hindi} (${districtInfo.english})`,

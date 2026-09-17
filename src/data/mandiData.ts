@@ -1,4 +1,4 @@
-export type MandiSourceType = 'govt' | 'mandipulse' | 'market_report' | 'estimated';
+export type MandiSourceType = 'govt' | 'market_report' | 'estimated';
 
 // Mandi Pulse Database structure & stable fallback generator
 export interface MandiItem {

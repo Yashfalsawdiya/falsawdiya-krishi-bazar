@@ -205,11 +205,6 @@ const MandiBhav: React.FC = () => {
               <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
               सरकारी डेटा (AGMARKNET OGD)
             </div>
-          ) : data?.sourceType === 'mandipulse' ? (
-            <div className="bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-              मंडी पल्स (MandiPulse Live APMC)
-            </div>
           ) : data?.sourceType === 'market_report' ? (
             <div className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
@@ -349,7 +344,7 @@ const MandiBhav: React.FC = () => {
                       </h3>
                     </div>
                     <p className="text-[11px] text-gray-500 font-medium">
-                      स्रोत: <span className="font-bold text-gray-700">{data.sourceName || (data.sourceType === 'govt' ? 'AGMARKNET (भारत सरकार OGD)' : data.sourceType === 'mandipulse' ? 'मंडी पल्स (MandiPulse.com - APMC Live)' : 'स्थानीय मंडी रिपोर्ट')}</span>
+                      स्रोत: <span className="font-bold text-gray-700">{data.sourceName || (data.sourceType === 'govt' ? 'AGMARKNET (भारत सरकार OGD)' : 'स्थानीय मंडी रिपोर्ट')}</span>
                     </p>
                   </div>
 
@@ -373,8 +368,6 @@ const MandiBhav: React.FC = () => {
                     <span className={`font-bold flex items-center gap-1 ${
                       data.sourceType === 'govt' 
                         ? 'text-emerald-700' 
-                        : data.sourceType === 'mandipulse'
-                        ? 'text-blue-700'
                         : data.sourceType === 'market_report' 
                         ? 'text-amber-700' 
                         : 'text-orange-700'
@@ -383,11 +376,6 @@ const MandiBhav: React.FC = () => {
                         <>
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                           सरकारी AGMARKNET
-                        </>
-                      ) : data.sourceType === 'mandipulse' ? (
-                        <>
-                          <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                          मंडी पल्स (MandiPulse)
                         </>
                       ) : data.sourceType === 'market_report' ? (
                         <>
