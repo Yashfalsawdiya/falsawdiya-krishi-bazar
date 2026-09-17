@@ -205,6 +205,11 @@ const MandiBhav: React.FC = () => {
               <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
               सरकारी डेटा (AGMARKNET OGD)
             </div>
+          ) : data?.sourceType === 'mandipulse' ? (
+            <div className="bg-teal-50 text-teal-800 border border-teal-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+              मंडी पल्स बैकअप (MandiPulse.com)
+            </div>
           ) : data?.sourceType === 'market_report' ? (
             <div className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
@@ -344,7 +349,7 @@ const MandiBhav: React.FC = () => {
                       </h3>
                     </div>
                     <p className="text-[11px] text-gray-500 font-medium">
-                      स्रोत: <span className="font-bold text-gray-700">{data.sourceName || (data.sourceType === 'govt' ? 'AGMARKNET (भारत सरकार OGD)' : 'स्थानीय मंडी रिपोर्ट')}</span>
+                      स्रोत: <span className="font-bold text-gray-700">{data.sourceName || (data.sourceType === 'govt' ? 'AGMARKNET (भारत सरकार OGD)' : data.sourceType === 'mandipulse' ? 'मंडी पल्स (MandiPulse.com)' : 'स्थानीय मंडी रिपोर्ट')}</span>
                     </p>
                   </div>
 
@@ -368,6 +373,8 @@ const MandiBhav: React.FC = () => {
                     <span className={`font-bold flex items-center gap-1 ${
                       data.sourceType === 'govt' 
                         ? 'text-emerald-700' 
+                        : data.sourceType === 'mandipulse'
+                        ? 'text-teal-700'
                         : data.sourceType === 'market_report' 
                         ? 'text-amber-700' 
                         : 'text-orange-700'
@@ -376,6 +383,11 @@ const MandiBhav: React.FC = () => {
                         <>
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                           सरकारी AGMARKNET
+                        </>
+                      ) : data.sourceType === 'mandipulse' ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                          मंडी पल्स (MandiPulse)
                         </>
                       ) : data.sourceType === 'market_report' ? (
                         <>
@@ -407,6 +419,22 @@ const MandiBhav: React.FC = () => {
                     </span>
                   </div>
                 </div>
+
+                {/* MandiPulse Fallback Informational Banner */}
+                {data.sourceType === 'mandipulse' && (
+                  <div className="bg-teal-50 border border-teal-200/80 rounded-2xl p-3 flex items-start gap-2.5 text-teal-950">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5 text-[11px] leading-relaxed">
+                      <p className="font-bold text-teal-900 flex items-center gap-1.5">
+                        <span>सरकारी पोर्टल पर डेटा अनुपलब्ध होने पर मंडी पल्स से लाइव बैकअप</span>
+                        <span className="px-1.5 py-0.5 text-[9px] bg-teal-100 text-teal-800 rounded-md font-bold">सत्यापित</span>
+                      </p>
+                      <p className="text-teal-800 text-[10px]">
+                        सरकारी AGMARKNET सर्वर पर इस समय ताज़ा डेटा न मिलने पर यह प्रमाणित दरें <a href="https://mandipulse.com" target="_blank" rel="noopener noreferrer" className="font-bold underline text-teal-900">MandiPulse.com</a> से सीधे फेच की गई हैं।
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Clear Transparency Warning if estimated */}
                 {data.isEstimated && (

@@ -1,4 +1,4 @@
-export type MandiSourceType = 'govt' | 'market_report' | 'estimated';
+export type MandiSourceType = 'govt' | 'mandipulse' | 'market_report' | 'estimated';
 
 // Mandi Pulse Database structure & stable fallback generator
 export interface MandiItem {
@@ -35,38 +35,160 @@ export interface StateMandiMap {
 
 export const STATE_MANDI_DATA: StateMandiMap = {
   "मध्यप्रदेश (Madhya Pradesh)": {
-    "मंदसौर (Mandsaur)": ["शामगढ़ (Shamgarh)", "गरोठ (Garoth)", "सीतामऊ (Sitamau)", "मंदसौर (Mandsaur)", "पिपलिया (Pipliya)"],
+    "मंदसौर (Mandsaur)": ["शामगढ़ (Shamgarh)", "गरोठ (Garoth)", "सीतामऊ (Sitamau)", "मंदसौर (Mandsaur)", "पिपलिया (Pipliya)", "सुवासरा (Suwasra)"],
     "नीमच (Neemuch)": ["नीमच (Neemuch)", "जावद (Jawad)", "मनासा (Manasa)"],
-    "रतलाम (Ratlam)": ["रतलाम (Ratlam)", "जावरा (Jaora)", "सैलाना (Sailana)"],
-    "इंदौर (Indore)": ["इंदौर (Indore)", "महू (Mhow)"],
-    "उज्जैन (Ujjain)": ["उज्जैन (Ujjain)", "बड़नगर (Badnagar)", "खाचरौद (Khachrod)"],
-    "देवास (Dewas)": ["देवास (Dewas)", "सोनकच्छ (Sonkatch)"],
-    "धार (Dhar)": ["धार (Dhar)", "बदनावर (Badnawar)"]
+    "रतलाम (Ratlam)": ["रतलाम (Ratlam)", "जावरा (Jaora)", "सैलाना (Sailana)", "आलोट (Alot)"],
+    "इंदौर (Indore)": ["इंदौर (Indore)", "महू (Mhow)", "सांवेर (Sanwer)"],
+    "उज्जैन (Ujjain)": ["उज्जैन (Ujjain)", "बड़नगर (Badnagar)", "खाचरौद (Khachrod)", "महिदपुर (Mahidpur)"],
+    "देवास (Dewas)": ["देवास (Dewas)", "सोनकच्छ (Sonkatch)", "हाटपिपल्या (Hatpipliya)"],
+    "धार (Dhar)": ["धार (Dhar)", "बदनावर (Badnawar)", "धामनोद (Dhamnod)"],
+    "सीहोर (Sehore)": ["सीहोर (Sehore)", "आष्टा (Ashta)", "इछावर (Ichhawar)"],
+    "गुना (Guna)": ["गुना (Guna)", "आरोन (Aaron)", "राघौगढ़ (Raghogarh)"],
+    "शाजापुर (Shajapur)": ["शाजापुर (Shajapur)", "शुजालपुर (Shujalpur)", "अकोदिया (Akodiya)"],
+    "विदिशा (Vidisha)": ["विदिशा (Vidisha)", "गंजबासौदा (Ganjbasoda)", "सिरोंज (Sironj)"],
+    "हरदा (Harda)": ["हरदा (Harda)", "खिरकिया (Khirkiya)", "टिमरनी (Timarni)"]
   },
   "राजस्थान (Rajasthan)": {
-    "प्रतापगढ़ (Pratapgarh)": ["प्रतापगढ़ (Pratapgarh)"],
-    "कोटा (Kota)": ["कोटा (Kota)", "रामगंज मंडी (Ramganj Mandi)"],
-    "झालावाड़ (Jhalawar)": ["झालावाड़ (Jhalawar)", "भवानी मंडी (Bhawani Mandi)"],
-    "बारां (Baran)": ["बारां (Baran)", "अटरू (Atru)"],
-    "चित्तौड़गढ़ (Chittorgarh)": ["चित्तौड़गढ़ (Chittorgarh)", "कपासन (Kapasan)"],
-    "जयपुर (Jaipur)": ["जयपुर (Jaipur)", "चोमू (Chomu)"]
+    "प्रतापगढ़ (Pratapgarh)": ["प्रतापगढ़ (Pratapgarh)", "छोटी सादड़ी (Chhoti Sadri)"],
+    "कोटा (Kota)": ["कोटा (Kota)", "रामगंज मंडी (Ramganj Mandi)", "इटावा (Itawa)"],
+    "झालावाड़ (Jhalawar)": ["झालावाड़ (Jhalawar)", "भवानी मंडी (Bhawani Mandi)", "खानपुर (Khanpur)"],
+    "बारां (Baran)": ["बारां (Baran)", "अटरू (Atru)", "छबड़ा (Chhabra)"],
+    "चित्तौड़गढ़ (Chittorgarh)": ["चित्तौड़गढ़ (Chittorgarh)", "कपासन (Kapasan)", "निम्बाहेड़ा (Nimbahera)", "बेंगू (Begun)"],
+    "जयपुर (Jaipur)": ["जयपुर (Jaipur)", "चोमू (Chomu)", "चाकसू (Chaksu)"],
+    "जोधपुर (Jodhpur)": ["जोधपुर (Jodhpur)", "फलोदी (Phalodi)", "पीपाड़ (Pipar)"],
+    "श्रीगंगानगर (Sri Ganganagar)": ["श्रीगंगानगर (Sri Ganganagar)", "सूरतगढ़ (Suratgarh)", "रायसिंहनगर (Raisinghnagar)"],
+    "अलवर (Alwar)": ["अलवर (Alwar)", "खैरथल (Khairthal)", "बहरोड़ (Behror)"],
+    "बीकानेर (Bikaner)": ["बीकानेर (Bikaner)", "नोखा (Nokha)", "लूणकरणसर (Lunkaransar)"]
   },
   "उत्तर प्रदेश (Uttar Pradesh)": {
-    "आगरा (Agra)": ["आगरा (Agra)", "फतेहाबाद (Fatehabad)"],
-    "झांसी (Jhansi)": ["झांसी (Jhansi)", "मऊरानीपुर (Mauranipur)"],
-    "कानपुर (Kanpur)": ["कानपुर नगर (Kanpur Nagar)", "चौबेपुर (Chaubepur)"],
-    "मथुरा (Mathura)": ["मथुरा (Mathura)", "कोसीकलां (Kosi Kalan)"]
+    "आगरा (Agra)": ["आगरा (Agra)", "फतेहाबाद (Fatehabad)", "अछनेरा (Achnera)"],
+    "झांसी (Jhansi)": ["झांसी (Jhansi)", "मऊरानीपुर (Mauranipur)", "बरुआसागर (Baruasagar)"],
+    "कानपुर (Kanpur)": ["कानपुर नगर (Kanpur Nagar)", "चौबेपुर (Chaubepur)", "घाटमपुर (Ghatampur)"],
+    "मथुरा (Mathura)": ["मथुरा (Mathura)", "कोसीकलां (Kosi Kalan)"],
+    "वाराणसी (Varanasi)": ["वाराणसी (Varanasi)", "रोहनिया (Rohaniya)"],
+    "बरेली (Bareilly)": ["बरेली (Bareilly)", "बहेड़ी (Baheri)", "आंवला (Aonla)"],
+    "मेरठ (Meerut)": ["मेरठ (Meerut)", "मवाना (Mawana)", "सरधना (Sardhana)"],
+    "अलीगढ़ (Aligarh)": ["अलीगढ़ (Aligarh)", "अतरौली (Atrauli)", "इगलास (Iglas)"],
+    "गोरखपुर (Gorakhpur)": ["गोरखपुर (Gorakhpur)", "सहजनवा (Sahjanwa)"],
+    "ललितपुर (Lalitpur)": ["ललितपुर (Lalitpur)", "महरौनी (Mehroni)"]
   },
   "महाराष्ट्र (Maharashtra)": {
-    "नाशिक (Nashik)": ["लासलगांव (Lasalgaon)", "पिंपलगांव (Pipalgaon)", "मनमाड (Manmad)"],
-    "पुणे (Pune)": ["पुणे (Pune)", "मंचर (Manchar)"],
-    "नागपुर (Nagpur)": ["नागपुर (Nagpur)", "कलमेश्वर (Kalmeshwar)"],
-    "अमरावती (Amravati)": ["अमरावती (Amravati)", "अचलपुर (Achalpur)"]
+    "नाशिक (Nashik)": ["लासलगांव (Lasalgaon)", "पिंपलगांव (Pipalgaon)", "मनमाड (Manmad)", "येवला (Yeola)"],
+    "पुणे (Pune)": ["पुणे (Pune)", "मंचर (Manchar)", "बारामती (Baramati)", "जुन्नर (Junnar)"],
+    "नागपुर (Nagpur)": ["नागपुर (Nagpur)", "कलमेश्वर (Kalmeshwar)", "काटोल (Katol)"],
+    "अमरावती (Amravati)": ["अमरावती (Amravati)", "अचलपुर (Achalpur)", "धामणगांव (Dhamangaon)"],
+    "जलगांव (Jalgaon)": ["जलगांव (Jalgaon)", "भुसावल (Bhusawal)", "चालीसगांव (Chalisgaon)"],
+    "अहमदनगर (Ahmednagar)": ["अहमदनगर (Ahmednagar)", "राहुरी (Rahuri)", "कोपरगांव (Kopargaon)"],
+    "लातूर (Latur)": ["लातूर (Latur)", "उदगीर (Udgir)", "अहमदपुर (Ahmedpur)"],
+    "सोलापूर (Solapur)": ["सोलापूर (Solapur)", "पंढरपुर (Pandharpur)", "बार्शी (Barshi)"]
   },
   "गुजरात (Gujarat)": {
-    "राजकोट (Rajkot)": ["राजकोट (Rajkot)", "गोंडल (Gondal)"],
-    "महेसाणा (Mehsana)": ["उंझा (Unjha)", "विसनगर (Visnagar)"],
-    "जूनागढ़ (Junagadh)": ["जूनागढ़ (Junagadh)", "केशोद (Keshod)"]
+    "राजकोट (Rajkot)": ["राजकोट (Rajkot)", "गोंडल (Gondal)", "जेतपुर (Jetpur)"],
+    "महेसाणा (Mehsana)": ["उंझा (Unjha)", "विसनगर (Visnagar)", "कड़ी (Kadi)"],
+    "जूनागढ़ (Junagadh)": ["जूनागढ़ (Junagadh)", "केशोद (Keshod)", "विसावदर (Visavadar)"],
+    "अमरेली (Amreli)": ["अमरेली (Amreli)", "सावरकुंडला (Savarkundla)", "बगसरा (Bagasara)"],
+    "अहमदाबाद (Ahmedabad)": ["अहमदाबाद (Ahmedabad)", "विरमगाम (Viramgam)", "साणंद (Sanand)"],
+    "सूरत (Surat)": ["सूरत (Surat)", "बारडोली (Bardoli)"],
+    "बनासकांठा (Banaskantha)": ["डीसा (Deesa)", "पालनपुर (Palanpur)", "थराद (Tharad)"]
+  },
+  "पंजाब (Punjab)": {
+    "लुधियाना (Ludhiana)": ["लुधियाना (Ludhiana)", "खन्ना (Khanna)", "जgraon (Jagraon)"],
+    "अमृतसर (Amritsar)": ["अमृतसर (Amritsar)", "राय्या (Rayya)", "मजीठा (Majitha)"],
+    "फाजिल्का (Fazilka)": ["अबोहर (Abohar)", "फाजिल्का (Fazilka)", "जलालाबाद (Jalalabad)"],
+    "पटियाला (Patiala)": ["पटियाला (Patiala)", "नाभा (Nabha)", "राजपुरा (Rajpura)"],
+    "बठिंडा (Bathinda)": ["बठिंडा (Bathinda)", "रामपुरा फूल (Rampura Phul)", "मौड़ (Maur)"],
+    "होशियारपुर (Hoshiarpur)": ["होशियारपुर (Hoshiarpur)", "मुकेरियां (Mukerian)"]
+  },
+  "हरियाणा (Haryana)": {
+    "हिसार (Hisar)": ["हिसार (Hisar)", "आदमपुर (Adampur)", "हांसी (Hansi)", "बरवाला (Barwala)"],
+    "करनाल (Karnal)": ["करनाल (Karnal)", "घरौंडा (Gharaunda)", "असंध (Assandh)", "तरावड़ी (Taraori)"],
+    "सिरसा (Sirsa)": ["सिरसा (Sirsa)", "ऐलनाबाद (Ellenabad)", "डबवाली (Dabwali)"],
+    "कुरुक्षेत्र (Kurukshetra)": ["कुरुक्षेत्र (Kurukshetra)", "थानेसर (Thanesar)", "शाहाबाद (Shahbad)", "लाडवा (Ladwa)"],
+    "रोहतक (Rohtak)": ["रोहतक (Rohtak)", "सांपला (Sampla)"],
+    "फतेहाबाद (Fatehabad)": ["फतेहाबाद (Fatehabad)", "टोहाना (Tohana)", "रतिया (Ratia)"]
+  },
+  "बिहार (Bihar)": {
+    "पटना (Patna)": ["पटना (Patna)", "दानापुर (Danapur)", "मोकामा (Mokama)", "फतुहा (Fatuha)"],
+    "मुजफ्फरपुर (Muzaffarpur)": ["मुजफ्फरपुर (Muzaffarpur)", "मोतीपुर (Motipur)"],
+    "भागलपुर (Bhagalpur)": ["भागलपुर (Bhagalpur)", "नवगछिया (Naugachia)"],
+    "गया (Gaya)": ["गया (Gaya)", "शेरघाटी (Sherghati)"],
+    "भोजपुर (Bhojpur)": ["आरा (Aarah)", "बिहिया (Bihiya)"]
+  },
+  "छत्तीसगढ़ (Chhattisgarh)": {
+    "रायपुर (Raipur)": ["रायपुर (Raipur)", "अभनपुर (Abhanpur)", "तिल्दा (Tilda)"],
+    "धमतरी (Dhamtari)": ["धमतरी (Dhamtari)", "कुरूद (Kurud)", "आमदी (Aamdi)"],
+    "बिलासपुर (Bilaspur)": ["बिलासपुर (Bilaspur)", "तखतपुर (Takhatpur)", "बिल्हा (Bilha)"],
+    "राजनांदगांव (Rajnandgaon)": ["राजनांदगांव (Rajnandgaon)", "डोंगरगढ़ (Dongargarh)"]
+  },
+  "कर्नाटक (Karnataka)": {
+    "बेंगलुरु (Bengaluru)": ["बेंगलुरु (Bengaluru)", "यशवंतपुर (Yeshwanthpur)", "बिनिपेट (Binny Mill)"],
+    "धारवाड़ (Dharwad)": ["हुबली (Hubli)", "धारवाड़ (Dharwad)"],
+    "बेलगाम (Belgaum)": ["बेलगाम (Belgaum)", "बैलहोंगल (Bailhongal)", "चिक्कोडी (Chikkodi)"],
+    "मैसूर (Mysore)": ["मैसूर (Mysore)", "नंजनगुड (Nanjangud)"],
+    "शिमोगा (Shimoga)": ["शिमोगा (Shimoga)", "सागर (Sagar)"]
+  },
+  "आंध्र प्रदेश (Andhra Pradesh)": {
+    "गुंटूर (Guntur)": ["गुंटूर (Guntur)", "तेनाली (Tenali)", "मिर्यालगुडा (Miryalaguda)"],
+    "कृष्णा (Krishna)": ["विजयवाड़ा (Vijayawada)", "मछलीपट्टनम (Machilipatnam)"],
+    "कुरनूल (Kurnool)": ["कुरनूल (Kurnool)", "अदोनी (Adoni)", "नंद्याल (Nandyal)"],
+    "पश्चिम गोदावरी (West Godavari)": ["एलुरु (Eluru)", "ताड़ेपल्लीगुडेम (Tadepalligudem)", "अचंता (Achanta)"]
+  },
+  "तेलंगाना (Telangana)": {
+    "वारंगल (Warangal)": ["वारंगल (Warangal)", "जंगांव (Jangaon)"],
+    "निजामाबाद (Nizamabad)": ["निजामाबाद (Nizamabad)", "बोधन (Bodhan)", "आर्मूर (Armoor)"],
+    "खम्मम (Khammam)": ["खम्मम (Khammam)", "मधिरा (Madhira)"],
+    "महबूबनगर (Mahbubnagar)": ["महबूबनगर (Mahbubnagar)", "जडचेरला (Jadcherla)", "अचंपेट (Achampet)"]
+  },
+  "पश्चिम बंगाल (West Bengal)": {
+    "कोलकाता (Kolkata)": ["कोलकाता (Kolkata)", "सीलदह (Sealdah)", "मेचुवा (Mechua)"],
+    "हुगली (Hooghly)": ["शेवड़ाफुली (Sheoraphuli)", "तारकेश्वर (Tarakeswar)"],
+    "बांकुड़ा (Bankura)": ["बांकुड़ा (Bankura)", "खतरा (Khatra)", "बिष्णुपुर (Bishnupur)"],
+    "बर्दवान (Burdwan)": ["बर्दवान (Burdwan)", "मेमारी (Memari)", "कालना (Kalna)"]
+  },
+  "ओडिशा (Odisha)": {
+    "कटक (Cuttack)": ["कटक (Cuttack)", "बांकी (Banki)"],
+    "संबलपुर (Sambalpur)": ["संबलपुर (Sambalpur)", "बरगढ़ (Bargarh)"],
+    "पुरी (Puri)": ["पुरी (Puri)", "पिपिली (Pipili)"],
+    "बालासोर (Balasore)": ["बालासोर (Balasore)", "जलेश्वर (Jaleswar)"]
+  },
+  "तमिलनाडु (Tamil Nadu)": {
+    "चेन्नई (Chennai)": ["कोयम्बेडु (Koyambedu)", "तिरुवल्लूर (Tiruvallur)"],
+    "कोयंबटूर (Coimbatore)": ["कोयंबटूर (Coimbatore)", "पोलाची (Pollachi)"],
+    "मदुरै (Madurai)": ["मदुरै (Madurai)", "अन्ना नगर (Anna Nagar)"],
+    "डिंडीगुल (Dindigul)": ["डिंडीगुल (Dindigul)", "पलानी (Palani)"]
+  },
+  "केरल (Kerala)": {
+    "एर्नाकुलम (Ernakulam)": ["कोच्चि (Kochi)", "अलुवा (Aluva)", "उत्तरी पारावुर (North Paravur)"],
+    "कोझिकोड (Kozhikode)": ["कोझिकोड (Kozhikode)", "क्विंडी (Quilandy)"],
+    "तिरुवनंतपुरम (Thiruvananthapuram)": ["तिरुवनंतपुरम (Thiruvananthapuram)", "नेय्यत्तिनकरा (Neyyattinkara)"]
+  },
+  "हिमाचल प्रदेश (Himachal Pradesh)": {
+    "शिमला (Shimla)": ["ढली (Dhalli)", "रोहड़ू (Rohru)", "रामपुर (Rampur)"],
+    "कुल्लू (Kullu)": ["कुल्लू (Kullu)", "भुंतर (Bhuntar)"],
+    "सोलन (Solan)": ["सोलन (Solan)", "परवाणू (Parwanoo)"]
+  },
+  "उत्तराखंड (Uttarakhand)": {
+    "देहरादून (Dehradun)": ["देहरादून (Dehradun)", "ऋषिकेश (Rishikesh)"],
+    "उधम सिंह नगर (Udham Singh Nagar)": ["रुद्रपुर (Rudrapur)", "काशीपुर (Kashipur)", "किच्छा (Kichha)"],
+    "हरिद्वार (Haridwar)": ["हरिद्वार (Haridwar)", "रुड़की (Roorkee)"]
+  },
+  "झारखंड (Jharkhand)": {
+    "रांची (Ranchi)": ["रांची (Ranchi)", "पंडरा (Pandra)"],
+    "धनबाद (Dhanbad)": ["धनबाद (Dhanbad)", "बरवाअड्डा (Barwadda)"],
+    "जमशेदपुर (Jamshedpur)": ["जमशेदपुर (Jamshedpur)", "घाटशिला (Ghatshila)"]
+  },
+  "असम (Assam)": {
+    "कामरूप (Kamrup)": ["गुवाहाटी (Guwahati)", "पामोही (Pamohi)"],
+    "नागांव (Nagaon)": ["नागांव (Nagaon)", "ढािंग (Dhing)"],
+    "सोनितपुर (Sonitpur)": ["तेजपुर (Tezpur)", "ढेकिआझुली (Dhekiajuli)"]
+  },
+  "दिल्ली (Delhi / NCR)": {
+    "नई दिल्ली (New Delhi)": ["आजादपुर (Azadpur)", "गाजीपुर (Ghazipur)", "ओखला (Okhla)", "नजफगढ़ (Najafgarh)"]
+  },
+  "जम्मू और कश्मीर (Jammu and Kashmir)": {
+    "जम्मू (Jammu)": ["जम्मू (Jammu)", "नरवाल (Narwal)"],
+    "श्रीनगर (Srinagar)": ["श्रीनगर (Srinagar)", "पारिम्पोरा (Parimpora)"],
+    "सोपोर (Sopore)": ["सोपोर फल मंडी (Sopore Fruit Mandi)"]
   }
 };
 
