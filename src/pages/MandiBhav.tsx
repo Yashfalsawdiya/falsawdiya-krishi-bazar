@@ -12,6 +12,11 @@ import {
   Loader2, 
   RefreshCw, 
   AlertCircle, 
+  AlertTriangle,
+  CheckCircle2,
+  Building2,
+  Clock,
+  ShieldCheck,
   LineChart as ChartIcon, 
   Search, 
   Filter, 
@@ -104,22 +109,14 @@ const MandiBhav: React.FC = () => {
   // Load Mandi Bhav
   const loadData = async (stateVal: string, distVal: string, mandiVal: string, forceRefresh: boolean = false) => {
     if (appLoading) return;
-    if (!effectiveApiKey) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setExpandedCardIndex(null);
     try {
-      // In forceRefresh mode, we bypass caching temporarily by passing true to fetchMandiBhav 
-      // (our mandiService is cache-aware, so if they click refresh, we generate or fetch new rates)
+      // Calls updated mandiService which uses server endpoint /api/mandi/prices (OGD AGMARKNET + Server Grounding)
       const result = await fetchMandiBhav(stateVal, distVal, mandiVal, effectiveApiKey, forceRefresh);
       setData(result);
     } catch (error: any) {
       console.warn("Mandi load failed", error);
-      if (error.type === 'key_missing' || error.type === 'key_invalid') {
-        openApiKeyModal(error.message);
-      }
     } finally {
       setLoading(false);
     }
@@ -130,7 +127,7 @@ const MandiBhav: React.FC = () => {
     if (!appLoading) {
       loadData(selectedState, selectedDistrict, selectedMandi);
     }
-  }, [selectedState, selectedDistrict, selectedMandi, appLoading, effectiveApiKey]);
+  }, [selectedState, selectedDistrict, selectedMandi, appLoading]);
 
   // Filter items in current mandi
   const filteredItems = useMemo(() => {
@@ -190,17 +187,40 @@ const MandiBhav: React.FC = () => {
           फल्सावदिया कृषि बाजार • सभी मंडियों और फसलों के ताज़ा लाइव दाम
         </p>
 
-        <div className="flex items-center justify-center gap-2 mt-3.5">
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-3.5">
           <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm border border-[#2D5A27]/10">
             <Calendar className="w-3.5 h-3.5 text-[#2D5A27]" />
             <span className="text-[11px] font-bold text-[#2D5A27]">
               {currentTime.toLocaleDateString('hi-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
             </span>
           </div>
-          <div className="bg-emerald-500/10 text-emerald-700 text-[10px] font-bold px-2.5 py-1.5 rounded-full flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            लाइव अपडेटेड
-          </div>
+
+          {loading ? (
+            <div className="bg-gray-100 text-gray-700 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-gray-200">
+              <Loader2 className="w-3 h-3 animate-spin text-[#2D5A27]" />
+              लाइव भाव खोज रहे हैं...
+            </div>
+          ) : data?.sourceType === 'govt' ? (
+            <div className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+              सरकारी डेटा (AGMARKNET OGD)
+            </div>
+          ) : data?.sourceType === 'mandipulse' ? (
+            <div className="bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+              मंडी पल्स (MandiPulse Live APMC)
+            </div>
+          ) : data?.sourceType === 'market_report' ? (
+            <div className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              सत्यापित स्थानीय मंडी रिपोर्ट
+            </div>
+          ) : (
+            <div className="bg-orange-50 text-orange-800 border border-orange-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+              <AlertTriangle className="w-3 h-3 text-orange-600" />
+              आधार सांकेतिक भाव
+            </div>
+          )}
         </div>
       </div>
 
@@ -318,18 +338,100 @@ const MandiBhav: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-4"
             >
-              {/* Header Info Banner */}
-              <div className="bg-[#2D5A27]/5 border border-[#2D5A27]/10 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <p className="text-[11px] font-bold text-gray-700">
-                    मंडी: <span className="text-[#2D5A27] font-black">{data.mandiName}</span> ({data.district}, {data.state.split(" (")[0]})
-                  </p>
+              {/* Header Info Banner & Source Metadata */}
+              <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3.5">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-[#2D5A27]" />
+                      <h3 className="text-sm font-black text-gray-800">
+                        {data.mandiName} <span className="text-xs font-semibold text-gray-500">({data.district}, {data.state.split(" (")[0]})</span>
+                      </h3>
+                    </div>
+                    <p className="text-[11px] text-gray-500 font-medium">
+                      स्रोत: <span className="font-bold text-gray-700">{data.sourceName || (data.sourceType === 'govt' ? 'AGMARKNET (भारत सरकार OGD)' : data.sourceType === 'mandipulse' ? 'मंडी पल्स (MandiPulse.com - APMC Live)' : 'स्थानीय मंडी रिपोर्ट')}</span>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => loadData(selectedState, selectedDistrict, selectedMandi, true)}
+                      disabled={loading}
+                      className="px-3.5 py-2 rounded-xl bg-[#2D5A27]/10 hover:bg-[#2D5A27]/15 text-[#2D5A27] text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+                      title="ताज़ा लाइव भाव दोबारा फेच करें"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                      <span>{loading ? 'लोड हो रहा...' : 'रिफ्रेश'}</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-gray-500 text-[10px] font-bold">
-                  <RefreshCw className="w-3.5 h-3.5 text-[#2D5A27]" />
-                  अंतिम अपडेट: {data.date}
+
+                {/* Metadata Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
+                  <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100">
+                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">डेटा स्रोत</span>
+                    <span className={`font-bold flex items-center gap-1 ${
+                      data.sourceType === 'govt' 
+                        ? 'text-emerald-700' 
+                        : data.sourceType === 'mandipulse'
+                        ? 'text-blue-700'
+                        : data.sourceType === 'market_report' 
+                        ? 'text-amber-700' 
+                        : 'text-orange-700'
+                    }`}>
+                      {data.sourceType === 'govt' ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          सरकारी AGMARKNET
+                        </>
+                      ) : data.sourceType === 'mandipulse' ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          मंडी पल्स (MandiPulse)
+                        </>
+                      ) : data.sourceType === 'market_report' ? (
+                        <>
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          सत्यापित मंडी रिपोर्ट
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                          सांकेतिक / अनुमानित
+                        </>
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100">
+                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">आवक / रिपोर्ट दिनांक</span>
+                    <span className="font-bold text-gray-700 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
+                      {data.sourceDate || data.date}
+                    </span>
+                  </div>
+
+                  <div className="col-span-2 sm:col-span-1 bg-gray-50 rounded-xl p-2.5 border border-gray-100">
+                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">ऐप पर प्राप्ति समय</span>
+                    <span className="font-bold text-gray-700 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                      {data.fetchedAt || currentTime.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
                 </div>
+
+                {/* Clear Transparency Warning if estimated */}
+                {data.isEstimated && (
+                  <div className="bg-orange-50 border border-orange-200/80 rounded-2xl p-3 flex items-start gap-2.5 text-orange-900">
+                    <AlertTriangle className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5 text-[11px] leading-relaxed">
+                      <p className="font-bold">पारदर्शी सूचना (Official Update Pending):</p>
+                      <p className="text-orange-800 text-[10px]">
+                        आज इस उप-मंडी का लाइव डेटा सरकारी पोर्टल (AGMARKNET) पर अभी अपलोड नहीं हुआ है। अतः संदर्भ हेतु सांकेतिक आधार भाव प्रदर्शित हैं। ऊपर रिफ्रेश बटन दबाकर नया डेटा चेक कर सकते हैं।
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Items List */}
@@ -552,38 +654,22 @@ const MandiBhav: React.FC = () => {
 
               {/* Manual Refresh Button */}
               <button 
-                onClick={() => {
-                  if (!requireApiKey("लाइव मंडी भाव अपडेट करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) return;
-                  loadData(selectedState, selectedDistrict, selectedMandi, true);
-                }}
-                className="w-full py-4 rounded-2xl border-2 border-[#2D5A27] text-[#2D5A27] bg-white font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-[#2D5A27]/5"
+                onClick={() => loadData(selectedState, selectedDistrict, selectedMandi, true)}
+                disabled={loading}
+                className="w-full py-4 rounded-2xl border-2 border-[#2D5A27] text-[#2D5A27] bg-white font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-[#2D5A27]/5 disabled:opacity-50"
               >
-                <RefreshCw className="w-4 h-4" /> ताज़ा भाव अपडेट करें (Sync Live Data)
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>{loading ? 'ताज़ा भाव फेच हो रहे हैं...' : 'ताज़ा भाव अपडेट करें (Sync Live Data)'}</span>
               </button>
             </motion.div>
-          ) : !effectiveApiKey ? (
-            <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm mx-1 p-6">
-              <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-200">
-                <Key className="w-8 h-8 text-amber-600" />
-              </div>
-              <h3 className="text-base font-bold text-gray-800 mb-2">API Key आवश्यक है</h3>
-              <p className="text-xs text-gray-500 max-w-sm mx-auto mb-6">
-                लाइव मंडी भाव देखने के लिए कृपया अपनी Gemini API Key जोड़ें।
-              </p>
-              <button
-                onClick={() => requireApiKey("लाइव मंडी भाव देखने के लिए कृपया अपनी Gemini API Key जोड़ें।")}
-                className="px-6 py-3 bg-[#2D5A27] text-white text-xs font-bold rounded-2xl shadow-md active:scale-95 transition-transform inline-flex items-center gap-2"
-              >
-                <Key className="w-4 h-4" /> अपनी API Key दर्ज करें
-              </button>
-            </div>
           ) : (
             <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm mx-1">
-              <AlertCircle className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-              <p className="text-sm font-bold text-gray-400">मंडी डेटा लोड नहीं हो सका।</p>
+              <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-sm font-bold text-gray-500">मंडी डेटा लोड नहीं हो सका।</p>
+              <p className="text-xs text-gray-400 mt-1 mb-4">कृपया अपना इंटरनेट कनेक्शन चेक करें या दोबारा प्रयास करें।</p>
               <button
-                onClick={() => loadData(selectedState, selectedDistrict, selectedMandi)}
-                className="mt-4 px-6 py-2 bg-[#2D5A27] text-white text-xs font-bold rounded-full shadow-md"
+                onClick={() => loadData(selectedState, selectedDistrict, selectedMandi, true)}
+                className="px-6 py-2.5 bg-[#2D5A27] text-white text-xs font-bold rounded-full shadow-md active:scale-95"
               >
                 पुनः प्रयास करें
               </button>

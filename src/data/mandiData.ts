@@ -1,3 +1,5 @@
+export type MandiSourceType = 'govt' | 'mandipulse' | 'market_report' | 'estimated';
+
 // Mandi Pulse Database structure & stable fallback generator
 export interface MandiItem {
   commodity: string;
@@ -16,6 +18,13 @@ export interface MandiDetails {
   state: string;
   date: string;
   items: MandiItem[];
+  sourceType?: MandiSourceType;
+  sourceName?: string;
+  sourceDate?: string;
+  fetchedAt?: string;
+  isLive?: boolean;
+  isEstimated?: boolean;
+  statusMessage?: string;
 }
 
 export interface StateMandiMap {
@@ -149,6 +158,13 @@ export function generateFallbackMandiDetails(state: string, district: string, ma
     district,
     state,
     date: `${dateStr} ${timeStr}`,
-    items
+    items,
+    sourceType: 'estimated',
+    sourceName: 'आधार अनुमानित भाव (लाइव सर्वर डेटा अनुपलब्ध)',
+    sourceDate: 'गणना आधारित सांकेतिक',
+    fetchedAt: `${dateStr} ${timeStr}`,
+    isLive: false,
+    isEstimated: true,
+    statusMessage: 'लाइव सरकारी व स्थानीय रिपोर्ट अनुपलब्ध होने पर अनुमानित सांकेतिक भाव प्रदर्शित हैं। यह वास्तविक सरकारी डेटा नहीं है।'
   };
 }

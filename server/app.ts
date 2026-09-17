@@ -16,6 +16,7 @@ import {
   DEFAULT_SERVER_DELIVERY_TEMPLATE,
 } from './emailTemplates.js';
 import { handleScanBill, handleAccountingInsights } from './accountingRoutes.js';
+import { handleGetMandiPrices } from './mandiRoutes.js';
 
 export const app = express();
 
@@ -1410,6 +1411,11 @@ app.get('/api/delivery/in-app-otp/:orderId', async (req: Request, res: Response)
 // ==========================================
 app.post('/api/accounting/scan-bill', handleScanBill);
 app.post('/api/accounting/insights', handleAccountingInsights);
+
+// ==========================================
+// MANDI BHAV LIVE PRICES ROUTE
+// ==========================================
+app.get('/api/mandi/prices', handleGetMandiPrices);
 
 // Health check endpoint
 app.get('/api/health', async (_req: Request, res: Response) => {
