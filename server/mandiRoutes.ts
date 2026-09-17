@@ -100,6 +100,83 @@ function normalizeCommodityName(name: string): string {
   return name.trim();
 }
 
+// Location cleaning & normalization helpers
+export function normalizeWord(s: string): string {
+  if (!s) return '';
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    // Normalize Devanagari nasal consonants (ङ्, ञ्, ण्, न्, म्) with virama to anusvara (ं)
+    // so that spelling variations like मंदसौर and मन्दसौर, इंदौर and इन्दौर match perfectly
+    .replace(/[\u0919\u091e\u0923\u0928\u092e]\u094d/g, '\u0902')
+    .replace(/\(.*?\)/g, ' ')
+    .replace(/apmc|mandi|f&amp;v|f&v|उपमंडी|मंडी|एपीएमसी|कृषि उपज मंडी|कृषि मंडी/gi, ' ')
+    .replace(/[^\p{L}\p{M}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function normalizeNoSpace(s: string): string {
+  return normalizeWord(s).replace(/\s+/g, '');
+}
+
+export function extractEnHi(full: string): { en: string; hi: string; enNoSpace: string; hiNoSpace: string } {
+  const match = full.match(/\(([^)]+)\)/);
+  const en = match ? match[1].trim() : full.trim();
+  const hi = full.split('(')[0].trim();
+  return {
+    en: normalizeWord(en),
+    hi: normalizeWord(hi),
+    enNoSpace: normalizeNoSpace(en),
+    hiNoSpace: normalizeNoSpace(hi)
+  };
+}
+
+export function checkLocationMatch(
+  candidate: string | undefined | null,
+  targetFull: string,
+  type: 'state' | 'district' | 'mandi'
+): { match: boolean; reason?: string } {
+  if (!candidate || !candidate.trim()) {
+    return { match: false, reason: `Candidate ${type} is empty` };
+  }
+  const candNorm = normalizeWord(candidate);
+  const candNoSpace = normalizeNoSpace(candidate);
+  const target = extractEnHi(targetFull);
+
+  // Exact or no-space match with English or Hindi
+  if (
+    candNorm === target.en ||
+    candNorm === target.hi ||
+    candNoSpace === target.enNoSpace ||
+    candNoSpace === target.hiNoSpace
+  ) {
+    return { match: true };
+  }
+
+  // Word-level inclusion check (e.g. "Shamgarh APMC" contains "shamgarh")
+  const candWords = candNorm.split(' ').filter(w => w.length >= 3);
+  const targetEnWords = target.en.split(' ').filter(w => w.length >= 3);
+  const targetHiWords = target.hi.split(' ').filter(w => w.length >= 3);
+  const allTargetWords = [...targetEnWords, ...targetHiWords];
+
+  for (const tw of allTargetWords) {
+    if (candWords.includes(tw)) return { match: true };
+    if (tw.length >= 4 && (candNorm.includes(tw) || tw.includes(candNorm))) {
+      return { match: true };
+    }
+    if (tw.length >= 4 && (candNoSpace.includes(normalizeNoSpace(tw)) || normalizeNoSpace(tw).includes(candNoSpace))) {
+      return { match: true };
+    }
+  }
+
+  return {
+    match: false,
+    reason: `${type.toUpperCase()} Mismatch: candidate "${candidate}" != target "${targetFull}"`
+  };
+}
+
 function cleanLocation(val: string): { hindi: string; english: string } {
   if (!val) return { hindi: '', english: '' };
   const parts = val.split(' (');
@@ -121,21 +198,25 @@ function formatIndianTime(date: Date = new Date()): string {
 }
 
 // 1. Query Official Government OGD (data.gov.in / AGMARKNET dataset)
+// Strict rule: Record MUST match selected state, district, AND mandi
 async function fetchFromGovtOgd(
-  stateEnglish: string,
-  districtEnglish: string,
-  mandiEnglish: string
+  rawState: string,
+  rawDistrict: string,
+  rawMandi: string
 ): Promise<{ items: ServerMandiItem[]; sourceDate: string } | null> {
   const apiKey = process.env.DATA_GOV_IN_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     return null;
   }
 
+  const { english: stateEnglish } = cleanLocation(rawState);
+  const { english: districtEnglish } = cleanLocation(rawDistrict);
+
   try {
     const url = new URL('https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070');
     url.searchParams.set('api-key', apiKey.trim());
     url.searchParams.set('format', 'json');
-    url.searchParams.set('limit', '40');
+    url.searchParams.set('limit', '50');
     
     // Filter by state and district
     if (stateEnglish) url.searchParams.set('filters[state]', stateEnglish);
@@ -160,21 +241,27 @@ async function fetchFromGovtOgd(
       return null;
     }
 
-    // Filter for the requested market if available, or take district records
-    const marketRecords = records.filter((r: any) => {
-      const m = (r.market || '').toLowerCase();
-      const target = mandiEnglish.toLowerCase();
-      return m.includes(target) || target.includes(m);
-    });
-
-    const activeRecords = marketRecords.length > 0 ? marketRecords : records;
-    if (activeRecords.length === 0) return null;
-
-    let latestArrivalDate = '';
+    let totalChecked = 0;
+    let matchedCount = 0;
+    let filteredOutCount = 0;
     const items: ServerMandiItem[] = [];
     const seenCommodities = new Set<string>();
+    let latestArrivalDate = '';
 
-    for (const r of activeRecords) {
+    for (const r of records) {
+      totalChecked++;
+      const stateCheck = checkLocationMatch(r.state || r.State, rawState, 'state');
+      const distCheck = checkLocationMatch(r.district || r.District, rawDistrict, 'district');
+      const mandiCheck = checkLocationMatch(r.market || r.Market, rawMandi, 'mandi');
+
+      if (!stateCheck.match || !distCheck.match || !mandiCheck.match) {
+        filteredOutCount++;
+        const reason = !mandiCheck.match ? mandiCheck.reason : (!distCheck.match ? distCheck.reason : stateCheck.reason);
+        console.log(`[Govt OGD Reject] ${r.commodity || 'Record'}: ${reason}`);
+        continue;
+      }
+
+      matchedCount++;
       const rawComm = r.commodity || r.Commodity || '';
       const hindiComm = normalizeCommodityName(rawComm);
       if (!hindiComm || seenCommodities.has(hindiComm)) continue;
@@ -183,24 +270,27 @@ async function fetchFromGovtOgd(
       const min = parseInt(r.min_price || r.Min_Price || '0', 10);
       const max = parseInt(r.max_price || r.Max_Price || '0', 10);
       const modal = parseInt(r.modal_price || r.Modal_Price || '0', 10) || Math.round((min + max) / 2);
-
-      if (modal <= 0) continue;
+      if (modal <= 0 && min <= 0 && max <= 0) continue;
 
       const arrDate = r.arrival_date || r.Arrival_Date || '';
       if (arrDate && !latestArrivalDate) latestArrivalDate = arrDate;
 
+      console.log(`[Govt OGD MATCH] Crop: ${hindiComm}, Market: ${r.market}, District: ${r.district}`);
       items.push({
         commodity: hindiComm,
         minPrice: (min || modal).toString(),
         maxPrice: (max || modal).toString(),
-        avgPrice: modal.toString(),
+        avgPrice: (modal || max || min).toString(),
         unit: 'क्विंटल',
         arrival: r.variety || 'सामान्य आवक',
-        quality: r.variety || 'FAQ / मानक',
+        quality: r.variety || 'FAQ / मानक गुणवत्ता',
         lastUpdated: arrDate || 'हाल ही में'
       });
     }
 
+    console.log(`[Govt OGD Summary] Total Records: ${totalChecked}, Matched: ${matchedCount}, Filtered Out: ${filteredOutCount}`);
+
+    // STRICT: Only return if we have matching records for the selected mandi!
     if (items.length > 0) {
       return { items, sourceDate: latestArrivalDate || 'आज' };
     }
@@ -230,29 +320,36 @@ function getStateSlug(stateEnglish: string): string {
 }
 
 // 2. Fallback to Mandi Pulse (mandipulse.com) when Government sources are unavailable
+// Strict rule: Record MUST match selected state, district, AND mandi
 async function fetchFromMandiPulse(
-  stateEnglish: string,
-  districtEnglish: string,
-  mandiEnglish: string
+  rawState: string,
+  rawDistrict: string,
+  rawMandi: string
 ): Promise<{ items: ServerMandiItem[]; sourceDate: string; sourceName: string } | null> {
+  const { english: stateEnglish } = cleanLocation(rawState);
+  const { english: districtEnglish } = cleanLocation(rawDistrict);
+  const { english: mandiEnglish } = cleanLocation(rawMandi);
+
   const stateSlug = getStateSlug(stateEnglish);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4500);
+  const timeout = setTimeout(() => controller.abort(), 6000);
 
   try {
-    // A. Fetch current commodities reported on MandiPulse for this state
-    const stateUrl = `https://mandipulse.com/embed/data?type=state-commodities&state=${stateSlug}&language=hi&limit=50`;
-    const stateRes = await fetch(stateUrl, {
+    // A. Check specific market prices endpoint if available on MandiPulse
+    const mandiSlug = mandiEnglish.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const distSlug = districtEnglish.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const marketSlug = `${stateSlug}-${distSlug}-${mandiSlug}-apmc`;
+
+    const marketPricesUrl = `https://mandipulse.com/embed/data?type=market-prices&market=${marketSlug}&language=hi`;
+    const marketRes = await fetch(marketPricesUrl, {
       signal: controller.signal,
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'FalsawdiyaKrishiBazaar/1.0'
-      }
-    });
+      headers: { 'Accept': 'application/json', 'User-Agent': 'FalsawdiyaKrishiBazaar/1.0' }
+    }).catch(() => null);
 
-    const stateData: any = stateRes.ok ? await stateRes.json() : null;
+    const marketData: any = marketRes && marketRes.ok ? await marketRes.json().catch(() => null) : null;
+    const directMarketItems = (marketData && Array.isArray(marketData.items)) ? marketData.items : [];
 
-    // B. Concurrently fetch staple crop prices to ensure complete coverage for wheat, soyabean, mustard, etc.
+    // B. Concurrently fetch staple crop prices to check if this market has commodity reports
     const stapleSlugs = [
       'wheat',
       'soyabean',
@@ -265,11 +362,14 @@ async function fetchFromMandiPulse(
       'tomato',
       'cotton',
       'corianderleaves',
-      'groundnut'
+      'groundnut',
+      'fenugreek-seed',
+      'urad-black-gram',
+      'moong-green-gram'
     ];
 
     const staplePromises = stapleSlugs.map(slug =>
-      fetch(`https://mandipulse.com/embed/data?type=commodity-price&commodity=${slug}&language=hi&limit=15`, {
+      fetch(`https://mandipulse.com/embed/data?type=commodity-price&commodity=${slug}&language=hi&limit=50`, {
         signal: controller.signal,
         headers: {
           'Accept': 'application/json',
@@ -283,47 +383,39 @@ async function fetchFromMandiPulse(
     const stapleResults = await Promise.all(staplePromises);
     clearTimeout(timeout);
 
-    const rawItems: any[] = [...(stateData?.items || [])];
-
+    // Collect all candidate items from MandiPulse
+    const candidateItems: any[] = [...directMarketItems];
     for (const sr of stapleResults) {
       if (sr && Array.isArray(sr.items)) {
-        // Prioritize items in same state or district
-        const stateMatches = sr.items.filter((it: any) => {
-          const itState = (it.state || '').toLowerCase();
-          return (
-            itState.includes(stateEnglish.toLowerCase()) ||
-            (itState.includes('मध्य') && stateEnglish.toLowerCase().includes('madhya')) ||
-            (itState.includes('राज') && stateEnglish.toLowerCase().includes('rajasthan')) ||
-            (itState.includes('उत्तर') && stateEnglish.toLowerCase().includes('uttar')) ||
-            (itState.includes('महा') && stateEnglish.toLowerCase().includes('maharashtra')) ||
-            (itState.includes('गुज') && stateEnglish.toLowerCase().includes('gujarat')) ||
-            (itState.includes('पं') && stateEnglish.toLowerCase().includes('punjab')) ||
-            (itState.includes('हरि') && stateEnglish.toLowerCase().includes('haryana')) ||
-            (itState.includes('बिहा') && stateEnglish.toLowerCase().includes('bihar'))
-          );
-        });
-
-        if (stateMatches.length > 0) {
-          rawItems.push(...stateMatches);
-        } else if (sr.items.length > 0) {
-          // If no state-specific record for this staple crop today, add prevailing benchmark
-          rawItems.push(sr.items[0]);
-        }
+        candidateItems.push(...sr.items);
       }
     }
 
-    if (rawItems.length === 0) {
-      return null;
-    }
+    let totalChecked = 0;
+    let matchedCount = 0;
+    let filteredOutCount = 0;
+    const cropMap = new Map<string, ServerMandiItem>();
+    let latestReportDate = marketData?.updated_at || '';
 
-    // C. Group items by normalized Hindi crop name, picking the most specific (market > district > state)
-    const cropMap = new Map<string, { item: ServerMandiItem; score: number }>();
-
-    for (const it of rawItems) {
-      const rawName = (it.name || '').trim();
+    for (const it of candidateItems) {
+      totalChecked++;
+      const rawName = (it.name || it.commodity || '').trim();
       if (!rawName) continue;
       const hindiName = normalizeCommodityName(rawName);
 
+      // Strict Validation: State, District, and Mandi MUST ALL MATCH!
+      const stateCheck = checkLocationMatch(it.state, rawState, 'state');
+      const distCheck = checkLocationMatch(it.district, rawDistrict, 'district');
+      const mandiCheck = checkLocationMatch(it.market, rawMandi, 'mandi');
+
+      if (!stateCheck.match || !distCheck.match || !mandiCheck.match) {
+        filteredOutCount++;
+        const reason = !mandiCheck.match ? mandiCheck.reason : (!distCheck.match ? distCheck.reason : stateCheck.reason);
+        console.log(`[MandiPulse Reject] ${hindiName}: ${reason}`);
+        continue;
+      }
+
+      matchedCount++;
       const minP = Math.round(Number(it.min_price) || 0);
       const maxP = Math.round(Number(it.max_price) || 0);
       const modalP = Math.round(Number(it.modal_price) || 0);
@@ -333,37 +425,30 @@ async function fetchFromMandiPulse(
       const effectiveMin = minP || effectiveModal;
       const effectiveMax = maxP || effectiveModal;
 
-      const itMarket = (it.market || '').toLowerCase();
-      const itDistrict = (it.district || '').toLowerCase();
-      const isMarketMatch = itMarket.includes(mandiEnglish.toLowerCase());
-      const isDistrictMatch = itDistrict.includes(districtEnglish.toLowerCase());
-
-      const score = isMarketMatch ? 3 : isDistrictMatch ? 2 : 1;
-
-      const existing = cropMap.get(hindiName);
-      if (!existing || score > existing.score) {
-        cropMap.set(hindiName, {
-          item: {
-            commodity: hindiName,
-            minPrice: effectiveMin.toString(),
-            maxPrice: effectiveMax.toString(),
-            avgPrice: effectiveModal.toString(),
-            unit: 'क्विंटल',
-            arrival: it.market ? `${it.market} मंडी` : 'राज्य मंडी औसत',
-            quality: it.district ? `${it.district} जिला` : 'प्रचलित मानक दर',
-            lastUpdated: stateData?.updated_at || '17 सितम्बर 2026'
-          },
-          score
-        });
+      console.log(`[MandiPulse MATCH] Crop: ${hindiName}, Market: ${it.market}, District: ${it.district}`);
+      if (!latestReportDate && it.updated_at) {
+        latestReportDate = it.updated_at;
       }
+
+      cropMap.set(hindiName, {
+        commodity: hindiName,
+        minPrice: effectiveMin.toString(),
+        maxPrice: effectiveMax.toString(),
+        avgPrice: effectiveModal.toString(),
+        unit: 'क्विंटल',
+        arrival: it.arrival ? `${it.arrival} बोरी` : 'मंडी आवक',
+        quality: it.variety || 'मानक गुणवत्ता (FAQ)',
+        lastUpdated: it.updated_at || latestReportDate || 'आज'
+      });
     }
 
-    const items = Array.from(cropMap.values()).map(entry => entry.item);
+    console.log(`[MandiPulse Summary] Total Checked: ${totalChecked}, Matched: ${matchedCount}, Filtered Out: ${filteredOutCount}`);
 
+    const items = Array.from(cropMap.values());
     if (items.length > 0) {
       return {
         items,
-        sourceDate: stateData?.updated_at || '17 सितम्बर 2026',
+        sourceDate: latestReportDate || 'आज',
         sourceName: 'मंडी पल्स (MandiPulse.com)'
       };
     }
@@ -523,17 +608,21 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
     const rawMandi = (req.query.mandi as string) || 'शामगढ़ (Shamgarh)';
     const forceRefresh = req.query.forceRefresh === 'true';
 
-    const stateInfo = cleanLocation(rawState);
-    const districtInfo = cleanLocation(rawDistrict);
-    const mandiInfo = cleanLocation(rawMandi);
+    console.log(`\n========================================`);
+    console.log(`[Mandi Request] Selected State: "${rawState}"`);
+    console.log(`[Mandi Request] Selected District: "${rawDistrict}"`);
+    console.log(`[Mandi Request] Selected Mandi: "${rawMandi}"`);
+    console.log(`[Mandi Request] Force Refresh: ${forceRefresh}`);
+    console.log(`========================================\n`);
 
-    const cacheKey = `${stateInfo.english}_${districtInfo.english}_${mandiInfo.english}`.toLowerCase().replace(/\s+/g, '_');
+    const cacheKey = `mandi_${normalizeNoSpace(rawState)}_${normalizeNoSpace(rawDistrict)}_${normalizeNoSpace(rawMandi)}`;
     const now = Date.now();
 
     // Check cache
     if (!forceRefresh) {
       const cached = mandiCache.get(cacheKey);
       if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+        console.log(`[Mandi Cache Hit] Serving cached data for ${rawMandi}`);
         res.json({
           success: true,
           cached: true,
@@ -545,9 +634,10 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
 
     const fetchedAtStr = formatIndianTime();
 
-    // Tier 1: Try Official Government OGD API
-    const ogdResult = await fetchFromGovtOgd(stateInfo.english, districtInfo.english, mandiInfo.english);
+    // Tier 1: Try Official Government OGD API (Strict State + District + Mandi match)
+    const ogdResult = await fetchFromGovtOgd(rawState, rawDistrict, rawMandi);
     if (ogdResult && ogdResult.items.length > 0) {
+      console.log(`[Mandi Route Success] Found ${ogdResult.items.length} records in Government AGMARKNET for ${rawMandi}`);
       const responseData: ServerMandiDetails = {
         mandiName: rawMandi,
         district: rawDistrict,
@@ -568,9 +658,10 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
       return;
     }
 
-    // Tier 2: Dedicated Fallback to Mandi Pulse (mandipulse.com) for any state/mandi in India
-    const mandiPulseResult = await fetchFromMandiPulse(stateInfo.english, districtInfo.english, mandiInfo.english);
+    // Tier 2: Dedicated Fallback to Mandi Pulse (mandipulse.com) (Strict State + District + Mandi match)
+    const mandiPulseResult = await fetchFromMandiPulse(rawState, rawDistrict, rawMandi);
     if (mandiPulseResult && mandiPulseResult.items.length > 0) {
+      console.log(`[Mandi Route Success] Found ${mandiPulseResult.items.length} records in MandiPulse for ${rawMandi}`);
       const responseData: ServerMandiDetails = {
         mandiName: rawMandi,
         district: rawDistrict,
@@ -591,40 +682,28 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
       return;
     }
 
-    // Tier 3: Try Real-time Google Search Grounding with Gemini 2.5 Flash
-    const groundingResult = await fetchFromGeminiGrounding(
-      `${stateInfo.hindi} (${stateInfo.english})`,
-      `${districtInfo.hindi} (${districtInfo.english})`,
-      `${mandiInfo.hindi} (${mandiInfo.english})`
-    );
+    // Tier 3: If neither has data for this exact selected mandi, return clean empty response
+    // NEVER inject data from other mandis or other districts!
+    console.log(`[Mandi Route Complete] No official records found for ${rawMandi}. Returning clean empty state.`);
+    const cleanEmptyDetails: ServerMandiDetails = {
+      mandiName: rawMandi,
+      district: rawDistrict,
+      state: rawState,
+      date: 'आज',
+      items: [],
+      sourceType: 'govt',
+      sourceName: 'आधिकारिक मंडी रिकॉर्ड (AGMARKNET / MandiPulse)',
+      sourceDate: 'आज',
+      fetchedAt: fetchedAtStr,
+      isLive: false,
+      isEstimated: false,
+      statusMessage: `${rawMandi} (${rawDistrict.split(' (')[0]}, ${rawState.split(' (')[0]}) मंडी के लिए आज का आधिकारिक डेटा उपलब्ध नहीं है।`
+    };
 
-    if (groundingResult && groundingResult.items.length > 0) {
-      const responseData: ServerMandiDetails = {
-        mandiName: rawMandi,
-        district: rawDistrict,
-        state: rawState,
-        date: groundingResult.sourceDate,
-        items: groundingResult.items,
-        sourceType: 'market_report',
-        sourceName: groundingResult.sourceName,
-        sourceDate: groundingResult.sourceDate,
-        fetchedAt: fetchedAtStr,
-        isLive: true,
-        isEstimated: false,
-        statusMessage: 'सत्यापित स्थानीय मंडी रिपोर्ट एवं ई-मंडी समाचार'
-      };
-
-      mandiCache.set(cacheKey, { data: responseData, timestamp: now });
-      res.json({ success: true, data: responseData });
-      return;
-    }
-
-    // Tier 4: If no live connection could be established, return clear fallback with explicit estimation tags
-    // (Never deceive the farmer with fake "Live" tags)
+    mandiCache.set(cacheKey, { data: cleanEmptyDetails, timestamp: now });
     res.json({
-      success: false,
-      isFallbackRequired: true,
-      error: 'सरकारी व लाइव मंडी स्रोतों से इस मंडी का नया डेटा अभी लोड नहीं हो सका।'
+      success: true,
+      data: cleanEmptyDetails
     });
   } catch (error: any) {
     console.error('[Mandi Route Error]:', error);

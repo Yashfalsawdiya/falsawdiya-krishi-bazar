@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { fetchMandiBhav, MandiData, MandiItem } from '../services/mandiService';
 import { 
   STATE_MANDI_DATA, 
@@ -90,8 +90,11 @@ const MandiBhav: React.FC = () => {
     return stateData[selectedDistrict] || [];
   }, [selectedState, selectedDistrict]);
 
+  const activeReqIdRef = useRef<number>(0);
+
   // Handle cascading state changes
   const handleStateChange = (state: string) => {
+    setData(null);
     setSelectedState(state);
     const firstDistrict = Object.keys(STATE_MANDI_DATA[state])[0];
     setSelectedDistrict(firstDistrict);
@@ -100,25 +103,42 @@ const MandiBhav: React.FC = () => {
   };
 
   const handleDistrictChange = (district: string) => {
+    setData(null);
     setSelectedDistrict(district);
     const stateData = STATE_MANDI_DATA[selectedState];
     const firstMandi = stateData[district][0];
     setSelectedMandi(firstMandi);
   };
 
+  const handleMandiChange = (mandi: string) => {
+    setData(null);
+    setSelectedMandi(mandi);
+  };
+
   // Load Mandi Bhav
   const loadData = async (stateVal: string, distVal: string, mandiVal: string, forceRefresh: boolean = false) => {
     if (appLoading) return;
+    const reqId = ++activeReqIdRef.current;
+    setData(null);
     setLoading(true);
     setExpandedCardIndex(null);
     try {
-      // Calls updated mandiService which uses server endpoint /api/mandi/prices (OGD AGMARKNET + Server Grounding)
+      console.log(`[Mandi UI Request] ${stateVal} -> ${distVal} -> ${mandiVal} (id: ${reqId})`);
       const result = await fetchMandiBhav(stateVal, distVal, mandiVal, effectiveApiKey, forceRefresh);
+      
+      // Strict race condition prevention: If user switched mandis while loading, drop stale response!
+      if (activeReqIdRef.current !== reqId) {
+        console.warn(`[Mandi UI Race Condition] Discarding stale response for ${mandiVal}`);
+        return;
+      }
+
       setData(result);
     } catch (error: any) {
       console.warn("Mandi load failed", error);
     } finally {
-      setLoading(false);
+      if (activeReqIdRef.current === reqId) {
+        setLoading(false);
+      }
     }
   };
 
@@ -275,7 +295,7 @@ const MandiBhav: React.FC = () => {
             <div className="relative">
               <select
                 value={selectedMandi}
-                onChange={(e) => setSelectedMandi(e.target.value)}
+                onChange={(e) => handleMandiChange(e.target.value)}
                 className="w-full pl-3 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] appearance-none"
               >
                 {mandis.map((mandi) => (
@@ -451,11 +471,74 @@ const MandiBhav: React.FC = () => {
               </div>
 
               {/* Items List */}
-              {filteredItems.length === 0 ? (
-                <div className="text-center py-16 bg-white rounded-3xl border border-gray-100">
-                  <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-2.5" />
-                  <p className="text-xs font-bold text-gray-500">कोई फसल मैच नहीं हुई!</p>
-                  <p className="text-[10px] text-gray-400 mt-1">कृपया सर्च कीवर्ड बदलें या अन्य फसल चुनें।</p>
+              {data.items.length === 0 ? (
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-sm text-center space-y-5">
+                  <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto text-amber-600 border border-amber-100">
+                    <Building2 className="w-8 h-8" />
+                  </div>
+
+                  <div className="space-y-2 max-w-lg mx-auto">
+                    <h4 className="text-base font-black text-gray-800 leading-snug">
+                      {selectedMandi} ({selectedDistrict.split(' (')[0]}, {selectedState.split(' (')[0]}) मंडी के लिए आज का आधिकारिक डेटा उपलब्ध नहीं है।
+                    </h4>
+                    <p className="text-xs text-gray-500 font-medium leading-relaxed">
+                      सरकारी AGMARKNET पोर्टल व मंडी पल्स पर आज इस उप-मंडी का नया बुलेटिन अभी अपलोड नहीं हुआ है। कृपया अन्य नजदीकी मंडी चुनें या बाद में पुनः प्रयास करें।
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                    <button
+                      onClick={() => loadData(selectedState, selectedDistrict, selectedMandi, true)}
+                      disabled={loading}
+                      className="px-4 py-2.5 rounded-xl bg-[#2D5A27] text-white text-xs font-bold flex items-center gap-2 hover:bg-[#23461e] transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                      <span>{loading ? 'जाँच हो रही है...' : 'पुनः प्रयास करें (Refresh)'}</span>
+                    </button>
+                  </div>
+
+                  {/* Nearby Mandis Suggestions from same district */}
+                  {mandis.filter(m => m !== selectedMandi).length > 0 && (
+                    <div className="pt-4 border-t border-gray-100 space-y-2.5">
+                      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                        {selectedDistrict.split(' (')[0]} जिले की अन्य नजदीकी मंडियां:
+                      </p>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {mandis
+                          .filter(m => m !== selectedMandi)
+                          .map((nearbyMandi) => (
+                            <button
+                              key={nearbyMandi}
+                              onClick={() => handleMandiChange(nearbyMandi)}
+                              className="px-3 py-1.5 rounded-xl bg-gray-50 hover:bg-[#2D5A27]/10 text-gray-700 hover:text-[#2D5A27] text-xs font-bold border border-gray-200 transition-all flex items-center gap-1.5 active:scale-95"
+                            >
+                              <Building2 className="w-3.5 h-3.5 text-[#2D5A27]" />
+                              <span>{nearbyMandi}</span>
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="inline-flex items-center gap-1.5 text-[10px] text-gray-400 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>सत्यापित रिपोर्ट: हम केवल चयनित मंडी का वास्तविक आधिकारिक डेटा ही प्रदर्शित करते हैं, कभी भी अन्य मंडियों का डेटा मिक्स नहीं किया जाता।</span>
+                  </div>
+                </div>
+              ) : filteredItems.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 space-y-3">
+                  <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-1" />
+                  <p className="text-xs font-bold text-gray-700">इस मंडी में '{searchQuery || selectedCropFilter}' फसल मैच नहीं हुई!</p>
+                  <p className="text-[10px] text-gray-400">कृपया सर्च कीवर्ड बदलें या सभी फसलों के भाव देखें।</p>
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedCropFilter("ALL");
+                    }}
+                    className="px-3.5 py-1.5 bg-[#2D5A27]/10 text-[#2D5A27] text-xs font-bold rounded-xl hover:bg-[#2D5A27]/20 transition-all"
+                  >
+                    सर्च रीसेट करें
+                  </button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

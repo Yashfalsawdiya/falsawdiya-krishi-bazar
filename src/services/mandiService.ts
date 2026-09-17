@@ -80,12 +80,14 @@ export async function fetchMandiBhav(
     mandi = mandiName;
   }
 
-  const cacheKey = `mandi_pulse_${state}_${district}_${mandi}`.replace(/\s+/g, "_");
+  const cacheKey = `mandi_pulse_${state}_${district}_${mandi}`.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]+/g, '_');
   const cacheTimeKey = `${cacheKey}_timestamp`;
-  const cacheDuration = 60 * 60 * 1000; // 1 hour caching for fresh mandi updates
+  const cacheDuration = 30 * 60 * 1000; // 30 minutes caching
 
   const cachedData = localStorage.getItem(cacheKey);
   const cachedTime = localStorage.getItem(cacheTimeKey);
+
+  console.log(`[Mandi Client] Fetching: State="${state}", District="${district}", Mandi="${mandi}", forceRefresh=${forceRefresh}`);
 
   // 1. Return cached data if fresh (unless forceRefresh is true)
   if (!forceRefresh && cachedData && cachedTime) {
@@ -93,7 +95,8 @@ export async function fetchMandiBhav(
     if (age < cacheDuration) {
       try {
         const parsed: MandiDetails = JSON.parse(cachedData);
-        if (parsed && parsed.items && parsed.items.length > 0) {
+        if (parsed && Array.isArray(parsed.items)) {
+          console.log(`[Mandi Client Cache Hit] Loaded ${parsed.items.length} records for ${mandi}`);
           return parsed;
         }
       } catch (e) {
@@ -102,8 +105,8 @@ export async function fetchMandiBhav(
     }
   }
 
-  // 2. Primary Production Strategy: Call Server Backend (/api/mandi/prices)
-  // This executes on Vercel Serverless Function / AI Studio server with full backend credentials
+  // 2. Primary Strategy: Call Server Backend (/api/mandi/prices)
+  // Backend strictly executes Government OGD & MandiPulse with State + District + Mandi filtering
   try {
     const queryParams = new URLSearchParams({
       state,
@@ -115,127 +118,37 @@ export async function fetchMandiBhav(
     const serverRes = await fetch(`/api/mandi/prices?${queryParams.toString()}`);
     if (serverRes.ok) {
       const serverJson = await serverRes.json();
-      if (serverJson.success && serverJson.data && serverJson.data.items?.length > 0) {
+      if (serverJson.success && serverJson.data) {
         const liveData: MandiDetails = serverJson.data;
-        // Save fresh live data to local cache
+
+        console.log(`[Mandi Client Debug] Server returned ${liveData.items?.length || 0} records for ${mandi} (Source: ${liveData.sourceType})`);
+
+        // Cache valid result (even if items is empty, cache it briefly for 5 mins to prevent hammering)
         localStorage.setItem(cacheKey, JSON.stringify(liveData));
         localStorage.setItem(cacheTimeKey, now.getTime().toString());
         return liveData;
       }
     }
   } catch (serverErr) {
-    console.warn("[Mandi Client] Server endpoint error, attempting client AI fallback:", serverErr);
+    console.warn("[Mandi Client] Server endpoint error:", serverErr);
   }
 
-  // 3. Secondary Strategy: Client-side Gemini Grounding (if user has provided their own Gemini API key)
-  if (apiKey && apiKey.trim() !== "") {
-    try {
-      const ai = getAI(apiKey);
-      if (ai) {
-        const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-        const prompt = `आज (${dateStr}) के लिए ${state} राज्य के ${district} ज़िले की ${mandi} मंडी के सभी फसलों के नवीनतम वास्तविक मंडी भाव (Mandi Bhav / Market Prices) खोजें।
-        
-कृपया मुख्य आधिकारिक व क्षेत्रीय स्रोतों जैसे 'Agmarknet' और 'Mandi Pulse' से वास्तविक भाव निकालें।
-        
-आवश्यक नियम:
-- सोयाबीन, गेहूं, चना, मक्का, सरसों, कपास, लहसुन, प्याज, धनिया, मेथी जैसी फसलों के भाव खोजें।
-- भाव (Prices) प्रति क्विंटल में होने चाहिए।
-- आवक और गुणवत्ता यदि उपलब्ध हों तो जोड़ें।
-- जिस रिपोर्ट या तारीख का डेटा मिला है, उसे sourceDate में अवश्य लिखें।
-- केवल शुद्ध JSON डेटा ही लौटाएं। सभी फसलों के नाम हिंदी में होने चाहिए।`;
+  // 3. Fallback when server cannot be reached: return honest empty state
+  // NEVER show fake data or data from other mandis!
+  const emptyStateData: MandiDetails = {
+    mandiName: mandi,
+    district,
+    state,
+    date: 'आज',
+    items: [],
+    sourceType: 'govt',
+    sourceName: 'आधिकारिक मंडी रिकॉर्ड (AGMARKNET / MandiPulse)',
+    sourceDate: 'आज',
+    fetchedAt: now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+    isLive: false,
+    isEstimated: false,
+    statusMessage: `${mandi} (${district.split(' (')[0]}, ${state.split(' (')[0]}) मंडी के लिए आज का आधिकारिक डेटा उपलब्ध नहीं है।`
+  };
 
-        const schema = {
-          type: Type.OBJECT,
-          properties: {
-            sourceName: { type: Type.STRING },
-            sourceDate: { type: Type.STRING },
-            mandiName: { type: Type.STRING },
-            district: { type: Type.STRING },
-            state: { type: Type.STRING },
-            date: { type: Type.STRING },
-            items: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  commodity: { type: Type.STRING },
-                  minPrice: { type: Type.STRING },
-                  maxPrice: { type: Type.STRING },
-                  avgPrice: { type: Type.STRING },
-                  unit: { type: Type.STRING },
-                  arrival: { type: Type.STRING },
-                  quality: { type: Type.STRING },
-                  lastUpdated: { type: Type.STRING }
-                },
-                required: ["commodity", "minPrice", "maxPrice", "avgPrice", "unit"]
-              }
-            }
-          },
-          required: ["items"]
-        };
-
-        // Supported current Gemini models with fallback
-        const clientCandidateModels = ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-flash-latest"];
-        let clientResponseText = "";
-
-        for (const modelName of clientCandidateModels) {
-          try {
-            const response = await ai.models.generateContent({
-              model: modelName,
-              contents: prompt,
-              config: {
-                systemInstruction: "You are 'Falsawdiya Krishi Bazar' Mandi Reporter. Search web for actual live Mandi rates on Agmarknet and Mandi Pulse. Never hallucinate fake numbers.",
-                tools: [{ googleSearch: {} }],
-                responseMimeType: "application/json",
-                responseSchema: schema
-              }
-            });
-            if (response.text && response.text.trim()) {
-              clientResponseText = response.text.trim();
-              break;
-            }
-          } catch (modelErr) {
-            console.warn(`[Client Grounding ${modelName}] Error:`, modelErr);
-          }
-        }
-
-        const parsedData = JSON.parse(clientResponseText || "{}");
-        if (parsedData && Array.isArray(parsedData.items) && parsedData.items.length > 0) {
-          const clientLiveData: MandiDetails = {
-            mandiName: mandi,
-            district,
-            state,
-            date: parsedData.sourceDate || dateStr,
-            items: parsedData.items,
-            sourceType: 'market_report',
-            sourceName: parsedData.sourceName || 'सत्यापित स्थानीय मंडी रिपोर्ट (वेब खोज)',
-            sourceDate: parsedData.sourceDate || dateStr,
-            fetchedAt: now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-            isLive: true,
-            isEstimated: false,
-            statusMessage: 'सत्यापित मंडी रिपोर्ट से प्राप्त ताज़ा दरें'
-          };
-
-          localStorage.setItem(cacheKey, JSON.stringify(clientLiveData));
-          localStorage.setItem(cacheTimeKey, now.getTime().toString());
-          return clientLiveData;
-        }
-      }
-    } catch (clientAiErr) {
-      console.warn("[Mandi Client] Client AI grounding failed:", clientAiErr);
-    }
-  }
-
-  // 4. Return expired cache if exists rather than showing nothing
-  if (cachedData) {
-    try {
-      const parsed = JSON.parse(cachedData);
-      if (parsed && parsed.items && parsed.items.length > 0) {
-        return parsed;
-      }
-    } catch (e) {}
-  }
-
-  // 5. Transparent fallback (Clearly flagged as estimated, never faking live data)
-  return generateFallbackMandiDetails(state, district, mandi);
+  return emptyStateData;
 }
