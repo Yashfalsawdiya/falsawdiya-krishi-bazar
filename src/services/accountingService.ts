@@ -801,17 +801,7 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
       shouldUpdateCounter = true;
     }
 
-    // 2. Read products for stock deductions (ALL READS MUST BE EXECUTED BEFORE ANY WRITES)
-    const productReads: { ref: DocumentReference; snap: any; item: AccountingSaleItem }[] = [];
-    for (const item of saleData.items) {
-      if (item.productId) {
-        const prodRef = doc(db, 'accounting_products', item.productId);
-        const prodSnap = await transaction.get(prodRef);
-        productReads.push({ ref: prodRef, snap: prodSnap, item });
-      }
-    }
-
-    // 3. Read customer if udhari (READ OPERATION)
+    // 2. Read customer if udhari (READ OPERATION - must be before any writes)
     let custRead: { ref: DocumentReference; snap: any } | null = null;
     if (saleData.udhariAmount > 0 && saleData.customerId) {
       const custRef = doc(db, 'accounting_customers', saleData.customerId);
@@ -823,7 +813,7 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
     // PHASE 2: ALL WRITE OPERATIONS AFTER ALL READS HAVE COMPLETED
     // =========================================================================
 
-    // 4. Update sequence counter atomically (WRITE)
+    // 3. Update sequence counter atomically (WRITE)
     if (shouldUpdateCounter) {
       transaction.set(counterRef, {
         lastSequence: nextSeq,
@@ -832,7 +822,9 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
       }, { merge: true });
     }
 
-    // 5. Write Sale Document (WRITE)
+    // 4. Write Sale Document (WRITE)
+    // Product quantity in saleData.items records strictly what was billed to the customer
+    // No automatic stock deduction or inventory mutation occurs
     const fullSale: AccountingSale = {
       ...saleData,
       id: saleRef.id,
@@ -841,146 +833,7 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
     };
     transaction.set(saleRef, fullSale);
 
-    // 6. Deduct inventory stock and record audit movements (WRITES)
-    for (const { ref: prodRef, snap: prodSnap, item } of productReads) {
-      if (prodSnap.exists()) {
-        const prodData = prodSnap.data() as AccountingProduct;
-
-        if (item.saleType === 'loose') {
-          const currentLoose = prodData.looseStock?.availableBaseQty || 0;
-          const isLargeUnit = item.looseUnit === 'kg' || item.looseUnit === 'L' || item.looseUnit === 'Ltr' || item.looseUnit === 'लीटर' || item.looseUnit === 'किलो';
-          const deductBase = item.looseBaseQty || (isLargeUnit ? ((item.looseQuantity || item.quantity || 0) * 1000) : (item.looseQuantity || item.quantity || 0));
-
-          // Check if a sealed pack needs to be / was opened
-          let newLoose = currentLoose;
-          let updatedVariants = prodData.packagingVariants ? [...prodData.packagingVariants] : [];
-          let packWasOpened = false;
-          let openedVariantLabel = '';
-          const targetVariantId = item.openedPackFromVariantId || (deductBase > currentLoose ? item.variantId : undefined);
-
-          if (targetVariantId && updatedVariants.length > 0) {
-            const varIndex = updatedVariants.findIndex(v => v.id === targetVariantId);
-            if (varIndex !== -1) {
-              const targetVar = { ...updatedVariants[varIndex] };
-              if ((targetVar.currentStockPacks || 0) > 0) {
-                targetVar.currentStockPacks = (targetVar.currentStockPacks || 0) - 1;
-                updatedVariants[varIndex] = targetVar;
-                packWasOpened = true;
-                openedVariantLabel = targetVar.label || `${targetVar.sizeValue} ${targetVar.sizeUnit}`;
-
-                // Calculate base quantity of this opened pack
-                let packBase = targetVar.baseQuantity;
-                if (!packBase || packBase <= 0) {
-                  const unit = (targetVar.sizeUnit || '').toLowerCase();
-                  if (unit === 'ltr' || unit === 'l') packBase = targetVar.sizeValue * 1000;
-                  else if (unit === 'kg') packBase = targetVar.sizeValue * 1000;
-                  else packBase = targetVar.sizeValue;
-                }
-
-                newLoose = Math.max(0, (currentLoose + packBase) - deductBase);
-              } else {
-                newLoose = Math.max(0, currentLoose - deductBase);
-              }
-            } else {
-              newLoose = Math.max(0, currentLoose - deductBase);
-            }
-          } else {
-            newLoose = Math.max(0, currentLoose - deductBase);
-          }
-
-          const isLiquid = prodData.unit === 'Ltr' || prodData.unit === 'Ml' || prodData.productType === 'liquid';
-          const detectedBaseUnit: 'ml' | 'g' = isLiquid ? 'ml' : 'g';
-
-          const updatePayload: Record<string, any> = {
-            'looseStock.availableBaseQty': newLoose,
-            'looseStock.baseUnit': prodData.looseStock?.baseUnit || detectedBaseUnit,
-            'looseStock.updatedAt': now,
-            updatedAt: now,
-          };
-
-          if (packWasOpened) {
-            updatePayload.packagingVariants = updatedVariants;
-            updatePayload.currentStock = updatedVariants.reduce((sum, v) => sum + (v.currentStockPacks || 0), 0);
-            updatePayload['looseStock.lastOpenedFromVariantId'] = targetVariantId;
-
-            // Log pack opened stock movement
-            const packMovRef = doc(collection(db, 'accounting_stock_movements'));
-            transaction.set(packMovRef, {
-              id: packMovRef.id,
-              timestamp: now,
-              date: saleData.date,
-              productId: item.productId,
-              productName: item.hindiName || item.name,
-              variantId: targetVariantId,
-              variantLabel: openedVariantLabel,
-              type: 'pack_opened',
-              quantityChangePacks: -1,
-              balanceBaseUnitAfter: newLoose,
-              reason: `बिल #${assignedInvoiceNo} पर खुली बिक्री हेतु 1 सीलबंद पैकेट (${openedVariantLabel}) खोला गया`,
-              referenceId: saleRef.id,
-            });
-          }
-
-          transaction.update(prodRef, updatePayload);
-
-          const movRef = doc(collection(db, 'accounting_stock_movements'));
-          transaction.set(movRef, {
-            id: movRef.id,
-            timestamp: now,
-            date: saleData.date,
-            productId: item.productId,
-            productName: item.hindiName || item.name,
-            type: 'loose_sale',
-            quantityChangeBaseUnit: -deductBase,
-            balanceBaseUnitAfter: newLoose,
-            reason: `बिल #${assignedInvoiceNo} पर खुली बिक्री (${deductBase} ${item.looseUnit || 'ml/g'})`,
-            referenceId: saleRef.id,
-          });
-        } else if (item.variantId && prodData.packagingVariants && prodData.packagingVariants.length > 0) {
-          const updatedVariants = prodData.packagingVariants.map(v => {
-            if (v.id === item.variantId) {
-              return {
-                ...v,
-                currentStockPacks: Math.max(0, (v.currentStockPacks || 0) - item.quantity),
-              };
-            }
-            return v;
-          });
-          const totalSealedPacks = updatedVariants.reduce((sum, v) => sum + (v.currentStockPacks || 0), 0);
-
-          transaction.update(prodRef, {
-            packagingVariants: updatedVariants,
-            currentStock: totalSealedPacks,
-            updatedAt: now,
-          });
-
-          const movRef = doc(collection(db, 'accounting_stock_movements'));
-          transaction.set(movRef, {
-            id: movRef.id,
-            timestamp: now,
-            date: saleData.date,
-            productId: item.productId,
-            productName: item.hindiName || item.name,
-            variantId: item.variantId,
-            variantLabel: item.variantLabel,
-            type: 'pack_sale',
-            quantityChangePacks: -item.quantity,
-            balancePacksAfter: updatedVariants.find(v => v.id === item.variantId)?.currentStockPacks,
-            reason: `बिल #${assignedInvoiceNo} पर सीलबंद बिक्री (${item.quantity} ${item.variantLabel || item.unit})`,
-            referenceId: saleRef.id,
-          });
-        } else {
-          const currentStock = prodData.currentStock || 0;
-          const newStock = Math.max(0, currentStock - item.quantity);
-          transaction.update(prodRef, {
-            currentStock: newStock,
-            updatedAt: now,
-          });
-        }
-      }
-    }
-
-    // 6. Update Customer Udhari Ledger
+    // 5. Update Customer Udhari Ledger (if sale involves udhari)
     if (custRead && custRead.snap.exists()) {
       const custData = custRead.snap.data() as AccountingCustomer;
       const currentOutstanding = custData.currentOutstanding || 0;
@@ -2566,10 +2419,12 @@ export async function fetchAccountingReport(
 
     const totalInventoryValuation = products.reduce((acc, p) => acc + ((p.currentStock || 0) * (p.costPrice || 0)), 0);
     const lowStockCount = products.filter(p => (p.currentStock || 0) <= (p.minStockAlert || 5)).length;
+    const totalProductsCount = products.length;
 
     return {
       startDate,
       endDate,
+      totalProductsCount,
       totalSalesAmount,
       totalSalesCount,
       totalCOGS,

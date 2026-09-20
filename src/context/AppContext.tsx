@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig, DeliveryEmailTemplateConfig, DeviceType, DeviceBanner, DeviceBannersMap, YouTubeVideoItem } from '../types';
+import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig, DeliveryEmailTemplateConfig, DeviceType, DeviceBanner, DeviceBannersMap, YouTubeVideoItem, FooterConfig } from '../types';
 import { PRODUCTS, CROP_ADVICE, CATEGORIES } from '../data/mockData';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
 import { DEFAULT_INVOICE_TEMPLATE, mergeInvoiceTemplate } from '../data/defaultInvoiceTemplate';
@@ -90,6 +90,7 @@ export interface AppContent {
   isDeliveryActive?: boolean;
   isDeliveryChargesEnabled?: boolean;
   deliveryChargesAmount?: number;
+  footer?: FooterConfig;
 }
 
 export interface UserSettings {
@@ -131,6 +132,7 @@ interface AppContextType {
   updateHelpline: (helpline: Helpline) => Promise<void>;
   deleteHelpline: (id: string) => Promise<void>;
   updateAppContent: (content: AppContent) => Promise<void>;
+  updateFooterContent: (footer: FooterConfig) => Promise<void>;
   updateLegalPagesContent: (content: LegalPagesContent) => Promise<void>;
   resetLegalPageContent: (pageKey: keyof LegalPagesContent) => Promise<void>;
   updateInvoiceTemplate: (template: InvoiceTemplateConfig) => Promise<void>;
@@ -982,6 +984,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateFooterContent = async (footer: FooterConfig) => {
+    const updated: AppContent = {
+      ...(appContent || {
+        branding: { name: 'फल्सावदिया कृषि बाजार', tagline: 'किसान का भरोसा, हमारी पहचान', logo: '' },
+        banners: [],
+        videos: [],
+        youtubeChannel: { url: '', label: '' },
+        partners: [],
+        whatsappSection: { title: '', description: '', mode: 'group' as const, groupLink: '' },
+        contactInfo: { whatsapp: '', address: '' }
+      }),
+      footer
+    };
+    await updateAppContent(updated);
+  };
+
   const updateLegalPagesContent = async (content: LegalPagesContent) => {
     try {
       await setDoc(doc(db, 'settings', 'legalPages'), content, { merge: true });
@@ -1217,6 +1235,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateHelpline,
       deleteHelpline,
       updateAppContent,
+      updateFooterContent,
       updateLegalPagesContent,
       resetLegalPageContent,
       updateInvoiceTemplate,

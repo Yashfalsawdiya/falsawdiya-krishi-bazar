@@ -605,8 +605,15 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
     // Bigha settings
     setLooseBighaCount('5');
-    const defaultBighaDose = catInfo.physicalType === 'liquid' ? '250' : (defaultUnit === 'kg' ? '5' : '500');
-    setLooseDosePerBigha(defaultBighaDose);
+    if (p.standardDoseInfo?.verifiedDosePerBigha) {
+      setLooseDosePerBigha(String(p.standardDoseInfo.verifiedDosePerBigha));
+      if (p.standardDoseInfo.doseBighaUnit) {
+        setLooseBighaUnit(p.standardDoseInfo.doseBighaUnit === 'Ltr' ? 'L' : p.standardDoseInfo.doseBighaUnit);
+      }
+    } else {
+      const defaultBighaDose = catInfo.physicalType === 'liquid' ? '250' : (defaultUnit === 'kg' ? '5' : '500');
+      setLooseDosePerBigha(defaultBighaDose);
+    }
 
     // Rate Options
     const rateOptions = getLooseRateOptions(catInfo.baseUnit);
@@ -1183,16 +1190,12 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                     .filter(it => it.productId === prod.id)
                     .reduce((sum, it) => sum + it.quantity, 0);
 
-                  const isOutOfStock = (prod.currentStock || 0) <= 0;
-
                   return (
                     <div
                       key={prod.id}
                       className={`p-3 rounded-2xl border transition-all ${
                         prodCartCount > 0
                           ? 'border-emerald-500 bg-emerald-50/40 shadow-sm'
-                          : isOutOfStock
-                          ? 'border-red-100 bg-red-50/20'
                           : 'border-gray-100 bg-white hover:border-gray-300'
                       }`}
                     >
@@ -1222,16 +1225,8 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                         </div>
 
                         <div className="text-right shrink-0">
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full block mb-1 ${
-                              isOutOfStock
-                                ? 'bg-red-100 text-red-700'
-                                : prod.currentStock <= prod.minStockAlert
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-gray-100 text-gray-600'
-                            }`}
-                          >
-                            स्टॉक: {prod.currentStock} {prod.unit}
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 block mb-1">
+                            {prod.category}
                           </span>
 
                           {!hasMultipleVariants && (
@@ -1291,11 +1286,6 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                           >
                             <span>खुला बिक्री (Loose Sale)</span>
                           </button>
-                          {prod.looseStock && prod.looseStock.availableBaseQty > 0 && (
-                            <span className="text-[10px] font-semibold text-blue-700">
-                              खुला: {formatBaseUnitDisplay(prod.looseStock.availableBaseQty, prod.looseStock.baseUnit)}
-                            </span>
-                          )}
                         </div>
                       )}
                     </div>
@@ -1933,7 +1923,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                   ) : (
                     <>
                       <CheckCircle2 className="w-5 h-5" />
-                      बिल सेव करें (Save Bill & Deduct Stock) · ₹{calculatedFinalTotal}
+                      बिल सेव करें (Save Bill) · ₹{calculatedFinalTotal}
                     </>
                   )}
                 </button>
@@ -2145,14 +2135,12 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                 </div>
               )}
 
-              {/* Current Open Stock Indicator */}
-              <div className="bg-blue-50/80 border border-blue-200 p-3 rounded-2xl flex items-center justify-between text-xs">
+              {/* Rate and Dispensing Info */}
+              <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-2xl flex items-center justify-between text-xs">
                 <div>
-                  <span className="text-[11px] text-blue-800 font-medium block">वर्तमान उपलब्ध खुला स्टॉक:</span>
-                  <span className="text-base font-black text-blue-950">
-                    {looseModalProduct.looseStock 
-                      ? formatBaseUnitDisplay(looseModalProduct.looseStock.availableBaseQty, looseModalProduct.looseStock.baseUnit)
-                      : `0 ${catInfo.baseUnit}`}
+                  <span className="text-[11px] text-emerald-800 font-medium block">खुली बिक्री (Loose Dispensing):</span>
+                  <span className="text-xs font-bold text-emerald-950">
+                    मास्टर दर पर कस्टम मात्रा बिलिंग
                   </span>
                 </div>
                 <div className="text-right">
@@ -2478,6 +2466,20 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                           </button>
                         ))}
                       </div>
+                      {looseModalProduct.standardDoseInfo?.verifiedDosePerBigha && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLooseDosePerBigha(String(looseModalProduct.standardDoseInfo?.verifiedDosePerBigha));
+                            if (looseModalProduct.standardDoseInfo?.doseBighaUnit) {
+                              setLooseBighaUnit(looseModalProduct.standardDoseInfo.doseBighaUnit === 'Ltr' ? 'L' : looseModalProduct.standardDoseInfo.doseBighaUnit);
+                            }
+                          }}
+                          className="text-[10px] text-emerald-800 font-bold block mt-1 hover:underline cursor-pointer"
+                        >
+                          सत्यापित डोज: {looseModalProduct.standardDoseInfo.verifiedDosePerBigha} {looseModalProduct.standardDoseInfo.doseBighaUnit || 'यूनिट'}/बीघा
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -2560,15 +2562,6 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                     </span>
                   </div>
                 </div>
-
-                {willNeedPackOpen && (
-                  <div className="p-2.5 bg-sky-50 border border-sky-200 rounded-xl text-[11px] text-sky-900 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
-                    <span>
-                      खुले स्टॉक में मात्र <strong>{openStock} {catInfo.baseUnit}</strong> है। यह बिल सुरक्षित होते ही 1 सीलबंद पैकेट अपने-आप खुल जाएगा और शेष मात्रा खुले स्टॉक में सुरक्षित हो जाएगी।
-                    </span>
-                  </div>
-                )}
 
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   <button

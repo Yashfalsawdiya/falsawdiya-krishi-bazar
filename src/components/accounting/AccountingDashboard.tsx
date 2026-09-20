@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   TrendingUp, TrendingDown, IndianRupee, Sparkles, AlertTriangle, 
-  Calendar, ShoppingBag, Truck, Receipt, Users, Package, 
+  Calendar, ShoppingBag, Receipt, Users, Package, 
   ArrowUpRight, ArrowDownLeft, ShieldCheck, RefreshCw, Layers, CheckCircle2,
   Wallet, Bot, Zap, Activity, Check, RotateCcw, X
 } from 'lucide-react';
@@ -17,12 +17,11 @@ import {
 import { AccountingPOSBilling } from './AccountingPOSBilling';
 import { AccountingCustomerLedger } from './AccountingCustomerLedger';
 import { AccountingInventory } from './AccountingInventory';
-import { AccountingPurchases } from './AccountingPurchases';
 import { AccountingExpenses } from './AccountingExpenses';
 
 export const AccountingDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'pos' | 'ledger' | 'inventory' | 'purchases' | 'expenses'
+    'overview' | 'pos' | 'ledger' | 'inventory' | 'expenses'
   >('overview');
 
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('today');
@@ -103,8 +102,7 @@ export const AccountingDashboard: React.FC = () => {
           { id: 'overview', label: 'वित्तीय डैशबोर्ड (Overview)', icon: TrendingUp },
           { id: 'pos', label: 'पीओएस बिक्री (POS Bill)', icon: ShoppingBag },
           { id: 'ledger', label: 'किसान उधारी खाता (Khata)', icon: Users },
-          { id: 'inventory', label: 'स्टॉक व इन्वेंट्री', icon: Package },
-          { id: 'purchases', label: 'थोक खरीद (Purchases)', icon: Truck },
+          { id: 'inventory', label: 'स्टॉक', icon: Package },
           { id: 'expenses', label: 'दुकान खर्च (Expenses)', icon: Receipt },
         ].map(tab => {
           const Icon = tab.icon;
@@ -137,10 +135,6 @@ export const AccountingDashboard: React.FC = () => {
 
       {activeTab === 'inventory' && (
         <AccountingInventory />
-      )}
-
-      {activeTab === 'purchases' && (
-        <AccountingPurchases />
       )}
 
       {activeTab === 'expenses' && (
@@ -446,33 +440,33 @@ export const AccountingDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Wholesaler / Stock Position */}
+            {/* Product Master / Stock Position */}
             <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b pb-3">
                 <span className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
-                  <Package className="w-4 h-4 text-blue-600" />
-                  इन्वेंट्री व थोक सप्लायर स्थिति
+                  <Package className="w-4 h-4 text-emerald-600" />
+                  उत्पाद व स्टॉक मूल्य सूची स्थिति
                 </span>
                 <button
                   onClick={() => setActiveTab('inventory')}
-                  className="text-[10px] text-blue-700 hover:underline font-bold"
+                  className="text-[10px] text-emerald-700 hover:underline font-bold"
                 >
-                  स्टॉक देखें →
+                  स्टॉक सूची देखें →
                 </button>
               </div>
 
               <div className="space-y-2.5 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">गोदाम में वर्तमान स्टॉक लागत:</span>
-                  <strong className="text-purple-900 font-bold">₹{report?.totalInventoryValuation?.toLocaleString() || 0}</strong>
+                  <span className="text-gray-500">कुल पंजीकृत उत्पाद (Master):</span>
+                  <strong className="text-gray-900 font-bold">{report?.totalProductsCount || 0} उत्पाद</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">कम स्टॉक वाले उत्पाद (Alerts):</span>
-                  <strong className="text-red-600 font-bold">{report?.lowStockCount || 0} उत्पाद</strong>
+                  <span className="text-gray-500">बिलिंग स्थिति:</span>
+                  <span className="text-emerald-700 font-bold">सक्रिय (लागत व विक्रय दरें कॉन्फ़िगर)</span>
                 </div>
-                <div className="flex justify-between pt-2 border-t font-extrabold text-sm text-gray-900">
-                  <span>सप्लायर की बाकी उधारी:</span>
-                  <span className="text-amber-800">₹{report?.totalSupplierOutstanding?.toLocaleString() || 0}</span>
+                <div className="flex justify-between pt-2 border-t font-extrabold text-xs text-gray-700">
+                  <span>ग्राहक कुल उधारी:</span>
+                  <span className="text-red-700 font-bold">₹{report?.totalCustomerOutstanding?.toLocaleString() || 0}</span>
                 </div>
               </div>
             </div>
@@ -490,12 +484,12 @@ export const AccountingDashboard: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('purchases')}
+              onClick={() => setActiveTab('inventory')}
               className="p-4 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-3xl text-left transition-all group"
             >
-              <Truck className="w-5 h-5 text-amber-700 mb-2 group-hover:scale-110 transition-transform" />
-              <div className="font-bold text-gray-900 text-xs">थोक खरीद दर्ज करें</div>
-              <p className="text-[10px] text-gray-500">सप्लायर बिल व आवक स्टॉक</p>
+              <Package className="w-5 h-5 text-amber-700 mb-2 group-hover:scale-110 transition-transform" />
+              <div className="font-bold text-gray-900 text-xs">स्टॉक व मूल्य सूची</div>
+              <p className="text-[10px] text-gray-500">उत्पाद लागत व विक्रय दरें</p>
             </button>
 
             <button

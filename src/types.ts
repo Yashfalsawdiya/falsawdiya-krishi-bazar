@@ -878,4 +878,46 @@ export interface AppContent {
   isDeliveryActive?: boolean;
   isDeliveryChargesEnabled?: boolean;
   deliveryChargesAmount?: number;
+  footer?: FooterConfig;
+}
+
+export interface FooterLinkItem {
+  id: string;
+  label: string;
+  path: string;
+  isExternal?: boolean;
+}
+
+export interface FooterColumn {
+  id: string;
+  title: string;
+  links: FooterLinkItem[];
+}
+
+export interface FooterTrustHighlight {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon?: 'shield' | 'users' | 'truck' | 'headphones';
+}
+
+export interface FooterConfig {
+  brandName?: string;
+  tagline?: string;
+  description?: string;
+  helplineTitle?: string;
+  helphoneNumber?: string;
+  callButtonText?: string;
+  address?: string;
+  socialTitle?: string;
+  whatsappUrl?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  youtubeUrl?: string;
+  highlights?: FooterTrustHighlight[];
+  columns?: FooterColumn[];
+  copyrightText?: string;
+  bottomText?: string;
+  paymentLabel?: string;
+  paymentMethods?: string[];
 }

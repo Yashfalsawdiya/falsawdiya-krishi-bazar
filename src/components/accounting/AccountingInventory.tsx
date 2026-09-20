@@ -1,30 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Package, Search, Plus, AlertTriangle, Edit3, Trash2, 
-  RefreshCw, TrendingUp, DollarSign, Layers, ArrowUpDown, X, CheckCircle2,
-  Droplet, Scale, Calendar, ShieldAlert, Clock, Boxes, ChevronDown, ChevronUp,
-  AlertCircle, Sparkles
+  Package, Search, Plus, Edit3, Trash2, 
+  RefreshCw, TrendingUp, DollarSign, Layers, X, CheckCircle2,
+  Boxes, ChevronDown, ChevronUp, Percent, Sparkles, Tag
 } from 'lucide-react';
 import { 
   AccountingProduct, 
   PackagingVariant, 
   PackagingType, 
-  SizeUnit,
-  StockBatch 
+  SizeUnit 
 } from '../../types/accounting';
 import { 
   fetchAccountingProducts, 
   saveAccountingProduct, 
-  deleteAccountingProduct,
-  openSealedPack,
-  adjustProductStock
+  deleteAccountingProduct 
 } from '../../services/accountingService';
 import { 
   normalizeToBaseUnit, 
-  formatBaseUnitDisplay, 
-  calculateExpiryAlert, 
-  getProductVariants, 
-  calculateTotalEquivalentStock 
+  getProductVariants 
 } from '../../utils/agriPackagingUtils';
 import { 
   ProductBasicInfoFields, 
@@ -36,7 +29,6 @@ export const AccountingInventory: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out' | 'expiry_4m' | 'expired' | 'loose'>('all');
   const [expandedProductIds, setExpandedProductIds] = useState<Record<string, boolean>>({});
 
   // Modal State
@@ -51,26 +43,12 @@ export const AccountingInventory: React.FC = () => {
   const [formHsnCode, setFormHsnCode] = useState('');
   const [formDosePerTank, setFormDosePerTank] = useState<number | ''>('');
   const [formDoseUnit, setFormDoseUnit] = useState<'ml' | 'g'>('ml');
-  const [formDoseTargetCrops, setFormDoseTargetCrops] = useState('');
+  const [formDosePerBigha, setFormDosePerBigha] = useState<number | ''>('');
+  const [formDoseBighaUnit, setFormDoseBighaUnit] = useState<string>('kg');
   const [formDoseWarning, setFormDoseWarning] = useState('');
 
   // Variants in Form
   const [formVariants, setFormVariants] = useState<PackagingVariant[]>([]);
-
-  // Open Pack Modal State
-  const [packOpenProduct, setPackOpenProduct] = useState<AccountingProduct | null>(null);
-  const [selectedVariantIdToOpen, setSelectedVariantIdToOpen] = useState<string>('');
-  const [packsToOpenCount, setPacksToOpenCount] = useState<number>(1);
-  const [isOpenPackSubmitting, setIsOpenPackSubmitting] = useState(false);
-
-  // Stock Adjust Modal
-  const [adjustingProduct, setAdjustingProduct] = useState<AccountingProduct | null>(null);
-  const [adjustTargetType, setAdjustTargetType] = useState<'variant' | 'loose'>('variant');
-  const [selectedVariantIdToAdjust, setSelectedVariantIdToAdjust] = useState<string>('');
-  const [stockAdjustQty, setStockAdjustQty] = useState<number>(0);
-  const [adjustType, setAdjustType] = useState<'add' | 'subtract' | 'set'>('add');
-  const [adjustReason, setAdjustReason] = useState('शारीरिक स्टॉक मिलान (Physical Audit)');
-  const [isAdjustSubmitting, setIsAdjustSubmitting] = useState(false);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -78,7 +56,7 @@ export const AccountingInventory: React.FC = () => {
       const data = await fetchAccountingProducts();
       setProducts(data);
     } catch (err) {
-      console.error('Error loading inventory:', err);
+      console.error('Error loading products master:', err);
     } finally {
       setLoading(false);
     }
@@ -92,65 +70,13 @@ export const AccountingInventory: React.FC = () => {
     setExpandedProductIds(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // Pre-calculate expiry and stock status for all products
+  // Resolved Variants for all products
   const enrichedProducts = useMemo(() => {
     return products.map(p => {
       const variants = getProductVariants(p);
-      const totalStockPacks = variants.reduce((sum, v) => sum + (v.currentStockPacks || 0), 0);
-      const hasLoose = (p.looseStock?.availableBaseQty || 0) > 0;
-      
-      // Check nearest expiry across top-level expiryDate or batches
-      let nearestDays = 9999;
-      let worstStatus: 'expired' | 'critical' | 'warning' | 'fresh' | 'no_date' = 'no_date';
-      let nearestExpiryDate = p.expiryDate;
-
-      const datesToCheck: string[] = [];
-      if (p.expiryDate) datesToCheck.push(p.expiryDate);
-      if (p.batches) {
-        p.batches.forEach(b => {
-          if (b.expiryDate && (b.remainingPackQuantity > 0 || b.remainingPackQuantity === undefined)) {
-            datesToCheck.push(b.expiryDate);
-          }
-        });
-      }
-
-      for (const d of datesToCheck) {
-        const expResult = calculateExpiryAlert(d);
-        if (expResult.status === 'expired') {
-          worstStatus = 'expired';
-          nearestDays = expResult.daysRemaining;
-          nearestExpiryDate = d;
-          break;
-        } else if (expResult.status === 'critical') {
-          worstStatus = 'critical';
-          nearestDays = expResult.daysRemaining;
-          nearestExpiryDate = d;
-        } else if (expResult.status === 'warning' && worstStatus !== 'critical') {
-          worstStatus = 'warning';
-          nearestDays = expResult.daysRemaining;
-          nearestExpiryDate = d;
-        } else if (worstStatus === 'no_date') {
-          worstStatus = expResult.status;
-          nearestDays = expResult.daysRemaining;
-          nearestExpiryDate = d;
-        }
-      }
-
-      const expiryAlert = calculateExpiryAlert(nearestExpiryDate);
-      const isExpiringWithin4Months = worstStatus === 'warning' || worstStatus === 'critical';
-      const isExpired = worstStatus === 'expired';
-      const eqStock = calculateTotalEquivalentStock(p);
-
       return {
         ...p,
         resolvedVariants: variants,
-        totalStockPacks,
-        hasLoose,
-        worstExpiryStatus: worstStatus,
-        expiryAlert,
-        isExpiringWithin4Months,
-        isExpired,
-        equivalentStock: eqStock,
       };
     });
   }, [products]);
@@ -164,69 +90,47 @@ export const AccountingInventory: React.FC = () => {
         p.hindiName?.toLowerCase().includes(q) ||
         p.name?.toLowerCase().includes(q) ||
         (p.customId && p.customId.toLowerCase().includes(q)) ||
-        (p.batchNo && p.batchNo.toLowerCase().includes(q))
+        (p.hsnCode && p.hsnCode.toLowerCase().includes(q))
       );
 
-      if (!matchesCat || !matchesSearch) return false;
-
-      if (stockFilter === 'low') {
-        const isLowSealed = (p.totalStockPacks || 0) <= (p.minStockAlert || 5) && (p.totalStockPacks || 0) > 0;
-        return isLowSealed;
-      }
-      if (stockFilter === 'out') {
-        return (p.totalStockPacks || 0) <= 0 && (!p.looseStock || p.looseStock.availableBaseQty <= 0);
-      }
-      if (stockFilter === 'expiry_4m') {
-        return p.isExpiringWithin4Months;
-      }
-      if (stockFilter === 'expired') {
-        return p.isExpired;
-      }
-      if (stockFilter === 'loose') {
-        return p.hasLoose;
-      }
-      return true;
+      return matchesCat && matchesSearch;
     });
-  }, [enrichedProducts, categoryFilter, searchQuery, stockFilter]);
+  }, [enrichedProducts, categoryFilter, searchQuery]);
 
-  // Summary Metrics
-  const inventoryMetrics = useMemo(() => {
+  // Summary Metrics: Total Products, Categories breakdown & Average Margin
+  const metrics = useMemo(() => {
     const totalItems = products.length;
-    let totalValuationCost = 0;
-    let totalValuationSelling = 0;
-    let lowStockCount = 0;
-    let expiringWithin4MonthsCount = 0;
-    let expiredCount = 0;
-    let looseProductsCount = 0;
+    let pesticidesCount = 0;
+    let fertilizersCount = 0;
+    let seedsCount = 0;
+    let otherCount = 0;
+    let totalMarginPercentSum = 0;
+    let variantCount = 0;
 
     enrichedProducts.forEach(p => {
-      if (p.isExpired) expiredCount++;
-      if (p.isExpiringWithin4Months) expiringWithin4MonthsCount++;
-      if (p.hasLoose) looseProductsCount++;
-      if ((p.totalStockPacks || 0) <= (p.minStockAlert || 5)) lowStockCount++;
+      if (p.category === 'pesticides') pesticidesCount++;
+      else if (p.category === 'fertilizers') fertilizersCount++;
+      else if (p.category === 'seeds') seedsCount++;
+      else otherCount++;
 
-      // Sum valuation from variants
-      for (const v of p.resolvedVariants) {
-        totalValuationCost += (v.currentStockPacks || 0) * (v.costPrice || 0);
-        totalValuationSelling += (v.currentStockPacks || 0) * (v.sellingPrice || 0);
-      }
-      if (p.looseStock && p.looseStock.availableBaseQty > 0) {
-        totalValuationCost += p.looseStock.availableBaseQty * (p.looseStock.costPerBaseUnit || 0);
-        totalValuationSelling += p.looseStock.availableBaseQty * (p.looseStock.sellingPricePerBaseUnit || 0);
-      }
+      p.resolvedVariants.forEach(v => {
+        if (v.sellingPrice > 0 && v.costPrice > 0) {
+          const margin = ((v.sellingPrice - v.costPrice) / v.sellingPrice) * 100;
+          totalMarginPercentSum += Math.max(0, margin);
+          variantCount++;
+        }
+      });
     });
 
-    const potentialProfit = Math.max(0, totalValuationSelling - totalValuationCost);
+    const avgMarginPercent = variantCount > 0 ? Math.round(totalMarginPercentSum / variantCount) : 0;
 
     return { 
       totalItems, 
-      totalValuationCost: Math.round(totalValuationCost), 
-      totalValuationSelling: Math.round(totalValuationSelling), 
-      potentialProfit: Math.round(potentialProfit), 
-      lowStockCount,
-      expiringWithin4MonthsCount,
-      expiredCount,
-      looseProductsCount
+      pesticidesCount,
+      fertilizersCount,
+      seedsCount,
+      otherCount,
+      avgMarginPercent
     };
   }, [products, enrichedProducts]);
 
@@ -245,12 +149,17 @@ export const AccountingInventory: React.FC = () => {
     if (p.standardDoseInfo) {
       setFormDosePerTank(p.standardDoseInfo.verifiedDosePer20LTank || '');
       setFormDoseUnit(p.standardDoseInfo.doseUnit || (isLiquid ? 'ml' : 'g'));
-      setFormDoseTargetCrops(p.standardDoseInfo.targetCrops || '');
+      setFormDosePerBigha(p.standardDoseInfo.verifiedDosePerBigha || '');
+      setFormDoseBighaUnit(
+        p.standardDoseInfo.doseBighaUnit ||
+        (isLiquid ? 'ml' : (p.category === 'fertilizers' ? 'kg' : 'g'))
+      );
       setFormDoseWarning(p.standardDoseInfo.warningNote || '');
     } else {
       setFormDosePerTank('');
       setFormDoseUnit(isLiquid ? 'ml' : 'g');
-      setFormDoseTargetCrops('');
+      setFormDosePerBigha('');
+      setFormDoseBighaUnit(isLiquid ? 'ml' : (p.category === 'fertilizers' ? 'kg' : 'g'));
       setFormDoseWarning('');
     }
 
@@ -269,7 +178,8 @@ export const AccountingInventory: React.FC = () => {
     setFormHsnCode('');
     setFormDosePerTank('');
     setFormDoseUnit('ml');
-    setFormDoseTargetCrops('');
+    setFormDosePerBigha('');
+    setFormDoseBighaUnit('ml');
     setFormDoseWarning('');
 
     // Default 1 standard variant
@@ -284,7 +194,6 @@ export const AccountingInventory: React.FC = () => {
         costPrice: 0,
         sellingPrice: 0,
         currentStockPacks: 0,
-        minStockAlertPacks: 5,
         allowLooseSale: true,
       }
     ]);
@@ -308,7 +217,6 @@ export const AccountingInventory: React.FC = () => {
       costPrice: 0,
       sellingPrice: 0,
       currentStockPacks: 0,
-      minStockAlertPacks: 5,
       allowLooseSale: true,
     };
     setFormVariants(prev => [...prev, newVar]);
@@ -337,7 +245,7 @@ export const AccountingInventory: React.FC = () => {
     setFormVariants(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Handle Save Product
+  // Handle Save Product (Product Master & Pricing Only - No Stock Quantities Required)
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formHindiName.trim()) {
@@ -350,18 +258,29 @@ export const AccountingInventory: React.FC = () => {
     }
 
     try {
-      // Calculate top-level aggregate fields for backward compatibility
-      const totalPacks = formVariants.reduce((sum, v) => sum + (Number(v.currentStockPacks) || 0), 0);
       const firstVar = formVariants[0];
       const avgCost = formVariants.reduce((sum, v) => sum + (Number(v.costPrice) || 0), 0) / formVariants.length;
       const primarySelling = firstVar.sellingPrice || 0;
 
-      const doseInfo = (formDosePerTank !== '' && Number(formDosePerTank) > 0) ? {
-        verifiedDosePer20LTank: Number(formDosePerTank),
+      const doseInfo = (
+        (formDosePerTank !== '' && Number(formDosePerTank) > 0) ||
+        (formDosePerBigha !== '' && Number(formDosePerBigha) > 0) ||
+        formDoseWarning.trim()
+      ) ? {
+        verifiedDosePer20LTank: (formDosePerTank !== '' && Number(formDosePerTank) > 0) ? Number(formDosePerTank) : undefined,
         doseUnit: formDoseUnit,
-        targetCrops: formDoseTargetCrops.trim(),
-        warningNote: formDoseWarning.trim() || 'कृपया उत्पाद लेबल पर दिए अनुमोदित निर्देशों को सत्यापित करें।',
+        verifiedDosePerBigha: (formDosePerBigha !== '' && Number(formDosePerBigha) > 0) ? Number(formDosePerBigha) : undefined,
+        doseBighaUnit: formDoseBighaUnit,
+        warningNote: formDoseWarning.trim() || undefined,
       } : undefined;
+
+      // Variants with zeroed stock (stock tracking removed)
+      const sanitizedVariants: PackagingVariant[] = formVariants.map(v => ({
+        ...v,
+        costPrice: Number(v.costPrice) || 0,
+        sellingPrice: Number(v.sellingPrice) || 0,
+        currentStockPacks: 0,
+      }));
 
       await saveAccountingProduct({
         hindiName: formHindiName.trim(),
@@ -369,83 +288,31 @@ export const AccountingInventory: React.FC = () => {
         category: formCategory,
         productType: formProductType,
         unit: firstVar.sizeUnit === 'Ltr' || firstVar.sizeUnit === 'ml' ? 'Bottle' : (firstVar.sizeUnit === 'kg' ? 'Bag' : 'Packet'),
-        currentStock: totalPacks,
-        minStockAlert: firstVar.minStockAlertPacks || 5,
+        currentStock: 0,
+        minStockAlert: 0,
         costPrice: Math.round(avgCost * 100) / 100,
         defaultSellingPrice: primarySelling,
         hsnCode: formHsnCode.trim(),
-        packagingVariants: formVariants,
-        hasMultipleVariants: formVariants.length > 1,
+        packagingVariants: sanitizedVariants,
+        hasMultipleVariants: sanitizedVariants.length > 1,
         standardDoseInfo: doseInfo,
-        looseStock: editingProduct?.looseStock,
-        batches: editingProduct?.batches,
-        batchNo: editingProduct?.batchNo,
-        expiryDate: editingProduct?.expiryDate,
-        manufacturingDate: editingProduct?.manufacturingDate,
       }, editingProduct?.id);
 
       await loadProducts();
       setShowProductModal(false);
       setEditingProduct(null);
     } catch (err: any) {
-      alert('उत्पाद सुरक्षित करने में त्रुटि: ' + err.message);
-    }
-  };
-
-  // Open Pack Action
-  const handleOpenPackSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!packOpenProduct || !selectedVariantIdToOpen) return;
-
-    setIsOpenPackSubmitting(true);
-    try {
-      const res = await openSealedPack(packOpenProduct.id, selectedVariantIdToOpen, Number(packsToOpenCount) || 1);
-      alert(res.message);
-      await loadProducts();
-      setPackOpenProduct(null);
-      setSelectedVariantIdToOpen('');
-      setPacksToOpenCount(1);
-    } catch (err: any) {
-      alert('पैकेट खोलने में त्रुटि: ' + err.message);
-    } finally {
-      setIsOpenPackSubmitting(false);
-    }
-  };
-
-  // Stock Adjustment Action
-  const handleApplyStockAdjustment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!adjustingProduct) return;
-
-    setIsAdjustSubmitting(true);
-    try {
-      await adjustProductStock({
-        productId: adjustingProduct.id,
-        variantId: adjustTargetType === 'variant' ? selectedVariantIdToAdjust : undefined,
-        isLooseStock: adjustTargetType === 'loose',
-        adjustType,
-        quantity: Number(stockAdjustQty),
-        reason: adjustReason.trim(),
-      });
-
-      await loadProducts();
-      setAdjustingProduct(null);
-      setStockAdjustQty(0);
-      alert('स्टॉक सफलतापूर्वक अपडेट हो गया!');
-    } catch (err: any) {
-      alert('स्टॉक अपडेट करने में त्रुटि: ' + err.message);
-    } finally {
-      setIsAdjustSubmitting(false);
+      alert('उत्पाद सुरक्षित करने में त्रुटि: ' + (err.message || err));
     }
   };
 
   const handleDelete = async (productId: string, name: string) => {
-    if (!window.confirm(`क्या आप वाकई "${name}" को इन्वेंट्री से हटाना चाहते हैं?`)) return;
+    if (!window.confirm(`क्या आप वाकई "${name}" को हटाना चाहते हैं?`)) return;
     try {
       await deleteAccountingProduct(productId);
       await loadProducts();
     } catch (err: any) {
-      alert('डिलीट करने में त्रुटि: ' + err.message);
+      alert('डिलीट करने में त्रुटि: ' + (err.message || err));
     }
   };
 
@@ -455,13 +322,13 @@ export const AccountingInventory: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-200">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">कृषि इन्वेंट्री व स्टॉक नियंत्रण</h2>
+            <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">स्टॉक (उत्पाद एवं मूल्य सूची)</h2>
             <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-              मल्टी-पैकेजिंग + खुला स्टॉक
+              मास्टर डेटा व मूल्य निर्धारण
             </span>
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
-            100ml से 20L, 50g से 50kg बैग, 4-महीने एक्सपायरी अलर्ट एवं खुला (Loose) स्टॉक प्रबंधन
+            उत्पादों की खरीद दर (Cost Price), बिक्री दर (Selling Price) और पैकेजिंग साइज मास्टर प्रबंधन
           </p>
         </div>
 
@@ -477,7 +344,7 @@ export const AccountingInventory: React.FC = () => {
           
           <button
             onClick={openAddModal}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#2D5A27] text-white rounded-xl text-xs font-bold hover:bg-[#23461e] transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#2D5A27] text-white rounded-xl text-xs font-bold hover:bg-[#23461e] transition-colors shadow-sm"
           >
             <Plus className="w-4 h-4" />
             <span>+ नया उत्पाद जोड़ें</span>
@@ -486,96 +353,79 @@ export const AccountingInventory: React.FC = () => {
       </div>
 
       {/* KPI METRIC CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         <div 
-          onClick={() => setStockFilter('all')}
+          onClick={() => setCategoryFilter('all')}
           className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-            stockFilter === 'all' ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-gray-200 hover:border-gray-300'
+            categoryFilter === 'all' ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-gray-200 hover:border-gray-300'
           }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-gray-500">कुल उत्पाद</span>
             <Boxes className="w-3.5 h-3.5 text-emerald-700" />
           </div>
-          <p className="text-xl font-black text-gray-900 mt-1">{inventoryMetrics.totalItems}</p>
-          <span className="text-[10px] text-gray-400">सभी श्रेणियां</span>
+          <p className="text-xl font-black text-gray-900 mt-1">{metrics.totalItems}</p>
+          <span className="text-[10px] text-gray-400">सभी पंजीकृत आइटम</span>
+        </div>
+
+        <div 
+          onClick={() => setCategoryFilter('pesticides')}
+          className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+            categoryFilter === 'pesticides' ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-500">कीटनाशक</span>
+            <Tag className="w-3.5 h-3.5 text-emerald-600" />
+          </div>
+          <p className="text-xl font-black text-gray-900 mt-1">{metrics.pesticidesCount}</p>
+          <span className="text-[10px] text-gray-400">स्प्रे व तकनीकी दवाइयां</span>
+        </div>
+
+        <div 
+          onClick={() => setCategoryFilter('fertilizers')}
+          className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+            categoryFilter === 'fertilizers' ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-500">उर्वरक / खाद</span>
+            <Tag className="w-3.5 h-3.5 text-blue-600" />
+          </div>
+          <p className="text-xl font-black text-gray-900 mt-1">{metrics.fertilizersCount}</p>
+          <span className="text-[10px] text-gray-400">NPK, यूरिया, सूक्ष्म पोषक</span>
+        </div>
+
+        <div 
+          onClick={() => setCategoryFilter('seeds')}
+          className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+            categoryFilter === 'seeds' ? 'bg-amber-50 border-amber-300' : 'bg-white border-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-500">उन्नत बीज</span>
+            <Tag className="w-3.5 h-3.5 text-amber-600" />
+          </div>
+          <p className="text-xl font-black text-gray-900 mt-1">{metrics.seedsCount}</p>
+          <span className="text-[10px] text-gray-400">फसल व सब्जी बीज</span>
         </div>
 
         <div className="p-3 bg-white rounded-2xl border border-gray-200">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-gray-500">स्टॉक मूल्यांकन (Cost)</span>
-            <DollarSign className="w-3.5 h-3.5 text-blue-700" />
+            <span className="text-[11px] font-semibold text-gray-500">अन्य उत्पाद</span>
+            <Tag className="w-3.5 h-3.5 text-purple-600" />
           </div>
-          <p className="text-lg font-black text-gray-900 mt-1">₹{inventoryMetrics.totalValuationCost.toLocaleString('en-IN')}</p>
-          <span className="text-[10px] text-emerald-700 font-bold">विक्रय: ₹{inventoryMetrics.totalValuationSelling.toLocaleString('en-IN')}</span>
+          <p className="text-xl font-black text-gray-900 mt-1">{metrics.otherCount}</p>
+          <span className="text-[10px] text-gray-400">उपकरण, स्प्रेयर आदि</span>
         </div>
 
-        {/* 4-Month Expiry Alert Card */}
-        <div 
-          onClick={() => setStockFilter('expiry_4m')}
-          className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-            stockFilter === 'expiry_4m' ? 'bg-amber-100 border-amber-400' : 'bg-amber-50/70 border-amber-200 hover:border-amber-300'
-          }`}
-        >
+        <div className="p-3 bg-white rounded-2xl border border-gray-200">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5 text-amber-700" />
-              4 माह में एक्सपायरी
-            </span>
-            <span className="bg-amber-200 text-amber-900 text-[10px] font-black px-1.5 py-0.5 rounded">Alert</span>
+            <span className="text-[11px] font-semibold text-gray-500">औसत लाभ मार्जिन</span>
+            <Percent className="w-3.5 h-3.5 text-emerald-700" />
           </div>
-          <p className="text-xl font-black text-amber-900 mt-1">{inventoryMetrics.expiringWithin4MonthsCount}</p>
-          <span className="text-[10px] text-amber-800 font-semibold">प्राथमिकता से बेचें</span>
-        </div>
-
-        {/* Expired Stock Alert Card */}
-        <div 
-          onClick={() => setStockFilter('expired')}
-          className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-            stockFilter === 'expired' ? 'bg-red-100 border-red-400' : 'bg-red-50/70 border-red-200 hover:border-red-300'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-red-900 flex items-center gap-1">
-              <ShieldAlert className="w-3.5 h-3.5 text-red-700" />
-              एक्सपायर्ड स्टॉक
-            </span>
-            <span className="bg-red-200 text-red-900 text-[10px] font-black px-1.5 py-0.5 rounded">Block</span>
-          </div>
-          <p className="text-xl font-black text-red-900 mt-1">{inventoryMetrics.expiredCount}</p>
-          <span className="text-[10px] text-red-800 font-semibold">बिक्री पर रोक</span>
-        </div>
-
-        {/* Loose Stock Items Card */}
-        <div 
-          onClick={() => setStockFilter('loose')}
-          className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-            stockFilter === 'loose' ? 'bg-sky-100 border-sky-400' : 'bg-sky-50/70 border-sky-200 hover:border-sky-300'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-sky-900 flex items-center gap-1">
-              <Droplet className="w-3.5 h-3.5 text-sky-700" />
-              खुला स्टॉक (Loose)
-            </span>
-          </div>
-          <p className="text-xl font-black text-sky-900 mt-1">{inventoryMetrics.looseProductsCount}</p>
-          <span className="text-[10px] text-sky-800 font-semibold">ग्राम / मिलीलीटर में</span>
-        </div>
-
-        {/* Low Stock Alert Card */}
-        <div 
-          onClick={() => setStockFilter('low')}
-          className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-            stockFilter === 'low' ? 'bg-rose-100 border-rose-400' : 'bg-white border-gray-200 hover:border-gray-300'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-gray-600">कम स्टॉक</span>
-            <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-          </div>
-          <p className="text-xl font-black text-rose-700 mt-1">{inventoryMetrics.lowStockCount}</p>
-          <span className="text-[10px] text-gray-400">री-ऑर्डर की जरूरत</span>
+          <p className="text-xl font-black text-emerald-700 mt-1">{metrics.avgMarginPercent}%</p>
+          <span className="text-[10px] text-gray-400">बिक्री दर के आधार पर</span>
         </div>
       </div>
 
@@ -585,7 +435,7 @@ export const AccountingInventory: React.FC = () => {
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="उत्पाद का नाम, टेक्निकल नाम, बैच नंबर खोजें..."
+            placeholder="उत्पाद का नाम, तकनीकी नाम, HSN खोजें..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -603,73 +453,27 @@ export const AccountingInventory: React.FC = () => {
               <option key={cat.id} value={cat.id}>{cat.nameHindi}</option>
             ))}
           </select>
-
-          {/* Quick Filter Tabs */}
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl text-xs font-bold shrink-0">
-            <button
-              onClick={() => setStockFilter('all')}
-              className={`px-2.5 py-1 rounded-lg transition-all ${
-                stockFilter === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
-              }`}
-            >
-              सभी
-            </button>
-            <button
-              onClick={() => setStockFilter('expiry_4m')}
-              className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${
-                stockFilter === 'expiry_4m' ? 'bg-white text-amber-800 shadow-sm' : 'text-gray-500'
-              }`}
-            >
-              <Clock className="w-3 h-3 text-amber-600" />
-              <span>4 माह अलर्ट</span>
-            </button>
-            <button
-              onClick={() => setStockFilter('expired')}
-              className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${
-                stockFilter === 'expired' ? 'bg-white text-red-700 shadow-sm' : 'text-gray-500'
-              }`}
-            >
-              <ShieldAlert className="w-3 h-3 text-red-600" />
-              <span>एक्सपायर्ड</span>
-            </button>
-            <button
-              onClick={() => setStockFilter('loose')}
-              className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${
-                stockFilter === 'loose' ? 'bg-white text-sky-800 shadow-sm' : 'text-gray-500'
-              }`}
-            >
-              <Droplet className="w-3 h-3 text-sky-600" />
-              <span>खुला (Loose)</span>
-            </button>
-            <button
-              onClick={() => setStockFilter('low')}
-              className={`px-2.5 py-1 rounded-lg transition-all ${
-                stockFilter === 'low' ? 'bg-white text-rose-700 shadow-sm' : 'text-gray-500'
-              }`}
-            >
-              कम स्टॉक
-            </button>
-          </div>
         </div>
       </div>
 
-      {/* PRODUCTS TABLE / CARDS */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      {/* PRODUCTS MASTER TABLE */}
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider">
                 <th className="py-3.5 px-4">उत्पाद व टेक्निकल विवरण</th>
-                <th className="py-3.5 px-3">पैकेजिंग वेरिएंट्स व स्टॉक (Packs)</th>
-                <th className="py-3.5 px-3">खुला स्टॉक (Loose)</th>
-                <th className="py-3.5 px-3">एक्सपायरी अलर्ट (Batch / Expiry)</th>
-                <th className="py-3.5 px-3 text-right">त्वरित एक्शन</th>
+                <th className="py-3.5 px-3">पैकेजिंग साइज (Pack Sizes)</th>
+                <th className="py-3.5 px-3">खरीद दर (Cost Price)</th>
+                <th className="py-3.5 px-3">बिक्री दर (Selling Price)</th>
+                <th className="py-3.5 px-3">लाभ / मार्जिन</th>
+                <th className="py-3.5 px-4 text-right">त्वरित एक्शन</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-gray-400">
+                  <td colSpan={6} className="py-12 text-center text-gray-400">
                     <Package className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                     कोई उत्पाद नहीं मिला। नया उत्पाद जोड़ने के लिए ऊपर <strong>"+ नया उत्पाद जोड़ें"</strong> दबाएं।
                   </td>
@@ -677,8 +481,11 @@ export const AccountingInventory: React.FC = () => {
               ) : (
                 filteredProducts.map(p => {
                   const isExpanded = expandedProductIds[p.id];
-                  const hasLoose = (p.looseStock?.availableBaseQty || 0) > 0;
-                  const looseDisplay = formatBaseUnitDisplay(p.looseStock?.availableBaseQty || 0, p.looseStock?.baseUnit || 'ml');
+                  const firstVar = p.resolvedVariants[0];
+                  const primaryCost = firstVar?.costPrice || p.costPrice || 0;
+                  const primarySelling = firstVar?.sellingPrice || p.defaultSellingPrice || 0;
+                  const primaryMargin = primarySelling - primaryCost;
+                  const marginPercent = primarySelling > 0 ? Math.round((primaryMargin / primarySelling) * 100) : 0;
 
                   return (
                     <React.Fragment key={p.id}>
@@ -686,16 +493,20 @@ export const AccountingInventory: React.FC = () => {
                         {/* Column 1: Product Name & Category */}
                         <td className="py-3.5 px-4 align-top">
                           <div className="flex items-start gap-2">
-                            <button
-                              onClick={() => toggleProductExpand(p.id)}
-                              className="mt-0.5 p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded"
-                              title="वेरिएंट्स विस्तार से देखें"
-                            >
-                              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                            </button>
+                            {p.resolvedVariants.length > 1 && (
+                              <button
+                                onClick={() => toggleProductExpand(p.id)}
+                                className="mt-0.5 p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded"
+                                title="सभी साइज विस्तार से देखें"
+                              >
+                                {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                              </button>
+                            )}
                             <div>
                               <div className="font-extrabold text-gray-900 text-sm">{p.hindiName}</div>
-                              <div className="text-[11px] text-gray-500">{p.name}</div>
+                              {p.name && p.name !== p.hindiName && (
+                                <div className="text-[11px] text-gray-500">{p.name}</div>
+                              )}
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="px-2 py-0.5 bg-gray-100 text-gray-700 font-semibold rounded text-[10px]">
                                   {p.category}
@@ -705,117 +516,91 @@ export const AccountingInventory: React.FC = () => {
                                     · {p.productType === 'liquid' ? 'तरल (Liquid)' : 'पाउडर / दानेदार'}
                                   </span>
                                 )}
+                                {p.hsnCode && (
+                                  <span className="text-[10px] text-gray-400 font-mono">
+                                    · HSN: {p.hsnCode}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
                         </td>
 
-                        {/* Column 2: Packaging Variants & Sealed Stock */}
+                        {/* Column 2: Packaging Sizes */}
                         <td className="py-3.5 px-3 align-top">
                           <div className="flex flex-wrap gap-1.5 max-w-xs">
-                            {p.resolvedVariants.map((v, i) => {
-                              const isOutOfStock = (v.currentStockPacks || 0) <= 0;
-                              return (
-                                <span
-                                  key={v.id || i}
-                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] border ${
-                                    isOutOfStock 
-                                      ? 'bg-red-50 text-red-700 border-red-200' 
-                                      : 'bg-emerald-50 text-emerald-900 border-emerald-200 font-semibold'
-                                  }`}
-                                >
-                                  <span>{v.label}</span>
-                                  <span className="font-black">({v.currentStockPacks || 0})</span>
-                                </span>
-                              );
-                            })}
-                          </div>
-                          <div className="text-[10px] text-gray-500 mt-1 font-medium">
-                            कुल सीलबंद: <strong className="text-gray-900">{p.totalStockPacks} पैकेट</strong>
+                            {p.resolvedVariants.map((v, i) => (
+                              <span
+                                key={v.id || i}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] bg-gray-50 text-gray-800 border border-gray-200 font-semibold"
+                              >
+                                {v.label || `${v.sizeValue} ${v.sizeUnit}`}
+                              </span>
+                            ))}
                           </div>
                         </td>
 
-                        {/* Column 3: Loose Stock Pool */}
+                        {/* Column 3: Cost Price */}
                         <td className="py-3.5 px-3 align-top">
-                          {hasLoose ? (
-                            <div className="p-1.5 bg-sky-50 border border-sky-200 rounded-xl inline-block">
-                              <div className="flex items-center gap-1 text-sky-900 font-bold text-xs">
-                                <Droplet className="w-3.5 h-3.5 text-sky-600" />
-                                <span>{looseDisplay}</span>
-                              </div>
-                              <div className="text-[10px] text-sky-800 mt-0.5">
-                                ₹{p.looseStock?.costPerBaseUnit || 0}/{p.looseStock?.baseUnit || 'ml'} (लागत)
-                              </div>
-                            </div>
+                          {p.resolvedVariants.length === 1 ? (
+                            <span className="font-bold text-gray-900 text-xs">
+                              ₹{primaryCost}
+                            </span>
                           ) : (
-                            <span className="text-[11px] text-gray-400 italic">खुला स्टॉक नहीं</span>
+                            <div className="text-xs">
+                              <span className="font-bold text-gray-900">₹{primaryCost}</span>
+                              <span className="text-[10px] text-gray-400 block font-normal">
+                                ({p.resolvedVariants.length} साइज उपलब्ध)
+                              </span>
+                            </div>
                           )}
                         </td>
 
-                        {/* Column 4: Expiry Status & Batch */}
+                        {/* Column 4: Selling Price */}
                         <td className="py-3.5 px-3 align-top">
-                          <div className="space-y-1">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border ${p.expiryAlert.badgeClass}`}>
-                              {p.isExpired ? <ShieldAlert className="w-3 h-3" /> : p.isExpiringWithin4Months ? <Clock className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
-                              <span>{p.expiryAlert.labelHindi}</span>
+                          {p.resolvedVariants.length === 1 ? (
+                            <span className="font-bold text-emerald-800 text-xs">
+                              ₹{primarySelling}
                             </span>
-                            {p.batchNo && (
-                              <div className="text-[10px] text-gray-500 font-mono">
-                                बैच: {p.batchNo}
-                              </div>
-                            )}
+                          ) : (
+                            <div className="text-xs">
+                              <span className="font-bold text-emerald-800">₹{primarySelling}</span>
+                              <span className="text-[10px] text-gray-400 block font-normal">
+                                ({firstVar?.label || 'प्राइमरी'})
+                              </span>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Column 5: Margin / Profit */}
+                        <td className="py-3.5 px-3 align-top">
+                          <div className="text-xs">
+                            <span className={`font-bold ${primaryMargin >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                              ₹{primaryMargin} ({marginPercent}%)
+                            </span>
+                            <span className="text-[10px] text-gray-400 block">प्रति नग लाभ</span>
                           </div>
                         </td>
 
-                        {/* Column 5: Action Buttons */}
+                        {/* Column 6: Action Buttons */}
                         <td className="py-3.5 px-4 text-right align-top">
                           <div className="flex items-center justify-end gap-1.5">
-                            {/* Open Pack Button */}
-                            <button
-                              onClick={() => {
-                                setPackOpenProduct(p);
-                                const firstAvailable = p.resolvedVariants.find(v => (v.currentStockPacks || 0) > 0);
-                                setSelectedVariantIdToOpen(firstAvailable?.id || p.resolvedVariants[0]?.id || '');
-                                setPacksToOpenCount(1);
-                              }}
-                              className="px-2 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors"
-                              title="सीलबंद पैकेट खोलकर खुला स्टॉक बनाएं"
-                            >
-                              <Droplet className="w-3 h-3 text-sky-600" />
-                              <span>पैकेट खोलें</span>
-                            </button>
-
-                            {/* Adjust Stock Button */}
-                            <button
-                              onClick={() => {
-                                setAdjustingProduct(p);
-                                setAdjustTargetType('variant');
-                                setSelectedVariantIdToAdjust(p.resolvedVariants[0]?.id || '');
-                                setStockAdjustQty(0);
-                                setAdjustType('add');
-                              }}
-                              className="p-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-lg text-xs font-bold"
-                              title="स्टॉक एडजस्टमेंट (तौल कमी / मिलान)"
-                            >
-                              <Scale className="w-3.5 h-3.5" />
-                            </button>
-
                             {/* Edit Button */}
                             <button
                               onClick={() => openEditModal(p)}
-                              className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg border border-transparent hover:border-gray-200"
-                              title="उत्पाद व पैकेजिंग संपादित करें"
+                              className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg border border-transparent hover:border-gray-200 transition-colors"
+                              title="मूल्य व उत्पाद संपादित करें"
                             >
-                              <Edit3 className="w-3.5 h-3.5" />
+                              <Edit3 className="w-4 h-4" />
                             </button>
 
                             {/* Delete Button */}
                             <button
                               onClick={() => handleDelete(p.id, p.hindiName)}
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="हटाएं"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
@@ -823,37 +608,58 @@ export const AccountingInventory: React.FC = () => {
 
                       {/* EXPANDED ACCORDION: DETAIL PER VARIANT & DOSE INFO */}
                       {isExpanded && (
-                        <tr className="bg-gray-50/50">
-                          <td colSpan={5} className="p-3 pl-12">
+                        <tr className="bg-gray-50/60">
+                          <td colSpan={6} className="p-3 pl-12">
                             <div className="bg-white p-3 rounded-xl border border-gray-200 space-y-3">
                               <div className="flex items-center justify-between">
                                 <span className="font-bold text-gray-800 text-xs flex items-center gap-1.5">
                                   <Layers className="w-3.5 h-3.5 text-emerald-700" />
-                                  पैकेजिंग वेरिएंट्स का पूरा ब्यौरा (Pack Sizes & Rates)
+                                  सभी पैकेजिंग साइज व मूल्य विवरण (Rate Card)
                                 </span>
                                 {p.standardDoseInfo && (
-                                  <span className="text-[11px] text-gray-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium">
-                                    प्रमाणित डोज़: <strong>{p.standardDoseInfo.verifiedDosePer20LTank} {p.standardDoseInfo.doseUnit || 'ml'}</strong> प्रति 20L पंप
-                                  </span>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {p.standardDoseInfo.verifiedDosePer20LTank && (
+                                      <span className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium">
+                                        पंप डोज़: <strong>{p.standardDoseInfo.verifiedDosePer20LTank} {p.standardDoseInfo.doseUnit || 'ml'}</strong> / 20L
+                                      </span>
+                                    )}
+                                    {p.standardDoseInfo.verifiedDosePerBigha && (
+                                      <span className="text-[11px] text-emerald-900 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-medium">
+                                        प्रति बीघा: <strong>{p.standardDoseInfo.verifiedDosePerBigha} {p.standardDoseInfo.doseBighaUnit || 'kg'}</strong> / बीघा
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
                               </div>
 
                               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
-                                {p.resolvedVariants.map(v => (
-                                  <div key={v.id} className="p-2.5 bg-gray-50 rounded-xl border border-gray-200 text-xs">
-                                    <div className="font-extrabold text-gray-900 flex items-center justify-between">
-                                      <span>{v.label}</span>
-                                      <span className="text-emerald-800">स्टॉक: {v.currentStockPacks || 0}</span>
-                                    </div>
-                                    <div className="mt-1 space-y-0.5 text-[11px] text-gray-600">
-                                      <div>खरीद भाव (Cost): ₹{v.costPrice}</div>
-                                      <div>बिक्री भाव (Selling): ₹{v.sellingPrice}</div>
-                                      <div className="text-emerald-700 font-bold">
-                                        मार्जिन: ₹{Math.max(0, v.sellingPrice - v.costPrice)} ({v.sellingPrice > 0 ? Math.round(((v.sellingPrice - v.costPrice) / v.sellingPrice) * 100) : 0}%)
+                                {p.resolvedVariants.map(v => {
+                                  const cost = v.costPrice || 0;
+                                  const selling = v.sellingPrice || 0;
+                                  const diff = selling - cost;
+                                  const mPct = selling > 0 ? Math.round((diff / selling) * 100) : 0;
+                                  return (
+                                    <div key={v.id} className="p-2.5 bg-gray-50 rounded-xl border border-gray-200 text-xs">
+                                      <div className="font-extrabold text-gray-900">
+                                        {v.label}
+                                      </div>
+                                      <div className="mt-1.5 space-y-1 text-[11px] text-gray-600">
+                                        <div className="flex justify-between">
+                                          <span>खरीद दर (Cost):</span>
+                                          <strong className="text-gray-800">₹{cost}</strong>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span>बिक्री दर (Selling):</span>
+                                          <strong className="text-emerald-800">₹{selling}</strong>
+                                        </div>
+                                        <div className="flex justify-between pt-1 border-t border-gray-200 text-emerald-700 font-bold">
+                                          <span>मुनाफा (Margin):</span>
+                                          <span>₹{diff} ({mPct}%)</span>
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             </div>
                           </td>
@@ -868,18 +674,18 @@ export const AccountingInventory: React.FC = () => {
         </div>
       </div>
 
-      {/* MODAL 1: ADD / EDIT PRODUCT & MULTI-PACKAGING VARIANTS */}
+      {/* MODAL: ADD / EDIT PRODUCT & MULTI-PACKAGING SIZES (MASTER & PRICING ONLY) */}
       {showProductModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-150">
             <div className="flex items-center justify-between border-b pb-3">
               <div>
                 <h3 className="text-base font-extrabold text-gray-900">
-                  {editingProduct ? 'उत्पाद व पैकेजिंग वेरिएंट्स संपादित करें' : 'इन्वेंट्री में नया उत्पाद जोड़ें'}
+                  {editingProduct ? 'उत्पाद व मूल्य सूची संपादित करें' : 'नया उत्पाद जोड़ें'}
                 </h3>
-                <p className="text-xs text-gray-500">कृषि इनपुट के लिए अलग-अलग साइज (100ml, 250ml, 1L, 1kg आदि) कॉन्फ़िगर करें</p>
+                <p className="text-xs text-gray-500">उत्पाद की खरीद दर (Cost Price) और बिक्री दर (Selling Price) दर्ज करें</p>
               </div>
-              <button onClick={() => setShowProductModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowProductModal(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -896,10 +702,26 @@ export const AccountingInventory: React.FC = () => {
                 onChange={updated => {
                   if (updated.hindiName !== undefined) setFormHindiName(updated.hindiName);
                   if (updated.name !== undefined) setFormName(updated.name);
-                  if (updated.category !== undefined) setFormCategory(updated.category);
+                  if (updated.category !== undefined) {
+                    setFormCategory(updated.category);
+                    if (formProductType !== 'liquid') {
+                      if (updated.category === 'fertilizers') {
+                        setFormDoseBighaUnit('kg');
+                      } else {
+                        setFormDoseBighaUnit('g');
+                      }
+                    }
+                  }
                   if (updated.productType !== undefined) {
                     setFormProductType(updated.productType);
                     setFormDoseUnit(updated.productType === 'liquid' ? 'ml' : 'g');
+                    if (updated.productType === 'liquid') {
+                      setFormDoseBighaUnit('ml');
+                    } else if (formCategory === 'fertilizers') {
+                      setFormDoseBighaUnit('kg');
+                    } else {
+                      setFormDoseBighaUnit('g');
+                    }
                   }
                 }}
                 existingProducts={products}
@@ -908,15 +730,27 @@ export const AccountingInventory: React.FC = () => {
                 accentColor="emerald"
               />
 
-              {/* SECTION B: PACKAGING VARIANTS BUILDER */}
+              {/* HSN CODE (OPTIONAL) */}
+              <div>
+                <label className="text-[10px] font-bold text-gray-500 block mb-0.5">HSN कोड (वैकल्पिक)</label>
+                <input
+                  type="text"
+                  placeholder="उदा. 3808"
+                  value={formHsnCode}
+                  onChange={e => setFormHsnCode(e.target.value)}
+                  className="w-full sm:w-1/2 p-2 bg-gray-50 border border-gray-200 rounded-xl font-mono text-xs"
+                />
+              </div>
+
+              {/* SECTION B: PACKAGING SIZES & PRICING (NO QUANTITY/INVENTORY FIELDS) */}
               <div className="border-t border-gray-200 pt-3">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                   <div>
-                    <span className="font-extrabold text-gray-900 text-xs block">पैकेजिंग साइज वेरिएंट्स (Pack Sizes)</span>
-                    <span className="text-[11px] text-gray-500">अलग-अलग साइज की खरीद और बिक्री दर तय करें</span>
+                    <span className="font-extrabold text-gray-900 text-xs block">पैकेजिंग साइज व मूल्य दरें (Pack Sizes & Rates)</span>
+                    <span className="text-[11px] text-gray-500">प्रत्येक साइज की खरीद दर और बिक्री दर तय करें</span>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {/* Quick Preset Buttons */}
                     {formProductType === 'liquid' ? (
                       <>
@@ -967,6 +801,13 @@ export const AccountingInventory: React.FC = () => {
                         </button>
                         <button
                           type="button"
+                          onClick={() => addVariantToForm({ val: 500, unit: 'g', type: 'Packet' })}
+                          className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-[10px] font-bold"
+                        >
+                          + 500g
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => addVariantToForm({ val: 1, unit: 'kg', type: 'Bag' })}
                           className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-[10px] font-bold"
                         >
@@ -981,137 +822,182 @@ export const AccountingInventory: React.FC = () => {
                       className="px-2.5 py-1 bg-emerald-700 text-white rounded-lg text-[10px] font-bold hover:bg-emerald-800 flex items-center gap-1"
                     >
                       <Plus className="w-3 h-3" />
-                      <span>+ नई पैकेजिंग</span>
+                      <span>+ नई साइज</span>
                     </button>
                   </div>
                 </div>
 
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                  {formVariants.map((v, idx) => (
-                    <div key={v.id || idx} className="p-3 bg-gray-50 rounded-2xl border border-gray-200 grid grid-cols-1 sm:grid-cols-6 gap-2 items-center">
-                      <div className="sm:col-span-2">
-                        <label className="text-[10px] font-bold text-gray-500 block mb-0.5">साइज व पैकेजिंग प्रकार</label>
-                        <div className="flex gap-1">
+                  {formVariants.map((v, idx) => {
+                    const cost = Number(v.costPrice) || 0;
+                    const selling = Number(v.sellingPrice) || 0;
+                    const marginVal = selling - cost;
+                    const marginPct = selling > 0 ? Math.round((marginVal / selling) * 100) : 0;
+
+                    return (
+                      <div key={v.id || idx} className="p-3 bg-gray-50 rounded-2xl border border-gray-200 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                        <div className="sm:col-span-5">
+                          <label className="text-[10px] font-bold text-gray-500 block mb-0.5">साइज व पैकेजिंग प्रकार</label>
+                          <div className="flex gap-1">
+                            <input
+                              type="number"
+                              step="any"
+                              required
+                              value={v.sizeValue}
+                              onChange={e => updateFormVariant(idx, 'sizeValue', Number(e.target.value))}
+                              className="w-16 p-1.5 bg-white border border-gray-200 rounded-lg font-bold text-center"
+                            />
+                            <select
+                              value={v.sizeUnit}
+                              onChange={e => updateFormVariant(idx, 'sizeUnit', e.target.value)}
+                              className="p-1.5 bg-white border border-gray-200 rounded-lg font-bold text-[11px]"
+                            >
+                              <option value="ml">ml</option>
+                              <option value="Ltr">Ltr</option>
+                              <option value="g">g</option>
+                              <option value="kg">kg</option>
+                              <option value="Piece">नग</option>
+                            </select>
+                            <select
+                              value={v.packagingType}
+                              onChange={e => updateFormVariant(idx, 'packagingType', e.target.value)}
+                              className="p-1.5 bg-white border border-gray-200 rounded-lg font-bold text-[11px] flex-1"
+                            >
+                              <option value="Bottle">बोतल</option>
+                              <option value="Pouch">पाउच</option>
+                              <option value="Packet">पैकेट</option>
+                              <option value="Bag">कट्टा/बैग</option>
+                              <option value="Can">केन</option>
+                              <option value="Bucket">बाल्टी</option>
+                              <option value="Box">बॉक्स</option>
+                              <option value="Other">अन्य</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="sm:col-span-3">
+                          <label className="text-[10px] font-bold text-gray-500 block mb-0.5">खरीद दर (Cost) ₹</label>
                           <input
                             type="number"
                             step="any"
                             required
-                            value={v.sizeValue}
-                            onChange={e => updateFormVariant(idx, 'sizeValue', Number(e.target.value))}
-                            className="w-16 p-1.5 bg-white border border-gray-200 rounded-lg font-bold text-center"
+                            value={v.costPrice}
+                            onChange={e => updateFormVariant(idx, 'costPrice', Number(e.target.value))}
+                            className="w-full p-1.5 bg-white border border-gray-200 rounded-lg font-bold text-gray-900"
+                            placeholder="0"
                           />
-                          <select
-                            value={v.sizeUnit}
-                            onChange={e => updateFormVariant(idx, 'sizeUnit', e.target.value)}
-                            className="p-1.5 bg-white border border-gray-200 rounded-lg font-bold text-[11px]"
+                        </div>
+
+                        <div className="sm:col-span-3">
+                          <label className="text-[10px] font-bold text-gray-500 block mb-0.5">बिक्री दर (Sale) ₹</label>
+                          <input
+                            type="number"
+                            step="any"
+                            required
+                            value={v.sellingPrice}
+                            onChange={e => updateFormVariant(idx, 'sellingPrice', Number(e.target.value))}
+                            className="w-full p-1.5 bg-white border border-gray-200 rounded-lg font-bold text-emerald-800"
+                            placeholder="0"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-1 flex items-center justify-end">
+                          <button
+                            type="button"
+                            onClick={() => removeFormVariant(idx)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg"
+                            title="इस साइज को हटाएं"
                           >
-                            <option value="ml">ml</option>
-                            <option value="Ltr">Ltr</option>
-                            <option value="g">g</option>
-                            <option value="kg">kg</option>
-                            <option value="Piece">नग</option>
-                          </select>
-                          <select
-                            value={v.packagingType}
-                            onChange={e => updateFormVariant(idx, 'packagingType', e.target.value)}
-                            className="p-1.5 bg-white border border-gray-200 rounded-lg font-bold text-[11px]"
-                          >
-                            <option value="Bottle">बोतल</option>
-                            <option value="Pouch">पाउच</option>
-                            <option value="Packet">पैकेट</option>
-                            <option value="Bag">कट्टा/बैग</option>
-                            <option value="Can">केन</option>
-                            <option value="Bucket">बाल्टी</option>
-                            <option value="Box">बॉक्स</option>
-                            <option value="Other">अन्य</option>
-                          </select>
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Live margin pill */}
+                        <div className="sm:col-span-12 flex items-center justify-between text-[11px] pt-1 border-t border-gray-200/60">
+                          <span className="text-gray-500">
+                            {v.label}
+                          </span>
+                          <span className={`font-bold ${marginVal >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                            मुनाफा: ₹{marginVal} ({marginPct}%)
+                          </span>
                         </div>
                       </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-gray-500 block mb-0.5">खरीद दर (Cost) ₹</label>
-                        <input
-                          type="number"
-                          step="any"
-                          required
-                          value={v.costPrice}
-                          onChange={e => updateFormVariant(idx, 'costPrice', Number(e.target.value))}
-                          className="w-full p-1.5 bg-white border border-gray-200 rounded-lg font-bold text-purple-900"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-gray-500 block mb-0.5">बिक्री दर (Sale) ₹</label>
-                        <input
-                          type="number"
-                          step="any"
-                          required
-                          value={v.sellingPrice}
-                          onChange={e => updateFormVariant(idx, 'sellingPrice', Number(e.target.value))}
-                          className="w-full p-1.5 bg-white border border-gray-200 rounded-lg font-bold text-emerald-800"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-gray-500 block mb-0.5">सीलबंद स्टॉक (Packs)</label>
-                        <input
-                          type="number"
-                          required
-                          value={v.currentStockPacks}
-                          onChange={e => updateFormVariant(idx, 'currentStockPacks', Number(e.target.value))}
-                          className="w-full p-1.5 bg-white border border-gray-200 rounded-lg font-extrabold text-gray-900"
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-end">
-                        <button
-                          type="button"
-                          onClick={() => removeFormVariant(idx)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg"
-                          title="इस साइज को हटाएं"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* SECTION C: DOSE ASSISTANT CONFIGURATION (OPTIONAL) */}
+              {/* SECTION C: DOSE ASSISTANT CONFIGURATION (OPTIONAL FOR POS ADVICE) */}
               <div className="border-t border-gray-200 pt-3">
                 <span className="font-extrabold text-gray-900 text-xs block mb-1">
                   प्रमाणित डोज़ सहायक (Dose Recommendation for POS)
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
-                    <label className="text-[10px] font-bold text-gray-500 block mb-0.5">20L पंप डोज़ ({formDoseUnit})</label>
+                    <label className="text-[10px] font-bold text-gray-700 block mb-0.5">
+                      20L पंप डोज़ ({formDoseUnit})
+                    </label>
                     <input
                       type="number"
-                      placeholder="उदा. 40"
+                      step="any"
+                      placeholder={formProductType === 'liquid' ? 'उदा. 40' : 'उदा. 25'}
                       value={formDosePerTank}
                       onChange={e => setFormDosePerTank(e.target.value === '' ? '' : Number(e.target.value))}
-                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg"
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold"
                     />
                   </div>
+
                   <div>
-                    <label className="text-[10px] font-bold text-gray-500 block mb-0.5">लक्षित फसलें</label>
-                    <input
-                      type="text"
-                      placeholder="उदा. कपास, सोयाबीन, मिर्च"
-                      value={formDoseTargetCrops}
-                      onChange={e => setFormDoseTargetCrops(e.target.value)}
-                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg"
-                    />
+                    <label className="text-[10px] font-bold text-gray-700 block mb-0.5">
+                      प्रति बीघा डोज़ ({formDoseBighaUnit === 'kg' ? 'किलो' : formDoseBighaUnit === 'g' ? 'ग्राम' : formDoseBighaUnit === 'ml' ? 'ml' : 'लीटर'})
+                    </label>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder={
+                          formDoseBighaUnit === 'kg'
+                            ? 'उदा. 20 (किलो/बीघा)'
+                            : formDoseBighaUnit === 'g'
+                            ? 'उदा. 500 (ग्राम/बीघा)'
+                            : formDoseBighaUnit === 'Ltr'
+                            ? 'उदा. 1 (लीटर/बीघा)'
+                            : 'उदा. 250 (ml/बीघा)'
+                        }
+                        value={formDosePerBigha}
+                        onChange={e => setFormDosePerBigha(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold"
+                      />
+                      <select
+                        value={formDoseBighaUnit}
+                        onChange={e => setFormDoseBighaUnit(e.target.value)}
+                        className="p-2 bg-gray-50 border border-gray-200 rounded-lg text-[11px] font-bold text-gray-700 shrink-0 cursor-pointer"
+                      >
+                        {formProductType === 'liquid' ? (
+                          <>
+                            <option value="ml">ml / बीघा</option>
+                            <option value="Ltr">लीटर / बीघा</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value="kg">किलो / बीघा</option>
+                            <option value="g">ग्राम / बीघा</option>
+                          </>
+                        )}
+                      </select>
+                    </div>
                   </div>
+
                   <div>
-                    <label className="text-[10px] font-bold text-gray-500 block mb-0.5">सुरक्षा निर्देश</label>
+                    <label className="text-[10px] font-bold text-gray-700 block mb-0.5">
+                      सुझाव निर्देश (वैकल्पिक)
+                    </label>
                     <input
                       type="text"
                       placeholder="उदा. शाम के समय स्प्रे करें"
                       value={formDoseWarning}
                       onChange={e => setFormDoseWarning(e.target.value)}
-                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg"
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
                     />
                   </div>
                 </div>
@@ -1121,205 +1007,7 @@ export const AccountingInventory: React.FC = () => {
                 type="submit"
                 className="w-full py-3.5 bg-[#2D5A27] text-white rounded-xl font-extrabold text-sm shadow-sm hover:bg-[#23461e] active:scale-95 transition-all mt-3"
               >
-                उत्पाद सुरक्षित करें
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: PACK OPEN MODAL */}
-      {packOpenProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-gray-900">सीलबंद पैकेट खोलें (Pack Open)</h3>
-                <p className="text-xs text-gray-500">{packOpenProduct.hindiName}</p>
-              </div>
-              <button onClick={() => setPackOpenProduct(null)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleOpenPackSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="font-bold text-gray-700 block mb-1">कौनसा साइज खोलना है?</label>
-                <select
-                  value={selectedVariantIdToOpen}
-                  onChange={e => setSelectedVariantIdToOpen(e.target.value)}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800"
-                >
-                  {packOpenProduct.packagingVariants?.map(v => (
-                    <option key={v.id} value={v.id}>
-                      {v.label} — उपलब्ध सीलबंद: {v.currentStockPacks || 0} पैकेट (लागत: ₹{v.costPrice})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="font-bold text-gray-700 block mb-1">कितने पैकेट खोलने हैं?</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="10"
-                  required
-                  value={packsToOpenCount}
-                  onChange={e => setPacksToOpenCount(Math.max(1, Number(e.target.value)))}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-extrabold text-base text-center"
-                />
-              </div>
-
-              <div className="p-3 bg-sky-50 border border-sky-200 rounded-xl space-y-1">
-                <div className="flex items-center gap-1.5 text-sky-900 font-bold">
-                  <Droplet className="w-4 h-4 text-sky-700" />
-                  <span>परिणाम: खुला स्टॉक तैयार होगा</span>
-                </div>
-                <p className="text-sky-800 text-[11px]">
-                  यह पैकेट सीलबंद स्टॉक से घटकर <strong>खुले स्टॉक (Loose Pool)</strong> में जमा हो जाएगा, 
-                  जिससे किसान को 50g/100g/200ml जैसी खुली मात्रा बेची जा सकेगी।
-                </p>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isOpenPackSubmitting}
-                className="w-full py-3 bg-[#2D5A27] text-white rounded-xl font-bold text-sm hover:bg-[#23461e] active:scale-95 transition-all flex items-center justify-center gap-1.5"
-              >
-                {isOpenPackSubmitting ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4" />
-                )}
-                <span>पैकेट खोलें और खुले स्टॉक में जमा करें</span>
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 3: STOCK ADJUSTMENT MODAL */}
-      {adjustingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-gray-900">स्टॉक एडजस्टमेंट (Audit & Tolerance)</h3>
-                <p className="text-xs text-gray-500">{adjustingProduct.hindiName}</p>
-              </div>
-              <button onClick={() => setAdjustingProduct(null)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleApplyStockAdjustment} className="space-y-3 text-xs">
-              {/* Target Type: Variant vs Loose */}
-              <div>
-                <label className="font-bold text-gray-700 block mb-1">एडजस्टमेंट का प्रकार चुनें:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAdjustTargetType('variant')}
-                    className={`p-2 rounded-xl border text-center font-bold ${
-                      adjustTargetType === 'variant' ? 'bg-emerald-50 text-emerald-900 border-emerald-300' : 'bg-gray-50 text-gray-600'
-                    }`}
-                  >
-                    सीलबंद पैकेट (Packs)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAdjustTargetType('loose')}
-                    className={`p-2 rounded-xl border text-center font-bold flex items-center justify-center gap-1 ${
-                      adjustTargetType === 'loose' ? 'bg-sky-50 text-sky-900 border-sky-300' : 'bg-gray-50 text-gray-600'
-                    }`}
-                  >
-                    <Droplet className="w-3.5 h-3.5" />
-                    <span>खुला स्टॉक (Loose)</span>
-                  </button>
-                </div>
-              </div>
-
-              {adjustTargetType === 'variant' ? (
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">साइज चुनें</label>
-                  <select
-                    value={selectedVariantIdToAdjust}
-                    onChange={e => setSelectedVariantIdToAdjust(e.target.value)}
-                    className="w-full p-2 bg-gray-50 border border-gray-200 rounded-xl font-bold"
-                  >
-                    {getProductVariants(adjustingProduct).map(v => (
-                      <option key={v.id} value={v.id}>
-                        {v.label} — वर्तमान: {v.currentStockPacks || 0} पैकेट
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="p-2.5 bg-sky-50 rounded-xl text-sky-900">
-                  वर्तमान खुला स्टॉक: <strong>{formatBaseUnitDisplay(adjustingProduct.looseStock?.availableBaseQty || 0, adjustingProduct.looseStock?.baseUnit || 'ml')}</strong>
-                </div>
-              )}
-
-              {/* Adjust Type */}
-              <div className="grid grid-cols-3 gap-1.5 text-xs font-bold">
-                <button
-                  type="button"
-                  onClick={() => setAdjustType('add')}
-                  className={`p-2 rounded-xl border ${adjustType === 'add' ? 'bg-emerald-700 text-white' : 'bg-gray-50'}`}
-                >
-                  + जोड़ें (Add)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAdjustType('subtract')}
-                  className={`p-2 rounded-xl border ${adjustType === 'subtract' ? 'bg-red-700 text-white' : 'bg-gray-50'}`}
-                >
-                  - घटाएं (Minus)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAdjustType('set')}
-                  className={`p-2 rounded-xl border ${adjustType === 'set' ? 'bg-blue-700 text-white' : 'bg-gray-50'}`}
-                >
-                  सीधा सेट करें
-                </button>
-              </div>
-
-              <div>
-                <label className="font-bold text-gray-700 block mb-1">
-                  मात्रा ({adjustTargetType === 'loose' ? (adjustingProduct.looseStock?.baseUnit || 'ml/g') : 'पैकेट'})
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  required
-                  value={stockAdjustQty}
-                  onChange={e => setStockAdjustQty(Number(e.target.value))}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base font-extrabold text-center"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-gray-700 block mb-1">कारण (Audit Reason)</label>
-                <select
-                  value={adjustReason}
-                  onChange={e => setAdjustReason(e.target.value)}
-                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-xl font-medium"
-                >
-                  <option value="शारीरिक स्टॉक मिलान (Physical Audit)">शारीरिक स्टॉक मिलान (Physical Audit)</option>
-                  <option value="तौलने में नुकसान / अवशिष्ट कमी (Weighing Loss)">तौलने में नुकसान / अवशिष्ट कमी (Weighing Loss)</option>
-                  <option value="फूटा / रिसन / खराब माल (Damage / Leakage)">फूटा / रिसन / खराब माल (Damage / Leakage)</option>
-                  <option value="ग्राहक वापसी (Customer Return)">ग्राहक वापसी (Customer Return)</option>
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isAdjustSubmitting}
-                className="w-full py-3 bg-[#2D5A27] text-white rounded-xl font-bold text-xs hover:bg-[#23461e] active:scale-95 transition-all mt-2"
-              >
-                {isAdjustSubmitting ? 'अपडेट हो रहा है...' : 'एडजस्टमेंट सुरक्षित करें'}
+                उत्पाद व मूल्य सुरक्षित करें
               </button>
             </form>
           </div>

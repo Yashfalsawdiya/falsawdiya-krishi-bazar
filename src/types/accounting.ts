@@ -87,6 +87,8 @@ export interface AccountingProduct {
     doseUnit?: 'ml' | 'g';
     targetCrops?: string;
     warningNote?: string;
+    verifiedDosePerBigha?: number; // e.g. 20 (kg) or 500 (g) or 250 (ml)
+    doseBighaUnit?: 'kg' | 'g' | 'ml' | 'Ltr' | string;
   };
   updatedAt: number;
   createdAt: number;
@@ -412,6 +414,7 @@ export interface AccountingSummaryReport {
   totalSupplierOutstanding: number;
   totalInventoryValuation: number;
   lowStockCount: number;
+  totalProductsCount?: number;
 }
 
 export interface AIBusinessInsight {
