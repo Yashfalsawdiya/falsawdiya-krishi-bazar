@@ -2655,19 +2655,14 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
-              <button
-                onClick={printReceipt}
-                className="py-3 px-2 bg-emerald-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1 hover:bg-emerald-900 transition-colors shadow-sm"
-              >
-                <Printer className="w-3.5 h-3.5" /> A4 प्रिंट
-              </button>
+            <div className="grid grid-cols-3 gap-2 pt-2">
               <button
                 onClick={handleDownloadPdf}
                 disabled={isDownloadingPdf}
-                className="py-3 px-2 bg-gray-100 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1 hover:bg-gray-200 transition-colors border border-gray-200 disabled:opacity-50"
+                className="py-3 px-2 bg-gray-100 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-gray-200 transition-colors border border-gray-200 disabled:opacity-50"
+                title="PDF डाउनलोड करें"
               >
-                <Download className="w-3.5 h-3.5 text-emerald-700" /> {isDownloadingPdf ? 'PDF...' : 'PDF फाइल'}
+                <Download className="w-3.5 h-3.5 text-gray-500 shrink-0" /> {isDownloadingPdf ? 'PDF...' : 'PDF'}
               </button>
               <button
                 onClick={() => {

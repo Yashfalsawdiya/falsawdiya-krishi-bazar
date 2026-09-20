@@ -1,6 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 import { getFriendlyAiError } from "../utils/aiErrorHandler";
 
+function isQuotaError(error: any): boolean {
+  const status = error?.status || error?.code;
+  const msg = (error?.message || String(error)).toLowerCase();
+  return status === 429 || status === 'RESOURCE_EXHAUSTED' || msg.includes('429') || msg.includes('quota') || msg.includes('resource_exhausted');
+}
+
 const getAI = (userApiKey?: string) => {
   // STRICT USER-SPECIFIC API KEY: We never fall back to shared/central environment keys
   const apiKey = userApiKey?.trim();
@@ -145,14 +151,17 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.8-flash",
         contents: { parts },
         config
       });
-    } catch (modelErr) {
+    } catch (modelErr: any) {
+      if (isQuotaError(modelErr)) {
+        throw modelErr;
+      }
       console.warn("Primary model attempt failed, retrying with fallback model...", modelErr);
       response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-flash-latest",
         contents: { parts },
         config
       });
@@ -241,16 +250,19 @@ ${historyPrompt}
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           systemInstruction,
           temperature: 0.7
         }
       });
-    } catch (e) {
+    } catch (e: any) {
+      if (isQuotaError(e)) {
+        throw e;
+      }
       response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-flash-latest",
         contents: prompt,
         config: {
           systemInstruction,
@@ -293,17 +305,20 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           systemInstruction: `You are a helpful Agri-Expert for farmers representing 'फल्सावदिया कृषि बाजार' in Shamgarh, MP. Our shop is at Dimple Chauraha and open 8:00 AM to 8:00 PM (सुबह 8:00 बजे से रात 8:00 बजे तक). Provide advice based on current weather. Today is ${dateStr}. Always use the name 'फल्सावदिया कृषि बाजार' strictly and never 'फालसावदिया'.`,
           tools: [{ googleSearch: {} }]
         }
       });
-    } catch (e) {
+    } catch (e: any) {
+      if (isQuotaError(e)) {
+        throw e;
+      }
       console.warn("Advice Search failed, fallback to knowledge...");
       response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-flash-latest",
         contents: prompt,
         config: {
           systemInstruction: `You are a helpful Agri-Expert representing 'फल्सावदिया कृषि बाजार'. Shop timings: 8:00 AM to 8:00 PM (सुबह 8:00 बजे से रात 8:00 बजे तक). Provide advice for ${dateStr} based on local knowledge. Always use the name 'फल्सावदिया कृषि बाजार' strictly. Do NOT use 'फालसावदिया'.`
@@ -350,17 +365,20 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाजार' located in Shamgarh, Mandsaur, MP.\n\nShop Profile:\n- Name: फल्सावदिया कृषि बाजार\n- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)\n- Timings: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)\n\nInstructions: Answer farmer questions in simple Hindi. Always mention that recommended products are available at 'फल्सावदिया कृषि बाजार'. STICT RULE: Do not use 'फालसावदिया'.",
           tools: [{ googleSearch: {} }]
         }
       });
-    } catch (e) {
+    } catch (e: any) {
+      if (isQuotaError(e)) {
+        throw e;
+      }
       console.warn("Chat Search failed, fallback to knowledge...");
       response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-flash-latest",
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाजार'. Shop Timings: 8:00 AM to 8:00 PM (सुबह 8:00 बजे से रात 8:00 बजे तक). Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh, Mandsaur, MP. Answer in Hindi and properly guide people to our shop 'फल्सावदिया कृषि बाजार'. strictly avoid 'फालसावदिया'."
@@ -832,7 +850,7 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           systemInstruction,
@@ -842,9 +860,12 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
         }
       });
     } catch (searchError: any) {
+      if (isQuotaError(searchError)) {
+        throw searchError;
+      }
       console.warn("Google search grounding failed in getProductKnowledge. Retrying without search tool.", searchError);
       response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-flash-latest",
         contents: prompt,
         config: {
           systemInstruction,
@@ -998,7 +1019,7 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.8-flash",
         contents: [
           { text: prompt },
           {
@@ -1016,9 +1037,12 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
         }
       });
     } catch (searchError: any) {
+      if (isQuotaError(searchError)) {
+        throw searchError;
+      }
       console.warn("Google search grounding failed in analyzeProductImage. Retrying without search tool.", searchError);
       response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-flash-latest",
         contents: [
           { text: prompt },
           {

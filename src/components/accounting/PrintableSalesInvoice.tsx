@@ -32,25 +32,26 @@ export const PrintableSalesInvoice: React.FC<Props> = ({ sale, customerOutstandi
       {/* 1. SHOP BRANDING & HEADER */}
       <div className="border-b-2 border-emerald-700 pb-3 mb-4 flex justify-between items-start">
         <div className="space-y-0.5">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🌱</span>
+          <div className="flex items-center gap-2.5">
+            <img 
+              src="/icon-192.png" 
+              alt="फल्सावदिया कृषि बाजार" 
+              className="w-11 h-11 rounded-lg object-contain shrink-0" 
+            />
             <div>
-              <h1 className="text-xl font-black text-emerald-900 tracking-tight leading-none">
+              <h1 className="text-xl font-extrabold text-emerald-900 leading-snug tracking-normal">
                 फल्सावदिया कृषि बाजार
               </h1>
-              <span className="text-[11px] font-bold text-emerald-700">
-                Falsawdiya Krishi Bazaar
-              </span>
             </div>
           </div>
           <p className="text-xs font-semibold text-emerald-800 pt-0.5">
             किसान का भरोसा, हमारी पहचान · उच्च गुणवत्ता कीटनाशक, बीज एवं उर्वरक
           </p>
-          <p className="text-[11px] text-gray-600">
-            डिंपल चौराहा, शामगढ़ (जिला मन्दसौर, म.प्र.) | पिन: 458883
+          <p className="text-[11px] text-gray-700 font-medium pt-0.5">
+            <strong>मोबाइल:</strong> <strong className="text-gray-900 font-bold">8982338046</strong>
           </p>
-          <p className="text-[11px] text-gray-600 font-medium">
-            संपर्क: <strong className="text-gray-900 font-bold">8982338046, 98260XXXXX</strong>
+          <p className="text-[11px] text-gray-700">
+            <strong>पता:</strong> डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर – (458883)
           </p>
         </div>
 

@@ -1170,7 +1170,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                   </div>
                 </div>
 
-                {/* Action Buttons: WhatsApp, Print, and PDF Download */}
+                {/* Action Buttons: WhatsApp and PDF Download */}
                 <div className="flex flex-wrap items-center justify-end gap-2.5 pt-2">
                   <button
                     onClick={() => sendInvoiceOnWhatsApp(selectedSale)}
@@ -1179,19 +1179,12 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                     <Share2 className="w-4 h-4" /> WhatsApp पर बिल भेजें
                   </button>
                   <button
-                    onClick={() => handlePrintSaleInvoice(selectedSale)}
-                    className="px-3.5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
-                    title="प्रिंट करें या Android Print Spooler / PDF में सेव करें"
-                  >
-                    <Printer className="w-4 h-4" /> प्रिंट करें
-                  </button>
-                  <button
                     onClick={() => handleDownloadSaleInvoicePdf(selectedSale)}
                     disabled={isDownloadingPdf}
-                    className="px-3.5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all disabled:opacity-50"
-                    title="सीधे PDF फाइल डाउनलोड करें"
+                    className="px-3.5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center gap-1.5 border border-gray-200 transition-all disabled:opacity-50 shadow-2xs"
+                    title="PDF डाउनलोड करें"
                   >
-                    <Download className="w-4 h-4 text-emerald-700" /> {isDownloadingPdf ? 'PDF बन रहा है...' : 'PDF डाउनलोड'}
+                    <Download className="w-4 h-4 text-gray-500 shrink-0" /> {isDownloadingPdf ? 'PDF बन रहा है...' : 'PDF'}
                   </button>
                   <button
                     onClick={() => setShowSaleModal(false)}

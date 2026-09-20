@@ -228,7 +228,7 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           systemInstruction: "You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Always search for and return authentic, high-quality agricultural news with real publication dates. Do NOT return duplicate news and do NOT forge today's date if the news is old.",
@@ -254,10 +254,14 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
           }
         }
       });
-    } catch (searchError) {
+    } catch (searchError: any) {
+      const errMsg = (searchError?.message || String(searchError)).toLowerCase();
+      if (searchError?.status === 429 || errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('resource_exhausted')) {
+        throw searchError;
+      }
       console.warn("Google Search Grounding failed, retrying with standard knowledge base generation", searchError);
       response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-flash-latest",
         contents: prompt,
         config: {
           systemInstruction: "You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार'. Return authentic, high-quality agricultural news with real publication dates. Since Google Search is currently unavailable, use your latest knowledge base up to 2026. Do NOT invent fake news.",

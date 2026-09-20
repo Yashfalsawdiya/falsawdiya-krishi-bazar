@@ -1067,21 +1067,16 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
 
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
-                  onClick={handlePrintSingle}
-                  className="flex-1 sm:flex-none py-2.5 px-4 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <Printer className="w-4 h-4" /> A4 प्रिंट
-                </button>
-                <button
                   onClick={() => handleDownloadSinglePdf(viewingSale)}
                   disabled={isDownloadingSinglePdf}
-                  className="flex-1 sm:flex-none py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-gray-200 disabled:opacity-50"
+                  className="flex-1 sm:flex-none py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-gray-200 disabled:opacity-50 transition-colors"
+                  title="PDF डाउनलोड करें"
                 >
-                  <Download className="w-4 h-4 text-emerald-700" /> {isDownloadingSinglePdf ? 'PDF बन रहा है...' : 'PDF फाइल'}
+                  <Download className="w-4 h-4 text-gray-500 shrink-0" /> {isDownloadingSinglePdf ? 'PDF बन रहा है...' : 'PDF'}
                 </button>
                 <button
                   onClick={() => setViewingSale(null)}
-                  className="py-2.5 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl text-xs font-bold"
+                  className="py-2.5 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl text-xs font-bold transition-colors"
                 >
                   बंद करें
                 </button>
