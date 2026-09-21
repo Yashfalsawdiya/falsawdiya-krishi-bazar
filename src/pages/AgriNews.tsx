@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { fetchAgriNews, AgriNewsItem, getFormattedDateString, parseDDMMYYYY } from '../services/newsService';
+import { 
+  fetchAgriNews, 
+  AgriNewsItem, 
+  getFormattedDateString, 
+  parseDDMMYYYY, 
+  validateArticleFreshness 
+} from '../services/newsService';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Newspaper, 
@@ -48,7 +54,7 @@ const AgriNews: React.FC = () => {
     "फसल, मौसम, सरकारी योजनाओं और एमएसपी (MSP) के नए अपडेट आ रहे हैं...",
     "कृषि जागरण और विश्वसनीय पोर्टल्स से लाइव समाचार खोज जारी है...",
     "ऑफ़लाइन पढ़ने के लिए लोकल कैश सुरक्षित रूप से तैयार किया जा रहा है...",
-    "पुरानी खबरों को सहेज कर आज की खबरों की जांच की जा रही है..."
+    "सत्यापित और वर्तमान कृषि समाचारों की जांच की जा रही है..."
   ];
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
 
@@ -64,11 +70,11 @@ const AgriNews: React.FC = () => {
   }, [loading]);
 
   /**
-   * Helper to convert DD/MM/YYYY into a beautiful Hindi date string (e.g. 17 जुलाई 2026)
+   * Helper to convert DD/MM/YYYY into a beautiful Hindi date string (e.g. 21 सितंबर 2026)
    */
   const convertToHindiDate = (dateStr: string): string => {
     if (!dateStr) return "";
-    const parts = dateStr.split('/');
+    const parts = dateStr.trim().split('/');
     if (parts.length === 3) {
       const day = parseInt(parts[0], 10);
       const monthIndex = parseInt(parts[1], 10) - 1;
@@ -93,7 +99,6 @@ const AgriNews: React.FC = () => {
     if (force) {
       setLoading(true);
     } else {
-      // If not forced, let's show silent loading if we have some existing news
       if (news.length === 0) {
         setLoading(true);
       } else {
@@ -125,7 +130,6 @@ const AgriNews: React.FC = () => {
   // Mount/Initial trigger
   useEffect(() => {
     if (!appLoading) {
-      // Load news initially from cache, and auto-checks / background-syncs if needed
       loadNews(false);
     }
   }, [appLoading, effectiveApiKey]);
@@ -160,7 +164,8 @@ const AgriNews: React.FC = () => {
 
   // Format news text for Copy/Share strictly according to user guidelines
   const getFormattedNewsText = (item: AgriNewsItem): string => {
-    const hindiDate = convertToHindiDate(item.date);
+    const isToday = item.date.trim() === getFormattedDateString();
+    const hindiDate = (isToday ? "आज, " : "") + convertToHindiDate(item.date);
     return `📰 *कृषि समाचार*
 
 *शीर्षक:*
@@ -206,26 +211,10 @@ ${item.source || "कृषि जागरण"}
     }
   };
 
-  // Filters news list to include ONLY the last 7 days of articles
-  const isWithinLast7Days = (dateStr: string): boolean => {
-    try {
-      const itemDate = parseDDMMYYYY(dateStr);
-      const today = new Date();
-      const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      
-      // Limit to 7 days ago midnight
-      const limitDate = new Date(todayMidnight.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const itemMidnight = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate());
-      
-      return itemMidnight.getTime() >= limitDate.getTime();
-    } catch (e) {
-      return false;
-    }
-  };
-
-  // Filter and sort the news items
+  // Filter and sort the news items strictly according to the freshness rules
+  const todayDateStr = getFormattedDateString();
   const filteredAndSortedNews = news
-    .filter(item => isWithinLast7Days(item.date))
+    .filter(item => validateArticleFreshness(item).isValid)
     .sort((a, b) => parseDDMMYYYY(b.date).getTime() - parseDDMMYYYY(a.date).getTime());
 
   return (
@@ -251,23 +240,27 @@ ${item.source || "कृषि जागरण"}
           फल्सावदिया कृषि बाजार • खेती-किसानी की ताज़ा, प्रमाणित और दैनिक खबरें
         </p>
 
-        <div className="flex items-center justify-center gap-2 mt-4">
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
           <button 
             onClick={() => {
               if (!requireApiKey("ताज़ा कृषि समाचार लोड करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) return;
               loadNews(true);
             }}
             disabled={loading || silentSyncing}
-            className="text-[11px] font-black text-[#2D5A27] flex items-center gap-1.5 bg-white px-4 py-2 rounded-full border border-[#2D5A27]/15 shadow-sm hover:bg-[#2D5A27]/5 active:scale-95 transition-all disabled:opacity-50"
+            className="text-[11px] font-black text-[#2D5A27] flex items-center gap-1.5 bg-white px-4 py-2 rounded-full border border-[#2D5A27]/15 shadow-sm hover:bg-[#2D5A27]/5 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
             id="btn-sync-news"
           >
             <RefreshCw className={cn("w-3.5 h-3.5 text-[#2D5A27]", (loading || silentSyncing) && "animate-spin")} />
             {loading || silentSyncing ? "अपडेट हो रहा है..." : "ताज़ा खबरें प्राप्त करें (Sync)"}
           </button>
           
-          {lastSyncedTime && (
-            <span className="text-[9px] text-gray-400 font-bold bg-gray-100/70 border border-gray-200/50 px-2.5 py-1.5 rounded-full">
-              अंतिम अपडेट: {lastSyncedTime}
+          {lastSyncedTime ? (
+            <span className="text-[9px] text-gray-500 font-bold bg-gray-100/80 border border-gray-200/50 px-2.5 py-1.5 rounded-full" id="lbl-last-sync-time">
+              अंतिम सफल अपडेट: {lastSyncedTime}
+            </span>
+          ) : (
+            <span className="text-[9px] text-amber-700 font-bold bg-amber-50 border border-amber-200/60 px-2.5 py-1.5 rounded-full" id="lbl-last-sync-none">
+              अपडेट प्रतीक्षित (Sync करें)
             </span>
           )}
         </div>
@@ -280,13 +273,27 @@ ${item.source || "कृषि जागरण"}
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="bg-rose-50 border-l-4 border-rose-500 p-4 rounded-2xl flex items-start gap-3 shadow-sm"
+            className="bg-rose-50 border-l-4 border-rose-500 p-4 rounded-2xl flex items-start justify-between gap-3 shadow-sm"
           >
-            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5 animate-pulse" />
-            <div className="space-y-0.5">
-              <p className="text-xs font-black text-rose-800">आज नई समाचार प्राप्त नहीं हो सकीं।</p>
-              <p className="text-[10px] text-rose-700/90 font-bold">अंतिम उपलब्ध समाचार प्रदर्शित की जा रही हैं। (सर्वर / नेटवर्क त्रुटि)</p>
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="text-xs font-black text-rose-800">ताज़ा समाचार सिंक नहीं हो सका</p>
+                <p className="text-[10px] text-rose-700/90 font-bold leading-relaxed">
+                  नेटवर्क या AI सेवा में अस्थायी समस्या के कारण नवीनतम समाचार प्राप्त नहीं हो सके। पूर्व में सत्यापित समाचार प्रदर्शित किए जा रहे हैं।
+                </p>
+              </div>
             </div>
+            <button
+              onClick={() => {
+                if (!requireApiKey("ताज़ा कृषि समाचार लोड करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) return;
+                loadNews(true);
+              }}
+              disabled={loading || silentSyncing}
+              className="text-[10px] font-black bg-rose-600 text-white px-3 py-1.5 rounded-xl hover:bg-rose-700 active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap cursor-pointer"
+            >
+              पुनः प्रयास
+            </button>
           </motion.div>
         )}
 
@@ -299,13 +306,13 @@ ${item.source || "कृषि जागरण"}
           >
             <WifiOff className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
-              <p className="text-xs font-black text-blue-800">ऑफलाइन मोड</p>
-              <p className="text-[10px] text-blue-700/90 font-bold">यह समाचार अंतिम सफल अपडेट के अनुसार दिखाई जा रही हैं।</p>
+              <p className="text-xs font-black text-blue-800">सुरक्षित ऑफलाइन मोड</p>
+              <p className="text-[10px] text-blue-700/90 font-bold">यह समाचार स्थानीय रूप से सहेजे गए डेटा से प्रदर्शित किए जा रहे हैं।</p>
             </div>
           </motion.div>
         )}
 
-        {!hasTodayNews && !syncFailed && !loading && (
+        {!hasTodayNews && !syncFailed && !loading && filteredAndSortedNews.length > 0 && (
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -314,8 +321,8 @@ ${item.source || "कृषि जागरण"}
           >
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
-              <p className="text-xs font-black text-amber-800">📰 आज कोई नई कृषि समाचार उपलब्ध नहीं है।</p>
-              <p className="text-[10px] text-amber-700/90 font-bold">नीचे पिछली उपलब्ध समाचार दिखाई जा रही हैं।</p>
+              <p className="text-xs font-black text-amber-800">आज का नया समाचार अपडेट प्रतीक्षित है</p>
+              <p className="text-[10px] text-amber-700/90 font-bold">नीचे हाल ही में प्रकाशित प्रमाणित समाचार प्रदर्शित किए जा रहे हैं। ताज़ा खबरों के लिए Sync बटन दबाएं।</p>
             </div>
           </motion.div>
         )}
@@ -349,26 +356,30 @@ ${item.source || "कृषि जागरण"}
                 </p>
                 <button
                   onClick={() => requireApiKey("ताज़ा कृषि समाचार लोड करने के लिए कृपया अपनी Gemini API Key जोड़ें।")}
-                  className="px-6 py-3 bg-[#2D5A27] text-white text-xs font-bold rounded-2xl shadow-md active:scale-95 transition-transform inline-flex items-center gap-2"
+                  className="px-6 py-3 bg-[#2D5A27] text-white text-xs font-bold rounded-2xl shadow-md active:scale-95 transition-transform inline-flex items-center gap-2 cursor-pointer"
                 >
                   <Key className="w-4 h-4" /> अपनी API Key दर्ज करें
                 </button>
               </div>
             ) : (
-              <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm">
+              <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
                 <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-xs font-bold text-gray-500">पिछले 7 दिनों में कोई समाचार उपलब्ध नहीं है।</p>
+                <p className="text-xs font-bold text-gray-600 mb-1">हालिया दिनों में कोई प्रमाणित समाचार उपलब्ध नहीं है।</p>
+                <p className="text-[11px] text-gray-400 max-w-xs mx-auto mb-4">
+                  नवीनतम खबरों की लाइव खोज करने के लिए पुनः प्रयास बटन दबाएं।
+                </p>
                 <button 
                   onClick={() => loadNews(true)} 
-                  className="mt-3 px-5 py-2 bg-[#2D5A27] text-white text-[11px] font-black rounded-full"
+                  className="px-5 py-2.5 bg-[#2D5A27] text-white text-[11px] font-black rounded-full shadow-sm hover:bg-[#1E3F1A] active:scale-95 transition-all cursor-pointer"
                 >
-                  पुनः प्रयास करें
+                  पुनः प्रयास करें (Sync)
                 </button>
               </div>
             )
           ) : (
             <div className="grid grid-cols-1 gap-4">
               {filteredAndSortedNews.map((item, idx) => {
+                const isToday = item.date.trim() === todayDateStr;
                 return (
                   <motion.div
                     key={idx}
@@ -385,9 +396,14 @@ ${item.source || "कृषि जागरण"}
                         {getCategoryName(item.category)}
                       </span>
                       
-                      <div className="flex items-center gap-1.5 text-[10px] text-gray-500 font-bold bg-gray-50 px-2.5 py-1 rounded-full border border-gray-200/50">
+                      <div className="flex items-center gap-1.5 text-[10px] text-gray-600 font-bold bg-gray-50 px-2.5 py-1 rounded-full border border-gray-200/50">
                         <Calendar className="w-3.5 h-3.5 text-[#2D5A27]" />
-                        {convertToHindiDate(item.date)}
+                        {isToday && (
+                          <span className="bg-emerald-100 text-emerald-800 text-[8.5px] font-black px-1.5 py-0.5 rounded leading-none">
+                            आज
+                          </span>
+                        )}
+                        <span>{convertToHindiDate(item.date)}</span>
                       </div>
                     </div>
                     
@@ -416,7 +432,7 @@ ${item.source || "कृषि जागरण"}
                         <button
                           onClick={(e) => handleCopy(item, idx, e)}
                           className={cn(
-                            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10.5px] font-black transition-all border",
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10.5px] font-black transition-all border cursor-pointer",
                             copiedIdx === idx 
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
                               : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
@@ -441,7 +457,7 @@ ${item.source || "कृषि जागरण"}
                           href={`https://api.whatsapp.com/send?text=${encodeURIComponent(getFormattedNewsText(item))}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10.5px] font-black bg-[#2D5A27] text-white hover:bg-[#1E3F1A] transition-all border border-transparent shadow-sm"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10.5px] font-black bg-[#2D5A27] text-white hover:bg-[#1E3F1A] transition-all border border-transparent shadow-sm cursor-pointer"
                           title="WhatsApp पर शेयर करें"
                         >
                           <Share2 className="w-3.5 h-3.5 text-white" />
@@ -454,7 +470,7 @@ ${item.source || "कृषि जागरण"}
                             href={item.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-0.5 px-2 py-1.5 text-[10.5px] font-black text-[#2D5A27] hover:underline"
+                            className="flex items-center gap-0.5 px-2 py-1.5 text-[10.5px] font-black text-[#2D5A27] hover:underline cursor-pointer"
                           >
                             <span>विस्तार देखें</span>
                             <ChevronRight className="w-3.5 h-3.5" />
@@ -474,3 +490,4 @@ ${item.source || "कृषि जागरण"}
 };
 
 export default AgriNews;
+
