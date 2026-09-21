@@ -151,9 +151,11 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 // Helper to pre-cache images for offline and instant loading
-const preCacheImage = (src: any) => {
+const preCacheImage = (src: any, isBanner: boolean = false) => {
   if (!src) return;
-  const url = typeof src === 'string' ? getDirectImageURL(src) : getDirectImageURL(src.primary || src.fallback);
+  const url = typeof src === 'string' 
+    ? getDirectImageURL(src) 
+    : getDirectImageURL(isBanner ? (src.fallback || src.primary) : (src.primary || src.fallback));
   if (!url) return;
   
   const img = new Image();
@@ -510,14 +512,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return null;
   };
 
-  const prefetchImage = (url: string | ImageSource | undefined, isPriority: boolean = false) => {
+  const prefetchImage = (url: string | ImageSource | undefined, isPriority: boolean = false, isBanner: boolean = false) => {
     if (!url) return;
     
     // 1. Fill the browser's internal image cache (Memory Cache)
-    preCacheImage(url);
+    preCacheImage(url, isBanner);
     
     // 2. Trigger Service Worker caching (Disk/SW Cache)
-    const directUrl = typeof url === 'string' ? getDirectImageURL(url) : getDirectImageURL(url.primary || url.fallback || '');
+    const directUrl = typeof url === 'string' 
+      ? getDirectImageURL(url) 
+      : getDirectImageURL(isBanner ? (url.fallback || url.primary || '') : (url.primary || url.fallback || ''));
     if (!directUrl || directUrl.startsWith('data:')) return;
     
     // We use fetch with 'no-cors' to fill the SW cache. 
@@ -538,14 +542,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     prefetchImage(content.branding.androidIcon, true);
     prefetchImage(content.branding.splashLogo, true);
     
-    // Content Banners
+    // Content Banners (Only banners prioritize cloud HD image)
     if (content.banners) {
-      content.banners.forEach(b => prefetchImage(b.image, true));
+      content.banners.forEach(b => prefetchImage(b.image, true, true));
     }
     if (content.deviceBanners) {
       Object.values(content.deviceBanners).forEach(list => {
         if (Array.isArray(list)) {
-          list.forEach(b => prefetchImage(b.image, true));
+          list.forEach(b => prefetchImage(b.image, true, true));
         }
       });
     }
