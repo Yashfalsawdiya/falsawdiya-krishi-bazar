@@ -5,7 +5,7 @@ import {
   AlertTriangle, CheckCircle2, MessageSquare, 
   Printer, ArrowUpRight, ArrowDownLeft, FileText, X,
   Edit3, Eye, ChevronRight, Share2, ShoppingBag, ShieldCheck, Download,
-  Trash2, Archive, RotateCcw, ShieldAlert, AlertOctagon
+  Trash2, Archive, RotateCcw, ShieldAlert, AlertOctagon, Loader2
 } from 'lucide-react';
 import { 
   AccountingCustomer, 
@@ -19,6 +19,7 @@ import {
   recordCustomerPayment,
   fetchAccountingSaleById,
   fetchAccountingSaleByInvoiceNo,
+  fetchAccountingSaleByInvoiceNoAndDate,
   checkCustomerHasFinancialHistory,
   archiveOrCloseCustomerKhata,
   reopenCustomerKhata,
@@ -27,6 +28,7 @@ import {
 import { useAppContext } from '../../context/AppContext';
 import { PrintableSalesInvoice } from './PrintableSalesInvoice';
 import { downloadSalesInvoicePDF } from '../../utils/salesInvoicePdfGenerator';
+import { downloadCustomerPassbookPDF } from '../../utils/customerPassbookPdfGenerator';
 import { formatSaleItemInvoiceTitle } from '../../utils/agriPackagingUtils';
 
 interface Props {
@@ -46,6 +48,7 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId, o
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<AccountingCustomer | null>(null);
   const [formName, setFormName] = useState('');
+  const [formAccountNumber, setFormAccountNumber] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formVillage, setFormVillage] = useState('');
   const [formCreditLimit, setFormCreditLimit] = useState(10000);
@@ -70,8 +73,9 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId, o
   // Active Print Document & PDF Generation State
   const [activePrintDoc, setActivePrintDoc] = useState<'invoice' | 'passbook' | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isDownloadingPassbookPdf, setIsDownloadingPassbookPdf] = useState(false);
 
-  const { isAdmin, user } = useAppContext();
+  const { isAdmin, user, appContent } = useAppContext();
 
   // Delete / Archive Khata Modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -207,6 +211,7 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId, o
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch = !q || (
         c.name.toLowerCase().includes(q) ||
+        (c.accountNumber && c.accountNumber.toLowerCase().includes(q)) ||
         c.phone.includes(q) ||
         (c.village && c.village.toLowerCase().includes(q))
       );
@@ -234,6 +239,7 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId, o
     try {
       const newId = await saveAccountingCustomer({
         name: formName.trim(),
+        accountNumber: formAccountNumber.trim() || undefined,
         phone: formPhone.trim(),
         village: formVillage.trim(),
         totalPurchases: editingCustomer?.totalPurchases || 0,
@@ -248,6 +254,7 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId, o
       setSelectedCustomerId(newId);
       setShowCustomerModal(false);
       setEditingCustomer(null);
+      setFormAccountNumber('');
     } catch (err: any) {
       alert('ग्राहक सुरक्षित करने में त्रुटि: ' + err.message);
     }
@@ -347,6 +354,9 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId, o
       let sale: AccountingSale | null = null;
       if (entry.saleId) {
         sale = await fetchAccountingSaleById(entry.saleId);
+      }
+      if (!sale && entry.invoiceNo && entry.date) {
+        sale = await fetchAccountingSaleByInvoiceNoAndDate(entry.invoiceNo, entry.date);
       }
       if (!sale && entry.invoiceNo) {
         sale = await fetchAccountingSaleByInvoiceNo(entry.invoiceNo);
@@ -470,6 +480,25 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
     }, 150);
   };
 
+  const handleDownloadPassbookPdf = async () => {
+    if (!selectedCustomer) return;
+    setIsDownloadingPassbookPdf(true);
+    try {
+      const res = await downloadCustomerPassbookPDF({
+        customer: selectedCustomer,
+        ledgerEntries,
+        logoSource: appContent?.branding?.logo || '/icon-192.png',
+      });
+      if (!res.success && res.error) {
+        alert('पासबुक PDF डाउनलोड करने में त्रुटि: ' + res.error);
+      }
+    } catch (err: any) {
+      alert('पासबुक PDF डाउनलोड करने में त्रुटि: ' + (err?.message || 'अज्ञात त्रुटि'));
+    } finally {
+      setIsDownloadingPassbookPdf(false);
+    }
+  };
+
   const handleDownloadSaleInvoicePdf = async (sale: AccountingSale) => {
     setIsDownloadingPdf(true);
     try {
@@ -528,6 +557,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
             onClick={() => {
               setEditingCustomer(null);
               setFormName('');
+              setFormAccountNumber('');
               setFormPhone('');
               setFormVillage('');
               setFormCreditLimit(10000);
@@ -632,6 +662,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                           )}
                         </div>
                         <div className="flex items-center gap-3 text-[11px] text-gray-400">
+                          {cust.accountNumber && <span className="font-mono font-bold text-gray-700 bg-gray-100 px-1.5 py-0.2 rounded">#{cust.accountNumber}</span>}
                           {cust.phone && <span>{cust.phone}</span>}
                           {cust.village && <span>· {cust.village}</span>}
                         </div>
@@ -677,6 +708,11 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                     )}
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-3">
+                    {selectedCustomer.accountNumber && (
+                      <span className="font-mono font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-md">
+                        खाता: #{selectedCustomer.accountNumber}
+                      </span>
+                    )}
                     <span className="flex items-center gap-1">
                       <Phone className="w-3 h-3 text-gray-400" />
                       {selectedCustomer.phone || 'मोबाइल उपलब्ध नहीं'}
@@ -715,6 +751,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                     onClick={() => {
                       setEditingCustomer(selectedCustomer);
                       setFormName(selectedCustomer.name);
+                      setFormAccountNumber(selectedCustomer.accountNumber || '');
                       setFormPhone(selectedCustomer.phone);
                       setFormVillage(selectedCustomer.village);
                       setFormCreditLimit(selectedCustomer.creditLimit);
@@ -892,6 +929,17 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                   placeholder="उदा. जगदीश पाटीदार"
                   value={formName}
                   onChange={e => setFormName(e.target.value)}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">खाता संख्या</label>
+                <input
+                  type="text"
+                  placeholder="उदा. KH-101 या 1024"
+                  value={formAccountNumber}
+                  onChange={e => setFormAccountNumber(e.target.value)}
                   className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
               </div>
@@ -1426,10 +1474,21 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
               </h3>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handlePrintPassbookDoc}
-                  className="px-4 py-2 bg-[#2D5A27] hover:bg-[#23461e] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                  onClick={handleDownloadPassbookPdf}
+                  disabled={isDownloadingPassbookPdf}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-800 disabled:opacity-60 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer"
                 >
-                  <Printer className="w-4 h-4" /> प्रिंट करें / PDF सेव करें
+                  {isDownloadingPassbookPdf ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-gray-700" />
+                      डाउनलोड हो रहा है...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 text-gray-700" />
+                      Passbook PDF Download
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => setShowPassbookModal(false)}
@@ -1444,10 +1503,24 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
             <div id="printable-customer-passbook" className="space-y-5 bg-white p-6 rounded-2xl border border-gray-200">
               {/* Header */}
               <div className="text-center border-b pb-4">
-                <h2 className="text-xl font-extrabold text-gray-900">🌱 फल्सावदिया कृषि बाजार</h2>
+                <div className="flex items-center justify-center gap-3 mb-1.5">
+                  <img 
+                    src={
+                      appContent?.branding?.logo 
+                        ? (typeof appContent.branding.logo === 'string' 
+                            ? appContent.branding.logo 
+                            : (appContent.branding.logo.primary || appContent.branding.logo.fallback || '/icon-192.png')) 
+                        : '/icon-192.png'
+                    } 
+                    alt="Logo" 
+                    className="w-12 h-12 object-contain rounded-full shadow-sm border border-gray-100"
+                  />
+                  <h2 className="text-2xl font-black text-gray-900 tracking-tight">फल्सावदिया कृषि बाजार</h2>
+                </div>
                 <p className="text-xs font-bold text-emerald-800">किसान का भरोसा, हमारी पहचान</p>
-                <p className="text-[11px] text-gray-500">डिंपल चौराहा, शामगढ़ (म.प्र.) · मोबाइल: 8982338046</p>
-                <div className="inline-block mt-2 px-3 py-1 bg-gray-100 text-gray-900 font-extrabold text-xs rounded-full">
+                <p className="text-xs font-bold text-gray-700 mt-0.5">मोबाइल: 8982338046</p>
+                <p className="text-[11px] text-gray-600 mt-0.5 max-w-lg mx-auto">पता: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर – (458883)</p>
+                <div className="inline-block mt-2.5 px-3.5 py-1 bg-gray-100 text-gray-900 font-extrabold text-xs rounded-full">
                   ग्राहक खाता बही पासबुक (Customer Ledger Passbook)
                 </div>
               </div>
@@ -1460,7 +1533,12 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                   <p><strong>गाँव / कस्बा:</strong> {selectedCustomer.village || 'शामगढ़'}</p>
                 </div>
                 <div className="space-y-1 text-right">
-                  <p><strong>खाता संख्या:</strong> #{selectedCustomer.id.slice(0, 8).toUpperCase()}</p>
+                  <p>
+                    <strong>खाता संख्या:</strong>{' '}
+                    <span className="font-mono font-bold text-gray-900">
+                      {selectedCustomer.accountNumber?.trim() ? selectedCustomer.accountNumber.trim() : '-'}
+                    </span>
+                  </p>
                   <p><strong>पासबुक प्रिंट दिनांक:</strong> {new Date().toLocaleDateString('hi-IN')}</p>
                   <p><strong>खाता स्थिति:</strong> <span className="font-bold text-emerald-700">{selectedCustomer.currentOutstanding === 0 ? 'खाता चुकता' : 'उधारी खाता चालू'}</span></p>
                 </div>
@@ -1564,10 +1642,24 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
         <div id="active-print-portal" className="bg-white p-6 max-w-[794px] mx-auto text-gray-900 font-sans">
           {/* Header */}
           <div className="text-center border-b pb-4">
-            <h2 className="text-xl font-extrabold text-gray-900">🌱 फल्सावदिया कृषि बाजार</h2>
+            <div className="flex items-center justify-center gap-3 mb-1.5">
+              <img 
+                src={
+                  appContent?.branding?.logo 
+                    ? (typeof appContent.branding.logo === 'string' 
+                        ? appContent.branding.logo 
+                        : (appContent.branding.logo.primary || appContent.branding.logo.fallback || '/icon-192.png')) 
+                    : '/icon-192.png'
+                } 
+                alt="Logo" 
+                className="w-12 h-12 object-contain rounded-full shadow-sm border border-gray-100"
+              />
+              <h2 className="text-2xl font-black text-gray-900 tracking-tight">फल्सावदिया कृषि बाजार</h2>
+            </div>
             <p className="text-xs font-bold text-emerald-800">किसान का भरोसा, हमारी पहचान</p>
-            <p className="text-[11px] text-gray-500">डिंपल चौराहा, शामगढ़ (म.प्र.) · मोबाइल: 8982338046</p>
-            <div className="inline-block mt-2 px-3 py-1 bg-gray-100 text-gray-900 font-extrabold text-xs rounded-full">
+            <p className="text-xs font-bold text-gray-700 mt-0.5">मोबाइल: 8982338046</p>
+            <p className="text-[11px] text-gray-600 mt-0.5 max-w-lg mx-auto">पता: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर – (458883)</p>
+            <div className="inline-block mt-2.5 px-3.5 py-1 bg-gray-100 text-gray-900 font-extrabold text-xs rounded-full">
               ग्राहक खाता बही पासबुक (Customer Ledger Passbook)
             </div>
           </div>
@@ -1580,7 +1672,12 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
               <p><strong>गाँव / कस्बा:</strong> {selectedCustomer.village || 'शामगढ़'}</p>
             </div>
             <div className="space-y-1 text-right">
-              <p><strong>खाता संख्या:</strong> #{selectedCustomer.id.slice(0, 8).toUpperCase()}</p>
+              <p>
+                <strong>खाता संख्या:</strong>{' '}
+                <span className="font-mono font-bold text-gray-900">
+                  {selectedCustomer.accountNumber?.trim() ? selectedCustomer.accountNumber.trim() : '-'}
+                </span>
+              </p>
               <p><strong>पासबुक प्रिंट दिनांक:</strong> {new Date().toLocaleDateString('hi-IN')}</p>
               <p><strong>खाता स्थिति:</strong> <span className="font-bold text-emerald-700">{selectedCustomer.currentOutstanding === 0 ? 'खाता चुकता' : 'उधारी खाता चालू'}</span></p>
             </div>

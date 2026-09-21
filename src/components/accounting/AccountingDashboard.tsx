@@ -102,7 +102,7 @@ export const AccountingDashboard: React.FC = () => {
           { id: 'overview', label: 'वित्तीय डैशबोर्ड (Overview)', icon: TrendingUp },
           { id: 'pos', label: 'पीओएस बिक्री (POS Bill)', icon: ShoppingBag },
           { id: 'ledger', label: 'किसान उधारी खाता (Khata)', icon: Users },
-          { id: 'inventory', label: 'स्टॉक', icon: Package },
+          { id: 'inventory', label: 'स्टॉक (Stock)', icon: Package },
           { id: 'expenses', label: 'दुकान खर्च (Expenses)', icon: Receipt },
         ].map(tab => {
           const Icon = tab.icon;
