@@ -4,7 +4,7 @@ import {
   RefreshCw, Info, ShoppingCart, ArrowRight, X, Tag, Wheat, Droplets, 
   MessageSquare, Send, Sparkles, Bot, History, Trash2, ChevronRight, 
   RotateCcw, FileText, HelpCircle, Check, MessageCircle, Plus, Eye, Layers,
-  AlertTriangle
+  AlertTriangle, Package
 } from 'lucide-react';
 import { detectDisease, DiseaseAnalysis, askDiseaseReportChat, ReportChatMessage } from '../services/gemini';
 import { fetchWeather } from '../services/weatherService';
@@ -185,12 +185,12 @@ const DiseaseDetection: React.FC = () => {
         setActiveScanId(null);
         setChatMessages([]);
         if (compressedList.length > 1) {
-          showToast(`✅ ${compressedList.length} फोटो जोड़ी गईं`);
+          showToast(`${compressedList.length} फोटो जोड़ी गईं`);
         }
       }
     } catch (err) {
       console.error("Image compression error:", err);
-      showToast("⚠️ फोटो लोड करने में समस्या आई, कृपया पुनः प्रयास करें।");
+      showToast("फोटो लोड करने में समस्या आई, कृपया पुनः प्रयास करें।");
     } finally {
       setIsCompressing(false);
       e.target.value = '';
@@ -204,7 +204,7 @@ const DiseaseDetection: React.FC = () => {
 
     const remainingSlots = MAX_PHOTOS - images.length;
     if (remainingSlots <= 0) {
-      showToast(`⚠️ आप अधिकतम ${MAX_PHOTOS} फोटो ही जोड़ सकते हैं।`);
+      showToast(`आप अधिकतम ${MAX_PHOTOS} फोटो ही जोड़ सकते हैं।`);
       e.target.value = '';
       return;
     }
@@ -225,11 +225,11 @@ const DiseaseDetection: React.FC = () => {
         setAnalysisResult(null);
         setActiveScanId(null);
         setChatMessages([]);
-        showToast(`✅ ${newCompressedList.length} और फोटो जोड़ी गईं (${updatedImages.length}/${MAX_PHOTOS})`);
+        showToast(`${newCompressedList.length} और फोटो जोड़ी गईं (${updatedImages.length}/${MAX_PHOTOS})`);
       }
     } catch (err) {
       console.error("Add more images error:", err);
-      showToast("⚠️ फोटो जोड़ने में समस्या आई।");
+      showToast("फोटो जोड़ने में समस्या आई।");
     } finally {
       setIsCompressing(false);
       e.target.value = '';
@@ -247,7 +247,7 @@ const DiseaseDetection: React.FC = () => {
     setAnalysisResult(null);
     setActiveScanId(null);
     setChatMessages([]);
-    showToast("🗑️ फोटो हटाई गई");
+    showToast("फोटो हटाई गई");
   };
 
   // Analyze Single or Multiple Images
@@ -392,7 +392,7 @@ const DiseaseDetection: React.FC = () => {
       const errorMsg: DiseaseChatMessage = {
         id: `err_${Date.now()}`,
         sender: 'ai',
-        text: `⚠️ ${friendlyError.message || "उत्तर प्राप्त करने में समस्या आई।"}\n\nयदि उत्तर न मिले तो कृपया पूरी फसल या पत्तियों की स्पष्ट फोटो पुनः अपलोड करके पूछें।`,
+        text: `${friendlyError.message || "उत्तर प्राप्त करने में समस्या आई।"}\n\nयदि उत्तर न मिले तो कृपया पूरी फसल या पत्तियों की स्पष्ट फोटो पुनः अपलोड करके पूछें।`,
         timestamp: Date.now()
       };
       const finalMsgs = [...updatedMsgs, errorMsg];
@@ -779,8 +779,9 @@ const DiseaseDetection: React.FC = () => {
                             <span className="text-[9px] bg-[#2D5A27] text-white px-2 py-0.5 rounded-full font-black uppercase tracking-tighter shadow-sm">
                               {product.brand || getCategoryName(product.category)}
                             </span>
-                            <span className="text-[10px] text-gray-400 font-bold">
-                              📦 {product.unit || 'Pack'}
+                            <span className="text-[10px] text-gray-500 font-bold flex items-center gap-1">
+                              <Package className="w-3 h-3 text-gray-400" />
+                              <span>{product.unit || 'Pack'}</span>
                             </span>
                           </div>
                           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
@@ -798,7 +799,7 @@ const DiseaseDetection: React.FC = () => {
                               }`}
                             >
                               <ShoppingCart className="w-3.5 h-3.5" />
-                              {addedProductId === product.id ? 'Added ✓' : 'Add To Cart'}
+                              {addedProductId === product.id ? 'Added' : 'Add To Cart'}
                             </button>
                           </div>
                         </div>
@@ -827,7 +828,8 @@ const DiseaseDetection: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-extrabold text-base leading-snug flex items-center gap-1.5">
-                      <span>💬 AI से इस रिपोर्ट के बारे में पूछें</span>
+                      <MessageSquare className="w-4 h-4 text-emerald-200" />
+                      <span>AI से इस रिपोर्ट के बारे में पूछें</span>
                       <Sparkles className="w-4 h-4 text-yellow-300 animate-spin" style={{ animationDuration: '4s' }} />
                     </h3>
                     <p className="text-[11px] text-green-100 font-medium opacity-90">
@@ -999,8 +1001,9 @@ const DiseaseDetection: React.FC = () => {
                             className="w-full h-full object-cover"
                           />
                           {(scan.images?.length || 0) > 1 && (
-                            <span className="absolute bottom-0.5 right-0.5 bg-black/75 text-white text-[8px] font-bold px-1 rounded">
-                              {scan.images?.length} 📷
+                            <span className="absolute bottom-0.5 right-0.5 bg-black/75 text-white text-[8px] font-bold px-1 rounded flex items-center gap-0.5">
+                              <span>{scan.images?.length}</span>
+                              <Camera className="w-2.5 h-2.5 text-white" />
                             </span>
                           )}
                         </div>
@@ -1198,21 +1201,21 @@ const DiseaseDetection: React.FC = () => {
                 
                 <div className="space-y-3 mb-5">
                   <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
-                    <span className="text-gray-500 text-sm font-medium">🏢 कंपनी (Brand):</span>
+                    <span className="text-gray-500 text-sm font-medium">कंपनी (Brand):</span>
                     <span className="text-gray-900 font-black text-sm">{selectedProduct.brand}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
-                    <span className="text-gray-500 text-sm font-medium">💊 दवाई (Full Name):</span>
+                    <span className="text-gray-500 text-sm font-medium">दवाई (Full Name):</span>
                     <span className="text-gray-900 font-black text-sm">
                       {selectedProduct.hindiName || selectedProduct.name}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
-                    <span className="text-gray-500 text-sm font-medium">📦 मात्रा (Quantity):</span>
+                    <span className="text-gray-500 text-sm font-medium">मात्रा (Quantity):</span>
                     <span className="text-gray-900 font-black text-sm">{displayUnit}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
-                    <span className="text-gray-500 text-sm font-medium">💰 कीमत (Price):</span>
+                    <span className="text-gray-500 text-sm font-medium">कीमत (Price):</span>
                     {selectedProduct.hidePrice || !displayPrice ? (
                       <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-lg">कीमत उपलब्ध नहीं</span>
                     ) : (
@@ -1220,7 +1223,7 @@ const DiseaseDetection: React.FC = () => {
                     )}
                   </div>
                   <div className="py-2">
-                    <span className="text-gray-500 text-sm font-medium block mb-1">🌱 उपयोग (Best For):</span>
+                    <span className="text-gray-500 text-sm font-medium block mb-1">उपयोग (Best For):</span>
                     <p className="text-gray-700 text-xs font-bold leading-relaxed bg-white/50 p-2 rounded-lg border border-gray-100">
                       {selectedProduct.description}
                     </p>
@@ -1231,7 +1234,7 @@ const DiseaseDetection: React.FC = () => {
                   <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3 flex items-start gap-2 shadow-sm">
                     <AlertCircle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
                     <p className="text-[10px] text-orange-800 font-black leading-tight">
-                      ⚠️ Note/Disclaimer: आपको स्वयं “फल्सावदिया कृषि बाजार” दुकान पर आकर यह उत्पाद खरीदना होगा
+                      नोट (Disclaimer): आपको स्वयं “फल्सावदिया कृषि बाजार” दुकान पर आकर यह उत्पाद खरीदना होगा
                     </p>
                   </div>
                 )}
@@ -1258,7 +1261,7 @@ const DiseaseDetection: React.FC = () => {
                     } py-4 rounded-2xl font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all text-xs outline-none`}
                   >
                     <ShoppingCart className="w-4 h-4" />
-                    {addedProductId === selectedProduct.id ? 'Added ✓' : 'Add To Cart'}
+                    {addedProductId === selectedProduct.id ? 'Added' : 'Add To Cart'}
                   </button>
                   <button 
                     onClick={() => {

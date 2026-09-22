@@ -373,8 +373,9 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
 
                   {/* Additional spray instructions */}
                   {item.instructions && (
-                    <p className="text-[11px] text-gray-500 font-medium pl-7 leading-relaxed">
-                      💡 {item.instructions}
+                    <p className="text-[11px] text-gray-500 font-medium pl-7 leading-relaxed flex items-start gap-1.5">
+                      <Info className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                      <span>{item.instructions}</span>
                     </p>
                   )}
                 </div>
@@ -409,7 +410,8 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
                       </h6>
                       {item.dosage && (
                         <span className="inline-flex items-center gap-1.5 bg-white text-emerald-800 text-[11px] font-extrabold px-2.5 py-1 rounded-xl border border-emerald-200 mt-1.5 shadow-2xs">
-                          🌿 मात्रा: {item.dosage}
+                          <Leaf className="w-3 h-3 text-emerald-600" />
+                          <span>मात्रा: {item.dosage}</span>
                         </span>
                       )}
                     </div>

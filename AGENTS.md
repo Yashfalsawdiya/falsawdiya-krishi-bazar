@@ -23,3 +23,11 @@ All AI features are strictly client-to-Gemini direct connections:
 ## 3. Security Rules & Admin Access
 - `firestore.rules` grants public read access to `_metadata/versions` while restricting write operations to verified admin emails (`yashfalsawdiya36@gmail.com`).
 - Always run `compile_applet` and `lint_applet` after making any code adjustments.
+
+## 4. Professional Icon System Standard (NO EMOJIS IN UI)
+- **STRICT DEVELOPMENT STANDARD: NO EMOJIS IN UI — USE PROFESSIONAL ICONS ONLY.**
+- All UI elements across the application (Pages, Header, Footer, Mobile Bottom Navigation, Side Menu, Admin Panel, POS, Bills/Invoices, Customer Ledger, Mandi Bhav, Agri News, Sarkari Yojnaaye, AI modules, Modals, Buttons, Cards, Badges, Empty/Error/Loading states, Notifications/Toasts) MUST use professional vector icons from `lucide-react`.
+- Emojis are strictly forbidden in UI design, tab labels, headers, and buttons.
+- Maintain consistent stroke-width, semantic icon selection, brand color harmonization, and proper spacing (flex items-center gap-1.5).
+- User-generated content / custom user-entered product names are not altered, but all application UI elements must strictly adhere to professional icons.
+

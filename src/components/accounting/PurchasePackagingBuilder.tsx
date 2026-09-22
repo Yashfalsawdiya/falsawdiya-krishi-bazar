@@ -8,7 +8,8 @@ import {
   Sparkles,
   Calendar,
   Layers,
-  ChevronDown
+  ChevronDown,
+  RotateCcw
 } from 'lucide-react';
 import { 
   AccountingProduct, 
@@ -394,8 +395,18 @@ export const PurchasePackagingBuilder: React.FC<PurchasePackagingBuilderProps> =
                       <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 text-[10px] font-bold">
                         {ACCOUNTING_PRODUCT_CATEGORIES.find(c => c.id === prodEntry.category)?.nameHindi || prodEntry.category || 'कीटनाशक'}
                       </span>
-                      <span className="px-2 py-0.5 rounded-md bg-white border border-blue-200 text-blue-900 text-[10px] font-bold">
-                        {prodEntry.productType === 'liquid' ? '💧 तरल (Liquid)' : '⚖️ पाउडर / दानेदार'}
+                      <span className="px-2 py-0.5 rounded-md bg-white border border-blue-200 text-blue-900 text-[10px] font-bold inline-flex items-center gap-1">
+                        {prodEntry.productType === 'liquid' ? (
+                          <>
+                            <Droplet className="w-3 h-3 text-blue-600" />
+                            <span>तरल (Liquid)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Scale className="w-3 h-3 text-blue-600" />
+                            <span>पाउडर / दानेदार</span>
+                          </>
+                        )}
                       </span>
                       <span className="text-[11px] text-gray-600 font-medium">
                         उपलब्ध इन्वेंट्री स्टॉक: <b className="text-gray-900">{selectedProd?.currentStock || 0}</b>
@@ -405,9 +416,10 @@ export const PurchasePackagingBuilder: React.FC<PurchasePackagingBuilderProps> =
                   <button
                     type="button"
                     onClick={() => handleSelectProduct(pIdx, '')}
-                    className="text-xs text-blue-700 hover:text-blue-900 font-bold underline shrink-0 self-start sm:self-center"
+                    className="text-xs text-blue-700 hover:text-blue-900 font-bold underline shrink-0 self-start sm:self-center inline-flex items-center gap-1"
                   >
-                    🔄 दूसरा उत्पाद चुनें या नया बनाएं
+                    <RotateCcw className="w-3 h-3" />
+                    <span>दूसरा उत्पाद चुनें या नया बनाएं</span>
                   </button>
                 </div>
               )}

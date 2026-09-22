@@ -7,7 +7,7 @@ import {
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
   Youtube as YoutubeIcon, Layout, Phone, Key, Star, ArrowUp, ArrowDown,
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle,
-  Truck, FileText, Facebook, Instagram, Package, CreditCard, Layers
+  Truck, FileText, Facebook, Instagram, Package, CreditCard, Layers, MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
@@ -1155,15 +1155,35 @@ const Admin: React.FC = () => {
                         </div>
                         <div>
                           <h4 className="font-black text-[#4A3728] text-base leading-none">{cat.name}</h4>
-                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">
-                            Status: {hasMessage ? (isEnabled ? "🟢 सक्रिय (Show)" : "🔴 निष्क्रिय (Hide)") : "⚪ सेट नहीं है"}
-                          </p>
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mt-1.5">
+                            <span className="text-gray-400">Status:</span>
+                            {hasMessage ? (
+                              isEnabled ? (
+                                <span className="text-emerald-700 font-bold flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                  सक्रिय (Show)
+                                </span>
+                              ) : (
+                                <span className="text-rose-700 font-bold flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                  निष्क्रिय (Hide)
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-gray-400 font-semibold flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
+                                सेट नहीं है
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
                       {hasMessage ? (
                         <div className="bg-amber-50/40 border border-amber-500/10 rounded-2xl p-4 text-xs text-gray-700 font-semibold leading-relaxed whitespace-pre-wrap">
-                          <span className="text-amber-800 font-black block mb-0.5">💬 महत्वपूर्ण जानकारी:</span>
+                          <span className="text-amber-800 font-black flex items-center gap-1.5 mb-1">
+                            <MessageSquare className="w-3.5 h-3.5 text-amber-700" /> महत्वपूर्ण जानकारी:
+                          </span>
                           {cat.importantInfo}
                         </div>
                       ) : (

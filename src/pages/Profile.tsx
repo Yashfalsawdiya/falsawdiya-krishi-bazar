@@ -70,19 +70,27 @@ const Profile: React.FC = () => {
     try {
       const genAI: any = new GoogleGenAI({ apiKey: apiKey.trim() });
       
-      const result = await genAI.models.generateContent({ 
-        model: "gemini-3-flash-preview", 
-        contents: "test" 
-      });
+      let result;
+      try {
+        result = await genAI.models.generateContent({ 
+          model: "gemini-3.8-flash", 
+          contents: "test" 
+        });
+      } catch {
+        result = await genAI.models.generateContent({ 
+          model: "gemini-flash-latest", 
+          contents: "test" 
+        });
+      }
       
       if (result) {
         setTestStatus('success');
-        setSaveMessage('✅ Valid API Key');
+        setSaveMessage('सफल: Valid API Key (सक्रिय है)');
       }
     } catch (error: any) {
       console.error("Key test failed:", error);
       setTestStatus('error');
-      setSaveMessage('❌ Invalid API Key');
+      setSaveMessage('अमान्य: Invalid API Key (कृपया सही Key डालें)');
     } finally {
       setTimeout(() => {
         setTestStatus('idle');
@@ -102,14 +110,22 @@ const Profile: React.FC = () => {
       const genAI: any = new GoogleGenAI({ apiKey: apiKey.trim() });
       
       // Test with a real generation call
-      const result = await genAI.models.generateContent({ 
-        model: "gemini-3-flash-preview", 
-        contents: "hi" 
-      });
+      let result;
+      try {
+        result = await genAI.models.generateContent({ 
+          model: "gemini-3.8-flash", 
+          contents: "hi" 
+        });
+      } catch {
+        result = await genAI.models.generateContent({ 
+          model: "gemini-flash-latest", 
+          contents: "hi" 
+        });
+      }
       
       if (result) {
         setQuotaStatus('available');
-        setSaveMessage('🟢 आपकी Gemini API Key की आज की limit अभी उपलब्ध है।');
+        setSaveMessage('सफल: आपकी Gemini API Key की आज की limit अभी उपलब्ध है।');
       }
     } catch (error: any) {
       console.error("Quota check failed:", error);
@@ -117,13 +133,10 @@ const Profile: React.FC = () => {
       const errorMsg = error.message?.toLowerCase() || "";
       if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('exhausted')) {
         setQuotaStatus('exhausted');
-        setSaveMessage('🔴 आपकी Gemini API Key की आज की limit समाप्त हो चुकी है। कृपया कल पुनः प्रयास करें।');
-      } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
-        setQuotaStatus('exhausted');
-        setSaveMessage('❌ Model not found. कृपया अपडेट की प्रतीक्षा करें।');
+        setSaveMessage('सीमा समाप्त: आपकी Gemini API Key की आज की limit समाप्त हो चुकी है। कृपया कल पुनः प्रयास करें।');
       } else {
         setQuotaStatus('exhausted');
-        setSaveMessage('❌ Quota की जानकारी नहीं मिल सकी। कृपया अपनी API Key चेक करें।');
+        setSaveMessage('त्रुटि: Quota की जानकारी नहीं मिल सकी। कृपया अपनी API Key जांचें।');
       }
     } finally {
       setTimeout(() => {
@@ -286,7 +299,7 @@ const Profile: React.FC = () => {
                       testStatus === 'error' && "text-red-600 border-red-200 bg-red-50"
                     )}
                   >
-                    {testStatus === 'testing' ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : "🔑"}
+                    {testStatus === 'testing' ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Key className="w-2.5 h-2.5" />}
                     Key चेक करें
                   </button>
 
@@ -301,7 +314,7 @@ const Profile: React.FC = () => {
                       quotaStatus === 'exhausted' && "text-red-600 border-red-200 bg-red-50"
                     )}
                   >
-                    {quotaStatus === 'checking' ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : "📊"}
+                    {quotaStatus === 'checking' ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Award className="w-2.5 h-2.5" />}
                     Quota चेक करें
                   </button>
                 </>

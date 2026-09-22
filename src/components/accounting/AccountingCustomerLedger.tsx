@@ -5,7 +5,7 @@ import {
   AlertTriangle, CheckCircle2, MessageSquare, 
   Printer, ArrowUpRight, ArrowDownLeft, FileText, X,
   Edit3, Eye, ChevronRight, Share2, ShoppingBag, ShieldCheck, Download,
-  Trash2, Archive, RotateCcw, ShieldAlert, AlertOctagon, Loader2
+  Trash2, Archive, RotateCcw, ShieldAlert, AlertOctagon, Loader2, Sprout
 } from 'lucide-react';
 import { 
   AccountingCustomer, 
@@ -1107,7 +1107,10 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                 {/* Shop & Customer Branding Header */}
                 <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row justify-between gap-3">
                   <div>
-                    <h4 className="font-extrabold text-sm text-emerald-950">🌱 फल्सावदिया कृषि बाजार</h4>
+                    <h4 className="font-extrabold text-sm text-emerald-950 flex items-center gap-1.5">
+                      <Sprout className="w-4 h-4 text-emerald-700" />
+                      <span>फल्सावदिया कृषि बाजार</span>
+                    </h4>
                     <p className="text-[11px] text-emerald-800">किसान का भरोसा, हमारी पहचान</p>
                     <p className="text-[10px] text-gray-600 mt-0.5">डिंपल चौराहा, शामगढ़ (म.प्र.) · संपर्क: 8982338046</p>
                   </div>
@@ -1288,9 +1291,17 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="font-extrabold text-gray-900 text-sm">{deleteTargetCustomer.name}</h4>
-                      <p className="text-gray-500 text-[11px] flex items-center gap-2 mt-0.5">
-                        <span>📞 {deleteTargetCustomer.phone || 'उपलब्ध नहीं'}</span>
-                        {deleteTargetCustomer.village && <span>📍 {deleteTargetCustomer.village}</span>}
+                      <p className="text-gray-500 text-[11px] flex items-center gap-3 mt-0.5">
+                        <span className="flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-gray-400" />
+                          <span>{deleteTargetCustomer.phone || 'उपलब्ध नहीं'}</span>
+                        </span>
+                        {deleteTargetCustomer.village && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-gray-400" />
+                            <span>{deleteTargetCustomer.village}</span>
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="text-right">
@@ -1503,7 +1514,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
             <div id="printable-customer-passbook" className="space-y-5 bg-white p-6 rounded-2xl border border-gray-200">
               {/* Header */}
               <div className="text-center border-b pb-4">
-                <div className="flex items-center justify-center gap-3 mb-1.5">
+                <div className="flex items-center justify-center gap-3.5 mb-2">
                   <img 
                     src={
                       appContent?.branding?.logo 
@@ -1513,9 +1524,9 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                         : '/icon-192.png'
                     } 
                     alt="Logo" 
-                    className="w-12 h-12 object-contain rounded-full shadow-sm border border-gray-100"
+                    className="w-16 h-16 object-contain rounded-full shadow-sm border border-gray-200"
                   />
-                  <h2 className="text-2xl font-black text-gray-900 tracking-tight">फल्सावदिया कृषि बाजार</h2>
+                  <h2 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight leading-none">फल्सावदिया कृषि बाजार</h2>
                 </div>
                 <p className="text-xs font-bold text-emerald-800">किसान का भरोसा, हमारी पहचान</p>
                 <p className="text-xs font-bold text-gray-700 mt-0.5">मोबाइल: 8982338046</p>
