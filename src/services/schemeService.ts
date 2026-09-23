@@ -105,7 +105,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     try {
       console.log("Fetching detailed schemes with Grounding...");
       response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Government Scheme Consultant for Indian Farmers representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Provide professional, detailed, and current schemes in a structured JSON format.",
@@ -133,14 +133,10 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
           }
         }
       });
-    } catch (searchError: any) {
-      const errMsg = (searchError?.message || String(searchError)).toLowerCase();
-      if (searchError?.status === 429 || errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('resource_exhausted')) {
-        throw searchError;
-      }
+    } catch (searchError) {
       console.warn("Scheme grounding failed, using standard generation...", searchError);
       response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: "You are an expert Government Scheme Consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Provide 20 most important agri schemes in JSON format using latest knowledge.",

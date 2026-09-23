@@ -733,53 +733,6 @@ export async function fetchAccountingSaleByInvoiceNo(invoiceNo: string): Promise
 }
 
 /**
- * Fetch sale by combination of Bill Number + Bill Date (for offline paper bill validation)
- * Multiple paper bill books can have the same number (e.g. #3) on different dates,
- * so uniqueness is strictly enforced on (invoiceNo + date) pair.
- */
-export async function fetchAccountingSaleByInvoiceNoAndDate(invoiceNo: string, date: string): Promise<AccountingSale | null> {
-  const trimmedNo = invoiceNo?.trim();
-  const trimmedDate = date?.trim();
-  if (!trimmedNo || !trimmedDate) return null;
-
-  try {
-    const q = query(
-      collection(db, 'accounting_sales'),
-      where('invoiceNo', '==', trimmedNo),
-      where('date', '==', trimmedDate),
-      limit(1)
-    );
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      const docSnap = snap.docs[0];
-      return { id: docSnap.id, ...docSnap.data() } as AccountingSale;
-    }
-    return null;
-  } catch (err) {
-    console.warn('Direct compound query error, falling back to invoice search:', err);
-    try {
-      const qFallback = query(
-        collection(db, 'accounting_sales'),
-        where('invoiceNo', '==', trimmedNo),
-        limit(20)
-      );
-      const snap = await getDocs(qFallback);
-      const matched = snap.docs.find(d => {
-        const data = d.data() as AccountingSale;
-        return data.date === trimmedDate;
-      });
-      if (matched) {
-        return { id: matched.id, ...matched.data() } as AccountingSale;
-      }
-      return null;
-    } catch (fallbackErr) {
-      console.error('Error fetching sale by invoice no and date:', fallbackErr);
-      return null;
-    }
-  }
-}
-
-/**
  * Format sequential POS bill number
  * 1 -> FKB-0001
  * 2 -> FKB-0002
@@ -836,12 +789,12 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
     }
 
     // Determine invoice number:
-    // If invoiceNo is empty or is placeholder (e.g. FKB-TEMP), generate strictly sequential FKB number
-    const isPlaceholder = !saleData.invoiceNo || saleData.invoiceNo.trim() === '' || saleData.invoiceNo.startsWith('FKB-TEMP');
+    // If invoiceNo is empty, starts with "OFF-", or is placeholder, generate strictly sequential FKB number
+    const isPlaceholder = !saleData.invoiceNo || saleData.invoiceNo.startsWith('OFF-') || saleData.invoiceNo.startsWith('FKB-TEMP');
     let shouldUpdateCounter = false;
     let nextSeq = lastSeq;
     if (!isPlaceholder && saleData.invoiceNo) {
-      assignedInvoiceNo = saleData.invoiceNo.trim();
+      assignedInvoiceNo = saleData.invoiceNo;
     } else {
       nextSeq = lastSeq + 1;
       assignedInvoiceNo = formatPOSInvoiceNo(nextSeq);
@@ -909,7 +862,7 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
         balanceAfter: newOutstanding,
         paymentMode: saleData.paymentMode === 'split' ? 'cash' : (saleData.paymentMode === 'online' ? 'online' : 'cash'),
         date: saleData.date,
-        timestamp: saleData.timestamp || now,
+        timestamp: now,
         note: `बिल #${assignedInvoiceNo} पर उधारी (Total: ₹${saleData.finalTotal}, Paid: ₹${saleData.cashPaid + saleData.onlinePaid})`,
       };
       transaction.set(ledgerRef, ledgerEntry);

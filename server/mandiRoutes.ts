@@ -498,24 +498,7 @@ async function fetchFromMandiPulse(
   }
 }
 
-// Track cooldown when Gemini hits 429 / quota exhaustion (circuit breaker)
-let geminiQuotaCooldownUntil = 0;
-
-function isQuotaOrRateLimitError(err: any): boolean {
-  const status = err?.status || err?.code || err?.error?.code || err?.error?.status;
-  const msg = (err?.message || JSON.stringify(err) || '').toLowerCase();
-  return (
-    status === 429 ||
-    status === 'RESOURCE_EXHAUSTED' ||
-    msg.includes('429') ||
-    msg.includes('quota') ||
-    msg.includes('resource_exhausted') ||
-    msg.includes('rate-limit') ||
-    msg.includes('rate limit')
-  );
-}
-
-// 3. Fetch real market rates using Gemini Search Grounding (Server-Side)
+// 3. Fetch real market rates using Gemini 2.5 Flash Search Grounding (Server-Side)
 async function fetchFromGeminiGrounding(
   stateClean: string,
   districtClean: string,
@@ -523,13 +506,6 @@ async function fetchFromGeminiGrounding(
 ): Promise<{ items: ServerMandiItem[]; sourceName: string; sourceDate: string } | null> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
-    return null;
-  }
-
-  // Circuit breaker: skip if in quota cooldown period
-  if (Date.now() < geminiQuotaCooldownUntil) {
-    const remainingSec = Math.ceil((geminiQuotaCooldownUntil - Date.now()) / 1000);
-    console.log(`[Gemini Grounding Mandi] In quota cooldown (${remainingSec}s remaining). Skipping server AI call.`);
     return null;
   }
 
@@ -585,7 +561,7 @@ async function fetchFromGeminiGrounding(
       required: ['sourceName', 'sourceDate', 'items']
     };
 
-    const candidateModels = ['gemini-3.8-flash', 'gemini-flash-latest'];
+    const candidateModels = ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
     let responseText = '';
 
     // First attempt: with Google Search Grounding across candidate models
@@ -606,18 +582,12 @@ async function fetchFromGeminiGrounding(
           break;
         }
       } catch (groundingErr: any) {
-        if (isQuotaOrRateLimitError(groundingErr)) {
-          // Activate 15-minute cooldown immediately and exit. Do NOT retry subsequent models or loops.
-          geminiQuotaCooldownUntil = Date.now() + 15 * 60 * 1000;
-          console.warn(`[Gemini Grounding Mandi] Quota exhausted (429). Cooldown activated for 15 minutes.`);
-          return null;
-        }
-        console.warn(`[Gemini Grounding ${modelName}] Warning:`, groundingErr?.message || 'Grounding unavailable');
+        console.warn(`[Gemini Grounding ${modelName}] Error:`, groundingErr.message || groundingErr);
       }
     }
 
-    // Second attempt: if search grounding was unavailable (non-quota error), try standard model without search tool
-    if (!responseText && Date.now() >= geminiQuotaCooldownUntil) {
+    // Second attempt: if search grounding quota exhausted (429), try standard model without search tool
+    if (!responseText) {
       for (const modelName of candidateModels) {
         try {
           const response = await ai.models.generateContent({
@@ -634,12 +604,7 @@ async function fetchFromGeminiGrounding(
             break;
           }
         } catch (stdErr: any) {
-          if (isQuotaOrRateLimitError(stdErr)) {
-            geminiQuotaCooldownUntil = Date.now() + 15 * 60 * 1000;
-            console.warn(`[Gemini Standard Mandi] Quota exhausted (429). Cooldown activated for 15 minutes.`);
-            return null;
-          }
-          console.warn(`[Gemini Standard ${modelName}] Warning:`, stdErr?.message || 'Standard model unavailable');
+          console.warn(`[Gemini Standard ${modelName}] Error:`, stdErr.message || stdErr);
         }
       }
     }
@@ -796,9 +761,8 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
       statusMessage: `${rawMandi} (${rawDistrict.split(' (')[0]}, ${rawState.split(' (')[0]}) मंडी के लिए आज का आधिकारिक डेटा उपलब्ध नहीं है।`
     };
 
-    // Cache empty state for 10 minutes if in Gemini quota cooldown, or 3 minutes normally
-    const emptyCacheDurationMs = (Date.now() < geminiQuotaCooldownUntil) ? 10 * 60 * 1000 : 3 * 60 * 1000;
-    mandiCache.set(cacheKey, { data: cleanEmptyDetails, timestamp: now - (CACHE_TTL_MS - emptyCacheDurationMs) });
+    // Cache empty state for only 30 seconds so temporary failures or quick retries can re-check
+    mandiCache.set(cacheKey, { data: cleanEmptyDetails, timestamp: now - (CACHE_TTL_MS - 30000) });
     res.json({
       success: true,
       data: cleanEmptyDetails
