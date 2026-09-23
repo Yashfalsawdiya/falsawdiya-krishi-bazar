@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ShoppingBag, Building2, Tag, Info, Wheat, Maximize2, Droplets, Plus, Minus, Check, AlertTriangle } from 'lucide-react';
+import { X, ShoppingBag, Building2, Tag, Info, Wheat, Maximize2, Droplets, Plus, Minus } from 'lucide-react';
 import { Product } from '../types';
 import SmartImage from './SmartImage';
 import ImageZoomModal from './ImageZoomModal';
@@ -201,11 +201,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       स्थिति (Status)
                     </div>
                     <span className={cn(
-                      "text-xs font-bold px-3 py-1 rounded-lg inline-flex items-center gap-1.5",
+                      "text-xs font-bold px-3 py-1 rounded-lg",
                       product.inStock !== false ? "bg-[#2D5A27]/10 text-[#2D5A27]" : "bg-red-50 text-red-600"
                     )}>
-                      <span className={cn("w-1.5 h-1.5 rounded-full", product.inStock !== false ? "bg-emerald-600" : "bg-red-600")} />
-                      {product.inStock !== false ? 'उपलब्ध (In Stock)' : 'स्टॉक में नहीं'}
+                      {product.inStock !== false ? '🟢 उपलब्ध' : '🔴 स्टॉक में नहीं'}
                     </span>
                   </div>
                 </div>
@@ -295,10 +294,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   return (
                     <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 shadow-sm">
                       <p className="text-xs text-orange-800 leading-relaxed">
-                        <span className="font-bold flex items-center gap-1.5 mb-1">
-                          <AlertTriangle className="w-3.5 h-3.5 text-orange-600 shrink-0" />
-                          महत्वपूर्ण जानकारी ({productCategory.name}):
-                        </span>
+                        <span className="font-bold block mb-1">⚠️ महत्वपूर्ण जानकारी ({productCategory.name}):</span>
                         {productCategory.importantInfo}
                       </p>
                     </div>
@@ -334,8 +330,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
                 )}
               >
-                {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                {isAdded ? 'जोड़ा गया (Added)' : 'Add To Cart'}
+                <Plus className="w-4 h-4" />
+                {isAdded ? 'Added ✓' : 'Add To Cart'}
               </button>
               <button
                 disabled={product.inStock === false}

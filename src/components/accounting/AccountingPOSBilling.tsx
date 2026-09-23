@@ -5,7 +5,7 @@ import {
   CheckCircle2, Printer, Percent, ArrowRight, RefreshCw, 
   Phone, MapPin, IndianRupee, CreditCard, Wallet, UserPlus, X, FileText,
   ChevronDown, User, Smartphone, BookOpen, Scale, Banknote, Download,
-  Droplet, Layers, Check, Sparkles, Calendar, Receipt, RotateCcw, AlertTriangle, Sprout, Hash, Package
+  Droplet, Layers, Check, Sparkles, Calendar, Receipt, RotateCcw, AlertTriangle, Sprout, Hash
 } from 'lucide-react';
 import { 
   AccountingProduct, 
@@ -2401,32 +2401,31 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                 <button
                   type="button"
                   onClick={() => setLooseMode('direct')}
-                  className={`py-2 px-1 text-center rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-1 text-center rounded-xl transition-all ${
                     looseMode === 'direct' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  <Package className="w-3.5 h-3.5 text-gray-700 shrink-0" />
-                  <span>सीधी खुली मात्रा</span>
+                  📦 सीधी खुली मात्रा
                 </button>
                 <button
                   type="button"
                   onClick={() => setLooseMode('pump')}
-                  className={`py-2 px-1 text-center rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-1 text-center rounded-xl transition-all flex items-center justify-center gap-1 ${
                     looseMode === 'pump' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  <span>पंप डोज</span>
+                  <span>🚿 पंप डोज</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setLooseMode('bigha')}
-                  className={`py-2 px-1 text-center rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-1 text-center rounded-xl transition-all flex items-center justify-center gap-1 ${
                     looseMode === 'bigha' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   <Sprout className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>प्रति बीघा डोज</span>
+                  <span>🌾 प्रति बीघा डोज</span>
                 </button>
               </div>
 

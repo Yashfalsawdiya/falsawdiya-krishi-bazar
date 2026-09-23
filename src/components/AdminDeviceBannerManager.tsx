@@ -17,9 +17,7 @@ import {
   Sparkles, 
   ExternalLink,
   Info,
-  Layers,
-  ShieldCheck,
-  Image as ImageIcon
+  Layers
 } from 'lucide-react';
 import { DeviceType, DeviceBanner, DeviceBannersMap, ImageSource } from '../types';
 import { AppContent } from '../context/AppContext';
@@ -475,7 +473,7 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                 1. <strong>सटीक साइज बनाएं:</strong> यदि आप बैनर को <strong>{activeDeviceMeta.exactResolutions[0].dimensions}</strong> (अनुपात {activeDeviceMeta.aspectRatioFormula}) में डिजाइन करेंगे, तो होम पेज पर <strong>1 पिक्सेल भी नहीं कटेगा</strong>।
               </p>
               <p className="text-[11px] text-emerald-800 leading-relaxed">
-                2. <strong>अन्य साइज के लिए 'नो-क्रॉप' बटन:</strong> यदि आपके पास किसी अन्य अनुपात की फोटो है, तो नीचे बैनर कार्ड पर <strong>"नो-क्रॉप (Contain)"</strong> बटन ऑन कर दें — फोटो बिना कटे 100% पूरी दिखेगी।
+                2. <strong>अन्य साइज के लिए 'नो-क्रॉप' बटन:</strong> यदि आपके पास किसी अन्य अनुपात की फोटो है, तो नीचे बैनर कार्ड पर <strong>"🛡️ नो-क्रॉप (Contain)"</strong> बटन ऑन कर दें — फोटो बिना कटे 100% पूरी दिखेगी।
               </p>
             </div>
           </div>
@@ -727,15 +725,9 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                         डिस्प्ले फिट मोड (Image Fit):
                       </span>
                       <span className="text-[10px] text-gray-500">
-                        {banner.fitMode === 'contain' ? (
-                          <span className="inline-flex items-center gap-1 text-amber-800 font-medium">
-                            <ShieldCheck className="w-3 h-3" /> नो-क्रॉप (100% पूरा फोटो बिना कटे)
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-emerald-800 font-medium">
-                            <ImageIcon className="w-3 h-3" /> कवर मोड (फुल फ्रेम भरा हुआ)
-                          </span>
-                        )}
+                        {banner.fitMode === 'contain' 
+                          ? '🛡️ नो-क्रॉप (100% पूरा फोटो बिना कटे)' 
+                          : '🖼️ कवर मोड (फुल फ्रेम भरा हुआ)'}
                       </span>
                     </div>
                     <button
@@ -749,15 +741,7 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                       )}
                       title="क्रॉपिंग रोकने या बदलने के लिए क्लिक करें"
                     >
-                      {banner.fitMode === 'contain' ? (
-                        <span className="inline-flex items-center gap-1">
-                          <ShieldCheck className="w-3.5 h-3.5" /> नो-क्रॉप (Contain)
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1">
-                          <ImageIcon className="w-3.5 h-3.5" /> कवर (Cover)
-                        </span>
-                      )}
+                      {banner.fitMode === 'contain' ? '🛡️ नो-क्रॉप (Contain)' : '🖼️ कवर (Cover)'}
                     </button>
                   </div>
 
@@ -868,9 +852,7 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                           : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
                       )}
                     >
-                      <div className="font-bold text-xs flex items-center gap-1.5">
-                        <ImageIcon className="w-3.5 h-3.5 text-emerald-700" /> कवर मोड (Cover)
-                      </div>
+                      <div className="font-bold text-xs">🖼️ कवर मोड (Cover)</div>
                       <div className="text-[10px] text-gray-500 mt-0.5">अनुशंसित साइज ({activeDeviceMeta.exactResolutions[0].dimensions}) में 0% क्रॉप</div>
                     </button>
                     <button
@@ -883,9 +865,7 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                           : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
                       )}
                     >
-                      <div className="font-bold text-xs flex items-center gap-1.5">
-                        <ShieldCheck className="w-3.5 h-3.5 text-amber-700" /> नो-क्रॉप (Contain)
-                      </div>
+                      <div className="font-bold text-xs">🛡️ नो-क्रॉप (Contain)</div>
                       <div className="text-[10px] text-gray-500 mt-0.5">बिना कटे 100% पूरा फोटो दिखाएं (ब्लर्ड बैकग्राउंड)</div>
                     </button>
                   </div>
@@ -1021,9 +1001,7 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                           : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
                       )}
                     >
-                      <div className="font-bold text-xs flex items-center gap-1.5">
-                        <ImageIcon className="w-3.5 h-3.5 text-emerald-700" /> कवर मोड (Cover)
-                      </div>
+                      <div className="font-bold text-xs">🖼️ कवर मोड (Cover)</div>
                       <div className="text-[10px] text-gray-500 mt-0.5">अनुशंसित साइज ({DEVICE_METADATA[editingBanner.deviceType].exactResolutions[0].dimensions}) में 0% क्रॉप</div>
                     </button>
                     <button
@@ -1036,9 +1014,7 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                           : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
                       )}
                     >
-                      <div className="font-bold text-xs flex items-center gap-1.5">
-                        <ShieldCheck className="w-3.5 h-3.5 text-amber-700" /> नो-क्रॉप (Contain)
-                      </div>
+                      <div className="font-bold text-xs">🛡️ नो-क्रॉप (Contain)</div>
                       <div className="text-[10px] text-gray-500 mt-0.5">बिना कटे 100% पूरा फोटो दिखाएं (ब्लर्ड बैकग्राउंड)</div>
                     </button>
                   </div>

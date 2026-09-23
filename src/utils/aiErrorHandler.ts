@@ -20,7 +20,7 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   ) {
     return {
       type: 'key_missing',
-      message: 'कृपया Profile में अपनी Gemini API Key जोड़ें।',
+      message: '🔑 कृपया Profile में अपनी Gemini API Key जोड़ें।',
       originalError: error
     };
   }
@@ -34,7 +34,7 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   ) {
     return {
       type: 'key_invalid',
-      message: 'कृपया अपनी API Key जांचें और सही Valid API Key दर्ज करें।',
+      message: '⚠️ कृपया अपनी API Key जांचें और सही Valid API Key दर्ज करें।',
       originalError: error
     };
   }
@@ -48,7 +48,7 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   ) {
     return {
       type: 'network',
-      message: 'इंटरनेट कनेक्शन उपलब्ध नहीं है। कृपया अपना नेटवर्क जांचें।',
+      message: '📡 इंटरनेट कनेक्शन उपलब्ध नहीं है। कृपया अपना नेटवर्क जांचें।',
       originalError: error
     };
   }
@@ -61,7 +61,7 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   ) {
     return {
       type: 'quota',
-      message: 'आपकी Gemini API Usage Limit समाप्त हो गई है। कृपया बाद में पुनः प्रयास करें।',
+      message: '⏳ आपकी Gemini API Usage Limit समाप्त हो गई है। कृपया बाद में पुनः प्रयास करें।',
       originalError: error
     };
   }
@@ -75,7 +75,7 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   ) {
     return {
       type: 'server',
-      message: 'सेवा अस्थायी रूप से उपलब्ध नहीं है। कृपया कुछ समय बाद पुनः प्रयास करें।',
+      message: '🚧 सेवा अस्थायी रूप से उपलब्ध नहीं है। कृपया कुछ समय बाद पुनः प्रयास करें।',
       originalError: error
     };
   }
@@ -83,7 +83,7 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   // Default fallback
   return {
     type: 'unknown',
-    message: 'कुछ तकनीकी समस्या हुई है। कृपया थोड़ी देर बाद पुनः प्रयास करें।',
+    message: '🚧 कुछ तकनीकी समस्या हुई है। कृपया थोड़ी देर बाद पुनः प्रयास करें।',
     originalError: error
   };
 };

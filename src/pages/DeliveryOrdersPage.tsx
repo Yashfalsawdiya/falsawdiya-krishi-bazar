@@ -24,7 +24,7 @@ import {
   Truck, Package, Phone, MapPin, CheckCircle2, 
   XCircle, AlertCircle, Clock, Navigation, Check, 
   X, RefreshCw, ChevronRight, User, Shield, ShieldAlert,
-  Power, ArrowLeft, Send, Sparkles, AlertTriangle, Key, Mail, ShieldCheck, Bell
+  Power, ArrowLeft, Send, Sparkles, AlertTriangle, Key, Mail, ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -600,7 +600,7 @@ export const DeliveryOrdersPage: React.FC = () => {
 
                   {/* Partner Workflow Status Badge */}
                   <span className={cn(
-                    "text-[10px] font-black px-2.5 py-1 rounded-full border flex items-center gap-1",
+                    "text-[10px] font-black px-2.5 py-1 rounded-full border",
                     order.status === 'delivered' ? "bg-emerald-50 text-emerald-800 border-emerald-200" :
                     pStatus === 'out_for_delivery' ? "bg-blue-50 text-blue-800 border-blue-200" :
                     pStatus === 'picked_up' ? "bg-purple-50 text-purple-800 border-purple-200" :
@@ -608,12 +608,7 @@ export const DeliveryOrdersPage: React.FC = () => {
                     pStatus === 'declined' ? "bg-red-50 text-red-800 border-red-200" :
                     "bg-amber-50 text-amber-800 border-amber-200"
                   )}>
-                    {order.status === 'delivered' ? (
-                      <>
-                        <Check className="w-3 h-3 text-emerald-700" />
-                        <span>डिलीवर हुआ</span>
-                      </>
-                    ) :
+                    {order.status === 'delivered' ? '✓ डिलीवर हुआ' :
                      pStatus === 'out_for_delivery' ? 'डिलीवरी के लिए रवाना' :
                      pStatus === 'picked_up' ? 'वेयरहाउस से पिकअप' :
                      pStatus === 'accepted' ? 'स्वीकृत (Accepted)' :
@@ -687,9 +682,8 @@ export const DeliveryOrdersPage: React.FC = () => {
                     {/* Stage 1: Assigned -> Option to Accept or Decline */}
                     {pStatus === 'assigned' && (
                       <div className="space-y-2">
-                        <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs font-medium flex items-center gap-2">
-                          <Bell className="w-4 h-4 text-amber-700 shrink-0" />
-                          <span>एडमिन ने यह ऑर्डर आपको सौंपा है। कृपया पुष्टि करें कि आप इसे डिलीवर करने के लिए उपलब्ध हैं।</span>
+                        <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs font-medium">
+                          🔔 एडमिन ने यह ऑर्डर आपको सौंपा है। कृपया पुष्टि करें कि आप इसे डिलीवर करने के लिए उपलब्ध हैं।
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           <button
@@ -718,9 +712,8 @@ export const DeliveryOrdersPage: React.FC = () => {
                     {/* Stage 2: Accepted -> Pickup Action */}
                     {pStatus === 'accepted' && (
                       <div className="space-y-2">
-                        <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 text-xs font-medium flex items-center gap-2">
-                          <Package className="w-4 h-4 text-emerald-700 shrink-0" />
-                          <span>ऑर्डर स्वीकार हो गया है। वेयरहाउस/स्टोर से सामान लेकर पिकअप मार्क करें।</span>
+                        <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 text-xs font-medium">
+                          📦 ऑर्डर स्वीकार हो गया है। वेयरहाउस/स्टोर से सामान लेकर पिकअप मार्क करें।
                         </div>
                         <button
                           type="button"
@@ -737,9 +730,8 @@ export const DeliveryOrdersPage: React.FC = () => {
                     {/* Stage 3: Picked Up -> Out for Delivery Action */}
                     {pStatus === 'picked_up' && (
                       <div className="space-y-2">
-                        <div className="p-2.5 bg-purple-50 rounded-xl border border-purple-200 text-purple-900 text-xs font-medium flex items-center gap-2">
-                          <Truck className="w-4 h-4 text-purple-700 shrink-0" />
-                          <span>पार्सल पिकअप हो चुका है। किसान के पते पर निकलते समय नीचे क्लिक करें।</span>
+                        <div className="p-2.5 bg-purple-50 rounded-xl border border-purple-200 text-purple-900 text-xs font-medium">
+                          🛵 पार्सल पिकअप हो चुका है। किसान के पते पर निकलते समय नीचे क्लिक करें।
                         </div>
                         <button
                           type="button"
@@ -756,9 +748,8 @@ export const DeliveryOrdersPage: React.FC = () => {
                     {/* Stage 4: Out for Delivery -> Mark Delivered or Issue */}
                     {pStatus === 'out_for_delivery' && (
                       <div className="space-y-2">
-                        <div className="p-2.5 bg-blue-50 rounded-xl border border-blue-200 text-blue-900 text-xs font-medium flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-blue-700 shrink-0" />
-                          <span>आप डिलीवरी के लिए रास्ते में हैं। किसान को सामान सुपुर्द करने के बाद डिलीवरी पूर्ण करें।</span>
+                        <div className="p-2.5 bg-blue-50 rounded-xl border border-blue-200 text-blue-900 text-xs font-medium">
+                          📍 आप डिलीवरी के लिए रास्ते में हैं। किसान को सामान सुपुर्द करने के बाद डिलीवरी पूर्ण करें।
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           <button

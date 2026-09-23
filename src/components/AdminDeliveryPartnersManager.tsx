@@ -796,9 +796,9 @@ export const AdminDeliveryPartnersManager: React.FC<AdminDeliveryPartnersManager
                       onChange={(e) => setFormAvailability(e.target.value as DeliveryPartnerAvailability)}
                       className="w-full bg-white border border-gray-200 rounded-xl px-2 py-1 text-xs font-bold text-gray-800 outline-none"
                     >
-                      <option value="available">उपलब्ध (Ready)</option>
-                      <option value="on_delivery">डिलीवरी पर (On Delivery)</option>
-                      <option value="off_duty">ऑफ ड्यूटी (Off Duty)</option>
+                      <option value="available">🟢 उपलब्ध (Ready)</option>
+                      <option value="on_delivery">🚚 डिलीवरी पर (On Delivery)</option>
+                      <option value="off_duty">⚪ ऑफ ड्यूटी (Off Duty)</option>
                     </select>
                   </div>
                 </div>

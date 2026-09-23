@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   CreditCard, ShieldCheck, CheckCircle2, AlertCircle, 
   Key, Eye, EyeOff, Loader2, Save, RefreshCw, Copy, Check,
-  Zap, Lock, ShieldAlert, Radio, HelpCircle, ExternalLink, Wrench
+  Zap, Lock, ShieldAlert, Radio, HelpCircle, ExternalLink
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { RazorpayAdminSettings } from '../types';
@@ -191,20 +191,12 @@ const AdminRazorpayManager: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <span className={`text-[11px] font-black px-3 py-1 rounded-full border inline-flex items-center gap-1.5 ${
+          <span className={`text-[11px] font-black px-3 py-1 rounded-full border ${
             mode === 'live' 
               ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm' 
               : 'bg-amber-100 text-amber-900 border-amber-300'
           }`}>
-            {mode === 'live' ? (
-              <span className="inline-flex items-center gap-1">
-                <Zap className="w-3 h-3" /> LIVE MODE
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1">
-                <Wrench className="w-3 h-3" /> TEST MODE
-              </span>
-            )}
+            {mode === 'live' ? '⚡ LIVE MODE' : '🛠️ TEST MODE'}
           </span>
         </div>
       </div>

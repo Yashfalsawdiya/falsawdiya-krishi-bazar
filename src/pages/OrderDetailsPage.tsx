@@ -10,7 +10,7 @@ import {
   AlertCircle, ShieldCheck, MessageSquare, 
   ChevronRight, Calendar, Sparkles, Loader2, FileCheck,
   ShoppingBag, ClipboardCheck, Bike, Check, XCircle,
-  AlertTriangle, RotateCcw, HelpCircle, FileText, Ban, Key, Mail, Lightbulb
+  AlertTriangle, RotateCcw, HelpCircle, FileText, Ban, Key, Mail
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
@@ -440,9 +440,8 @@ const OrderDetailsPage: React.FC = () => {
                   रिफंड संदर्भ आईडी (Refund ID): <code className="bg-white/80 px-1 py-0.5 rounded border border-emerald-100 font-mono text-[9px]">{order.refundDetails.refundId}</code>
                 </p>
               )}
-              <p className="text-[10px] text-emerald-900 bg-white/60 p-2 rounded-xl border border-emerald-100 flex items-start gap-1.5">
-                <Lightbulb className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                <span><strong>नोट:</strong> रिफंड की राशि 24 से 48 घंटे के भीतर आपके उसी बैंक खाते या UPI में क्रेडिट हो जाएगी जिससे भुगतान किया गया था।</span>
+              <p className="text-[10px] text-emerald-900 bg-white/60 p-2 rounded-xl border border-emerald-100">
+                💡 <strong>नोट:</strong> रिफंड की राशि 24 से 48 घंटे के भीतर आपके उसी बैंक खाते या UPI में क्रेडिट हो जाएगी जिससे भुगतान किया गया था।
               </p>
             </div>
           </div>

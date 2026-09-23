@@ -3,8 +3,7 @@ import {
   Truck, Plus, Search, Calendar, FileText, CheckCircle2, 
   Trash2, Phone, Building2, IndianRupee, ArrowDownLeft, X, Eye, 
   BookOpen, Clock, AlertCircle, Receipt, ArrowRight, ShieldCheck,
-  Layers, Droplet, Scale, Package, Ban, AlertTriangle, RotateCcw, ShieldAlert,
-  Lightbulb, Sparkles
+  Layers, Droplet, Scale, Package, Ban, AlertTriangle, RotateCcw, ShieldAlert
 } from 'lucide-react';
 import { 
   AccountingPurchase, 
@@ -874,9 +873,8 @@ export const AccountingPurchases: React.FC = () => {
 
                 {transportCharges > 0 && (
                   <div className="text-[11px] text-purple-900 bg-purple-100/60 p-2.5 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-1 border border-purple-200">
-                    <span className="leading-snug flex items-center gap-1.5">
-                      <Lightbulb className="w-3.5 h-3.5 text-purple-700 shrink-0" />
-                      <span><strong>लैंडेड कॉस्ट फॉर्मूला:</strong> उत्पाद खरीद दर + आनुपातिक परिवहन लागत = वास्तविक लैंडेड कॉस्ट प्रति पैक। इन्वेंट्री मूल्यांकन और वास्तविक मुनाफे की गणना इसी लैंडेड दर पर होगी।</span>
+                    <span className="leading-snug">
+                      💡 <strong>लैंडेड कॉस्ट फॉर्मूला:</strong> उत्पाद खरीद दर + आनुपातिक परिवहन लागत = वास्तविक लैंडेड कॉस्ट प्रति पैक। इन्वेंट्री मूल्यांकन और वास्तविक मुनाफे की गणना इसी लैंडेड दर पर होगी।
                     </span>
                     <span className="font-extrabold shrink-0 text-purple-950 font-mono text-xs">
                       कुल लैंडेड लागत: ₹{totalLandedCost.toLocaleString()}
@@ -1456,9 +1454,8 @@ export const AccountingPurchases: React.FC = () => {
                         <p className="text-[10px] text-gray-500 mt-1 leading-snug">
                           इनवॉइस पर 'रद्द' का लाल बैज लग जाएगा। स्टॉक और लेजर रिवर्स होंगे, बिल नंबर रिकॉर्ड में सुरक्षित रहेगा।
                         </p>
-                        <span className="mt-2 inline-flex items-center gap-1 text-[9px] bg-emerald-200/80 text-emerald-900 font-extrabold px-2 py-0.5 rounded-full">
-                          <Sparkles className="w-2.5 h-2.5" />
-                          अनुशंसित (Recommended)
+                        <span className="mt-2 inline-block text-[9px] bg-emerald-200/80 text-emerald-900 font-extrabold px-2 py-0.5 rounded-full">
+                          ★ अनुशंसित (Recommended)
                         </span>
                       </div>
 

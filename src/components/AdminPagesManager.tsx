@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Building2, ShieldCheck, FileText, RotateCcw, AlertTriangle, 
   PhoneCall, ShieldAlert, Save, Plus, Trash2, Edit3, CheckCircle2, 
-  ExternalLink, Sparkles, RefreshCw, Layers, MapPin, Mail, Phone, Clock, Truck, ChevronDown, ChevronUp, Info, ArrowUp, ArrowDown, HelpCircle, MessageCircle, Scale, PackageCheck, UserCheck, Award, FlaskConical, Sprout, FileCheck2, Camera, Upload, User, X, Check
+  ExternalLink, Sparkles, RefreshCw, Layers, MapPin, Mail, Phone, Clock, Truck, ChevronDown, ChevronUp, Info, ArrowUp, ArrowDown, HelpCircle, MessageCircle, Scale, PackageCheck, UserCheck, Award, FlaskConical, Sprout, FileCheck2, Camera, Upload, User
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { 
@@ -600,9 +600,7 @@ const AboutUsEditor: React.FC<{
 
         {/* Add New Service */}
         <div className="p-3 bg-emerald-50/50 rounded-2xl border border-emerald-200 space-y-2">
-          <p className="text-xs font-bold text-[#2D5A27] flex items-center gap-1.5">
-            <Plus className="w-3.5 h-3.5" /> नई सेवा जोड़ें
-          </p>
+          <p className="text-xs font-bold text-[#2D5A27]">➕ नई सेवा जोड़ें</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <input
               type="text"
@@ -908,8 +906,8 @@ const RefundPolicyEditor: React.FC<{
         <div className="space-y-2">
           {data.nonReturnableConditions?.map((cond, index) => (
             <div key={index} className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-rose-100 text-rose-800 flex items-center justify-center shrink-0">
-                <X className="w-3 h-3" />
+              <span className="w-5 h-5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-black flex items-center justify-center shrink-0">
+                ✕
               </span>
               <input
                 type="text"
@@ -1183,9 +1181,7 @@ const ChemicalSafetyEditor: React.FC<{
 
         {/* Add Emergency */}
         <div className="p-3 bg-rose-50/50 rounded-2xl border border-rose-200 space-y-2">
-          <p className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
-            <Plus className="w-3.5 h-3.5" /> नया हेल्पलाइन नंबर जोड़ें
-          </p>
+          <p className="text-xs font-bold text-rose-800">➕ नया हेल्पलाइन नंबर जोड़ें</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <input
               type="text"
@@ -1231,9 +1227,7 @@ const ChemicalSafetyEditor: React.FC<{
           <div className="space-y-2">
             {data.dosList?.map((item, index) => (
               <div key={index} className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                  <Check className="w-3 h-3" />
-                </span>
+                <span className="text-emerald-600 font-bold text-xs">✓</span>
                 <input
                   type="text"
                   value={item}
@@ -1283,9 +1277,7 @@ const ChemicalSafetyEditor: React.FC<{
           <div className="space-y-2">
             {data.dontsList?.map((item, index) => (
               <div key={index} className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
-                  <X className="w-3 h-3" />
-                </span>
+                <span className="text-rose-600 font-bold text-xs">✕</span>
                 <input
                   type="text"
                   value={item}

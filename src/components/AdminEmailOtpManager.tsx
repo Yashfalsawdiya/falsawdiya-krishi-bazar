@@ -4,7 +4,7 @@ import {
   AlertCircle, RefreshCw, Eye, EyeOff, Save, 
   HelpCircle, Sparkles, Clock, Lock, Smartphone,
   Info, Check, ExternalLink, ShieldAlert, AlertTriangle,
-  Monitor, Smartphone as PhoneIcon, Code, X
+  Monitor, Smartphone as PhoneIcon, Code
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -294,9 +294,9 @@ export const AdminEmailOtpManager: React.FC = () => {
             </div>
             <button
               onClick={() => setSaveFeedback(null)}
-              className="text-gray-400 hover:text-gray-700 p-1"
+              className="text-[10px] uppercase font-bold text-gray-400 hover:text-gray-700"
             >
-              <X className="w-3.5 h-3.5" />
+              ✕
             </button>
           </motion.div>
         )}

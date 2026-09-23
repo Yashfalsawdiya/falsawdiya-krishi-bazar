@@ -1349,8 +1349,8 @@ const AdminDeliveryManager: React.FC = () => {
       {vehicleToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-gray-100 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto">
-              <Trash2 className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto text-2xl">
+              🗑️
             </div>
 
             <div className="text-center space-y-2">
