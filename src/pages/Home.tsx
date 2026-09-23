@@ -354,7 +354,7 @@ const Home: React.FC = () => {
                       {/* Ambient blur background for safe no-crop fit */}
                       <div 
                         className="absolute inset-0 w-full h-full bg-cover bg-center filter blur-xl opacity-35 scale-110"
-                        style={{ backgroundImage: `url(${typeof banner.image === 'string' ? banner.image : banner.image.primary})` }}
+                        style={{ backgroundImage: `url(${typeof banner.image === 'string' ? banner.image : (banner.image.fallback || banner.image.primary)})` }}
                       />
                       <SmartImage 
                         src={banner.image} 
@@ -362,6 +362,7 @@ const Home: React.FC = () => {
                         className="relative z-10 w-full h-full"
                         objectFit="contain"
                         priority={idx === 0}
+                        preferCloudPrimary={true}
                       />
                     </div>
                   ) : (
@@ -371,6 +372,7 @@ const Home: React.FC = () => {
                       className="absolute inset-0 w-full h-full"
                       objectFit="cover"
                       priority={idx === 0}
+                      preferCloudPrimary={true}
                     />
                   )
                 ) : (

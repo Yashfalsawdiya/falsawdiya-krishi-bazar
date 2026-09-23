@@ -162,6 +162,7 @@ export interface AccountingSale {
 
 export interface AccountingCustomer {
   id: string;
+  accountNumber?: string; // Manually entered Khata Number (खाता संख्या)
   name: string;
   phone: string;
   village: string;

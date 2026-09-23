@@ -12,6 +12,7 @@ interface SmartImageProps {
   objectFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
   onClick?: (e: React.MouseEvent) => void;
   priority?: boolean;
+  preferCloudPrimary?: boolean; // When true, uses high-res Drive/Cloud fallback URL first, falls back to base64 if unavailable
 }
 
 const SmartImage: React.FC<SmartImageProps> = ({ 
@@ -21,17 +22,32 @@ const SmartImage: React.FC<SmartImageProps> = ({
   fallbackSrc = '',
   objectFit = 'cover',
   onClick,
-  priority = false
+  priority = false,
+  preferCloudPrimary = false // Default FALSE: Normal products/categories keep primary base64. Only Hero Banner passes true!
 }) => {
-  // Sync calculation to avoid blank first frame
-  const resolveSrc = (source: string | ImageSource | undefined): string => {
-    if (!source) return getDirectImageURL(fallbackSrc);
-    if (typeof source === 'string') return getDirectImageURL(source);
-    return getDirectImageURL(source.primary || source.fallback || fallbackSrc);
+  // Sync calculation: Prioritize cloud HD URL if preferCloudPrimary is set, with seamless fallback to base64
+  const resolveInitialSource = (source: string | ImageSource | undefined): { url: string; usingCloudFirst: boolean } => {
+    if (!source) return { url: getDirectImageURL(fallbackSrc), usingCloudFirst: false };
+    if (typeof source === 'string') return { url: getDirectImageURL(source), usingCloudFirst: false };
+
+    if (preferCloudPrimary && source.fallback && source.fallback.trim() !== '') {
+      return { url: getDirectImageURL(source.fallback), usingCloudFirst: true };
+    }
+
+    if (source.primary && source.primary.trim() !== '') {
+      return { url: getDirectImageURL(source.primary), usingCloudFirst: false };
+    }
+
+    if (source.fallback && source.fallback.trim() !== '') {
+      return { url: getDirectImageURL(source.fallback), usingCloudFirst: true };
+    }
+
+    return { url: getDirectImageURL(fallbackSrc), usingCloudFirst: false };
   };
 
-  const initialSrc = resolveSrc(src);
-  const [currentSrc, setCurrentSrc] = useState<string>(initialSrc);
+  const initial = resolveInitialSource(src);
+  const [currentSrc, setCurrentSrc] = useState<string>(initial.url);
+  const [usingCloudFirst, setUsingCloudFirst] = useState<boolean>(initial.usingCloudFirst);
   const [hasError, setHasError] = useState(false);
   const [isPrimaryFailed, setIsPrimaryFailed] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -39,25 +55,35 @@ const SmartImage: React.FC<SmartImageProps> = ({
 
   // Update if props change
   useEffect(() => {
-    const newSrc = resolveSrc(src);
-    if (newSrc !== currentSrc) {
-      setCurrentSrc(newSrc);
+    const fresh = resolveInitialSource(src);
+    if (fresh.url !== currentSrc) {
+      setCurrentSrc(fresh.url);
+      setUsingCloudFirst(fresh.usingCloudFirst);
       setHasError(false);
       setIsPrimaryFailed(false);
       setIsLoaded(false);
     }
-  }, [src, fallbackSrc]);
+  }, [src, fallbackSrc, preferCloudPrimary]);
 
   const handleError = () => {
-    if (typeof src !== 'string' && src?.primary && !isPrimaryFailed) {
-      // Primary failed, try fallback
+    if (typeof src !== 'string' && src && !isPrimaryFailed) {
       setIsPrimaryFailed(true);
-      if (src.fallback) {
-        setCurrentSrc(getDirectImageURL(src.fallback));
-      } else {
-        setHasError(true);
-        setCurrentSrc(getDirectImageURL(fallbackSrc));
+
+      // If we attempted Cloud first and it failed (e.g. offline, private permissions), fall back to local Base64
+      if (usingCloudFirst && src.primary && src.primary.trim() !== '') {
+        setCurrentSrc(getDirectImageURL(src.primary));
+        return;
       }
+
+      // If we attempted Base64 first and it failed, fall back to Cloud URL
+      if (!usingCloudFirst && src.fallback && src.fallback.trim() !== '') {
+        setCurrentSrc(getDirectImageURL(src.fallback));
+        return;
+      }
+
+      // If both or remaining fallback failed, fall back to fallbackSrc
+      setHasError(true);
+      setCurrentSrc(getDirectImageURL(fallbackSrc));
     } else {
       // Both or single source failed
       setHasError(true);

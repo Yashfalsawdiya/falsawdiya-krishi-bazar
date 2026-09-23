@@ -5,7 +5,7 @@ import {
   CheckCircle2, Printer, Percent, ArrowRight, RefreshCw, 
   Phone, MapPin, IndianRupee, CreditCard, Wallet, UserPlus, X, FileText,
   ChevronDown, User, Smartphone, BookOpen, Scale, Banknote, Download,
-  Droplet, Layers, Check, Sparkles, Calendar, Receipt, RotateCcw, AlertTriangle, Sprout
+  Droplet, Layers, Check, Sparkles, Calendar, Receipt, RotateCcw, AlertTriangle, Sprout, Hash
 } from 'lucide-react';
 import { 
   AccountingProduct, 
@@ -21,6 +21,8 @@ import {
   calculateBargainingAllocation,
   getNextPOSInvoiceNoPreview,
   fetchAccountingSaleById,
+  fetchAccountingSaleByInvoiceNo,
+  fetchAccountingSaleByInvoiceNoAndDate,
   resetTestAccountingData
 } from '../../services/accountingService';
 import { 
@@ -137,7 +139,49 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
   const [cashPaidInput, setCashPaidInput] = useState<string>('');
   const [onlinePaidInput, setOnlinePaidInput] = useState<string>('');
   const [billNote, setBillNote] = useState('');
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
+  const [invoiceDate, setInvoiceDate] = useState<string>(todayStr);
+
+  // Manual / Automatic Bill Number State
+  const [billNumberMode, setBillNumberMode] = useState<'auto' | 'manual'>('auto');
+  const [manualBillNumber, setManualBillNumber] = useState<string>('');
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState<boolean>(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<{ exists: boolean; sale?: AccountingSale } | null>(null);
+
+  // Real-time duplicate check for manual bill number + date combination
+  useEffect(() => {
+    if (billNumberMode !== 'manual' || !manualBillNumber.trim()) {
+      setDuplicateWarning(null);
+      setIsCheckingDuplicate(false);
+      return;
+    }
+
+    const trimmedNo = manualBillNumber.trim();
+    const trimmedDate = invoiceDate.trim();
+    setIsCheckingDuplicate(true);
+    const timer = setTimeout(async () => {
+      try {
+        const sale = await fetchAccountingSaleByInvoiceNoAndDate(trimmedNo, trimmedDate);
+        if (sale) {
+          setDuplicateWarning({ exists: true, sale });
+        } else {
+          setDuplicateWarning({ exists: false });
+        }
+      } catch (err) {
+        console.warn('Error checking bill duplicate:', err);
+      } finally {
+        setIsCheckingDuplicate(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [billNumberMode, manualBillNumber, invoiceDate]);
 
   // Success / Print Modal
   const [completedSale, setCompletedSale] = useState<AccountingSale | null>(null);
@@ -894,12 +938,44 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
       }
     }
 
+    // Date Validation: Disallow Future Dates
+    if (invoiceDate > todayStr) {
+      alert('भविष्य की तारीख (Future Date) में बिल काटना मान्य नहीं है। कृपया आज की या कोई भी मान्य पिछली तारीख चुनें।');
+      return;
+    }
+
+    // Manual Bill Number Validation & Duplicate Prevention (Bill Number + Bill Date combination)
+    let assignedCustomInvoiceNo = '';
+    if (billNumberMode === 'manual') {
+      const trimmed = manualBillNumber.trim();
+      if (!trimmed) {
+        alert('कृपया मैन्युअल बिल नंबर दर्ज करें (उदा. 12 या B-101)।');
+        return;
+      }
+      try {
+        const existingSale = await fetchAccountingSaleByInvoiceNoAndDate(trimmed, invoiceDate);
+        if (existingSale) {
+          alert(`चेतावनी: यह Bill Number (#${trimmed}) इस तारीख (${invoiceDate}) पर पहले से मौजूद है!\n\nग्राहक: ${existingSale.customerName}\nकुल राशि: ₹${existingSale.finalTotal}\n\nकृपया Bill Number या Bill Date verify करें।`);
+          return;
+        }
+      } catch (checkErr) {
+        console.warn('Error during manual duplicate check:', checkErr);
+      }
+      assignedCustomInvoiceNo = trimmed;
+    }
+
+    // Set correct timestamp: If past date selected, use noon of that date for proper chronological sorting
+    const isPastDate = invoiceDate !== todayStr;
+    const saleTimestamp = isPastDate 
+      ? new Date(`${invoiceDate}T12:00:00`).getTime() 
+      : Date.now();
+
     setIsSubmitting(true);
     try {
       const salePayload: Omit<AccountingSale, 'id' | 'createdAt'> = {
-        invoiceNo: '', // Automatically assigned as sequential FKB-XXXX by atomic transaction
+        invoiceNo: assignedCustomInvoiceNo, // If manual, e.g. "12"; if empty, auto sequential FKB-XXXX assigned atomically
         date: invoiceDate,
-        timestamp: Date.now(),
+        timestamp: saleTimestamp,
         customerId: selectedCustomerId || null,
         customerName: selectedCustomer ? selectedCustomer.name : 'नकद ग्राहक (Retail Cash Customer)',
         customerPhone: selectedCustomer?.phone || '',
@@ -954,7 +1030,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
         savedSale || {
           ...salePayload,
           id: saleId,
-          invoiceNo: nextBillNumberPreview,
+          invoiceNo: assignedCustomInvoiceNo || nextBillNumberPreview,
           createdAt: Date.now(),
         }
       );
@@ -969,6 +1045,8 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
       setCustomFinalTotalInput('');
       setIsFinalAmountManuallyEdited(false);
       setBillNote('');
+      setManualBillNumber('');
+      setDuplicateWarning(null);
       
       // Refresh inventory & customers in background
       loadData();
@@ -1032,10 +1110,16 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
           <div 
             id="pos-next-bill-badge"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold shadow-2xs"
-            title="स्वचालित अनुक्रमिक बिल नंबर प्रणाली"
+            title={billNumberMode === 'manual' ? 'मैन्युअल बिल नंबर मोड सक्रिय' : 'स्वचालित अनुक्रमिक बिल नंबर प्रणाली'}
           >
             <Receipt className="w-4 h-4 text-emerald-600" />
-            <span>अगला बिल: <strong className="font-mono text-emerald-950 tracking-wide font-black">#{nextBillNumberPreview}</strong></span>
+            <span>
+              {billNumberMode === 'manual' && manualBillNumber.trim() ? (
+                <>बिल: <strong className="font-mono text-emerald-950 tracking-wide font-black">#{manualBillNumber.trim()}</strong> <span className="text-[10px] text-emerald-700 font-medium">(मैन्युअल)</span></>
+              ) : (
+                <>अगला बिल: <strong className="font-mono text-emerald-950 tracking-wide font-black">#{nextBillNumberPreview}</strong></>
+              )}
+            </span>
           </div>
 
           <div className="flex items-center gap-1.5 bg-gray-100/90 p-1.5 rounded-2xl border border-gray-200 w-full sm:w-auto">
@@ -1076,8 +1160,16 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
               <input
                 type="date"
                 value={invoiceDate}
-                onChange={e => setInvoiceDate(e.target.value)}
+                max={todayStr}
+                onChange={e => {
+                  if (e.target.value > todayStr) {
+                    alert('भविष्य की तारीख मान्य नहीं है। कृपया आज की या पिछली तारीख चुनें।');
+                    return;
+                  }
+                  setInvoiceDate(e.target.value);
+                }}
                 className="px-3 py-2 text-xs font-bold bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                title="बिल की दिनांक (आज या पिछली तारीख)"
               />
               <button
                 onClick={loadData}
@@ -1299,6 +1391,159 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
         {/* RIGHT COLUMN: Active Cart, Bargaining & Billing (7 Cols) */}
         <div className="lg:col-span-7 space-y-4">
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-gray-100 shadow-sm space-y-5">
+            {/* BILL DETAILS (BILL NUMBER & DATE CONTROLS) */}
+            <div className="bg-emerald-50/40 border border-emerald-100/80 p-4 rounded-2xl space-y-3 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                  <Receipt className="w-4 h-4 text-emerald-700" />
+                  <span>बिल विवरण (Bill Details)</span>
+                </label>
+                {invoiceDate !== todayStr && (
+                  <button
+                    type="button"
+                    onClick={() => setInvoiceDate(todayStr)}
+                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 bg-white hover:bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
+                    title="आज की दिनांक सेट करें"
+                  >
+                    <RotateCcw className="w-3 h-3" /> आज की तारीख
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Bill Number Setting */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-gray-700 flex items-center gap-1">
+                      <Hash className="w-3 h-3 text-gray-500" />
+                      बिल नंबर (Bill No.):
+                    </span>
+                    {/* Toggle [Auto / Manual] */}
+                    <div className="inline-flex p-0.5 bg-gray-200/80 rounded-lg text-[10px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBillNumberMode('auto');
+                          setDuplicateWarning(null);
+                        }}
+                        className={`px-2 py-0.5 rounded-md transition-all ${
+                          billNumberMode === 'auto'
+                            ? 'bg-white text-emerald-900 shadow-2xs font-extrabold'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        स्वचालित (Auto)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBillNumberMode('manual')}
+                        className={`px-2 py-0.5 rounded-md transition-all ${
+                          billNumberMode === 'manual'
+                            ? 'bg-[#2D5A27] text-white shadow-2xs font-extrabold'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        मैन्युअल (Manual)
+                      </button>
+                    </div>
+                  </div>
+
+                  {billNumberMode === 'auto' ? (
+                    <div className="flex items-center justify-between px-3 py-2 bg-white border border-emerald-200/70 rounded-xl text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-gray-500 text-[11px]">अगला बिल:</span>
+                        <span className="font-mono font-black text-emerald-900 text-sm">
+                          #{nextBillNumberPreview}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                        ऑटो जनरेट
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold font-mono text-xs">#</span>
+                        <input
+                          type="text"
+                          placeholder="उदा. 12 या B-101 (ऑफलाइन बिल नंबर)"
+                          value={manualBillNumber}
+                          onChange={e => setManualBillNumber(e.target.value)}
+                          className={`w-full pl-7 pr-8 py-2 text-xs font-bold font-mono bg-white border rounded-xl focus:outline-none focus:ring-2 ${
+                            duplicateWarning?.exists
+                              ? 'border-red-500 text-red-900 focus:ring-red-500 bg-red-50/40'
+                              : duplicateWarning?.exists === false
+                              ? 'border-emerald-500 text-emerald-950 focus:ring-emerald-500'
+                              : 'border-gray-300 focus:ring-emerald-500'
+                          }`}
+                        />
+                        {isCheckingDuplicate && (
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400">
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          </span>
+                        )}
+                        {!isCheckingDuplicate && duplicateWarning?.exists === false && (
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-emerald-600">
+                            <Check className="w-4 h-4" />
+                          </span>
+                        )}
+                        {!isCheckingDuplicate && duplicateWarning?.exists && (
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-red-600">
+                            <AlertTriangle className="w-4 h-4" />
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Duplicate Warning / Status */}
+                      {duplicateWarning?.exists && duplicateWarning.sale && (
+                        <p className="text-[11px] text-red-600 font-bold flex items-start gap-1.5 bg-red-50 p-2 rounded-xl border border-red-200 leading-tight">
+                          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+                          <span>
+                            यह Bill Number (#{duplicateWarning.sale.invoiceNo}) इस तारीख ({duplicateWarning.sale.date}) पर पहले से मौजूद है ({duplicateWarning.sale.customerName}, ₹{duplicateWarning.sale.finalTotal})। कृपया Bill Number या Bill Date verify करें।
+                          </span>
+                        </p>
+                      )}
+                      {duplicateWarning?.exists === false && manualBillNumber.trim() && (
+                        <p className="text-[10px] text-emerald-700 font-bold flex items-center gap-1 px-1">
+                          <Check className="w-3.5 h-3.5" /> बिल नंबर #{manualBillNumber.trim()} दिनांक {invoiceDate} पर उपलब्ध है।
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Bill Date Setting */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-gray-700 flex items-center gap-1">
+                      <Calendar className="w-3 h-3 text-gray-500" />
+                      बिल दिनांक (Bill Date):
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                      invoiceDate === todayStr 
+                        ? 'text-emerald-700 bg-emerald-100/80' 
+                        : 'text-amber-800 bg-amber-100/90'
+                    }`}>
+                      {invoiceDate === todayStr ? 'आज (Today)' : 'पिछली तारीख (Past Date)'}
+                    </span>
+                  </div>
+                  <input
+                    type="date"
+                    value={invoiceDate}
+                    max={todayStr}
+                    onChange={e => {
+                      if (e.target.value > todayStr) {
+                        alert('भविष्य की तारीख (Future Date) मान्य नहीं है। कृपया आज की या पिछली तारीख चुनें।');
+                        return;
+                      }
+                      setInvoiceDate(e.target.value);
+                    }}
+                    className="w-full px-3 py-2 text-xs font-bold text-gray-900 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-2xs"
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Customer Selector Section */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
