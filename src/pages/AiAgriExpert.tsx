@@ -123,7 +123,7 @@ const AiAgriExpert: React.FC = () => {
             }
             startVideoInterval(sessionRef.current);
           } catch (err) {
-            console.error("Failed to enable camera mid-call:", err);
+            console.warn("Failed to enable camera mid-call notice:", err);
             setIsCameraOn(false);
           }
         } else {
@@ -304,8 +304,13 @@ const AiAgriExpert: React.FC = () => {
       setStatus('idle');
       return true;
     } catch (err: any) {
-      console.error("Permission request failed:", err);
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.name === 'SecurityError') {
+      console.warn("Permission request notice:", err?.message || err);
+      const isDenied = err.name === 'NotAllowedError' || 
+        err.name === 'PermissionDeniedError' || 
+        err.name === 'SecurityError' || 
+        String(err?.message).toLowerCase().includes('permission denied');
+
+      if (isDenied) {
         setError("माइक एक्सेस ब्लॉक है। कृपया ब्राउज़र की ताला (Lock) सेटिंग्स में जाकर माइक्रोफोन के लिए 'Allow' चुनें।");
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setError("आपके फोन में माइक्रोफोन नहीं मिला।");
@@ -337,15 +342,24 @@ const AiAgriExpert: React.FC = () => {
         videoConstraints = { facingMode: 'environment' };
       }
 
-      let stream;
+      let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ 
           audio: true, 
           video: videoConstraints 
         });
-      } catch (innerErr) {
-        console.warn("Retrying media with relaxed constraints", innerErr);
-        // If fails, try just audio first, or fallback to any video
+      } catch (innerErr: any) {
+        const isDenied = innerErr?.name === 'NotAllowedError' || 
+          innerErr?.name === 'PermissionDeniedError' || 
+          innerErr?.name === 'SecurityError' || 
+          String(innerErr?.message).toLowerCase().includes('permission denied');
+
+        if (isDenied) {
+          throw innerErr;
+        }
+
+        console.warn("Retrying media with relaxed constraints notice:", innerErr?.message || innerErr);
+        // If fails due to constraints, try just audio first, or fallback to any video
         if (isCameraOn) {
           stream = await navigator.mediaDevices.getUserMedia({ 
             audio: true, 
@@ -495,13 +509,21 @@ STRICT RULE ON NAME:
       };
 
     } catch (err: any) {
-      console.error("Call initialization failed:", err);
+      console.warn("Call initialization notice:", err?.message || err);
       const friendlyError = getFriendlyAiError(err);
       
       if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
         openApiKeyModal(friendlyError.message);
         setIsCalling(false);
         setStatus('idle');
+        return;
+      }
+
+      if (friendlyError.type === 'permission_denied') {
+        setError("माइक एक्सेस की अनुमति नहीं मिली। कृपया ब्राउज़र सेटिंग्स में जाकर माइक्रोफोन की अनुमति दें।");
+        setPermissionGranted(false);
+        setStatus('error');
+        setIsCalling(false);
         return;
       }
 

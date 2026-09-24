@@ -7,7 +7,8 @@ import {
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 
   Youtube as YoutubeIcon, Layout, Phone, Key, Star, ArrowUp, ArrowDown,
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle,
-  Truck, FileText, Facebook, Instagram, Package, CreditCard, Layers, MessageSquare
+  Truck, FileText, Facebook, Instagram, Package, CreditCard, Layers, MessageSquare,
+  Zap, Radio, Clock, Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
@@ -36,7 +37,7 @@ const Admin: React.FC = () => {
     categories, addCategory, updateCategory, deleteCategory,
     agriIssues, addAgriIssue, updateAgriIssue, deleteAgriIssue,
     helplines, addHelpline, updateHelpline, deleteHelpline,
-    appContent, updateAppContent,
+    appContent, updateAppContent, forcePushAllUpdates,
     user, isAdmin, login, logout, loading,
     allUsers, updateUserStatus,
     loadProducts, loadCategoryData, loadAgriIssues, loadHelplines
@@ -133,6 +134,8 @@ const Admin: React.FC = () => {
   });
 
   const [contentForm, setContentForm] = useState<AppContent | null>(null);
+  const [isPushingUpdates, setIsPushingUpdates] = useState(false);
+  const [lastPushSuccessMessage, setLastPushSuccessMessage] = useState<string | null>(null);
 
   // Set default category if not set
   React.useEffect(() => {
@@ -343,6 +346,28 @@ const Admin: React.FC = () => {
       console.error("Error saving content:", error);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleForcePushUpdates = async () => {
+    const isConfirmed = window.confirm(
+      "क्या आप वाकई सभी किसानों के ऐप में तुरंत नया लाइव अपडेट पुश करना चाहते हैं?\n\nइससे सभी किसानों के फ़ोन में बिना 4 घंटे का इंतज़ार किए नया कैटलॉग, नए उत्पाद, स्टॉक और भाव तुरंत सिंक हो जाएंगे।"
+    );
+    if (!isConfirmed) return;
+
+    try {
+      setIsPushingUpdates(true);
+      setLastPushSuccessMessage(null);
+      await forcePushAllUpdates("एडमिन द्वारा सभी लाइव उत्पाद एवं आवश्यक अपडेट तुरंत पुश किए गए हैं।");
+      setLastPushSuccessMessage("सफलतापूर्वक सभी किसानों के लिए नया लाइव वर्ज़न तुरंत पुश कर दिया गया है!");
+      setTimeout(() => {
+        setLastPushSuccessMessage(null);
+      }, 7000);
+    } catch (err: any) {
+      console.error("Force push error:", err);
+      alert("अपडेट पुश करने में त्रुटि: " + (err.message || err));
+    } finally {
+      setIsPushingUpdates(false);
     }
   };
 
@@ -1635,6 +1660,69 @@ const Admin: React.FC = () => {
         <AdminFooterManager />
       ) : (
         <form onSubmit={handleContentSubmit} className="space-y-8">
+          {/* Instant Force Push Updates Card */}
+          <div className="bg-gradient-to-br from-[#1b3d18] via-[#234d1f] to-[#2D5A27] text-white p-6 rounded-3xl shadow-lg border border-emerald-700/40 space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 text-amber-400 shrink-0">
+                  <Zap className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-bold text-lg text-white">लाइव अपडेट पुश केंद्र (Live Force Push)</h3>
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 border border-emerald-400/30">
+                      12 घंटे थ्रॉटल सक्रिय (10 लाख यूज़र्स क्षमता)
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-100/80 mt-1 max-w-2xl leading-relaxed">
+                    यदि आपने नए उत्पाद जोड़े हैं, स्टॉक बदला है या कोई अति-महत्वपूर्ण अपडेट किया है, तो सभी किसानों के फ़ोन में बिना 12 घंटे का इंतज़ार किए तुरंत नया डेटा सिंक करने के लिए यह बटन दबाएं।
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleForcePushUpdates}
+                disabled={isPushingUpdates}
+                className="bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-900 font-bold px-6 py-3.5 rounded-2xl shadow-md flex items-center justify-center gap-2.5 transition-all disabled:opacity-50 shrink-0 cursor-pointer"
+              >
+                {isPushingUpdates ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>अपडेट भेजा जा रहा है...</span>
+                  </>
+                ) : (
+                  <>
+                    <Radio className="w-5 h-5 text-slate-900" />
+                    <span>तुरंत अपडेट पुश करें</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {lastPushSuccessMessage && (
+              <div className="bg-emerald-500/20 border border-emerald-400/50 rounded-2xl p-3.5 flex items-center gap-2.5 text-sm font-medium text-emerald-100 animate-in fade-in">
+                <CheckCircle className="w-5 h-5 text-emerald-300 shrink-0" />
+                <span>{lastPushSuccessMessage}</span>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-white/10 flex flex-wrap items-center gap-y-2 gap-x-5 text-xs text-emerald-200/80">
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                <span>10,00,000 किसानों के लिए न्यूनतम/शून्य कोटा खपत</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-emerald-300" />
+                <span>सामान्य ऑटो-चेक: हर 12 घंटे</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Send className="w-4 h-4 text-emerald-300" />
+                <span>पुश बटन: तुरंत रिमोट वर्ज़न अपडेट (0 सेकंड)</span>
+              </div>
+            </div>
+          </div>
+
           {/* Branding Settings */}
           <div className="space-y-4">
             <h3 className="font-bold text-[#4A3728] flex items-center gap-2">

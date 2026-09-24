@@ -36,7 +36,7 @@ import {
 } from 'firebase/auth';
 import { validateLoginEmail } from '../utils/security';
 import { safeLocalStorageSet, sanitizeProductForStorage, cleanupStorageQuota } from '../utils/cacheManager';
-import { loadAllCachedData, syncDataIfVersionChanged, bumpMetadataVersion, IDB_KEYS } from '../utils/dataSyncManager';
+import { loadAllCachedData, syncDataIfVersionChanged, bumpMetadataVersion, forcePushMetadataVersion, IDB_KEYS } from '../utils/dataSyncManager';
 import { idbSet } from '../utils/idbStorage';
 import { sortCategoriesByOrder } from '../utils/categoryUtils';
 
@@ -141,6 +141,8 @@ interface AppContextType {
   resetDeliveryEmailTemplate: () => Promise<void>;
   updateDeliveryConfig: (config: DynamicDeliveryConfig) => Promise<void>;
   resetDeliveryConfig: () => Promise<void>;
+  forcePushAllUpdates: (message?: string) => Promise<void>;
+  forceSyncCatalog: () => Promise<void>;
   updateUserSettings: (settings: UserSettings) => Promise<void>;
   updateUserStatus: (uid: string, isBlocked: boolean) => Promise<void>;
   login: () => Promise<void>;
@@ -1163,6 +1165,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const forcePushAllUpdates = async (message?: string) => {
+    try {
+      await forcePushMetadataVersion(db, message);
+      const syncRes = await syncDataIfVersionChanged(db, { forceSync: true, isAdmin: true });
+      if (syncRes.updated && syncRes.newData) {
+        if (syncRes.newData.products) setProducts(syncRes.newData.products);
+        if (syncRes.newData.categories) setCategories(sortCategoriesByOrder(syncRes.newData.categories));
+        if (syncRes.newData.agriIssues) setAgriIssues(syncRes.newData.agriIssues);
+        if (syncRes.newData.helplines) setHelplines(syncRes.newData.helplines);
+        if (syncRes.newData.appContent) setAppContent(syncRes.newData.appContent);
+        if (syncRes.newData.deliveryConfig) setDeliveryConfig(mergeDeliveryConfig(syncRes.newData.deliveryConfig));
+      }
+    } catch (error) {
+      console.error("Force push all updates error:", error);
+      throw error;
+    }
+  };
+
+  const forceSyncCatalog = async () => {
+    try {
+      const syncRes = await syncDataIfVersionChanged(db, { forceSync: true, isAdmin });
+      if (syncRes.updated && syncRes.newData) {
+        if (syncRes.newData.products) setProducts(syncRes.newData.products);
+        if (syncRes.newData.categories) setCategories(sortCategoriesByOrder(syncRes.newData.categories));
+        if (syncRes.newData.agriIssues) setAgriIssues(syncRes.newData.agriIssues);
+        if (syncRes.newData.helplines) setHelplines(syncRes.newData.helplines);
+        if (syncRes.newData.appContent) setAppContent(syncRes.newData.appContent);
+        if (syncRes.newData.deliveryConfig) setDeliveryConfig(mergeDeliveryConfig(syncRes.newData.deliveryConfig));
+      }
+    } catch (error) {
+      console.error("Manual catalog sync error:", error);
+    }
+  };
+
   const updateUserSettings = async (settings: UserSettings) => {
     const key = settings.geminiApiKey?.trim() || '';
     if (typeof window !== 'undefined') {
@@ -1248,6 +1284,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       resetDeliveryEmailTemplate,
       updateDeliveryConfig,
       resetDeliveryConfig,
+      forcePushAllUpdates,
+      forceSyncCatalog,
       updateUserSettings,
       updateUserStatus,
       login,

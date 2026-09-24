@@ -99,61 +99,71 @@ export const handleGetDailyNews = async (req: Request, res: Response): Promise<v
 2. "date" में समाचार की वास्तविक मूल प्रकाशन तिथि DD/MM/YYYY फॉर्मेट में ही दें।
 3. JSON ऐरे रिटर्न करें।`;
 
-        let response;
-        try {
-          response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
-            config: {
-              tools: [{ googleSearch: {} }],
-              responseMimeType: 'application/json',
-              responseSchema: {
-                type: 'ARRAY' as any,
-                items: {
-                  type: 'OBJECT' as any,
-                  properties: {
-                    title: { type: 'STRING' },
-                    summary: { type: 'STRING' },
-                    date: { type: 'STRING' },
-                    source: { type: 'STRING' },
-                    url: { type: 'STRING' },
-                    category: { 
-                      type: 'STRING',
-                      enum: ['MP', 'India', 'Scheme', 'Weather', 'Crop', 'Market', 'Tech', 'Innovation'] 
-                    }
-                  },
-                  required: ['title', 'summary', 'date', 'source', 'url', 'category']
+        const candidateModels = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview'];
+        let response: any = null;
+
+        for (const model of candidateModels) {
+          try {
+            response = await ai.models.generateContent({
+              model,
+              contents: prompt,
+              config: {
+                tools: [{ googleSearch: {} }],
+                responseMimeType: 'application/json',
+                responseSchema: {
+                  type: 'ARRAY' as any,
+                  items: {
+                    type: 'OBJECT' as any,
+                    properties: {
+                      title: { type: 'STRING' },
+                      summary: { type: 'STRING' },
+                      date: { type: 'STRING' },
+                      source: { type: 'STRING' },
+                      url: { type: 'STRING' },
+                      category: { 
+                        type: 'STRING',
+                        enum: ['MP', 'India', 'Scheme', 'Weather', 'Crop', 'Market', 'Tech', 'Innovation'] 
+                      }
+                    },
+                    required: ['title', 'summary', 'date', 'source', 'url', 'category']
+                  }
                 }
               }
-            }
-          });
-        } catch (searchErr) {
-          console.warn('[Central News Cache] Server search grounding failed, falling back to core knowledge...');
-          response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
-            config: {
-              responseMimeType: 'application/json',
-              responseSchema: {
-                type: 'ARRAY' as any,
-                items: {
-                  type: 'OBJECT' as any,
-                  properties: {
-                    title: { type: 'STRING' },
-                    summary: { type: 'STRING' },
-                    date: { type: 'STRING' },
-                    source: { type: 'STRING' },
-                    url: { type: 'STRING' },
-                    category: { 
-                      type: 'STRING',
-                      enum: ['MP', 'India', 'Scheme', 'Weather', 'Crop', 'Market', 'Tech', 'Innovation'] 
+            });
+            if (response?.text) break;
+          } catch (searchErr) {
+            console.warn(`[Central News Cache] Model ${model} search grounding notice, trying core generation...`);
+            try {
+              response = await ai.models.generateContent({
+                model,
+                contents: prompt,
+                config: {
+                  responseMimeType: 'application/json',
+                  responseSchema: {
+                    type: 'ARRAY' as any,
+                    items: {
+                      type: 'OBJECT' as any,
+                      properties: {
+                        title: { type: 'STRING' },
+                        summary: { type: 'STRING' },
+                        date: { type: 'STRING' },
+                        source: { type: 'STRING' },
+                        url: { type: 'STRING' },
+                        category: { 
+                          type: 'STRING',
+                          enum: ['MP', 'India', 'Scheme', 'Weather', 'Crop', 'Market', 'Tech', 'Innovation'] 
+                        }
+                      },
+                      required: ['title', 'summary', 'date', 'source', 'url', 'category']
                     }
-                  },
-                  required: ['title', 'summary', 'date', 'source', 'url', 'category']
+                  }
                 }
-              }
+              });
+              if (response?.text) break;
+            } catch (coreErr) {
+              console.warn(`[Central News Cache] Model ${model} core generation notice`);
             }
-          });
+          }
         }
 
         const items: AgriNewsItem[] = JSON.parse(response.text || '[]');

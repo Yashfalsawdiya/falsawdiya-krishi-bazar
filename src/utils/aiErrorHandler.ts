@@ -5,7 +5,7 @@
 
 export interface FriendlyError {
   message: string;
-  type: 'key_missing' | 'key_invalid' | 'network' | 'quota' | 'server' | 'unknown';
+  type: 'key_missing' | 'key_invalid' | 'network' | 'quota' | 'server' | 'permission_denied' | 'unknown';
   originalError?: any;
 }
 
@@ -76,6 +76,20 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
     return {
       type: 'server',
       message: '🚧 सेवा अस्थायी रूप से उपलब्ध नहीं है। कृपया कुछ समय बाद पुनः प्रयास करें।',
+      originalError: error
+    };
+  }
+
+  // 6. Media / Microphone Permission
+  if (
+    errorString.includes('NotAllowedError') ||
+    errorString.includes('PermissionDeniedError') ||
+    errorString.includes('Permission denied') ||
+    errorString.includes('permission denied')
+  ) {
+    return {
+      type: 'permission_denied',
+      message: '🎙️ माइक एक्सेस की अनुमति नहीं मिली। कृपया ब्राउज़र सेटिंग्स में जाकर माइक्रोफोन की अनुमति दें।',
       originalError: error
     };
   }
