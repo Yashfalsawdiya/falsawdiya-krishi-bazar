@@ -61,7 +61,7 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   ) {
     return {
       type: 'quota',
-      message: '⏳ आपकी Gemini API Usage Limit समाप्त हो गई है। कृपया बाद में पुनः प्रयास करें।',
+      message: '⏳ Gemini API Request Limit या Quota अस्थायी रूप से व्यस्त है। कृपया 1-2 मिनट बाद पुनः प्रयास करें।',
       originalError: error
     };
   }

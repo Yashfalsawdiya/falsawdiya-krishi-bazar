@@ -429,7 +429,7 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           systemInstruction: `You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Always search for and return authentic, high-quality agricultural news with real publication dates for year ${currentYear}. CRITICAL RULE: Under NO circumstances should you return outdated news from 2024, 2023, or past seasons. Check dates and marketing years inside the text. Do NOT forge dates.`,
@@ -456,37 +456,63 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
         }
       });
     } catch (searchError: any) {
-      const errMsg = (searchError?.message || String(searchError)).toLowerCase();
-      if (searchError?.status === 429 || errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('resource_exhausted')) {
-        throw searchError;
-      }
-      console.warn("Google Search Grounding failed, retrying with fallback model...", searchError);
-      response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: prompt,
-        config: {
-          systemInstruction: `You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार'. Return authentic agricultural news for year ${currentYear}. Do NOT include 2024 news.`,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "ARRAY" as any,
-            items: {
-              type: "OBJECT" as any,
-              properties: {
-                title: { type: "STRING" },
-                summary: { type: "STRING" },
-                date: { type: "STRING" },
-                source: { type: "STRING" },
-                url: { type: "STRING" },
-                category: { 
-                  type: "STRING",
-                  enum: ['MP', 'India', 'Scheme', 'Weather', 'Crop', 'Market', 'Tech', 'Innovation'] 
-                }
-              },
-              required: ["title", "summary", "date", "source", "url", "category"]
+      console.warn("Google Search Grounding in news failed, retrying with pure model knowledge...", searchError);
+      try {
+        response = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: prompt,
+          config: {
+            systemInstruction: `You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार'. Return authentic agricultural news for year ${currentYear}. Do NOT include 2024 news.`,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "ARRAY" as any,
+              items: {
+                type: "OBJECT" as any,
+                properties: {
+                  title: { type: "STRING" },
+                  summary: { type: "STRING" },
+                  date: { type: "STRING" },
+                  source: { type: "STRING" },
+                  url: { type: "STRING" },
+                  category: { 
+                    type: "STRING",
+                    enum: ['MP', 'India', 'Scheme', 'Weather', 'Crop', 'Market', 'Tech', 'Innovation'] 
+                  }
+                },
+                required: ["title", "summary", "date", "source", "url", "category"]
+              }
             }
           }
-        }
-      });
+        });
+      } catch (primaryErr: any) {
+        console.warn("Primary news model failed, retrying with fallback model...", primaryErr);
+        response = await ai.models.generateContent({
+          model: "gemini-3.6-flash",
+          contents: prompt,
+          config: {
+            systemInstruction: `You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार'. Return authentic agricultural news for year ${currentYear}. Do NOT include 2024 news.`,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "ARRAY" as any,
+              items: {
+                type: "OBJECT" as any,
+                properties: {
+                  title: { type: "STRING" },
+                  summary: { type: "STRING" },
+                  date: { type: "STRING" },
+                  source: { type: "STRING" },
+                  url: { type: "STRING" },
+                  category: { 
+                    type: "STRING",
+                    enum: ['MP', 'India', 'Scheme', 'Weather', 'Crop', 'Market', 'Tech', 'Innovation'] 
+                  }
+                },
+                required: ["title", "summary", "date", "source", "url", "category"]
+              }
+            }
+          }
+        });
+      }
     }
 
     const newlyFetched: AgriNewsItem[] = JSON.parse(response.text);

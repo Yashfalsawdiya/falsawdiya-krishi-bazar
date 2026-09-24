@@ -13,13 +13,14 @@ import {
   CheckCircle2, AlertCircle, Eye, Phone, MapPin, 
   ChevronDown, Edit3, Loader2, RefreshCw, Download,
   Calendar, DollarSign, Send, Bell, BellRing, ChevronRight,
-  TrendingUp, AlertTriangle, ArrowUpRight, Check, Users, UserPlus, UserCheck, X
+  TrendingUp, AlertTriangle, ArrowUpRight, Check, Users, UserPlus, UserCheck, X, Hash
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateOrderInvoicePDF } from '../utils/invoiceGenerator';
 import { useAppContext } from '../context/AppContext';
 import { formatFullHindiDate } from '../lib/dateUtils';
 import { getVehicleDisplayLabel, getVehicleIcon } from '../data/defaultDeliveryConfig';
+import { VehicleIcon } from './common/VehicleIcon';
 
 // Web Audio API Chime generator (Zero external files, 100% reliable)
 const playOrderChime = () => {
@@ -400,7 +401,7 @@ const AdminOrdersManager: React.FC = () => {
                 <BellRing className="w-5 h-5 text-white" />
               </div>
               <div>
-                <p className="font-bold text-xs">🔔 नया ऑर्डर प्राप्त हुआ!</p>
+                <p className="font-bold text-xs">नया ऑर्डर प्राप्त हुआ!</p>
                 <p className="text-[11px] text-emerald-100 font-medium">
                   {newOrderAlert.orderNumber} • ₹{newOrderAlert.totalAmount} ({newOrderAlert.customerDetails.name})
                 </p>
@@ -490,12 +491,12 @@ const AdminOrdersManager: React.FC = () => {
           </label>
           <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
             {[
-              { id: 'today', label: '🟢 आज (Today)' },
+              { id: 'today', label: 'आज (Today)' },
               { id: 'yesterday', label: 'कल (Yesterday)' },
               { id: 'this_week', label: 'इस सप्ताह (This Week)' },
               { id: 'this_month', label: 'इस महीने' },
               { id: 'all', label: 'सभी ऑर्डर्स (All)' },
-              { id: 'custom', label: '📅 कस्टम तारीख' },
+              { id: 'custom', label: 'कस्टम तारीख' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -538,9 +539,9 @@ const AdminOrdersManager: React.FC = () => {
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-2.5 text-xs text-gray-400 hover:text-gray-600 font-bold"
+              className="absolute right-3 top-2.5 p-0.5 text-gray-400 hover:text-gray-600 rounded cursor-pointer"
             >
-              ✕
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
@@ -688,18 +689,21 @@ const AdminOrdersManager: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                    <p className="text-[11px] text-gray-600 mt-1">
-                      📱 {order.customerDetails.phone}
+                    <p className="text-[11px] text-gray-600 mt-1 flex items-center gap-1.5">
+                      <Phone className="w-3 h-3 text-gray-400 shrink-0" />
+                      <span>{order.customerDetails.phone}</span>
                     </p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">
-                      📍 {order.customerDetails.addressHouse}, {order.customerDetails.addressCity}, {order.customerDetails.addressDistrict} ({order.customerDetails.addressPincode})
+                    <p className="text-[11px] text-gray-500 mt-0.5 flex items-start gap-1.5">
+                      <MapPin className="w-3 h-3 text-gray-400 shrink-0 mt-0.5" />
+                      <span>{order.customerDetails.addressHouse}, {order.customerDetails.addressCity}, {order.customerDetails.addressDistrict} ({order.customerDetails.addressPincode})</span>
                     </p>
                   </div>
 
                   <div className="text-right sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 space-y-1">
                     <p className="font-black text-sm text-[#2D5A27]">कुल: ₹{order.totalAmount}</p>
-                    <p className="text-[10px] text-emerald-700 font-bold">
-                      ✓ Razorpay Paid {order.razorpayPaymentId ? `(${order.razorpayPaymentId})` : ''}
+                    <p className="text-[10px] text-emerald-700 font-bold flex items-center justify-end gap-1">
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      <span>Razorpay Paid {order.razorpayPaymentId ? `(${order.razorpayPaymentId})` : ''}</span>
                     </p>
                     {order.deliverySnapshot ? (
                       <div className="text-[10px] bg-emerald-50 text-emerald-900 px-2 py-0.5 rounded border border-emerald-200 inline-block font-semibold">
@@ -752,7 +756,7 @@ const AdminOrdersManager: React.FC = () => {
 
                       {order.assignedPartnerName && (
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border flex items-center gap-1 ${
                             order.partnerAssignmentStatus === 'delivered' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
                             order.partnerAssignmentStatus === 'out_for_delivery' ? 'bg-blue-100 text-blue-800 border-blue-200' :
                             order.partnerAssignmentStatus === 'picked_up' ? 'bg-purple-100 text-purple-800 border-purple-200' :
@@ -760,12 +764,41 @@ const AdminOrdersManager: React.FC = () => {
                             order.partnerAssignmentStatus === 'declined' ? 'bg-red-100 text-red-800 border-red-200' :
                             'bg-amber-100 text-amber-800 border-amber-200'
                           }`}>
-                            {order.partnerAssignmentStatus === 'delivered' ? '✓ सामान डिलीवर हुआ' :
-                             order.partnerAssignmentStatus === 'out_for_delivery' ? '🚚 रास्ते में है' :
-                             order.partnerAssignmentStatus === 'picked_up' ? '📦 वेयरहाउस से पिकअप' :
-                             order.partnerAssignmentStatus === 'accepted' ? '🟢 पार्टनर ने स्वीकार किया' :
-                             order.partnerAssignmentStatus === 'declined' ? '🔴 पार्टनर उपलब्ध नहीं' :
-                             '🟡 असाइन किया गया (प्रतीक्षारत)'}
+                            {order.partnerAssignmentStatus === 'delivered' ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-700" />
+                                <span>सामान डिलीवर हुआ</span>
+                              </>
+                            ) :
+                             order.partnerAssignmentStatus === 'out_for_delivery' ? (
+                               <>
+                                 <Truck className="w-3 h-3 text-blue-700" />
+                                 <span>रास्ते में है</span>
+                               </>
+                             ) :
+                             order.partnerAssignmentStatus === 'picked_up' ? (
+                               <>
+                                 <Package className="w-3 h-3 text-purple-700" />
+                                 <span>वेयरहाउस से पिकअप</span>
+                               </>
+                             ) :
+                             order.partnerAssignmentStatus === 'accepted' ? (
+                               <>
+                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block" />
+                                 <span>पार्टनर ने स्वीकार किया</span>
+                               </>
+                             ) :
+                             order.partnerAssignmentStatus === 'declined' ? (
+                               <>
+                                 <span className="w-1.5 h-1.5 rounded-full bg-red-600 inline-block" />
+                                 <span>पार्टनर उपलब्ध नहीं</span>
+                               </>
+                             ) : (
+                               <>
+                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
+                                 <span>असाइन किया गया (प्रतीक्षारत)</span>
+                               </>
+                             )}
                           </span>
                           {order.partnerDeclineReason && (
                             <span className="text-[10px] text-red-600 font-medium truncate max-w-[200px]">
@@ -789,10 +822,21 @@ const AdminOrdersManager: React.FC = () => {
 
                 {/* Courier & Tracking Banner if present */}
                 {order.trackingNumber && (
-                  <div className="bg-indigo-50 border border-indigo-100 p-2.5 rounded-xl text-[11px] text-indigo-900 flex flex-wrap justify-between items-center gap-1">
-                    <span>📦 कूरियर: <b>{order.courierPartner}</b></span>
-                    <span>🔢 ट्रैकिंग: <b>{order.trackingNumber}</b></span>
-                    {order.estimatedDeliveryDate && <span>⏱ डिलीवरी: <b>{order.estimatedDeliveryDate}</b></span>}
+                  <div className="bg-indigo-50 border border-indigo-100 p-2.5 rounded-xl text-[11px] text-indigo-900 flex flex-wrap justify-between items-center gap-2">
+                    <span className="flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      <span>कूरियर: <b>{order.courierPartner}</b></span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Hash className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      <span>ट्रैकिंग: <b>{order.trackingNumber}</b></span>
+                    </span>
+                    {order.estimatedDeliveryDate && (
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                        <span>डिलीवरी: <b>{order.estimatedDeliveryDate}</b></span>
+                      </span>
+                    )}
                   </div>
                 )}
 
@@ -834,7 +878,7 @@ const AdminOrdersManager: React.FC = () => {
                   onClick={() => setUpdatingOrderId(null)}
                   className="p-1 hover:bg-gray-100 rounded-full text-gray-500 cursor-pointer"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 

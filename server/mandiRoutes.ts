@@ -585,7 +585,7 @@ async function fetchFromGeminiGrounding(
       required: ['sourceName', 'sourceDate', 'items']
     };
 
-    const candidateModels = ['gemini-3.8-flash', 'gemini-flash-latest'];
+    const candidateModels = ['gemini-3-flash-preview', 'gemini-3.6-flash', 'gemini-3.5-flash'];
     let responseText = '';
 
     // First attempt: with Google Search Grounding across candidate models

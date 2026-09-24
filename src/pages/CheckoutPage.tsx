@@ -6,7 +6,8 @@ import {
   ArrowLeft, ShieldCheck, Truck, CheckCircle2, 
   MapPin, Phone, User, AlertCircle, ShoppingBag, 
   CreditCard, Loader2, Sparkles, MessageSquare, Info, RefreshCw,
-  Scale, Navigation, Zap, LocateFixed, ChevronDown, ChevronUp, PackageCheck
+  Scale, Navigation, Zap, LocateFixed, ChevronDown, ChevronUp, PackageCheck,
+  Check, Lightbulb
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
@@ -28,6 +29,7 @@ import {
   fetchDrivingRoadDistance, 
   UserCoordsWithAccuracy 
 } from '../services/deliveryDistanceService';
+import { VehicleIcon } from '../components/common/VehicleIcon';
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
@@ -575,8 +577,8 @@ const CheckoutPage: React.FC = () => {
               </button>
 
               {userCoords && (
-                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                  ✓ GPS सक्रिय
+                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  <Check className="w-3 h-3 text-emerald-600" /> GPS सक्रिय
                 </span>
               )}
             </div>
@@ -626,7 +628,7 @@ const CheckoutPage: React.FC = () => {
                     </span>
                   </div>
                   <span className="text-[10px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-100">
-                    {distanceInfo?.source === 'gps' ? '📍 GPS सड़क मार्ग' : distanceInfo?.source === 'town_match' ? 'सटीक क्षेत्रीय दूरी' : 'पिनकोड मैट्रिक्स'}
+                    {distanceInfo?.source === 'gps' ? 'GPS सड़क मार्ग' : distanceInfo?.source === 'town_match' ? 'सटीक क्षेत्रीय दूरी' : 'पिनकोड मैट्रिक्स'}
                   </span>
                 </div>
               </div>
@@ -635,7 +637,9 @@ const CheckoutPage: React.FC = () => {
               <div className="bg-gradient-to-br from-emerald-50/90 to-teal-50/70 rounded-3xl p-4 sm:p-5 border border-emerald-200 shadow-xs space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-3xl">{deliveryQuote.vehicleEmoji}</span>
+                    <div className="w-10 h-10 rounded-2xl bg-white/80 border border-emerald-200 flex items-center justify-center shadow-xs">
+                      <VehicleIcon emojiOrType={deliveryQuote.vehicleEmoji} className="w-6 h-6 text-emerald-700" />
+                    </div>
                     <div>
                       <h4 className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
                         <span>डिलीवरी वाहन: {deliveryQuote.vehicleNameHindi}</span>
@@ -737,8 +741,9 @@ const CheckoutPage: React.FC = () => {
 
                 {/* Free delivery or Note */}
                 {deliveryQuote.calculationNote && (
-                  <p className="text-[10px] text-emerald-900 bg-white/75 p-2 rounded-xl border border-emerald-100">
-                    💡 <strong>गणना विवरण:</strong> {deliveryQuote.calculationNote}
+                  <p className="text-[10px] text-emerald-900 bg-white/75 p-2 rounded-xl border border-emerald-100 flex items-center gap-1.5">
+                    <Lightbulb className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span><strong>गणना विवरण:</strong> {deliveryQuote.calculationNote}</span>
                   </p>
                 )}
               </div>
@@ -748,7 +753,7 @@ const CheckoutPage: React.FC = () => {
             <div className="bg-red-50 border border-red-200 rounded-3xl p-4 sm:p-5 text-xs text-red-900 space-y-2">
               <div className="flex items-center gap-2 font-bold text-red-800">
                 <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                <span>⚠️ डिलीवरी दूरी निर्धारित नहीं हो सकी (Location Unresolved)</span>
+                <span>डिलीवरी दूरी निर्धारित नहीं हो सकी (Location Unresolved)</span>
               </div>
               <p className="text-[11px] text-red-700 leading-relaxed">
                 {distanceInfo?.errorMessage || 'दर्ज किए गए पते या पिनकोड से सटीक लोकेशन नहीं मिल पाई है। गलत डिलीवरी शुल्क से बचने के लिए कृपया मान्य 6-अंकीय पिनकोड और पूरा पता दर्ज करें या ऊपर दिए गए "वर्तमान GPS लोकेशन से सटीक दूरी निकालें" बटन को दबाएं।'}
@@ -760,7 +765,7 @@ const CheckoutPage: React.FC = () => {
           <div className="bg-amber-50/80 border border-amber-200/80 rounded-3xl p-4 sm:p-5 text-xs text-amber-900 space-y-2">
             <div className="flex items-center gap-2 font-bold">
               <Info className="w-4 h-4 text-amber-700 shrink-0" />
-              <span>📍 डिलीवरी गणना प्रतीक्षा (Address Required)</span>
+              <span>डिलीवरी गणना प्रतीक्षा (Address Required)</span>
             </div>
             <p className="text-[11px] text-amber-800 leading-relaxed">
               कृपया ऊपर अपना <strong>पूरा पता, गांव/शहर और 6-अंकीय पिनकोड</strong> भरें। आपके पते के आधार पर फल्सावदिया स्टोर से वास्तविक दूरी (km), आटोमेटिक कार्ट वजन और डिलीवरी वाहन (बाइक, ई-रिक्शा, टेम्पो या ट्रक) का चयन होकर वास्तविक डिलीवरी शुल्क तय होगा।

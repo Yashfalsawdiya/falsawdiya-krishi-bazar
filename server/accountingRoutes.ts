@@ -109,30 +109,32 @@ ${customersListStr || 'None provided'}
    ['tea_refreshment', 'fuel', 'transport', 'salary', 'electricity', 'rent', 'repair', 'packaging', 'other'] and its Hindi label.
 6. **DATE FORMAT**: Convert date to standard "YYYY-MM-DD" if legible, otherwise return today or empty.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              data: cleanBase64,
-              mimeType: mimeType as any,
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                data: cleanBase64,
+                mimeType: mimeType as any,
+              },
             },
-          },
-          {
-            text: prompt,
-          },
-        ],
-      },
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            documentType: {
-              type: Type.STRING,
-              description: 'wholesaler_invoice | customer_bill | expense_receipt | handwritten_slip | unknown',
+            {
+              text: prompt,
             },
+          ],
+        },
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              documentType: {
+                type: Type.STRING,
+                description: 'wholesaler_invoice | customer_bill | expense_receipt | handwritten_slip | unknown',
+              },
             documentTypeHindi: {
               type: Type.STRING,
               description: 'Hindi name for document type',
@@ -196,6 +198,80 @@ ${customersListStr || 'None provided'}
         },
       },
     });
+    } catch (primaryErr: any) {
+      console.warn('[Accounting API] Primary model failed for bill scan, trying fallback...', primaryErr);
+      response = await ai.models.generateContent({
+        model: 'gemini-3.6-flash',
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                data: cleanBase64,
+                mimeType: mimeType as any,
+              },
+            },
+            {
+              text: prompt,
+            },
+          ],
+        },
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              documentType: {
+                type: Type.STRING,
+                description: 'wholesaler_invoice | customer_bill | expense_receipt | handwritten_slip | unknown',
+              },
+              documentTypeHindi: {
+                type: Type.STRING,
+                description: 'Hindi name for document type',
+              },
+              supplierName: { type: Type.STRING },
+              buyerName: { type: Type.STRING },
+              invoiceNumber: { type: Type.STRING },
+              date: { type: Type.STRING, description: 'YYYY-MM-DD or empty' },
+              items: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    name: { type: Type.STRING },
+                    nameHindi: { type: Type.STRING },
+                    quantity: { type: Type.NUMBER },
+                    unit: { type: Type.STRING },
+                    unitPrice: { type: Type.NUMBER },
+                    totalPrice: { type: Type.NUMBER },
+                    matchedProductId: { type: Type.STRING },
+                    confidence: { type: Type.NUMBER },
+                  },
+                  required: ['name', 'quantity', 'unit', 'unitPrice', 'totalPrice'],
+                },
+              },
+              subtotal: { type: Type.NUMBER },
+              discount: { type: Type.NUMBER },
+              taxAmount: { type: Type.NUMBER },
+              grandTotal: { type: Type.NUMBER },
+              suggestedExpenseCategory: { type: Type.STRING },
+              suggestedExpenseCategoryHindi: { type: Type.STRING },
+              rawNotes: { type: Type.STRING },
+              confidenceScore: { type: Type.NUMBER },
+              isHandwritten: { type: Type.BOOLEAN },
+            },
+            required: [
+              'documentType',
+              'documentTypeHindi',
+              'items',
+              'subtotal',
+              'grandTotal',
+              'confidenceScore',
+              'isHandwritten',
+            ],
+          },
+        },
+      });
+    }
 
     const text = response.text || '{}';
     const parsedData = JSON.parse(text);
@@ -243,10 +319,19 @@ Provide a concise, practical, and highly valuable Hindi business insight report:
 
 Strict Rule: Base all analysis 100% on the figures provided. Do NOT invent fake figures.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
-    });
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+      });
+    } catch (primaryErr: any) {
+      console.warn('[Accounting API] Primary model failed, trying fallback model...', primaryErr);
+      response = await ai.models.generateContent({
+        model: 'gemini-3.6-flash',
+        contents: prompt,
+      });
+    }
 
     res.json({
       success: true,

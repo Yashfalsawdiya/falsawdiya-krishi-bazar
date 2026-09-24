@@ -7,6 +7,9 @@ function isQuotaError(error: any): boolean {
   return status === 429 || status === 'RESOURCE_EXHAUSTED' || msg.includes('429') || msg.includes('quota') || msg.includes('resource_exhausted');
 }
 
+export const PRIMARY_GEMINI_MODEL = "gemini-3-flash-preview";
+export const FALLBACK_GEMINI_MODEL = "gemini-3.6-flash";
+
 const getAI = (userApiKey?: string) => {
   // STRICT USER-SPECIFIC API KEY: We never fall back to shared/central environment keys
   const apiKey = userApiKey?.trim();
@@ -151,17 +154,14 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: PRIMARY_GEMINI_MODEL,
         contents: { parts },
         config
       });
     } catch (modelErr: any) {
-      if (isQuotaError(modelErr)) {
-        throw modelErr;
-      }
-      console.warn("Primary model attempt failed, retrying with fallback model...", modelErr);
+      console.warn("Primary model attempt failed in detectDisease, retrying with fallback model...", modelErr);
       response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
+        model: FALLBACK_GEMINI_MODEL,
         contents: { parts },
         config
       });
@@ -250,7 +250,7 @@ ${historyPrompt}
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: PRIMARY_GEMINI_MODEL,
         contents: prompt,
         config: {
           systemInstruction,
@@ -258,11 +258,9 @@ ${historyPrompt}
         }
       });
     } catch (e: any) {
-      if (isQuotaError(e)) {
-        throw e;
-      }
+      console.warn("Primary model failed in askDiseaseQuestion, trying fallback...", e);
       response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
+        model: FALLBACK_GEMINI_MODEL,
         contents: prompt,
         config: {
           systemInstruction,
@@ -303,27 +301,40 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
     आज के लिए किसानों को विस्तृत कृषि सलाह प्रदान करें। इसमें सिंचाई, उर्वरक और कीट प्रबंधन पर विशेष जोर हो।`;
 
     let response;
+    const systemInstruction = `You are a helpful Agri-Expert for farmers representing 'फल्सावदिया कृषि बाजार' in Shamgarh, MP. Our shop is at Dimple Chauraha and open 8:00 AM to 8:00 PM (सुबह 8:00 बजे से रात 8:00 बजे तक). Provide advice based on current weather. Today is ${dateStr}. Always use the name 'फल्सावदिया कृषि बाजार' strictly and never 'फालसावदिया'.`;
+
     try {
+      // Tier 1: Try with live Google Search Grounding
       response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: PRIMARY_GEMINI_MODEL,
         contents: prompt,
         config: {
-          systemInstruction: `You are a helpful Agri-Expert for farmers representing 'फल्सावदिया कृषि बाजार' in Shamgarh, MP. Our shop is at Dimple Chauraha and open 8:00 AM to 8:00 PM (सुबह 8:00 बजे से रात 8:00 बजे तक). Provide advice based on current weather. Today is ${dateStr}. Always use the name 'फल्सावदिया कृषि बाजार' strictly and never 'फालसावदिया'.`,
+          systemInstruction,
           tools: [{ googleSearch: {} }]
         }
       });
-    } catch (e: any) {
-      if (isQuotaError(e)) {
-        throw e;
+    } catch (searchErr: any) {
+      console.warn("Dynamic advice search attempt failed, falling back to core agricultural knowledge...", searchErr);
+      try {
+        // Tier 2: Try primary model without search tool
+        response = await ai.models.generateContent({
+          model: PRIMARY_GEMINI_MODEL,
+          contents: prompt,
+          config: {
+            systemInstruction
+          }
+        });
+      } catch (primaryErr: any) {
+        console.warn("Primary model fallback failed, trying secondary model...", primaryErr);
+        // Tier 3: Secondary fallback model without search tool
+        response = await ai.models.generateContent({
+          model: FALLBACK_GEMINI_MODEL,
+          contents: prompt,
+          config: {
+            systemInstruction
+          }
+        });
       }
-      console.warn("Advice Search failed, fallback to knowledge...");
-      response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: prompt,
-        config: {
-          systemInstruction: `You are a helpful Agri-Expert representing 'फल्सावदिया कृषि बाजार'. Shop timings: 8:00 AM to 8:00 PM (सुबह 8:00 बजे से रात 8:00 बजे तक). Provide advice for ${dateStr} based on local knowledge. Always use the name 'फल्सावदिया कृषि बाजार' strictly. Do NOT use 'फालसावदिया'.`
-        }
-      });
     }
 
     const adviceText = response.text;
@@ -362,28 +373,41 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
     मौसम: ${weatherData?.temp || 'N/A'}°C, ${weatherData?.condition || 'N/A'}
     तारीख: ${dateStr}`;
 
+    const systemInstruction = "You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाजार' located in Shamgarh, Mandsaur, MP.\n\nShop Profile:\n- Name: फल्सावदिया कृषि बाजार\n- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)\n- Timings: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)\n\nInstructions: Answer farmer questions in simple Hindi. Always mention that recommended products are available at 'फल्सावदिया कृषि बाजार'. STRICT RULE: Do not use 'फालसावदिया'.";
+
     let response;
     try {
+      // Tier 1: Try with Google Search Grounding for real-time validation
       response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: PRIMARY_GEMINI_MODEL,
         contents: prompt,
         config: {
-          systemInstruction: "You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाजार' located in Shamgarh, Mandsaur, MP.\n\nShop Profile:\n- Name: फल्सावदिया कृषि बाजार\n- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)\n- Timings: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)\n\nInstructions: Answer farmer questions in simple Hindi. Always mention that recommended products are available at 'फल्सावदिया कृषि बाजार'. STICT RULE: Do not use 'फालसावदिया'.",
+          systemInstruction,
           tools: [{ googleSearch: {} }]
         }
       });
-    } catch (e: any) {
-      if (isQuotaError(e)) {
-        throw e;
+    } catch (searchErr: any) {
+      console.warn("Search grounding attempt failed (e.g. search tool quota or network). Falling back to pure Gemini knowledge base...", searchErr);
+      try {
+        // Tier 2: Seamlessly fall back to pure model generation without search tools
+        response = await ai.models.generateContent({
+          model: PRIMARY_GEMINI_MODEL,
+          contents: prompt,
+          config: {
+            systemInstruction
+          }
+        });
+      } catch (primaryErr: any) {
+        console.warn("Primary model attempt failed in chat, trying fallback model...", primaryErr);
+        // Tier 3: Resilient fallback to secondary flash model
+        response = await ai.models.generateContent({
+          model: FALLBACK_GEMINI_MODEL,
+          contents: prompt,
+          config: {
+            systemInstruction
+          }
+        });
       }
-      console.warn("Chat Search failed, fallback to knowledge...");
-      response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: prompt,
-        config: {
-          systemInstruction: "You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाजार'. Shop Timings: 8:00 AM to 8:00 PM (सुबह 8:00 बजे से रात 8:00 बजे तक). Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh, Mandsaur, MP. Answer in Hindi and properly guide people to our shop 'फल्सावदिया कृषि बाजार'. strictly avoid 'फालसावदिया'."
-        }
-      });
     }
 
     return response.text;
@@ -850,7 +874,7 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: PRIMARY_GEMINI_MODEL,
         contents: prompt,
         config: {
           systemInstruction,
@@ -860,19 +884,29 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
         }
       });
     } catch (searchError: any) {
-      if (isQuotaError(searchError)) {
-        throw searchError;
+      console.warn("Google search grounding attempt in getProductKnowledge failed or unavailable. Retrying with pure agricultural model knowledge...", searchError);
+      try {
+        response = await ai.models.generateContent({
+          model: PRIMARY_GEMINI_MODEL,
+          contents: prompt,
+          config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema
+          }
+        });
+      } catch (primaryErr: any) {
+        console.warn("Primary model attempt failed in getProductKnowledge, retrying with fallback model...", primaryErr);
+        response = await ai.models.generateContent({
+          model: FALLBACK_GEMINI_MODEL,
+          contents: prompt,
+          config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema
+          }
+        });
       }
-      console.warn("Google search grounding failed in getProductKnowledge. Retrying without search tool.", searchError);
-      response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: prompt,
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema
-        }
-      });
     }
 
     const result = safeParseProductKnowledge(response.text);
@@ -1016,19 +1050,21 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
 
     const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Always analyze the query with high precision, search Google for real-time validation, and provide complete details in Hindi as requested. Ensure the output is valid JSON strictly following the schema. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
 
+    const parts = [
+      { text: prompt },
+      {
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: base64Image.split(',')[1] || base64Image
+        }
+      }
+    ];
+
     let response;
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
-        contents: [
-          { text: prompt },
-          {
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: base64Image.split(',')[1] || base64Image
-            }
-          }
-        ],
+        model: PRIMARY_GEMINI_MODEL,
+        contents: parts,
         config: {
           systemInstruction,
           tools: [{ googleSearch: {} }],
@@ -1037,27 +1073,29 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
         }
       });
     } catch (searchError: any) {
-      if (isQuotaError(searchError)) {
-        throw searchError;
-      }
-      console.warn("Google search grounding failed in analyzeProductImage. Retrying without search tool.", searchError);
-      response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: [
-          { text: prompt },
-          {
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: base64Image.split(',')[1] || base64Image
-            }
+      console.warn("Google search grounding failed in analyzeProductImage. Retrying with pure multimodal model knowledge...", searchError);
+      try {
+        response = await ai.models.generateContent({
+          model: PRIMARY_GEMINI_MODEL,
+          contents: parts,
+          config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema
           }
-        ],
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema
-        }
-      });
+        });
+      } catch (primaryErr: any) {
+        console.warn("Primary model failed in analyzeProductImage, retrying with fallback model...", primaryErr);
+        response = await ai.models.generateContent({
+          model: FALLBACK_GEMINI_MODEL,
+          contents: parts,
+          config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema
+          }
+        });
+      }
     }
 
     const result = safeParseProductKnowledge(response.text);

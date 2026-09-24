@@ -75,13 +75,13 @@ function buildCustomerPassbookHtml(
     ">
       <!-- HEADER -->
       <div style="text-align: center; border-bottom: 1px solid #e5e7eb; padding-bottom: 16px; margin-bottom: 20px;">
-        <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 4px;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 6px;">
           <img 
             src="${logoDataUrl}" 
             alt="Logo" 
-            style="width: 48px; height: 48px; object-fit: contain; border-radius: 50%; vertical-align: middle; display: inline-block; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" 
+            style="width: 60px; height: 60px; object-fit: contain; border-radius: 50%; vertical-align: middle; display: inline-block; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" 
           />
-          <h2 style="font-size: 24px; font-weight: 900; color: #111827; margin: 0; line-height: 1.2; display: inline-block; letter-spacing: -0.01em;">
+          <h2 style="font-size: 28px; font-weight: 900; color: #111827; margin: 0; line-height: 1.2; display: inline-block; letter-spacing: -0.01em;">
             फल्सावदिया कृषि बाजार
           </h2>
         </div>

@@ -3,7 +3,7 @@ import {
   Calendar, FileText, Download, Trash2, Search, Filter, 
   Eye, CheckCircle2, AlertTriangle, AlertCircle, RefreshCw, 
   Printer, ArrowUpDown, ChevronDown, Check, ShieldCheck,
-  CreditCard, Wallet, IndianRupee, Layers, ExternalLink, X
+  CreditCard, Wallet, IndianRupee, Layers, ExternalLink, X, Lightbulb
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { AccountingSale, MonthlyPOSExportMeta } from '../../types/accounting';
@@ -315,7 +315,7 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
         setShowDeleteConfirmModal(false);
         setActionMessage({
           type: 'success',
-          text: `✓ ${selectedMonthNameHindi} ${selectedYear} के कुल ${res.deletedCount} नकद बिल सफलतापूर्वक हटाए गए। स्टॉक एवं खाता बही सुरक्षित है।`
+          text: `${selectedMonthNameHindi} ${selectedYear} के कुल ${res.deletedCount} नकद बिल सफलतापूर्वक हटाए गए। स्टॉक एवं खाता बही सुरक्षित है।`
         });
         // Reload data
         await loadMonthData();
@@ -886,8 +886,9 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
               )}
             </div>
 
-            <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100 text-[11px] text-emerald-800 text-left">
-              💡 <strong>कृपया ध्यान दें:</strong> इस दौरान ब्राउज़र टैब को बंद न करें। पूरा होते ही PDF फाइल अपने आप डाउनलोड हो जाएगी।
+            <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100 text-[11px] text-emerald-800 text-left flex items-start gap-1.5">
+              <Lightbulb className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5" />
+              <span><strong>कृपया ध्यान दें:</strong> इस दौरान ब्राउज़र टैब को बंद न करें। पूरा होते ही PDF फाइल अपने आप डाउनलोड हो जाएगी।</span>
             </div>
           </div>
         </div>
@@ -967,8 +968,9 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
               <p className="text-[11px] leading-relaxed text-rose-800">
                 एक बार delete करने के बाद इस महीने के सभी नकद बिक्री बिल (कुल राशि: <strong>₹{monthlyMetrics.totalSalesAmount.toLocaleString()}</strong>) हमेशा के लिए हट जाएंगे। कृपया सुनिश्चित करें कि आपने PDF फाइल को अपने कंप्यूटर या फोन में सुरक्षित सेव कर लिया है।
               </p>
-              <div className="text-[10px] text-emerald-800 bg-white/70 p-2 rounded-xl border border-rose-100">
-                ✓ <strong>स्टॉक सुरक्षा:</strong> आपके इन्वेंट्री स्टॉक एवं ग्राहक बही खाता (Ledger) में दर्ज उधारी बैलेंस पर कोई नकारात्मक प्रभाव नहीं पड़ेगा।
+              <div className="text-[10px] text-emerald-800 bg-white/70 p-2 rounded-xl border border-rose-100 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span><strong>स्टॉक सुरक्षा:</strong> आपके इन्वेंट्री स्टॉक एवं ग्राहक बही खाता (Ledger) में दर्ज उधारी बैलेंस पर कोई नकारात्मक प्रभाव नहीं पड़ेगा।</span>
               </div>
             </div>
 

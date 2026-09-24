@@ -56,17 +56,17 @@ export const DEFAULT_INVOICE_TEMPLATE: InvoiceTemplateConfig = {
 
   // 3. Customer Details Section
   showCustomerDetails: true,
-  customerDetailsHeading: '📍 ग्राहक एवं डिलीवरी विवरण (CUSTOMER DETAILS)',
+  customerDetailsHeading: 'ग्राहक एवं डिलीवरी विवरण (CUSTOMER DETAILS)',
   customerHeadingColor: '#2D5A27',
   customerHeadingFontSize: 11.5,
   customerCardBg: '#ffffff',
   customerCardBorderColor: '#e5e7eb',
   customerTextColor: '#111827',
-  customerPhoneLabel: '📱 मोबाइल:',
+  customerPhoneLabel: 'मोबाइल:',
 
   // 4. Payment Details Section
   showPaymentDetails: true,
-  paymentDetailsHeading: '💳 भुगतान एवं ऑर्डर स्थिति (PAYMENT INFO)',
+  paymentDetailsHeading: 'भुगतान एवं ऑर्डर स्थिति (PAYMENT INFO)',
   paymentHeadingColor: '#2D5A27',
   paymentHeadingFontSize: 11.5,
   paymentCardBg: '#ffffff',
@@ -82,7 +82,7 @@ export const DEFAULT_INVOICE_TEMPLATE: InvoiceTemplateConfig = {
 
   // 5. Products Table Section
   showProductsTable: true,
-  tableHeading: '📦 खरीदे गए उत्पाद विवरण (ORDERED ITEMS)',
+  tableHeading: 'खरीदे गए उत्पाद विवरण (ORDERED ITEMS)',
   tableHeadingColor: '#374151',
   tableHeadingFontSize: 12.5,
   tableHeaderBg: '#f3f4f6',
@@ -101,7 +101,7 @@ export const DEFAULT_INVOICE_TEMPLATE: InvoiceTemplateConfig = {
 
   // 6. Terms & Notice Section
   showTerms: true,
-  termsHeading: '📋 नियम एवं शर्तें (Terms & Notice):',
+  termsHeading: 'नियम एवं शर्तें (Terms & Notice):',
   termsHeadingColor: '#1f2937',
   termsLines: [
     '1. यह कंप्यूटर द्वारा स्वतः उत्पन्न डिजिटल टैक्स इनवॉइस है।',
