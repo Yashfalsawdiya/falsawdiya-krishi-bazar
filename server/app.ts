@@ -17,6 +17,8 @@ import {
 } from './emailTemplates.js';
 import { handleScanBill, handleAccountingInsights } from './accountingRoutes.js';
 import { handleGetMandiPrices } from './mandiRoutes.js';
+import { handleGetDailyNews, handleSyncNews } from './newsRoutes.js';
+import { handleGetSchemes, handleSyncSchemes } from './schemeRoutes.js';
 
 export const app = express();
 
@@ -1429,6 +1431,14 @@ app.post('/api/accounting/insights', handleAccountingInsights);
 // ==========================================
 app.get('/api/mandi/prices', handleGetMandiPrices);
 app.get('/mandi/prices', handleGetMandiPrices);
+
+// ==========================================
+// CENTRALIZED AGRI NEWS & SCHEMES HUB
+// ==========================================
+app.get('/api/news/daily', handleGetDailyNews);
+app.post('/api/news/sync', handleSyncNews);
+app.get('/api/schemes/all', handleGetSchemes);
+app.post('/api/schemes/sync', handleSyncSchemes);
 
 // Health check endpoint
 app.get('/api/health', async (_req: Request, res: Response) => {

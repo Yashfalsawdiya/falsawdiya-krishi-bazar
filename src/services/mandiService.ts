@@ -215,141 +215,10 @@ async function fetchClientMandiPulse(
         statusMessage: 'सरकारी पोर्टल पर डेटा न मिलने पर मंडी पल्स (MandiPulse.com) से प्राप्त सत्यापित लाइव भाव'
       };
     }
-  } catch (err) {
-    console.warn('[Mandi Client] Direct MandiPulse fetch error:', err);
+  } catch {
+    // MandiPulse is an optional 3rd-party fallback; silently fall through to primary data sources
   }
   return null;
-}
-
-/**
- * Direct client-side Gemini fallback with Google Search Grounding and standard fallback.
- * Powers Mandi Bhav if server is unavailable on Vercel or mandi has no Agmarknet records.
- */
-async function fetchClientGeminiMandiPrices(
-  state: string,
-  district: string,
-  mandi: string,
-  userApiKey: string
-): Promise<MandiDetails | null> {
-  const ai = getAI(userApiKey);
-  if (!ai) return null;
-
-  const { hindi: stateClean } = cleanClientLocation(state);
-  const { hindi: districtClean } = cleanClientLocation(district);
-  const { hindi: mandiClean } = cleanClientLocation(mandi);
-
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('hi-IN', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  });
-
-  const prompt = `आज (${dateStr}) के लिए ${stateClean} राज्य के ${districtClean} जिले की ${mandiClean} मंडी के वास्तविक या वर्तमान प्रचलित कृषि भाव (Mandi Bhav / Market Rates) बताएं।
-सोयाबीन, गेहूँ, चना, सरसों, मक्का, लहसुन, प्याज, धनिया, मेथी, उड़द, मूंग आदि फसलों के प्रचलित न्यूनतम, अधिकतम व मॉडल भाव (प्रति क्विंटल) शामिल करें।
-केवल शुद्ध JSON ऐरे फॉर्मेट में उत्तर दें।`;
-
-  const schema = {
-    type: Type.OBJECT,
-    properties: {
-      sourceName: { type: Type.STRING },
-      sourceDate: { type: Type.STRING },
-      items: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            commodity: { type: Type.STRING },
-            minPrice: { type: Type.STRING },
-            maxPrice: { type: Type.STRING },
-            avgPrice: { type: Type.STRING },
-            unit: { type: Type.STRING },
-            arrival: { type: Type.STRING },
-            quality: { type: Type.STRING },
-            lastUpdated: { type: Type.STRING }
-          },
-          required: ['commodity', 'minPrice', 'maxPrice', 'avgPrice', 'unit']
-        }
-      }
-    },
-    required: ['items', 'sourceName', 'sourceDate']
-  };
-
-  let responseText = '';
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3.8-flash",
-      contents: prompt,
-      config: {
-        systemInstruction: "You are an expert Mandi Market Analyst for Indian agriculture. Provide prevailing market rates in pure JSON.",
-        tools: [{ googleSearch: {} }],
-        responseMimeType: 'application/json',
-        responseSchema: schema
-      }
-    });
-    if (response.text?.trim()) {
-      responseText = response.text.trim();
-    }
-  } catch (searchErr) {
-    console.warn("[Mandi Client Gemini Search] Search tool failed, falling back to direct knowledge...", searchErr);
-  }
-
-  // Fallback to direct model knowledge without search tool (prevents 429 quota block)
-  if (!responseText) {
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: prompt,
-        config: {
-          systemInstruction: "You are an expert Mandi Market Analyst for Indian agriculture. Provide prevailing realistic market rates in pure JSON.",
-          responseMimeType: 'application/json',
-          responseSchema: schema
-        }
-      });
-      if (response.text?.trim()) {
-        responseText = response.text.trim();
-      }
-    } catch (fallbackErr) {
-      console.warn("[Mandi Client Gemini Fallback] Direct generation failed:", fallbackErr);
-    }
-  }
-
-  if (!responseText) return null;
-
-  try {
-    const parsed = JSON.parse(responseText);
-    const rawItems = Array.isArray(parsed?.items) ? parsed.items : [];
-    if (rawItems.length === 0) return null;
-
-    const items: MandiItem[] = rawItems.map((it: any) => ({
-      commodity: normalizeClientCommodity(it.commodity || 'फसल'),
-      minPrice: String(it.minPrice || '0').replace(/[^0-9]/g, '') || '0',
-      maxPrice: String(it.maxPrice || '0').replace(/[^0-9]/g, '') || '0',
-      avgPrice: String(it.avgPrice || '0').replace(/[^0-9]/g, '') || '0',
-      unit: it.unit || 'क्विंटल',
-      arrival: it.arrival || 'मंडी आवक',
-      quality: it.quality || 'मानक गुणवत्ता (FAQ)',
-      lastUpdated: it.lastUpdated || parsed.sourceDate || 'आज'
-    }));
-
-    return {
-      mandiName: mandi,
-      district,
-      state,
-      date: parsed.sourceDate || 'आज',
-      items,
-      sourceType: 'market_report',
-      sourceName: parsed.sourceName || 'सार्वजनिक मंडी रिपोर्ट व ई-मंडी बुलेटिन',
-      sourceDate: parsed.sourceDate || 'आज',
-      fetchedAt: now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-      isLive: true,
-      isEstimated: false,
-      statusMessage: `${mandi} मंडी के लिए संकलित ताज़ा प्रचलित भाव`
-    };
-  } catch (parseErr) {
-    console.warn("[Mandi Client Gemini] Parse error:", parseErr);
-    return null;
-  }
 }
 
 /**
@@ -444,9 +313,6 @@ export async function fetchMandiBhav(
       mandi,
       forceRefresh: forceRefresh ? 'true' : 'false'
     });
-    if (apiKey && apiKey.trim()) {
-      queryParams.set('apiKey', apiKey.trim());
-    }
 
     const serverRes = await fetch(`/api/mandi/prices?${queryParams.toString()}`);
     if (serverRes.ok) {
@@ -478,19 +344,7 @@ export async function fetchMandiBhav(
     return directMandiPulseData;
   }
 
-  // 3.5. Tertiary Strategy: Client-Side Gemini Grounding Fallback
-  // If user has provided a Gemini API Key, retrieve fresh prevailing market rates directly from the browser!
-  if (apiKey && apiKey.trim()) {
-    console.log(`[Mandi Client] Attempting Direct Browser Gemini Grounding fallback for ${mandi}...`);
-    const directGeminiData = await fetchClientGeminiMandiPrices(state, district, mandi, apiKey.trim());
-    if (directGeminiData && directGeminiData.items.length > 0) {
-      localStorage.setItem(cacheKey, JSON.stringify(directGeminiData));
-      localStorage.setItem(cacheTimeKey, now.getTime().toString());
-      return directGeminiData;
-    }
-  }
-
-  // 4. Honest empty state when neither Server, MandiPulse, nor Gemini has data for this exact mandi
+  // 4. Honest empty state when neither Server nor MandiPulse has data for this exact mandi
   // NEVER show fake data or data from other mandis!
   const emptyStateData: MandiDetails = {
     mandiName: mandi,

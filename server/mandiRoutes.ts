@@ -338,7 +338,11 @@ async function fetchFromMandiPulse(
   const marketSlug = `${stateSlug}-${distSlug}-${mandiSlug}-apmc`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const timeout = setTimeout(() => {
+    try {
+      controller.abort();
+    } catch {}
+  }, 2500);
 
   try {
     // Step A: First check direct market prices endpoint (Fastest & most complete, e.g. Shamgarh returns all 7 crops in ~400ms)
@@ -349,10 +353,7 @@ async function fetchFromMandiPulse(
         'Accept': 'application/json',
         'User-Agent': BROWSER_USER_AGENT
       }
-    }).catch((err) => {
-      console.warn(`[MandiPulse] Market fetch error for ${marketSlug}:`, err.message || err);
-      return null;
-    });
+    }).catch(() => null);
 
     const marketData: any = marketRes && marketRes.ok ? await marketRes.json().catch(() => null) : null;
     const directMarketItems: any[] = (marketData && Array.isArray(marketData.items)) ? marketData.items : [];
@@ -491,9 +492,8 @@ async function fetchFromMandiPulse(
     }
 
     return null;
-  } catch (err) {
+  } catch {
     clearTimeout(timeout);
-    console.warn('[MandiPulse Fallback API] Error fetching:', err);
     return null;
   }
 }
@@ -585,7 +585,7 @@ async function fetchFromGeminiGrounding(
       required: ['sourceName', 'sourceDate', 'items']
     };
 
-    const candidateModels = ['gemini-3-flash-preview', 'gemini-3.6-flash', 'gemini-3.5-flash'];
+    const candidateModels = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3-flash-preview'];
     let responseText = '';
 
     // First attempt: with Google Search Grounding across candidate models

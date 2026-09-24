@@ -478,7 +478,7 @@ export default function AiProductKnowledge() {
         setQuery(data.productName);
       }
     } catch (err: any) {
-      console.error("AI Product Image Search Error:", err);
+      console.warn("AI Product Image Search Notice:", err?.message || err);
       const friendly = getFriendlyAiError(err);
       if (friendly.type === 'key_missing' || friendly.type === 'key_invalid') {
         openApiKeyModal(friendly.message);
@@ -1962,9 +1962,8 @@ ${result.safetyInstructions}
                 </div>
               ) : (
                 <div className="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-6 text-center text-[#4A3728] space-y-2">
-                  <p className="text-xs font-black text-amber-900 flex items-center justify-center gap-1.5">
-                    <Search className="w-3.5 h-3.5 text-amber-700" />
-                    <span>इस नाम का कोई Saved Product नहीं मिला।</span>
+                  <p className="text-xs font-black text-amber-900">
+                    🔍 इस नाम का कोई Saved Product नहीं मिला।
                   </p>
                   <button 
                     onClick={() => setSavedSearchQuery('')}

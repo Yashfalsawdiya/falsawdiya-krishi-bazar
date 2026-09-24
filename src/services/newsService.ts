@@ -400,6 +400,45 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
     };
   }
 
+  // 1. Centralized Server Hub Strategy (Like Mandi Bhav)
+  // Check if any other farmer or server has already fetched today's news
+  if (!forceRefresh) {
+    try {
+      const srvRes = await fetch('/api/news/daily');
+      if (srvRes.ok) {
+        const srvJson = await srvRes.json();
+        if (srvJson.success && Array.isArray(srvJson.items) && srvJson.items.length > 0) {
+          const validServerItems = srvJson.items.filter((it: AgriNewsItem) => validateArticleFreshness(it, now).isValid);
+          if (validServerItems.length > 0) {
+            console.log(`[Central News Hub Hit] Loaded ${validServerItems.length} news items from server`);
+            const srvTimestamp = srvJson.lastSyncedTimestamp || now.getTime();
+            localStorage.setItem(CACHE_KEY, JSON.stringify(validServerItems));
+            localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
+            localStorage.setItem(CACHE_SYNC_TIMESTAMP_KEY, srvTimestamp.toString());
+
+            const formattedTime = formatLastSyncText(srvTimestamp);
+            recordSyncLog('SUCCESS', `Loaded ${validServerItems.length} items from Central Hub`, {
+              cached: srvJson.cached,
+              syncTime: formattedTime
+            });
+
+            return {
+              items: validServerItems,
+              isCached: true,
+              isOfflineFallback: false,
+              syncFailed: false,
+              hasTodayNews: validServerItems.some(i => i.date === todayStr),
+              lastSyncedTime: formattedTime,
+              lastSyncedTimestamp: srvTimestamp
+            };
+          }
+        }
+      }
+    } catch (srvErr) {
+      console.warn('[Central News Hub] Server check skipped or offline:', srvErr);
+    }
+  }
+
   // Try to fetch fresh news using Google Search Grounding with Gemini
   try {
     const ai = getAI(userApiKey);
@@ -426,43 +465,19 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
 
     recordSyncLog('SUCCESS', `Initiated search grounding fetch for date: ${todayStr}, year: ${currentYear}`);
 
-    let response;
-    try {
-      response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          systemInstruction: `You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Always search for and return authentic, high-quality agricultural news with real publication dates for year ${currentYear}. CRITICAL RULE: Under NO circumstances should you return outdated news from 2024, 2023, or past seasons. Check dates and marketing years inside the text. Do NOT forge dates.`,
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "ARRAY" as any,
-            items: {
-              type: "OBJECT" as any,
-              properties: {
-                title: { type: "STRING" },
-                summary: { type: "STRING" },
-                date: { type: "STRING" },
-                source: { type: "STRING" },
-                url: { type: "STRING" },
-                category: { 
-                  type: "STRING",
-                  enum: ['MP', 'India', 'Scheme', 'Weather', 'Crop', 'Market', 'Tech', 'Innovation'] 
-                }
-              },
-              required: ["title", "summary", "date", "source", "url", "category"]
-            }
-          }
-        }
-      });
-    } catch (searchError: any) {
-      console.warn("Google Search Grounding in news failed, retrying with pure model knowledge...", searchError);
+    const candidateModels = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview"];
+    let response: any = null;
+    let lastErr: any = null;
+
+    for (const model of candidateModels) {
+      // 1. Try with Google Search Grounding
       try {
         response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
+          model,
           contents: prompt,
           config: {
-            systemInstruction: `You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार'. Return authentic agricultural news for year ${currentYear}. Do NOT include 2024 news.`,
+            systemInstruction: `You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Always search for and return authentic, high-quality agricultural news with real publication dates for year ${currentYear}. CRITICAL RULE: Under NO circumstances should you return outdated news from 2024, 2023, or past seasons. Check dates and marketing years inside the text. Do NOT forge dates.`,
+            tools: [{ googleSearch: {} }],
             responseMimeType: "application/json",
             responseSchema: {
               type: "ARRAY" as any,
@@ -484,35 +499,46 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
             }
           }
         });
-      } catch (primaryErr: any) {
-        console.warn("Primary news model failed, retrying with fallback model...", primaryErr);
-        response = await ai.models.generateContent({
-          model: "gemini-3.6-flash",
-          contents: prompt,
-          config: {
-            systemInstruction: `You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार'. Return authentic agricultural news for year ${currentYear}. Do NOT include 2024 news.`,
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: "ARRAY" as any,
-              items: {
-                type: "OBJECT" as any,
-                properties: {
-                  title: { type: "STRING" },
-                  summary: { type: "STRING" },
-                  date: { type: "STRING" },
-                  source: { type: "STRING" },
-                  url: { type: "STRING" },
-                  category: { 
-                    type: "STRING",
-                    enum: ['MP', 'India', 'Scheme', 'Weather', 'Crop', 'Market', 'Tech', 'Innovation'] 
-                  }
-                },
-                required: ["title", "summary", "date", "source", "url", "category"]
+        if (response?.text) break;
+      } catch (searchError: any) {
+        // 2. Try without Google Search Grounding
+        try {
+          response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              systemInstruction: `You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार'. Return authentic agricultural news for year ${currentYear}. Do NOT include 2024 news.`,
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: "ARRAY" as any,
+                items: {
+                  type: "OBJECT" as any,
+                  properties: {
+                    title: { type: "STRING" },
+                    summary: { type: "STRING" },
+                    date: { type: "STRING" },
+                    source: { type: "STRING" },
+                    url: { type: "STRING" },
+                    category: { 
+                      type: "STRING",
+                      enum: ['MP', 'India', 'Scheme', 'Weather', 'Crop', 'Market', 'Tech', 'Innovation'] 
+                    }
+                  },
+                  required: ["title", "summary", "date", "source", "url", "category"]
+                }
               }
             }
-          }
-        });
+          });
+          if (response?.text) break;
+        } catch (mErr: any) {
+          lastErr = mErr;
+          console.warn(`[News] Model ${model} attempt notice:`, mErr?.message || mErr);
+        }
       }
+    }
+
+    if (!response?.text) {
+      throw lastErr || new Error("समाचार डेटा प्राप्त नहीं हो सका");
     }
 
     const newlyFetched: AgriNewsItem[] = JSON.parse(response.text);
@@ -561,6 +587,15 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
         localStorage.setItem(CACHE_KEY, JSON.stringify(mergedList));
         localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
         localStorage.setItem(CACHE_SYNC_TIMESTAMP_KEY, newSyncTimestamp.toString());
+
+        // Asynchronously notify and update the Central Hub so all other users get this data instantly!
+        try {
+          fetch('/api/news/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: mergedList, clientDate: todayStr })
+          }).catch(err => console.warn('[Central News Hub] Background sync error:', err));
+        } catch {}
 
         const newSyncFormatted = formatLastSyncText(newSyncTimestamp);
         const hasToday = mergedList.some(item => item.date === todayStr);

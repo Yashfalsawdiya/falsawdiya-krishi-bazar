@@ -49,6 +49,25 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     }
   }
 
+  // 1. Centralized Schemes Hub Check (Like Mandi Bhav)
+  // Check if server or another farmer has already synced verified government schemes
+  if (!forceRefresh) {
+    try {
+      const srvRes = await fetch('/api/schemes/all');
+      if (srvRes.ok) {
+        const srvJson = await srvRes.json();
+        if (srvJson.success && Array.isArray(srvJson.items) && srvJson.items.length > 0) {
+          console.log(`[Central Schemes Hub Hit] Loaded ${srvJson.items.length} schemes from server cache`);
+          localStorage.setItem(CACHE_KEY, JSON.stringify(srvJson.items));
+          localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
+          return srvJson.items;
+        }
+      }
+    } catch (srvErr) {
+      console.warn('[Central Schemes Hub] Server check skipped or offline:', srvErr);
+    }
+  }
+
   const fallbackData: Scheme[] = [
     {
       title: "पीएम-किसान सम्मान निधि (PM-Kisan)",
@@ -101,46 +120,19 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     - 'benefits' और 'requiredDocuments' स्ट्रिंग ऐरे (Array) होने चाहिए।
     - जितनी ज्यादा हो सके केंद्र और राज्य दोनों की योजनाओं को कवर करें।`;
 
-    let response;
-    try {
-      console.log("Fetching detailed schemes with Grounding...");
-      response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          systemInstruction: "You are an expert Government Scheme Consultant for Indian Farmers representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Provide professional, detailed, and current schemes in a structured JSON format.",
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "ARRAY" as any,
-            items: {
-              type: "OBJECT" as any,
-              properties: {
-                title: { type: "STRING" },
-                governmentLevel: { type: "STRING" },
-                description: { type: "STRING" },
-                objective: { type: "STRING" },
-                benefits: { type: "ARRAY" as any, items: { type: "STRING" } },
-                subsidyDetails: { type: "STRING" },
-                sector: { type: "STRING" },
-                eligibility: { type: "STRING" },
-                requiredDocuments: { type: "ARRAY" as any, items: { type: "STRING" } },
-                howToApply: { type: "STRING" },
-                link: { type: "STRING" }
-              },
-              required: ["title", "governmentLevel", "description", "objective", "benefits", "subsidyDetails", "sector", "eligibility", "requiredDocuments", "howToApply"]
-            }
-          }
-        }
-      });
-    } catch (searchError: any) {
-      console.warn("Scheme grounding search failed, using pure model generation fallback...", searchError);
+    const candidateModels = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview"];
+    let response: any = null;
+    let lastError: any = null;
+
+    for (const model of candidateModels) {
+      // 1. Try with search grounding
       try {
         response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
+          model,
           contents: prompt,
           config: {
-            systemInstruction: "You are an expert Government Scheme Consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Provide 20 most important agri schemes in JSON format using latest knowledge.",
+            systemInstruction: "You are an expert Government Scheme Consultant for Indian Farmers representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Provide professional, detailed, and current schemes in a structured JSON format.",
+            tools: [{ googleSearch: {} }],
             responseMimeType: "application/json",
             responseSchema: {
               type: "ARRAY" as any,
@@ -164,37 +156,48 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
             }
           }
         });
-      } catch (primaryErr: any) {
-        console.warn("Primary scheme model failed, retrying with fallback model...", primaryErr);
-        response = await ai.models.generateContent({
-          model: "gemini-3.6-flash",
-          contents: prompt,
-          config: {
-            systemInstruction: "You are an expert Government Scheme Consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Provide 20 most important agri schemes in JSON format using latest knowledge.",
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: "ARRAY" as any,
-              items: {
-                type: "OBJECT" as any,
-                properties: {
-                  title: { type: "STRING" },
-                  governmentLevel: { type: "STRING" },
-                  description: { type: "STRING" },
-                  objective: { type: "STRING" },
-                  benefits: { type: "ARRAY" as any, items: { type: "STRING" } },
-                  subsidyDetails: { type: "STRING" },
-                  sector: { type: "STRING" },
-                  eligibility: { type: "STRING" },
-                  requiredDocuments: { type: "ARRAY" as any, items: { type: "STRING" } },
-                  howToApply: { type: "STRING" },
-                  link: { type: "STRING" }
-                },
-                required: ["title", "governmentLevel", "description", "objective", "benefits", "subsidyDetails", "sector", "eligibility", "requiredDocuments", "howToApply"]
+        if (response?.text) break;
+      } catch (groundingErr: any) {
+        // 2. Try without search grounding
+        try {
+          response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              systemInstruction: "You are an expert Government Scheme Consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Provide 20 most important agri schemes in JSON format using latest knowledge.",
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: "ARRAY" as any,
+                items: {
+                  type: "OBJECT" as any,
+                  properties: {
+                    title: { type: "STRING" },
+                    governmentLevel: { type: "STRING" },
+                    description: { type: "STRING" },
+                    objective: { type: "STRING" },
+                    benefits: { type: "ARRAY" as any, items: { type: "STRING" } },
+                    subsidyDetails: { type: "STRING" },
+                    sector: { type: "STRING" },
+                    eligibility: { type: "STRING" },
+                    requiredDocuments: { type: "ARRAY" as any, items: { type: "STRING" } },
+                    howToApply: { type: "STRING" },
+                    link: { type: "STRING" }
+                  },
+                  required: ["title", "governmentLevel", "description", "objective", "benefits", "subsidyDetails", "sector", "eligibility", "requiredDocuments", "howToApply"]
+                }
               }
             }
-          }
-        });
+          });
+          if (response?.text) break;
+        } catch (mErr: any) {
+          lastError = mErr;
+          console.warn(`[Schemes] Candidate model ${model} notice:`, mErr?.message || mErr);
+        }
       }
+    }
+
+    if (!response?.text) {
+      throw lastError || new Error("योजनाओं का डेटा प्राप्त नहीं हो सका");
     }
 
     const data = JSON.parse(response.text);
@@ -202,6 +205,16 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     if (Array.isArray(data) && data.length > 0) {
       localStorage.setItem(CACHE_KEY, JSON.stringify(data));
       localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
+
+      // Asynchronously upload to Central Hub so all other users get instant access!
+      try {
+        fetch('/api/schemes/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: data })
+        }).catch(err => console.warn('[Central Schemes Hub] Background sync error:', err));
+      } catch {}
+
       return data;
     }
 
@@ -211,12 +224,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
       throw friendlyError;
     }
-    const isQuotaError = friendlyError.type === 'quota';
-    if (isQuotaError) {
-      console.warn("Gemini API Quota Exceeded for Schemes. Using fallback.");
-    } else {
-      console.error("Critical error fetching schemes:", error);
-    }
+    console.warn("Schemes generation notice, serving verified schemes data:", error?.message || error);
 
     if (cachedData) {
       try {

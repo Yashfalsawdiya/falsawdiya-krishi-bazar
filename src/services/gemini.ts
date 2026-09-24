@@ -7,8 +7,14 @@ function isQuotaError(error: any): boolean {
   return status === 429 || status === 'RESOURCE_EXHAUSTED' || msg.includes('429') || msg.includes('quota') || msg.includes('resource_exhausted');
 }
 
-export const PRIMARY_GEMINI_MODEL = "gemini-3-flash-preview";
-export const FALLBACK_GEMINI_MODEL = "gemini-3.6-flash";
+export const PRIMARY_GEMINI_MODEL = "gemini-3.6-flash";
+export const FALLBACK_GEMINI_MODEL = "gemini-3.5-flash";
+export const TERTIARY_GEMINI_MODEL = "gemini-3-flash-preview";
+export const CANDIDATE_GEMINI_MODELS = [
+  "gemini-3.6-flash",
+  "gemini-3.5-flash",
+  "gemini-3-flash-preview"
+];
 
 const getAI = (userApiKey?: string) => {
   // STRICT USER-SPECIFIC API KEY: We never fall back to shared/central environment keys
@@ -1060,23 +1066,13 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
       }
     ];
 
-    let response;
-    try {
-      response = await ai.models.generateContent({
-        model: PRIMARY_GEMINI_MODEL,
-        contents: parts,
-        config: {
-          systemInstruction,
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema
-        }
-      });
-    } catch (searchError: any) {
-      console.warn("Google search grounding failed in analyzeProductImage. Retrying with pure multimodal model knowledge...", searchError);
+    let response: any = null;
+    let lastError: any = null;
+
+    for (const model of CANDIDATE_GEMINI_MODELS) {
       try {
         response = await ai.models.generateContent({
-          model: PRIMARY_GEMINI_MODEL,
+          model,
           contents: parts,
           config: {
             systemInstruction,
@@ -1084,36 +1080,21 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
             responseSchema
           }
         });
-      } catch (primaryErr: any) {
-        console.warn("Primary model failed in analyzeProductImage, retrying with fallback model...", primaryErr);
-        response = await ai.models.generateContent({
-          model: FALLBACK_GEMINI_MODEL,
-          contents: parts,
-          config: {
-            systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema
-          }
-        });
+        if (response?.text) break;
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[analyzeProductImage] Candidate ${model} attempt notice:`, err?.status, err?.message);
       }
     }
 
-    const result = safeParseProductKnowledge(response.text);
-
-    // Extract citations
-    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-    if (chunks && chunks.length > 0) {
-      result.sources = chunks
-        .filter((c: any) => c.web?.uri)
-        .map((c: any) => ({
-          title: c.web.title || "Official Resource",
-          uri: c.web.uri
-        }));
+    if (!response?.text) {
+      throw lastError || new Error("छवि का विश्लेषण नहीं हो सका।");
     }
 
+    const result = safeParseProductKnowledge(response.text);
     return result;
   } catch (error: any) {
-    console.error("Gemini Analyze Product Image Error:", error);
+    console.warn("Gemini Analyze Product Image Warning:", error?.message || error);
     const friendlyError = getFriendlyAiError(error);
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
       throw friendlyError;
