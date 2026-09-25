@@ -1,6 +1,7 @@
 /**
  * AI Error Handler Utility
  * Maps technical Gemini API errors to user-friendly and farmer-friendly Hindi messages.
+ * Strictly adheres to Rule 4: NO EMOJIS IN UI - Professional text only.
  */
 
 export interface FriendlyError {
@@ -20,7 +21,7 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   ) {
     return {
       type: 'key_missing',
-      message: '🔑 कृपया Profile में अपनी Gemini API Key जोड़ें।',
+      message: 'कृपया प्रोफाइल में अपनी Gemini API Key जोड़ें।',
       originalError: error
     };
   }
@@ -28,13 +29,13 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   // 2. Invalid API Key
   if (
     errorString.includes('API_KEY_INVALID') || 
-    errorString.includes('400') && errorString.includes('invalid') ||
-    errorString.includes('403') && errorString.includes('permission') ||
+    (errorString.includes('400') && errorString.includes('invalid')) ||
+    (errorString.includes('403') && errorString.includes('permission')) ||
     errorString.includes('invalid_argument')
   ) {
     return {
       type: 'key_invalid',
-      message: '⚠️ कृपया अपनी API Key जांचें और सही Valid API Key दर्ज करें।',
+      message: 'कृपया अपनी API Key जांचें और सही Valid API Key दर्ज करें।',
       originalError: error
     };
   }
@@ -48,7 +49,7 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   ) {
     return {
       type: 'network',
-      message: '📡 इंटरनेट कनेक्शन उपलब्ध नहीं है। कृपया अपना नेटवर्क जांचें।',
+      message: 'इंटरनेट कनेक्शन उपलब्ध नहीं है। कृपया अपना नेटवर्क जांचें।',
       originalError: error
     };
   }
@@ -61,7 +62,7 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   ) {
     return {
       type: 'quota',
-      message: '⏳ Gemini API Request Limit या Quota अस्थायी रूप से व्यस्त है। कृपया 1-2 मिनट बाद पुनः प्रयास करें।',
+      message: 'Gemini API दैनिक कोटा या सर्वर व्यस्त है। सिस्टम स्वतः वैकल्पिक मॉडल से प्रयास कर रहा है, कृपया 10-15 सेकंड बाद पुनः जांचें।',
       originalError: error
     };
   }
@@ -75,7 +76,7 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   ) {
     return {
       type: 'server',
-      message: '🚧 सेवा अस्थायी रूप से उपलब्ध नहीं है। कृपया कुछ समय बाद पुनः प्रयास करें।',
+      message: 'AI सेवा अस्थायी रूप से व्यस्त है। कृपया कुछ क्षण बाद पुनः प्रयास करें।',
       originalError: error
     };
   }
@@ -89,7 +90,7 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   ) {
     return {
       type: 'permission_denied',
-      message: '🎙️ माइक एक्सेस की अनुमति नहीं मिली। कृपया ब्राउज़र सेटिंग्स में जाकर माइक्रोफोन की अनुमति दें।',
+      message: 'माइक या कैमरा एक्सेस की अनुमति नहीं मिली। कृपया ब्राउज़र सेटिंग्स में जाकर अनुमति दें।',
       originalError: error
     };
   }
@@ -97,7 +98,7 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   // Default fallback
   return {
     type: 'unknown',
-    message: '🚧 कुछ तकनीकी समस्या हुई है। कृपया थोड़ी देर बाद पुनः प्रयास करें।',
+    message: 'कुछ तकनीकी समस्या हुई है। कृपया थोड़ी देर बाद पुनः प्रयास करें।',
     originalError: error
   };
 };

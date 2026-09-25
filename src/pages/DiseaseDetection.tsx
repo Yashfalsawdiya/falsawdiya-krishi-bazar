@@ -72,6 +72,7 @@ const DiseaseDetection: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<DiseaseAnalysis | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   
   // Modals & Centralized AI Guard
   const { 
@@ -260,9 +261,11 @@ const DiseaseDetection: React.FC = () => {
     }
 
     setLoading(true);
+    setAnalysisError(null);
     try {
       const analysis = await detectDisease(images, effectiveApiKey);
       setAnalysisResult(analysis);
+      setAnalysisError(null);
 
       // Create new Scan Record with unique ID and initial chat history
       const newScanId = `scan_${Date.now()}`;
@@ -317,10 +320,8 @@ const DiseaseDetection: React.FC = () => {
       if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
         openApiKeyModal(friendlyError.message);
       } else {
-        setAnalysisResult({ 
-          analysis: friendlyError.message,
-          keywords: [] 
-        });
+        setAnalysisError(friendlyError.message);
+        setAnalysisResult(null);
       }
     } finally {
       setLoading(false);
@@ -433,6 +434,7 @@ const DiseaseDetection: React.FC = () => {
     setImages([]);
     setActiveImageIndex(0);
     setAnalysisResult(null);
+    setAnalysisError(null);
     setActiveScanId(null);
     setChatMessages([]);
   };
@@ -726,6 +728,32 @@ const DiseaseDetection: React.FC = () => {
           </motion.button>
         )}
       </div>
+
+      {/* Error Recovery Card with Retry Button */}
+      {analysisError && !loading && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-3xl p-5 shadow-sm border border-rose-200/80 flex flex-col items-center text-center space-y-3"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-200">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="font-bold text-gray-900 text-sm">जाँच पूरी नहीं हो सकी</h4>
+            <p className="text-xs text-gray-600 max-w-sm leading-relaxed">
+              {analysisError}
+            </p>
+          </div>
+          <button
+            onClick={() => analyzeImages()}
+            className="px-5 py-2.5 bg-[#2D5A27] hover:bg-[#23471e] text-white text-xs font-bold rounded-2xl shadow-sm active:scale-95 transition-all flex items-center gap-1.5"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>पुनः प्रयास करें</span>
+          </button>
+        </motion.div>
+      )}
 
       {/* ============================================================ */}
       {/* AI ANALYSIS REPORT & ACTIONS */}
