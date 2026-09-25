@@ -1,102 +1,326 @@
 {
-  "dateStr": "24/09/2026",
-  "timestamp": 1790233826576,
+  "dateStr": "25/09/2026",
+  "timestamp": 1790312059738,
   "items": [
     {
-      "title": "मध्य प्रदेश में सोयाबीन कटाई शुरू, मंडियों में तैयारी तेज",
-      "summary": "मध्य प्रदेश के उज्जैन और इंदौर संभाग में सोयाबीन की अगेती किस्मों की कटाई शुरू हो गई है। राज्य सरकार ने उपज की सुचारू खरीद के लिए मंडियों में सुरक्षा और भंडारण के विशेष निर्देश दिए हैं।",
-      "date": "24/09/2026",
-      "source": "Krishi Jagran",
-      "url": "https://krishijagran.com/mp-news/soybean-harvesting-starts-in-madhya-pradesh-2026",
-      "category": "MP"
-    },
-    {
-      "title": "ICAR ने विकसित की गर्मी सहन करने वाली गेहूं की नई किस्म HD-3400",
-      "summary": "भारतीय कृषि अनुसंधान परिषद (ICAR) ने जलवायु परिवर्तन को देखते हुए गेहूं की नई किस्म HD-3400 जारी की है, जो उच्च तापमान में भी 15 प्रतिशत अधिक पैदावार देने में सक्षम है।",
-      "date": "23/09/2026",
-      "source": "ICAR",
-      "url": "https://icar.org.in/news/icar-releases-heat-tolerant-wheat-variety-hd3400",
-      "category": "Innovation"
-    },
-    {
-      "title": "पीएम-किसान योजना: 19वीं किस्त आज किसानों के खातों में होगी जमा",
-      "summary": "प्रधानमंत्री नरेंद्र मोदी आज देश के 11 करोड़ से अधिक किसानों के बैंक खातों में पीएम-किसान सम्मान निधि की 19वीं किस्त के 2000-2000 रुपये डीबीटी के माध्यम से हस्तांतरित करेंगे।",
-      "date": "24/09/2026",
-      "source": "DD Kisan",
-      "url": "https://ddkisan.gov.in/pm-kisan-19th-installment-release",
-      "category": "Scheme"
-    },
-    {
-      "title": "मध्य प्रदेश मुख्यमंत्री सोलर पंप योजना के लिए आवेदन आमंत्रित",
-      "summary": "मप्र ऊर्जा विकास निगम ने राज्य के किसानों के लिए सोलर पंप पर 90% तक की सब्सिडी देने की घोषणा की है। इच्छुक किसान आधिकारिक पोर्टल पर जाकर आवेदन कर सकते हैं।",
-      "date": "24/09/2026",
-      "source": "MP Krishi Vibhag",
-      "url": "https://mpkrishi.mp.gov.in/solar-pump-application-2026",
-      "category": "MP"
-    },
-    {
-      "title": "मानसून की वापसी का अलर्ट: रबी फसलों की बुवाई के लिए दिशा-निर्देश जारी",
-      "summary": "भारतीय मौसम विभाग (IMD) ने मध्य भारत से मानसून की वापसी की घोषणा की है। कृषि वैज्ञानिकों ने किसानों को सरसों और चने की बुवाई के लिए खेत तैयार करने की सलाह दी है।",
-      "date": "24/09/2026",
-      "source": "IMD Weather",
-      "url": "https://mausam.imd.gov.in/agromet-advisory-central-india",
-      "category": "Weather"
-    },
-    {
-      "title": "अंतरराष्ट्रीय बाजार में भारतीय कपास की मांग में भारी उछाल",
-      "summary": "वैश्विक मांग बढ़ने से भारतीय कपास के भाव न्यूनतम समर्थन मूल्य (MSP) से 20% ऊपर चल रहे हैं, जिससे उत्पादकों को इस सीजन में रिकॉर्ड लाभ होने की उम्मीद है।",
-      "date": "24/09/2026",
-      "source": "Market Watch",
-      "url": "https://agmarknet.gov.in/cotton-market-updates-2026",
-      "category": "Market"
-    },
-    {
-      "title": "सीहोर में ड्रोन तकनीक से कीटनाशक छिड़काव का सफल प्रदर्शन",
-      "summary": "मध्य प्रदेश के सीहोर जिले में उन्नत ड्रोन तकनीक के माध्यम से फसलों पर उर्वरक और कीटनाशकों के छिड़काव का सफल प्रदर्शन किया गया, जिससे लागत में 30% की कमी आई है।",
-      "date": "23/09/2026",
-      "source": "Tech Agri News",
-      "url": "https://techagri.in/drone-spraying-success-in-mp-districts",
-      "category": "Tech"
-    },
-    {
-      "title": "भारत दलहन उत्पादन में आत्मनिर्भरता की ओर अग्रसर",
-      "summary": "केंद्रीय कृषि मंत्रालय की रिपोर्ट के अनुसार, वर्ष 2026 में दालों के कुल उत्पादन में 12 प्रतिशत की वृद्धि हुई है, जिससे दालों के आयात पर निर्भरता न्यूनतम हो गई है।",
-      "date": "24/09/2026",
-      "source": "PIB India",
-      "url": "https://pib.gov.in/press-release-agriculture-pulses-2026",
-      "category": "India"
-    },
-    {
-      "title": "मध्य प्रदेश के आगर मालवा में नया 'ऑरेंज प्रोसेसिंग हब' स्थापित",
-      "summary": "संतरा उत्पादकों को बेहतर दाम दिलाने के लिए आगर मालवा में एक आधुनिक प्रोसेसिंग प्लांट और एक्सपोर्ट हब का उद्घाटन किया गया है, जो सीधे खाड़ी देशों को निर्यात करेगा।",
-      "date": "24/09/2026",
-      "source": "MP News Now",
-      "url": "https://mpnews.in/orange-processing-hub-agar-malwa",
-      "category": "MP"
-    },
-    {
-      "title": "सरसों की उन्नत किस्मों के बीजों का वितरण शुरू",
-      "summary": "विभिन्न कृषि विज्ञान केंद्रों (KVK) ने रबी सीजन 2026-27 के लिए सरसों की नई रोग-प्रतिरोधी किस्मों के बीजों का वितरण किसानों को रियायती दरों पर शुरू कर दिया है।",
-      "date": "23/09/2026",
-      "source": "Krishi Vigyan Kendra",
-      "url": "https://kvk.icar.gov.in/mustard-seed-distribution-2026",
+      "title": "कम पानी हो या नवंबर की लेट बुवाई, सरसों की ये 9 उन्नत किस्में बदलेंगी किसानों की किस्मत!",
+      "summary": "कम पानी हो या नवंबर की लेट बुवाई, सरसों की ये 9 उन्नत किस्में बदलेंगी किसानों की किस्मत!। कृषि वैज्ञानिकों और अनुसंधान केंद्रों द्वारा फसल की अच्छी पैदावार, बीजोपचार और कीट नियंत्रण को लेकर उपयोगी वैज्ञानिक मार्गदर्शन साझा किया गया है। (स्रोत: ETV Bharat)",
+      "date": "25/09/2026",
+      "source": "ETV Bharat",
+      "url": "https://news.google.com/rss/articles/CBMiowFBVV95cUxQc0pYeWg0WXdpSEdENXlFcmF1YlRzZThFZFFrR2NyTFBzb0RoUXc3SElkeVlDcWF1dXA4YnFoZFdsQXJZbHduMDg3M2N4cmxjbHRtMV9XUlFUNWxyRXktdGxfbjVsUmc4MzRoQm1hWDZIZV9LY2N5ZlJ1NmdRekhXa0haZnpoWkxDYjZZMHBLbjlkZTJxMmdITElzeEFiTHBPcnFz0gGoAUFVX3lxTE1ic1htMXpIbkNhRHRsMlNDQ1pzTnI3UjhtMXNlRlZDYVFJZHkxVVVneHJndXNuYmhrWXZCQ1NHVHlZVEdIXzdmQmp3YW1HSXVqbzdQeTY2LXVnMUtHSHprWjhseU5vMXdodEdHUGhIbEF0aWpPXzZiNVJwZ2IyaFdXTFp2VWZRVEVRVm95WmNyTFN0Z1BHTjJQcEg5bW5wT3FnZWdocUUwQw?oc=5",
       "category": "Crop"
     },
     {
-      "title": "प्राकृतिक खेती को बढ़ावा देने के लिए नई प्रोत्साहन राशि की घोषणा",
-      "summary": "भारत सरकार ने जैविक और प्राकृतिक खेती अपनाने वाले किसानों के लिए 10,000 रुपये प्रति हेक्टेयर की अतिरिक्त प्रोत्साहन राशि सीधे बैंक खाते में देने का निर्णय लिया है।",
+      "title": "Kota Mandi Bhav : धनिया व सरसों में तेजी, खाद्य तेलों में गिरावट",
+      "summary": "Kota Mandi Bhav : धनिया व सरसों में तेजी, खाद्य तेलों में गिरावट। कृषि वैज्ञानिकों और अनुसंधान केंद्रों द्वारा फसल की अच्छी पैदावार, बीजोपचार और कीट नियंत्रण को लेकर उपयोगी वैज्ञानिक मार्गदर्शन साझा किया गया है। (स्रोत: patrika.com)",
       "date": "24/09/2026",
-      "source": "DD Kisan",
-      "url": "https://ddkisan.gov.in/natural-farming-incentive-scheme",
+      "source": "patrika.com",
+      "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxOWGdiUWdmTmFEZzZEOXV5NEpoX3dGR1E5VUlUcjc2ZjBXcnVkaXY0VXlUOU5sdHFXME1oeXkyNkhOdnREN2RjRWFYY1NLWXZaa2VieEo0SXhMc2VraVg3eGxyajF3dzdwT2lrQmhyeXBLb0FGcHJuMHI4RzZLUGY3anlhbWwtaFFodWVEeHV1T2I3ZWPSAZgBQVVfeXFMT3REZXhkTVN2b0hiNFFpRDRCSmtpY1JjRzJwWWk0NXF6Y1BneVRPenU2RjFQUlp0bVFGa2xZSzV6ZlZ1b3JTN0dwLTh4bFJ0VDNWNU5UMVd3SDRCZVJYbGVKcTg4bi1ZRWxtVVp5TkNIZ2RjbGVSb1JZUGZZUVhybGl6ZUhjTlVaMFQxT1pyZ1N2c0pyc3NFZzk?oc=5",
+      "category": "Crop"
+    },
+    {
+      "title": "App एक, काम अनेक : किसानों को एक ही एप पर मंडी भाव, खरीदार और सरकारी योजनाओं की मिलेगी जानकारी",
+      "summary": "App एक, काम अनेक : किसानों को एक ही एप पर मंडी भाव, खरीदार और सरकारी योजनाओं की मिलेगी जानकारी। कृषि उपज मंडियों और बाजार विश्लेषकों के अनुसार विभिन्न कृषि जिंसों के भाव और आवक में उतार-चढ़ाव देखा जा रहा है। किसान भाई उचित समय पर अपनी उपज का विपणन करें। (स्रोत: GaonJunction)",
+      "date": "24/09/2026",
+      "source": "GaonJunction",
+      "url": "https://news.google.com/rss/articles/CBMizwFBVV95cUxOSTgtdEl0WjdMQ08yckJYcWJJSFdBa1FDYjBvc1FFYXFrUTJGVXhwaWxLcFFjaENrSGZ2WlJFOE5KLUF4WTNmeHNlVWhSckhfR2MtLTI4QWViWkRpYWZIQ2htalktYW9KMWg3Q2dSTTZWV0JoUWpkaHRxc09rcWM5MGY5UUk2QmFxdVhLZVBNTGRrSm40eHdXaS0zMkVvcnBmdHJlbU9TVmMwTWNRX2RrNlFfZFlMWXJiejh2UTRQREhEVm8tekZaanZUMWNtdjQ?oc=5",
+      "category": "Market"
+    },
+    {
+      "title": "MSP पर धान, ज्वार और बाजरा बेचने के लिए मुफ्त पंजीयन, 10 अक्टूबर तक करें आवेदन",
+      "summary": "MSP पर धान, ज्वार और बाजरा बेचने के लिए मुफ्त पंजीयन, 10 अक्टूबर तक करें आवेदन। कृषि उपज मंडियों और बाजार विश्लेषकों के अनुसार विभिन्न कृषि जिंसों के भाव और आवक में उतार-चढ़ाव देखा जा रहा है। किसान भाई उचित समय पर अपनी उपज का विपणन करें। (स्रोत: Tractor Junction)",
+      "date": "24/09/2026",
+      "source": "Tractor Junction",
+      "url": "https://news.google.com/rss/articles/CBMi0AFBVV95cUxQM3B4TkExRmZkbWFkSmZ5QVlrRHJfUXhfbzYzdzBCWkl6UDJpVnJDUzFPUzgtN3pBdUZYUkxaS3RzZ2hMRGZkNy1DU1lGSmlNTll6c0I5dE1YUDg4WjgwNDZBYmUxRzZtREljVm5RbGFGb3RoZUhncTZkOU95cGtmQlFXSHVveTk0SHAyUVJGNUUzUU5SZFhtQmVOQ1hOaUxKOGNtTVhFMmQ5eGZaTHk0Q19ua0VoZ0lZZUxRN19FSG5ZR0J0TGpjTVNOamhWekZx0gHYAUFVX3lxTFBxRjFJbDRINjNXOHdIMTRocDZQcjAyempxVTMwQXJsbVcxOFlNM012RFJaTzhsSHV1eU56aUJOZXV4dnkyRnlGSWhzdVlJM0hYdUJJOHFqR3U1N1hfb1JmNktQR3VObjJJbFZYMkg1T0dlNW1TZ0dWRjNoem4zcmNpNHBmaDZrcTNCZkVzbFZMV1JSUFl5R0xzN3BJd3cxZXZuNTV1Ml9PU3dNTlRCRllqQXlBX2FkMWdNZWNWYllZTmZfQ0dJMVVZMkFQeEl2UHMwcGxrN0NtLQ?oc=5",
+      "category": "Market"
+    },
+    {
+      "title": "कम बारिश के बाद आंधी बनकर आई आफत, चौपट कर दी किसानों की मक्के की फसल",
+      "summary": "कम बारिश के बाद आंधी बनकर आई आफत, चौपट कर दी किसानों की मक्के की फसल। मौसम विज्ञान विभाग एवं कृषि विशेषज्ञों द्वारा जारी इस अपडेट में किसानों को आगामी मौसम की स्थिति को ध्यान में रखते हुए फसलों की सुरक्षा और सिंचाई का प्रबंधन करने की सलाह दी गई है। (स्रोत: ETV Bharat)",
+      "date": "24/09/2026",
+      "source": "ETV Bharat",
+      "url": "https://news.google.com/rss/articles/CBMixAFBVV95cUxOVVFaN01NeHZUSHpYWG5ORThkYmJoZ1hOTU9nb2VBVUpNMkJNdEFIWUdfaDdqZHV6WmJmdTltSVh3M0FsQWFyRGkxM1BNWmpRY1dZdHV4dGF2MHIyUGZ2djZDcVNGR1JVYXlsVlI2NlhDUzhNYXhUMmliaExFTEFaSlZOZzhwRWVuc2FxaXNnZVdDUVp5a3ZzZ0ZfRVZBbWF1bmRHZUNQTFFEalYwSW5oaDQ0TGdUQmFvYWxob2htMGRVVFVK0gHKAUFVX3lxTE9GM185dFp1R1huTVc1RUlsWE1BUUJ6MEs3QmdTaDVwaE1vamtIc1ZRQ29XMW1RMzdLdlVENE1OVHctUG9SNnotaGN2QW9yN3o2ektnRkxiQzJyWWlvcS1sYjJUOEFnR1RpWmhzNXN1RVlWY3FQYXA2Njg1eFdFLVRDSVpqcTZ1OHRHaGx6TGNkN0Q4ZklFcWpDd0dRSm5PR2lGWGk4aENmakllYVdRVS12Q2t3RS1EVkVualhFaUhBV0ZsaW5oS0R6SlE?oc=5",
+      "category": "Weather"
+    },
+    {
+      "title": "IIT की नौकरी छोड़ी, गांव लौटकर खेत में गुलाब के साथ उगा दी ब्लूबेरी और स्ट्रॉबेरी, अब कमाई कूट रहा 33 साल का बंदा",
+      "summary": "IIT की नौकरी छोड़ी, गांव लौटकर खेत में गुलाब के साथ उगा दी ब्लूबेरी और स्ट्रॉबेरी, अब कमाई कूट रहा 33 साल का बंदा। देश के किसानों के कल्याण और कृषि क्षेत्र की नवीनतम प्रगति से जुड़ा यह महत्वपूर्ण समाचार विश्वसनीय मीडिया रिपोर्ट के माध्यम से सामने आया है। (स्रोत: Navbharat Times)",
+      "date": "24/09/2026",
+      "source": "Navbharat Times",
+      "url": "https://news.google.com/rss/articles/CBMiggJBVV95cUxQTFlfRjJJOUlmMGtjU3ZiandiNTdMWlVVQzlaQ0xCckNzemo3QnRRc0pyMXFud1NiTW1yTWlSWmhlTEcwVUplTVozQWo5XzJaS2NYSXd1MFBLUzh0UFc4SGZGYjNHUnJoSHJxOEIwUWZNcURYZ0FzTVhmUU9aSHV4akZXXzV4dVhsaW9VdDQ0ODMzVkVwUGppWUN3RmdEUURxMkV1RmYtTGV2X0JYTFFvNHF2T1ZHYU9kbURPZF9EYnhpbTI5Qm5RSnNRb2w0cWo3dFQ4Q1g2NkU4eF92eUppd1hGUE9TN21uV01OV1NUM2RSMHJObVN1X0s1bUs5NHRjMmfSAYcCQVVfeXFMUHRNUzd2WkNJOWktd1ZQQ1BGY3l4Y0tkV2tDbVU0ZnJPNHptb3RtNnRJQzVOUDNsb2wtUzRFeDd3U2xtZjVyY05aWDZJRk01ckQ1cDZjSW9iSXczLVI0ZGt4ZVRJSDFkbHM4X1BoWDRoSXRlT0tPMjd1Q0tsODNoVUtEZXZwajd0OGhmeElESnZDZEpjSnIzQ3JTQXk1UTFvaHF3bmpvTDE0V1ltQVZ2ZXZETjZoRjREN3NJTGVVbHFZek9iUERFUV84RHdhSHE4ZFFqdjZZcXczQWxYeEI5OWhBRVFsV25OOEpmMU5GNjFuSGk2SEZ5Nm04UmpzUmZCMHh0bl9qblE?oc=5",
+      "category": "India"
+    },
+    {
+      "title": "एक ही खेत में कपास, तुवर, सोयाबीन और मक्का, बुरहानपुर के चेतराम का मिक्स फॉर्मूला बना कमाल",
+      "summary": "एक ही खेत में कपास, तुवर, सोयाबीन और मक्का, बुरहानपुर के चेतराम का मिक्स फॉर्मूला बना कमाल। कृषि वैज्ञानिकों और अनुसंधान केंद्रों द्वारा फसल की अच्छी पैदावार, बीजोपचार और कीट नियंत्रण को लेकर उपयोगी वैज्ञानिक मार्गदर्शन साझा किया गया है। (स्रोत: hindi.news18.com)",
+      "date": "24/09/2026",
+      "source": "hindi.news18.com",
+      "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxOcDBoNmF4YXlmT1lwZjM4Z0NsVjRqNTZuZlVqbnJVR01OZUROVW9pWWNCTWpZSlhNYWVLVm5kaUoyQ2JhaU8zWUtXc3B4UjRZaEFuWHl1dVRiQTAzOXFYekZTcHQtUUVWZ290ZkhHTWU5WmwtRGZIQ0lORXR2cWZwUk5Ea25hRXNpZDdxRFRxX2xGTDVUYlh2bFM0TVVXdG1xeTd4QzBsZHBrT01EdVI4RFRQR1JlMWM3MVB4a21IdlVZOFU2ZXRGbEYyVzljQzV0Tk1GUWY1a9IB3AFBVV95cUxPQWdCQjlxRWV3T0xRMlFEczlaN0hHMnMxSFZLQV9NLTB5RlJQc2pyWFRCempXWlk0ZDJWVTUycFVwNllpVXFQV2NxdXBhNU5YaTBqcVBhWU1GZlJBMFpwdUdSOHF3UVhBUEJQYV9IdXFmTDFTYVh2ZEJ3MWY0aHlMNnpiRWZTcVNqa0sxOW9yYlNfSVNwWEJUU3lGTlk4bTdfb21SOGZ5RjZuODVYU1pkelJ6b2NIdWdENTB0aWlCV0tJTl84c0JHOUJGTDVrb2pMNmtDLU9KbDcySzVi?oc=5",
+      "category": "Crop"
+    },
+    {
+      "title": "गुना में तंबू तानकर सड़क पर क्यों डटे किसान? मरीजों को ले जा रही एंबुलेंस भी फंसी; पूरी तरह किया चक्काजाम",
+      "summary": "गुना में तंबू तानकर सड़क पर क्यों डटे किसान? मरीजों को ले जा रही एंबुलेंस भी फंसी; पूरी तरह किया चक्काजाम। देश के किसानों के कल्याण और कृषि क्षेत्र की नवीनतम प्रगति से जुड़ा यह महत्वपूर्ण समाचार विश्वसनीय मीडिया रिपोर्ट के माध्यम से सामने आया है। (स्रोत: hindi.news18.com)",
+      "date": "23/09/2026",
+      "source": "hindi.news18.com",
+      "url": "https://news.google.com/rss/articles/CBMi3AFBVV95cUxNU2RsUzJ4X3pwbm1CcVg5b1dKeDE3TkJ0QVplcVc5VHBRV3hQRjdVTmtQeGdWcGE5X0RSamxNYzZMa294MnkyUm55aXlxTy04ZTJNdjBQRmFyd1JNTExtbVRUSHNFUE1JUHJ5eEVwUlo3MjRReXRYOVBsMzIwaWp2d0FzSlYxMTg1bDdCcjlQa1cwSk0taXZGelZ5RUpJZ016Ny1JbmtSZ0tkZ0tKZENXQ0lXd1hNcXhHVTY5TERUWVJZd1J3czdqMXI2Y0pRUWZINFRjdEthT3l1NWZO0gHiAUFVX3lxTFBOb0ZwVUJQTklWRFZQZnVQdExhSjN5a2wteVlXVGczNDRYbFU1YzJFNjdxRHVhS09uRDRwaUlfbmthOEZXcXlCMnNGblcyS01mc0JQMjgwQkRUdjRQR3VlZG5iSXdEWW15V0lWNDZRaGhxbWtCS0xFdXBMT0RtMEZMSjVtSE9LcllIbHlUbURtUHlTMEEzbGEyU25EYllodnR5MEtZdGlVNTFEbThYU0xKVWhUR0JxZ0NvWmJYb2lqQ3g0VklOZldJazJyM0RSREd5SnpYRzFwa1phNDItMkd5TWc?oc=5",
+      "category": "India"
+    },
+    {
+      "title": "फर्जी भर्ती करवाने वाले नेटवर्क की रतलाम पर निगाह! रेलवे, आबकारी के बाद कृषि विभाग पर आरोप",
+      "summary": "फर्जी भर्ती करवाने वाले नेटवर्क की रतलाम पर निगाह! रेलवे, आबकारी के बाद कृषि विभाग पर आरोप। मध्य प्रदेश कृषि विभाग और शासन द्वारा प्रदेश के किसानों के उत्थान, उन्नत कृषि उत्पादन और कल्याणकारी कार्यक्रमों को प्रभावी बनाने के लिए यह कदम उठाया गया है। (स्रोत: ETV Bharat)",
+      "date": "23/09/2026",
+      "source": "ETV Bharat",
+      "url": "https://news.google.com/rss/articles/CBMi1gFBVV95cUxQN0hHYkxrSDlXZjV1SE5fSXNsUTdjNE1fMV9Od2pLWkRSYzJhZTU5NEZ0N3AwZS1TTXV3UkZtUWZMMTZtbmg2a0pMQURnWFF0WUVvVVBUb3MtQnBXT0hlXzdqRGMxS09lcUFRUmlkR2NUNGo2bFBGX09vWUNQSUU1cFZ3QWdPRTlkTmhaaHJVcm45RGN0SVBSanFkNjY1WVlLRUpqTDNwS05aWjBmT2VVcWltdHEyUnVxNlRXSU8yUGx4aGx4ZTY3bUxsUnFCeHhuRVRXVTBn0gHbAUFVX3lxTFB3MHlFNFQ4TDZSc0dLRzlkZklZMWUtODY0amZISWJwWU5jdUMxTGpsSTY0VjNDbjI4OVVRel9rZ3NrbGJHQTRBR2M1S0VCX1BHUDhxbllvUGd6aWktLUhiVFRtdWQ4cU9WV21CdTh6SEVhcHNFbkVmSDZUSUdUMmtaVmtBMVlad3UxVVpIVWt5eV9kZF96WVRuSEFlcmJ4NlNPTHBwUXBCVmJDd3VRYloxZ0VYTVQ0VzhvY1FWZk9NTjVrZG5IQ25HMkh1WWVTOEdaRzhzeXRVcUVmZw?oc=5",
+      "category": "MP"
+    },
+    {
+      "title": "मऊगंज में CM मोहन यादव का किसानों से संवाद, बोले- उनकी समृद्धि हमारा संकल्प",
+      "summary": "मऊगंज में CM मोहन यादव का किसानों से संवाद, बोले- उनकी समृद्धि हमारा संकल्प। मध्य प्रदेश कृषि विभाग और शासन द्वारा प्रदेश के किसानों के उत्थान, उन्नत कृषि उत्पादन और कल्याणकारी कार्यक्रमों को प्रभावी बनाने के लिए यह कदम उठाया गया है। (स्रोत: ABP News)",
+      "date": "23/09/2026",
+      "source": "ABP News",
+      "url": "https://news.google.com/rss/articles/CBMizgFBVV95cUxQOXRQa3dfMmJnWUVEc193TC1YQnJ5dkU5WFVqcXhPUUJPeVluZXJER1NJem5GN0VPTjBxMkp0Vkw3bVZGbF9mYWpOX0xveFZqT3pHcXdON1dLMGtOakdpTElHYmhmUXZCZThIYjNSOUp0MG9iM1BTVW9GRjVkRVVBMEpLY202c3NKeVkwamY5c19ZeXllcWdpVjdjcHU5cy0tQ0FuUGdla0lXSkNoXzJnZVVXSExzQXoxeDd4RTFkY1BZQUpiN2M4OXo5UUVvQdIB0wFBVV95cUxQQVZlbTJ2MEJfcGRUVjVEN3hfSHhZYjc1UHo4Qzh0M2MtRnNVN0RMRlk4dHQtVkR0MUtkQzFRX0ZmWFBFN0RxdmJ3MlkycnM0X2k1YjUxTlRrX0o4eENuOHYySUpVWkhqVVF5bDFFRF9BYjExQnpBQWVuM2ZZdGd1Z3QxYV8tWjNDVnhjajlEOUJsMEJlQmZkOEI5VE1DSWtrZDJvSDdRaWRLbXlEQUVBN1JuNTdfZXRER0tqMlNmTWtsVm40N0FBZW94QmtnbHBueUtV?oc=5",
+      "category": "MP"
+    },
+    {
+      "title": "Madhya Pradesh Sinchai Pariyojana 2026: कैबिनेट ने 13 हजार करोड़ की मंजूरी दी",
+      "summary": "Madhya Pradesh Sinchai Pariyojana 2026: कैबिनेट ने 13 हजार करोड़ की मंजूरी दी। देश के किसानों के कल्याण और कृषि क्षेत्र की नवीनतम प्रगति से जुड़ा यह महत्वपूर्ण समाचार विश्वसनीय मीडिया रिपोर्ट के माध्यम से सामने आया है। (स्रोत: Kheti Junction)",
+      "date": "23/09/2026",
+      "source": "Kheti Junction",
+      "url": "https://news.google.com/rss/articles/CBMic0FVX3lxTE50QzZWSjNQSUZ5Z1RtZ0JYdndYRmtvc3RxcnJUakhvT3Jxak1xUjBoX1AxWTMydkVVbUQtR2VFYXA4bW55ZllFQVJYdjRDM1RDOVFVT2NQSkZCLVNxSGw4M3BGN2J1QmFUX2NDcTJHT1BZWUU?oc=5",
+      "category": "India"
+    },
+    {
+      "title": "किसानों और पट्टाधारकों के लिए बड़ा ऐलान, 50 लाख पट्टों की रजिस्ट्री का खर्च उठाएगी सरकार",
+      "summary": "किसानों और पट्टाधारकों के लिए बड़ा ऐलान, 50 लाख पट्टों की रजिस्ट्री का खर्च उठाएगी सरकार। मध्य प्रदेश कृषि विभाग और शासन द्वारा प्रदेश के किसानों के उत्थान, उन्नत कृषि उत्पादन और कल्याणकारी कार्यक्रमों को प्रभावी बनाने के लिए यह कदम उठाया गया है। (स्रोत: Tractor Junction)",
+      "date": "23/09/2026",
+      "source": "Tractor Junction",
+      "url": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxQN1NhY0Z3ajctWlFtVGtOYjVqRE4ybDMxejY4Y1VfbnRESzBwS21oRjBRVXhrbEJhdmpIbVpTemxjYmREYmF6SDl0MFZRMkVyc1ZpcW11cDV5RVpxb1RaYm0yTVlYMkRWbWJBLXRhVEhwV25jakZaelVQVDFfRWZMdEVya25UX1I1bF9aQjJRZnFHMFpMR2hvM3hwdVB0d2JvQjFpMURqS0p3ODDSAbMBQVVfeXFMTjhBX3YyUWtNVHZSV2owR1VfbmlvWXNnb09jcVJJZVhKQTJ3UmFIaElzVDg2YWxtSHpXVmhjbmpmX2pHNWJWanFTSHljU1RCSC1zZzZHaHJ3eWEweGdVdlVBd1VaV3RUamZxaXFVY2YyMEkzSTZhZ3ZIZTZSMENnRDJjMTNRbHc1eXdlS0pSdi1VWDMzeWtycy1ySzgxUUozY3hZLUZZNVlPRUZtVVhvaGRJOXc?oc=5",
+      "category": "MP"
+    },
+    {
+      "title": "अलनीनो के बाद भी इन फसलों पर नहीं पड़ेगा असर, जरा सी सावधानी बचाएगी बड़े नुकसान से",
+      "summary": "अलनीनो के बाद भी इन फसलों पर नहीं पड़ेगा असर, जरा सी सावधानी बचाएगी बड़े नुकसान से। कृषि वैज्ञानिकों और अनुसंधान केंद्रों द्वारा फसल की अच्छी पैदावार, बीजोपचार और कीट नियंत्रण को लेकर उपयोगी वैज्ञानिक मार्गदर्शन साझा किया गया है। (स्रोत: ETV Bharat)",
+      "date": "23/09/2026",
+      "source": "ETV Bharat",
+      "url": "https://news.google.com/rss/articles/CBMiwwFBVV95cUxOcUdCNU9FN2IxRmZqak5UYmxmVGJHUms3eWJ3RTd5TG43TkZDUUhHcHY5UFlxM1RMNFR1T20zMGp5anBWN2NWTlJaQmhTdExhSzZKYklDLWplQld3VENrV2lPLWQ5WjIzOFNTZjJ3UjVYcTBHemZ5QWlsa21fLV8zLTRLNC1IbF9MdlVDbUhYN2ZzeE9EXzc4NUd3dlAxUkozVHl1Tm1IRlREMEZRQURvdjJuVGF0bTR4VTU5UVdka0l4Y0XSAcgBQVVfeXFMTTZWZ21MVmtvV282WHBvejZ0bmd6YXJ5Z1FPQ3lCUUI4SzRTaGhDV0xlcEJvR2FmQi1qSnhGSmp6WEpCN3I3MFJrV0dvUjVKWmZWZ01WSGkycmw1WVVkVW5jZXN5X0dqQjNyQmFXQzVMbUpTdXdYWlNSR0l1Yk9pNlVPR214V3BIU3dnRGhWRWFJVWlZeGdETGNCdmF5TGE5c3BKc01ZeUo5SU03cnBWZnhJMVV2OU9veURPbFk3c1o4b3JFbEtBUWM?oc=5",
+      "category": "Crop"
+    },
+    {
+      "title": "25 सितंबर को MP समेत 10 राज्यों में पॉलीहाउस किसान करेंगे प्रदर्शन, क्या है मांगें",
+      "summary": "25 सितंबर को MP समेत 10 राज्यों में पॉलीहाउस किसान करेंगे प्रदर्शन, क्या है मांगें। देश के किसानों के कल्याण और कृषि क्षेत्र की नवीनतम प्रगति से जुड़ा यह महत्वपूर्ण समाचार विश्वसनीय मीडिया रिपोर्ट के माध्यम से सामने आया है। (स्रोत: Hindustan)",
+      "date": "23/09/2026",
+      "source": "Hindustan",
+      "url": "https://news.google.com/rss/articles/CBMi3gFBVV95cUxPUzNpT3NmTEtZNXpaOVhCVlBFdGkwNHZOdmhiMFBLaGFyc2VWcTV4dGoxbHE0OUhWeEl2RGN0ekRKeGpvYXpRc3hNM3hnYXc0U1dxdWdlcmd4NVlsZ25nVjl6TDNsVFJHbk9jcXNOYzVnUFBfbjU2dTd0SEgweXB2M0VlYXlqS3ZsbE03WWVFdzlZbTZCT1hIYTVJdzZOMnpqbWR1YXpIbDE0N2tRVWZsZjdhXzZWWVhRejRGVkxRNXFPSFpwb21HMGpPajRpQ1JXUEdpNTRBc0IzZlo2WWfSAeMBQVVfeXFMTjkwdTA0aDhadVh4NWNpbjdSOWJ1RE1jenpKdEV0dm1ObFE0RnBlZnlCaGoxQ0Y4WXo0N0VybXJ6c0lhOUJMV1I4NXp2YThHZ0RPSi1qb3JZb3FudWR0elhscUhmbGQwbFJWV0lDenlXRThvN2FlQ0hvVE1DNzQycmNoX3FRT3NXX3hSTEFfVVp5VE1DTEVLNVFVemZxbm03a3lVVy11SFgyRV9uQUI3dlYtZ1FyczkzbHFJeVR6cXVJeUxmUnF4SlBwMUFFOWNnelVnWS1uNTFSbWk0SVVubTc1R0k?oc=5",
+      "category": "India"
+    },
+    {
+      "title": "सीएम ने डॉ यादव ने रीवा में हुए बलराम कृषि महोत्सव में आए किसानों से किया संवाद",
+      "summary": "सीएम ने डॉ यादव ने रीवा में हुए बलराम कृषि महोत्सव में आए किसानों से किया संवाद। देश के किसानों के कल्याण और कृषि क्षेत्र की नवीनतम प्रगति से जुड़ा यह महत्वपूर्ण समाचार विश्वसनीय मीडिया रिपोर्ट के माध्यम से सामने आया है। (स्रोत: ABP News)",
+      "date": "22/09/2026",
+      "source": "ABP News",
+      "url": "https://news.google.com/rss/articles/CBMi3wFBVV95cUxOMDFFUl9PTDRlS2lQcXRVWWRidDJ3djBuellnOGctbnM1UGk4UWQ0dXp0WHNIZlFpbk9haXNyQURIYkNGWUo1NlVDSkhSMGJ0QnBxanBGMW1wUnhDbzVxMERUMWh4NGhSR2RuazdNVFZRVG0tMFVXOWFoaFFTUzNhaHl3YjduYUQyNzBrWDFqcjV1N2RjNi1MQklFdW5LMGwzdjBUR09JM2t0RGR0Z2s4Z3VESHZ3RlNkR0ltSW82RG9ZM0U1YUtUSElidzNBNE1kRDZpOEZFajNaSVQtYWZz0gHkAUFVX3lxTE9lSXAyR2FFbWthczZJUmd3ZE16bnJyMFFTQjl3WWlCWFEtLW94dnNpcjRvTGkzMlBubGNwcUpWek9peEN0ZFo3c19DVGhmTjBVaUJDQzRBYTE2NWpRUThDV3lSTGxudlpnZ0xReHhBUkJzTnRneklEc0lDNGtjUUVMSFZDdzJqWENkUW5OOUg0TXVXS09oNUdrM2FlN2xLSlE1eGZXa2pVZ0lfbE9wWHliS2FLU2lRSzl4NEJwLVBseXZIbVhDTjc5eU5VeXY3U1B5NG95YkJNUHhuWnlSWjhZbFpEeg?oc=5",
+      "category": "India"
+    },
+    {
+      "title": "अक्टूबर में कौन सी सब्जी लगाएं? मूली, पालक, मेथी से फूलगोभी तक जानें सही फसल",
+      "summary": "अक्टूबर में कौन सी सब्जी लगाएं? मूली, पालक, मेथी से फूलगोभी तक जानें सही फसल। कृषि वैज्ञानिकों और अनुसंधान केंद्रों द्वारा फसल की अच्छी पैदावार, बीजोपचार और कीट नियंत्रण को लेकर उपयोगी वैज्ञानिक मार्गदर्शन साझा किया गया है। (स्रोत: Kisaan Helpline)",
+      "date": "22/09/2026",
+      "source": "Kisaan Helpline",
+      "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxNVk5wdE40R005djFDall1SEMyYXB0R3ljaXNiMTJWZkc4ODNpcFBPMGFUbUlYeERTc2hybnVSNDJpeWNnQ1dXTnFOc1hyUEN6d2lBUjBZR1RUTEZTNlZwa1BtZmRQU0g5WWRwb3V2ejdEeWpkVG5sNkROVW12ZTk5ZWw5bDVWZw?oc=5",
+      "category": "Crop"
+    },
+    {
+      "title": "एमपी एईओ 2026 (MP AEO 2026)- कृषि विस्तार अधिकारी आसंर की (जारी), आपत्ति विंडो, रिजल्ट",
+      "summary": "एमपी एईओ 2026 (MP AEO 2026)- कृषि विस्तार अधिकारी आसंर की (जारी), आपत्ति विंडो, रिजल्ट। देश के किसानों के कल्याण और कृषि क्षेत्र की नवीनतम प्रगति से जुड़ा यह महत्वपूर्ण समाचार विश्वसनीय मीडिया रिपोर्ट के माध्यम से सामने आया है। (स्रोत: Careers360)",
+      "date": "22/09/2026",
+      "source": "Careers360",
+      "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxQdzJyR3ZJeGFBOHl0MW5kNjZ4T0JpejVkbkRBVS1QS01NZDQwbGRLZUZycEprdXBCcnRJZHNhbzNuaHVaRGRrYUk0VU5hbjFZc1lKbGwxcExSRzdZSzRUb29pNjl0SjlqOGoyS0dZb2JBbl9JNFhVVXBHcE5lTGp6OQ?oc=5",
+      "category": "India"
+    },
+    {
+      "title": "मैहर: बलराम कृषि महोत्सव को CM मोहन यादव ने किया संबोधित, किसानों के लिए की घोषणा",
+      "summary": "मैहर: बलराम कृषि महोत्सव को CM मोहन यादव ने किया संबोधित, किसानों के लिए की घोषणा। मध्य प्रदेश कृषि विभाग और शासन द्वारा प्रदेश के किसानों के उत्थान, उन्नत कृषि उत्पादन और कल्याणकारी कार्यक्रमों को प्रभावी बनाने के लिए यह कदम उठाया गया है। (स्रोत: ABP News)",
+      "date": "21/09/2026",
+      "source": "ABP News",
+      "url": "https://news.google.com/rss/articles/CBMi5gFBVV95cUxPX2NYWHVlUmlWellOeUdERWNoNUlDNlNxSFdTVlhQdlRiRWpBQzBsc2RTY2xpbGVnV3gwWTdCSmdWNEJCSHpmWW9yWWNMVENtZkpiRjdrM1p4SVNDWEJOWGtVTU1rNE56VmlPOXRXZGNCcEtLWUFvRVg0THBKN3B3WFJoMVVyak1JZjJrS09JTU95dzVlWXFLclFIXy1vcjBSRTRGR1VpUVY4SGxhMnhZQzRmVnN5UTZhU29TZ0lpTktpSV9kUEVpOVdYc0JkVHo1NzdWbEt3SFlndHdkaU1BSzZpbE5aUdIB6wFBVV95cUxNSGpYY2pBdGpjcHZVU29CQ01fNG9CU3hvWjhBMlI2LXgxVTVVQ0pnRHpzY0RlcGlWWlVTaVRPeHpBU0ZRRVN3RGJ1ZVpvUEU0Z2lYQldCTDRzNHhKT3VVbWw0NXd5dnV6Tk53S3BsOGw1eGxTVU9LZGhWYVhQaEdPR0dtcXF4X0N1Y3puejFiR0hQbUhWaHVXc3lPUVg5SjBNU3NSSXNZYWFKeUZoQ2dVNnFfY2dKRFRwTUhFN1lVVWZCZDNLNVg4TmlNOGZ2VG1ETFoxTExxRVYtNHZxZDZKZng5c25mSkZCdVk0?oc=5",
+      "category": "MP"
+    },
+    {
+      "title": "MP स्थापना दिवस को लेकर बैठक, CM मोहन यादव बोले- किसान कल्याण पर हो केंद्रित",
+      "summary": "MP स्थापना दिवस को लेकर बैठक, CM मोहन यादव बोले- किसान कल्याण पर हो केंद्रित। सरकार एवं कृषि कल्याण विभाग द्वारा संचालित इस किसान हितैषी योजना के अंतर्गत पात्र कृषकों को लाभ प्रदान करने हेतु आवश्यक दिशा-निर्देश और समय-सीमा जारी की गई है। (स्रोत: ABP News)",
+      "date": "21/09/2026",
+      "source": "ABP News",
+      "url": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxNS01NZ2d2MWFkdTVlYWE2NDcxbnpRdU90cDVoR19QRURUVW02M2huWXpURjBvdmhSTG5wRjZmcW5YcWNwZnppNFQ4YkxyM3Y5VmkwakpFUDRyRG1JRDFIdXRCeWJnLVd4eE9mMGtfNEdhQzVTcEdvcTBPYzVybDNwWXdMaVNLWG9hX0h1bk1tallmOHVmeWdMb3E2bnYtNFcwdk9jSGl5d2E4aDBOZE9qOHR5X253Y0oxQVRz0gHAAUFVX3lxTE1VdTBCQzRyR2swd0JqME5nZ2lIalN2d2ViOVlQVldUSmo0SGNpeHo5cmxrak9OZGNGRVMzTFd5Vkt1a2FsNGFnNEowaE5Va1JpWTNTR2x4bnZDcUM2WW9TLXFuNXpiUGZkRExQMTFZdERLa2x2NHg4emJEUkhyVFdTeTV3YVZnSzBrT0piVVdsVEhLczlvNzhtMHRiZVZzZ2Ric19rLVg2SHl2dHdNQ040MHp3bTFmRG00T3ZaTGJ2dQ?oc=5",
       "category": "Scheme"
     },
     {
-      "title": "धान की नई किस्म 'स्वर्ण शक्ति' में जिंक और आयरन की प्रचुरता",
-      "summary": "कृषि वैज्ञानिकों ने धान की एक ऐसी बायो-फोर्टिफाइड किस्म 'स्वर्ण शक्ति' विकसित की है, जो कुपोषण से लड़ने में मददगार साबित होगी। इसका ट्रायल मध्य प्रदेश में सफल रहा।",
-      "date": "24/09/2026",
-      "source": "Agri Innovation Portal",
-      "url": "https://agriinnovation.in/bio-fortified-paddy-trial-mp",
-      "category": "Innovation"
+      "title": "मध्य प्रदेश: कृषि और किसान कल्याण मंत्री शिवराज सिंह चौहान ने रिश्वत लेने के मामले में अधिकारी को किया निलंबित",
+      "summary": "मध्य प्रदेश: कृषि और किसान कल्याण मंत्री शिवराज सिंह चौहान ने रिश्वत लेने के मामले में अधिकारी को किया निलंबित। सरकार एवं कृषि कल्याण विभाग द्वारा संचालित इस किसान हितैषी योजना के अंतर्गत पात्र कृषकों को लाभ प्रदान करने हेतु आवश्यक दिशा-निर्देश और समय-सीमा जारी की गई है। (स्रोत: News On AIR)",
+      "date": "21/09/2026",
+      "source": "News On AIR",
+      "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxPdnZYbTNZOGs1aUYtWnZGOFZVd0t5ZWNPajFTTjV1VkFQWWxEcS1RUWM5Q1IwWmx2WUZWR29DT2JTeWwwdW1sVjd3TnZmN0Vyb08weVF2S2xtZXJRbU5ucy1jZTUzVVZhanZXNjRrd09UM3Y0WlJqWFg0bk1nUGpTeTZVcVpJSGt4QmRoYzVZTmpkSDU3LUNWZjFvXzVhWWdFVVEtVG4zVTZnTEQtaFBsd0NadzJPRnBDeFFManhsd0FGN2dVYmY1UzdVelEwQ2UyOTJ3VmEzRQ?oc=5",
+      "category": "Scheme"
+    },
+    {
+      "title": "एमपी में किसानों के लिए सरकार का बड़ा फैसला, सिंचाई में होगी बड़ी आसानी",
+      "summary": "एमपी में किसानों के लिए सरकार का बड़ा फैसला, सिंचाई में होगी बड़ी आसानी। देश के किसानों के कल्याण और कृषि क्षेत्र की नवीनतम प्रगति से जुड़ा यह महत्वपूर्ण समाचार विश्वसनीय मीडिया रिपोर्ट के माध्यम से सामने आया है। (स्रोत: ABP News)",
+      "date": "20/09/2026",
+      "source": "ABP News",
+      "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxQbU04dEc5d3g4dUNJajBzUkdia1ktZkFHaGxfTGcwcDdPeGhaSk5hRHRldTlzRnRybVRBdEdYbWYtel9USzFNZ0pmZThQbFBoa1FlYmxscS1FbHVGQUJuajlEUGZjU1kyR1JDZ19nN1UzeksxMXd4aDJCTHdXUU9IRE1TQUJla1NrNktxNXlnQXVrNHZPR1ZJRnZtTWh2OHV5UFIyenBlONIBrAFBVV95cUxQNl9uN19jSUtncnVZMGVWYmRWZ0VqMHpsTGVJNVJEZnBvcHp1N3phZVRNUHB4bnBLS1lCaFNkRVVCVkZLenhqWE9GSG52dk9LaHRGZWxOVGN3T0pjSXFoTFRiNVFLUlZLaDBMMC13OUtlZnF5b29ZemY3TDRsTjZQbHNYWXItck9Lc1FlVm9rdVlyeEFYd0ZjLXZoNWFfN0h6ZER5ZE14bVhLREZz?oc=5",
+      "category": "India"
+    },
+    {
+      "title": "मध्य प्रदेश में किसान कल्याण योजनाओं की जमीनी हकीकत: सागर जिला सबसे फिसड्डी, विदिशा अव्वल",
+      "summary": "मध्य प्रदेश में किसान कल्याण योजनाओं की जमीनी हकीकत: सागर जिला सबसे फिसड्डी, विदिशा अव्वल। सरकार एवं कृषि कल्याण विभाग द्वारा संचालित इस किसान हितैषी योजना के अंतर्गत पात्र कृषकों को लाभ प्रदान करने हेतु आवश्यक दिशा-निर्देश और समय-सीमा जारी की गई है। (स्रोत: Navbharat Times)",
+      "date": "19/09/2026",
+      "source": "Navbharat Times",
+      "url": "https://news.google.com/rss/articles/CBMihwJBVV95cUxNV0gtSWpvYmhQaVFLZkRSRjZnNFZpNE9heFB6c3lpbWlGT19VdDR0YjdIaUtZSHNkWUdxMzZBZVJKOXhob3VKR084SG1MZ0pGZ08wUUdQNVZNelZhRmJWMzVGUE5MUThHNkhwV05RQm9uZ1d6QnJFRldKb0dFemNtdTFxaklFREJKQURBT1NNdmp5M3NCWjRmRkVRTGh5LUpWSzh4bTNJbk8zbjVRb1VZbDJERWM5Z2xhYWJRYTdHcmV1cnB1aHNza1NPWXRkV3luTVc1OGVEbzBzQWFiTXVBdFp5czJWSlcwTmw3WkxVVi1FQmY5YkZwTktoZV95TU5CQWItS3V4TdIBjAJBVV95cUxPWlQ0b2xHV2tuYjNNQXh6dWdUUFJmZVRiYVJmdS1xMEY5U0pHOWtQZmF4aTJ4T3pTbWk5TldjMUd5dm5SRkp5aDh5Z3FFVURqcW93VmQ1aFI3ek9WaTJKekI4M3c1S2daUTZHZVc3LXNITmZ2dXVQTGVEZ2pyemE3RXRDRHlpREktMTFVeXBSQVB3MzdhR3lONWV2ZVd2bm1laW9xWENVYmJkRklQY053eWZxZWdrMVc3ZDBFWl9lc3ZiaHJQNFRqekRkYjZVTjVHelNkYlVoeWtwbzJyRmtCQnVHM2xZS041TU5NckVlaFFrckxwcjdyLUxBMlRIcUNxMWktaUcyVUI0NUZ1?oc=5",
+      "category": "Scheme"
+    },
+    {
+      "title": "बिजनेस का यह मॉडल उड़ा देगा होश! दो भाइयों के एक छोटे से आइडिया ने मचाया गदर, आज एमपी ही नहीं, दूसरे राज्यों में भी भारी डिमांड",
+      "summary": "बिजनेस का यह मॉडल उड़ा देगा होश! दो भाइयों के एक छोटे से आइडिया ने मचाया गदर, आज एमपी ही नहीं, दूसरे राज्यों में भी भारी डिमांड। देश के किसानों के कल्याण और कृषि क्षेत्र की नवीनतम प्रगति से जुड़ा यह महत्वपूर्ण समाचार विश्वसनीय मीडिया रिपोर्ट के माध्यम से सामने आया है। (स्रोत: Navbharat Times)",
+      "date": "12/09/2026",
+      "source": "Navbharat Times",
+      "url": "https://news.google.com/rss/articles/CBMi5wFBVV95cUxQWVUyRmhBcC1PQjN5b2FCVmd6WXVQZm1NZnlpTTdMZUNXdXhkZ0h2ZVkxR3YyOURqSzI0bV9QbmwxVEJ3ZWVoa3hTRExGX2ctcGxCRExhdjB5UmxnZkJKUC1TRzgzcXk1Y05Yb21Db05jR2NCel92NURzNHd4THdrLVE1b0dvYjJCbnpPc3NTZGhKZ1NyOGpFbFlYUEk0bl91ZWd6cGdhSGZfOVZIWnJ5WWlEUmtoN0EzSkQ4emo3Rml1STk3VDNLYngwX2F4YWhZYmV3UzlkN1JNR3BfSFZJYVRocU5TVzTSAewBQVVfeXFMTU14Y1lZU3dYaVJjcGpJZ0gxXzhlbTVVSVVWUGJMSEdleW5MdEdqMzU1ZmpwR0dXMjQwYl96QTRXMU5nS1FJeEgzSWdtaGRfMVBZbWxfRW85MTQ0ZGRCYkp3Z0w5QnNvTkY4UXE1XzhWQjZfeERlZE1yN0NjVm9TdlVTM0FhZVo5VlBxMjlhMWV6NnItTU4tNC1sV01JRkxVaGw4STZhQ2ozeEoxeGEtVURpNVNZU2F1Q0JPaTBfUXNZNkFvM2NDRWdGNDlfN1pyT2U0cTN3bWFZYVFQaEZLeFFvVjFHMkU2OXFvdlY?oc=5",
+      "category": "India"
+    },
+    {
+      "title": "MPESB Admit Card 2026: मध्य प्रदेश कृषि विस्तार अधिकारी परीक्षा के लिए एडमिट कार्ड जारी, यहां से करें डाउनलोड",
+      "summary": "MPESB Admit Card 2026: मध्य प्रदेश कृषि विस्तार अधिकारी परीक्षा के लिए एडमिट कार्ड जारी, यहां से करें डाउनलोड। मध्य प्रदेश कृषि विभाग और शासन द्वारा प्रदेश के किसानों के उत्थान, उन्नत कृषि उत्पादन और कल्याणकारी कार्यक्रमों को प्रभावी बनाने के लिए यह कदम उठाया गया है। (स्रोत: jagran.com)",
+      "date": "11/09/2026",
+      "source": "jagran.com",
+      "url": "https://news.google.com/rss/articles/CBMi3wFBVV95cUxOSW1iRHlvWjRacjl4V1JkQ0Z1Yzh0Y05CMmlqTXNLbE1iUF82TGNPYzlKal9JTWtENWhXMXRvenU4UWZPZHdDNmJaY1VjZm1vUTZRRzREdkZPLUIyeVBQeWJWNTNraXQwaWdEQkFDOVNuMnJQY18zTmN0Nm1qOGRIdmdiSElvS3ZuM0pzRmFPVUdGWnAxRW5sa3cycG9jRTVJcjRDY0VvMktfVWdzb0MxUWs4bl9SZFFtaHo4bHVwclVkXzBiazdVRGIyMTR1bzNnbXY1a2lCWmpnd0ExRHFJ?oc=5",
+      "category": "MP"
+    },
+    {
+      "title": "मंडी में फसल का भाव गिरा तो किसानों को मिल सकता है भावांतर का लाभ, जानें कैसे काम करती है योजना",
+      "summary": "मंडी में फसल का भाव गिरा तो किसानों को मिल सकता है भावांतर का लाभ, जानें कैसे काम करती है योजना। कृषि उपज मंडियों और बाजार विश्लेषकों के अनुसार विभिन्न कृषि जिंसों के भाव और आवक में उतार-चढ़ाव देखा जा रहा है। किसान भाई उचित समय पर अपनी उपज का विपणन करें। (स्रोत: Kisaan Helpline)",
+      "date": "10/09/2026",
+      "source": "Kisaan Helpline",
+      "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxQaDQ3enpKM2duNWVLaXpuS3BIaGJ4RU9BX3ZiQi0zRVBGNmFWV2hONVpra3hFcEUxbVlwSmZsOVZ4Ynhwc0ZvWHR5MTVSNVktdzFBSnBTd1lNU282UFFFdk9fRFVFNHlHQUxTdXdjMVU2Z0VRaVJrUmRtRm1IaW51QTdXeDFOaG9YZjM2T2tDd04?oc=5",
+      "category": "Market"
+    },
+    {
+      "title": "Bhavantar Yojana: मंडी में फसल का भाव गिरा तो किसानों को मिलेगा सहारा, सरकार करेगी नुकसान की भरपाई",
+      "summary": "Bhavantar Yojana: मंडी में फसल का भाव गिरा तो किसानों को मिलेगा सहारा, सरकार करेगी नुकसान की भरपाई। कृषि उपज मंडियों और बाजार विश्लेषकों के अनुसार विभिन्न कृषि जिंसों के भाव और आवक में उतार-चढ़ाव देखा जा रहा है। किसान भाई उचित समय पर अपनी उपज का विपणन करें। (स्रोत: Samacharnama)",
+      "date": "10/09/2026",
+      "source": "Samacharnama",
+      "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxQcW41ZWREay1oVlZsZUZVVDdKNWJ2OFNTSjF4VXdsU0lRUmNqRXFRbDl2WU80V0xvaVFuTkRLQWFuejV1REkwV2tHUWlVOUtTeGZkTzJMQUFqb2hNWEd5N29kMGF5TnhIQ1hQcFBmd21aV0NfQ1ljRHRoalM1SnFXQVJad2k5S0UxeU13c2pyQ25xUHpxcy1oVU8xaVJmVEU1UndtT3ZhZw?oc=5",
+      "category": "Market"
+    },
+    {
+      "title": "MP किसान योजना: ₹6000 किस्त का इंतजार? ताजा अपडेट",
+      "summary": "MP किसान योजना: ₹6000 किस्त का इंतजार? ताजा अपडेट। सरकार एवं कृषि कल्याण विभाग द्वारा संचालित इस किसान हितैषी योजना के अंतर्गत पात्र कृषकों को लाभ प्रदान करने हेतु आवश्यक दिशा-निर्देश और समय-सीमा जारी की गई है। (स्रोत: Prabhat Khabar)",
+      "date": "09/09/2026",
+      "source": "Prabhat Khabar",
+      "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxPWURNR3M5NlRhUU5LUEpjZFVidUZZZWVNV1E1bHFVVGhuWE5BbjZwUDd0UVA4dkhzZFRMQVJtdGlHdDkxU214Zmhxai10cnp0R1RxTnZiaThER3VvWkdNLXhSZ01UM0w4TkdGN0RkSWtQUWhTTF8wSmEzaHd5VFBlZWdFQU9WS3hMUThsTndVaUR3RktJV01aOG1OUnZ3QzNsa2U4aGJB?oc=5",
+      "category": "Scheme"
+    },
+    {
+      "title": "कमाल की योजना! MP में मसाला खेती पर सरकार दे रही 40% तक सब्सिडी, धनिया-जीरा-सौंफ की खेती से होगी बंपर कमाई",
+      "summary": "कमाल की योजना! MP में मसाला खेती पर सरकार दे रही 40% तक सब्सिडी, धनिया-जीरा-सौंफ की खेती से होगी बंपर कमाई। सरकार एवं कृषि कल्याण विभाग द्वारा संचालित इस किसान हितैषी योजना के अंतर्गत पात्र कृषकों को लाभ प्रदान करने हेतु आवश्यक दिशा-निर्देश और समय-सीमा जारी की गई है। (स्रोत: hindi.news18.com)",
+      "date": "09/09/2026",
+      "source": "hindi.news18.com",
+      "url": "https://news.google.com/rss/articles/CBMizgFBVV95cUxOal9ocXNoaDZVUmZzTG1VWXZZTVduMmZ1WDFmekdLRkdiNGR3Tks4a0FfM3U2QWtsbmtLb3hIYmM2bjNzR1Etdi15Vjg1NmZienJpdThsMUR5REdHbzl4UTRsZFhpOUY5Z3dLaERfQTdUNEZ6UmtWa3VUSVhHRkNoWUVWcG9Bb3JXV0h3UWR6QjhzSENaN2ZkZVk5Y2hCS21LMDdEY2N0N2Y1dC1zR1Vfa3YyQ21CRENrRjlRVTlQUl9tclFxZmlreEZhTnFMUdIB0wFBVV95cUxOYWdNLWNkcDNuSlVvMWlVTHhWa3FqR3lPRktGMl8zaENRY25PU0RXLWRhUlE2b3pqY0djeml2UFMtUUszNllBWm5jWXphWUlmdk0wMFVQSXpsM3VhbEFTY25FM3ZQN0s1bWNNQ0dGU0RPQlRMY21Za3BvVFI3Vlp3QnM2Z1ljVTk1SUpORmFIMlFWb25xLWtrNkNVNUlfZlhVaW9SZk5FQ3FXTzN4NVlCQlN2MEZFWlpyUXAtWG51Wk1QZ2tGd19VemZEX0pZdHVfOVYw?oc=5",
+      "category": "Scheme"
+    },
+    {
+      "title": "कौन-सा राज्य किसानों पर सबसे ज्यादा करता है खर्च? यहां जान लें",
+      "summary": "कौन-सा राज्य किसानों पर सबसे ज्यादा करता है खर्च? यहां जान लें। देश के किसानों के कल्याण और कृषि क्षेत्र की नवीनतम प्रगति से जुड़ा यह महत्वपूर्ण समाचार विश्वसनीय मीडिया रिपोर्ट के माध्यम से सामने आया है। (स्रोत: ABP News)",
+      "date": "09/09/2026",
+      "source": "ABP News",
+      "url": "https://news.google.com/rss/articles/CBMixAFBVV95cUxNVHMxNEdIWUFGdDVHaHk2OUJtekM0elNISDdIZ0p0ZFYtOEdoSWFpZ1E3SVJNRTY3UklfTXJMY1N0eDQyS0U0SWtpVUROdkZZWW0teUVfQzdTU2hnRkdWOXN0a0U5NFhqaGVYOWNRNHRINDh3WkNWQXVhWDBIbU9UTE4tOHhMVVZUaWtVMjR4UnA5UGNfY09IZld5VGZMa2hoNlRZZmxnWVVURVlUU1FCRG9pZk5EdjU1dk8zMkg2TUNya2950gHKAUFVX3lxTE4wOEk0RFRMT1U5bG5CR3JrN0ZXbElvRzJZSXA5UFJ3MEQ3LVdBazVlQ2g4ZS1jamM0eGQ0TXBHQXlQdXFDQzJEZVA1elZjak1iRmlBWkktNHMzaE52SEhuN19RNUhYVmZuQ2FwOEt2dkpETWNKUUpMWTRscVk1OGV5Z0ZwLVNad3VMeHVJbFprS29wUTZtd0k4eFJoZFk4d1k3YUl6VzlqLTlrbHBsSUFrdVhrdWxiekVSTklxRTZsNE9tZmJkWmRiLWc?oc=5",
+      "category": "India"
+    },
+    {
+      "title": "घर बैठे बनवा सकेंगे किसान क्रेडिट कार्ड, MP में लॉन्च हुआ पोर्टल",
+      "summary": "घर बैठे बनवा सकेंगे किसान क्रेडिट कार्ड, MP में लॉन्च हुआ पोर्टल। सरकार एवं कृषि कल्याण विभाग द्वारा संचालित इस किसान हितैषी योजना के अंतर्गत पात्र कृषकों को लाभ प्रदान करने हेतु आवश्यक दिशा-निर्देश और समय-सीमा जारी की गई है। (स्रोत: ABP News)",
+      "date": "07/09/2026",
+      "source": "ABP News",
+      "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxNazBvNEk0elMyejVhYlJqTkg4NHZPMjZhNXVqV2ExYWZsZWo1U3c5bmNELWlfNmdwWXlnNlctRzBOVWNCNlQteVViSFVHQzhDY3o0amdweHhpd3pxakZ0NnV4TENZaXYxRXFSWGVoX0pncUxPNkJRSzVYMHJNMGVnWVdBajA4QlVuS2NheFhMMWNzRG5SZTIwWE1QVjd3X254bXlQX3Qtc0zSAa4BQVVfeXFMT0tjd05tY0lzTlREVjVKdktjQjd6cE16cWJFYVRpZXlVeE1NSTJYc1VHUk9JRW0tU0hJZDN1cV8zXzdkcmJ6RXpVZEpUYzRNc09DcFc4ZWpYZFN5Y2cwSFp6c2hNQXN5NTM2cmJQRkNqXzBCOFl6ekxDUU96R0NVaGowR0JVOFF4ZVFnbFljZDM2T3VMZWlibWxCWEd1WjVjYmoya1VlZWZOSnZwenlB?oc=5",
+      "category": "Scheme"
+    },
+    {
+      "title": "मध्य प्रदेश में दूध के भाव पर लामबंद हुए किसान, 12 रुपये प्रति फैट की रखी मांग",
+      "summary": "मध्य प्रदेश में दूध के भाव पर लामबंद हुए किसान, 12 रुपये प्रति फैट की रखी मांग। कृषि उपज मंडियों और बाजार विश्लेषकों के अनुसार विभिन्न कृषि जिंसों के भाव और आवक में उतार-चढ़ाव देखा जा रहा है। किसान भाई उचित समय पर अपनी उपज का विपणन करें। (स्रोत: ETV Bharat)",
+      "date": "07/09/2026",
+      "source": "ETV Bharat",
+      "url": "https://news.google.com/rss/articles/CBMiwAFBVV95cUxNc0REVGFIRWoycl9KNEw0TFNEb0xHY0otWUlySzkwZVJReVFQQ3B2UHN6MjhOV1RnWm5yb1kzNUctOF9Ebi0wWnNIYzR0Q1lCUDdTMWFEZm1sUUU0VEhYb1I2TnVvN08zZGF3ZWNxel9ESmpTdkJlVHZQMWo2eTAybENaVEZwZ3ptLVVwVEZwOTJzaFVqSThaeE5hY3lHdUhrS1p0MG5Ed3BDU2hKZHk5R0lBLXpQR2JMSGdWUFFheUbSAcYBQVVfeXFMTlJXM1IzenFrTExjRElXMzgtUzhfSHdBb0RjUDN6aUxLLVJITUw0emg0ck1TMjNJaGJSdWVsOC1vVHd5U0xUaTJmTTNwcDdRLXpoSTA0ZVlrOUdrblpFVi14bFQyLWZscUNTRGkyOU1RdDVRTThnWXN5ZFZsUUpfbUhzOGhUTERrNVNmUDk1Yml1SXRiNEJ4ek1odGZjSDBqZDFrei03SnhGbmF4cFNlVHFjaUc4SHotWVlZRHR3b0lDOVFHNEFB?oc=5",
+      "category": "Market"
+    },
+    {
+      "title": "MP के किसानों को कब मिलेगी अटकी किस्त? जान लें लेटेस्ट अपडेट",
+      "summary": "MP के किसानों को कब मिलेगी अटकी किस्त? जान लें लेटेस्ट अपडेट। सरकार एवं कृषि कल्याण विभाग द्वारा संचालित इस किसान हितैषी योजना के अंतर्गत पात्र कृषकों को लाभ प्रदान करने हेतु आवश्यक दिशा-निर्देश और समय-सीमा जारी की गई है। (स्रोत: ABP News)",
+      "date": "05/09/2026",
+      "source": "ABP News",
+      "url": "https://news.google.com/rss/articles/CBMixgFBVV95cUxObHluQ0Rrb3lpWi13b3dmdFlxUDVsV1VSRFJlV01UT1FNN2REUXE4RWlqU0FIV0hiTDZtdnpCTzlSVHVTejRfVDU5MGhla3BObXdMTkhUVFNjdmQ5RXg3U2pMTjBhdjVMcGxpUURMeW90UHJPNWVacEtQdDVrWDVVbjVGMHI2bVNxaEptNV9adTFQWkQ2azlXQmFwRlVWcDZtNlJKS1B5MC1DVkFUeDlvSm8tanhGRUEyMEVuU013VFZaWWlpMkHSAcsBQVVfeXFMUFdqc1RVMmlobGZ3WXBTM29zREhMZEFuUk8yV01ZRWUwc2dDaV84dVZtR1F6OFhjQUxuNlBDYU5OWkEyTF9DSzVIQl9tZDRjcnRRN3NtQ3I2cFlHOURrQzIta19Uc1FxZjBVU0djYVpPdGNiRmUwY2NiSzZJdnExb2VCMElsRDluVjdOQk84anotVUV5UjBlWFBTNFQwZGItODNYUHlNZ014aC1sRThRdUFiLWRnbTVTVnpsdHpleTdpSE9rLU9DN1NnaEk?oc=5",
+      "category": "Scheme"
+    },
+    {
+      "title": "MP के किसानों को मिली सौगात: घर बैठे किसान क्रेडिट कार्ड, 12 महीने में कर्ज़ चुकाने की सुविधा, दिन में 10 घंटे बिजली; ‘दूध की राजधानी’ बनाने का लक्ष्य",
+      "summary": "MP के किसानों को मिली सौगात: घर बैठे किसान क्रेडिट कार्ड, 12 महीने में कर्ज़ चुकाने की सुविधा, दिन में 10 घंटे बिजली; ‘दूध की राजधानी’ बनाने का लक्ष्य। कृषि वैज्ञानिकों और अनुसंधान केंद्रों द्वारा फसल की अच्छी पैदावार, बीजोपचार और कीट नियंत्रण को लेकर उपयोगी वैज्ञानिक मार्गदर्शन साझा किया गया है। (स्रोत: Gaon Connection)",
+      "date": "04/09/2026",
+      "source": "Gaon Connection",
+      "url": "https://news.google.com/rss/articles/CBMioAJBVV95cUxQZG1SYzRleGpNSUZCcS1ZbzB3OUpkTHk5N0tyckpYeE5wR0JVWGN4RFZSTkIxeVFCeDRVanhtakJGZ1BKUHdUOGtTdnB1b3BJV2pua29wNG1xVHFnbXVNMFV4b2lMamVsZ3BQY2tZUUdNemVyN3hSQXQ2T0ZwUHQxQ3RoZjlncHdCZVFaOWFqQTNMejVKTzl2N1hwemhNa09FOTFfWmtsWVFFMk1UZkttd25peWhNOFE3LW1HVWEtcXJqMGQ4aFM5VVRCY0I1V0JZOHFyRm44Nzdpd2d5ZndQSVlEXzhNSm8ybjcwcjVndlJCVTlST3YyMlBQNWZ2MnIwUlhua2FfZFdYSWZLMXowLWNRMlhFSGJDamx3ZzZCRy3SAaYCQVVfeXFMUEpUNktoNHZha2k3cXhERTZVMmRJR1ZWM2QyaWZFeGdESmVUVU1IUC1sRnVfQW9NSFUyRnltOXdKY3RlT09kaHQxNGpzVzFOSGRYTjVVTnJhOU8zaUQwS0NPejJlYk5KMDJIRDVqd1NuYzM2TTE0eklMZXREdU1GQTJzWTk1NWFEajF0M1hWUUlyWm1OeDRlYjlGQ3MwNWJBYlBaeTJVNG1za1FlSGZhTExBaFVRWE93OEV2dHlfcHhPMjNjbExlbXl2OGVTZlJ5bnVoRm80U1IzaV9SeDV2RjRxV2F6ZmxveFVVN2ZTQ1FDVl80N01FcHZLeHdBNWtPVDJMNzgzclAzZF9GbGVuajFGSmtCYlMtWEJaaDk2QV9yejFHQXJ3?oc=5",
+      "category": "Crop"
+    },
+    {
+      "title": "Kota Mandi Bhav : सोयाबीन-सरसों में मंदी",
+      "summary": "Kota Mandi Bhav : सोयाबीन-सरसों में मंदी। कृषि वैज्ञानिकों और अनुसंधान केंद्रों द्वारा फसल की अच्छी पैदावार, बीजोपचार और कीट नियंत्रण को लेकर उपयोगी वैज्ञानिक मार्गदर्शन साझा किया गया है। (स्रोत: patrika.com)",
+      "date": "04/09/2026",
+      "source": "patrika.com",
+      "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxONDk0TEVnal9XWDhsS0FYZnhDUjN6QVlmVUgwRXpKNHdEWDRKdlVHR0swXzZaTjA2T1pIa3NuajdfeDhTNjNEODhEbHlEMlRXVnQ0b1lqLWFiNnlWVm93NUJ3a3dMUUd0SElCc1BXTkJQS2dpQ0pPSGtzTzd5aE1TUDVJd2N4S2UxRlJFT2R0bkPSAZYBQVVfeXFMT2FBdXQtSmtqbkRvX052YkI4OFVwbFpUR25oMGtxWkVtbldudHJBWm9RUTU4WDhFS0RZd3dEUHN1S3VyVHlSWEw5Y3FQTDQ0VG9nU1l6VDdJLW12NENnMGdaLXVkUGltM3RvQlM4MF9aLW9yRm5KbjNMQXZQYklqU3dsNTNqY21KTnQ3TFhxbEFfeHBMWDJn?oc=5",
+      "category": "Crop"
+    },
+    {
+      "title": "मध्य प्रदेश के किसानों को सौगात, बिना ब्याज मिलेगा 3 लाख तक लोन, 10 घंटे दिन में बिजली",
+      "summary": "मध्य प्रदेश के किसानों को सौगात, बिना ब्याज मिलेगा 3 लाख तक लोन, 10 घंटे दिन में बिजली। मध्य प्रदेश कृषि विभाग और शासन द्वारा प्रदेश के किसानों के उत्थान, उन्नत कृषि उत्पादन और कल्याणकारी कार्यक्रमों को प्रभावी बनाने के लिए यह कदम उठाया गया है। (स्रोत: ETV Bharat)",
+      "date": "03/09/2026",
+      "source": "ETV Bharat",
+      "url": "https://news.google.com/rss/articles/CBMi0gFBVV95cUxNQWlXcFYxakN6cG9aUnJiRlYtUmR4eTRtQ2lzVEVuRl94V2l0cWo3MVVta2tXeDBtSnR4VS1VcXhJZ0N5SUUybkZVQ2RKVm9hNVUySmtNMjBiX0ZJOEtKa3RRdzdMYW5UaE93YXk3VldFdG9mdHNhNzE5Z3JQSXo4aFhjcFpYdjQ2Qjh0VVNPSHNOMV83b2x1RW5GeWxFaGFJdUNrb2tZS0oybVRzTXB4ZUdCSFJ3emhfYUZydXdkOVZyWHVSdFNDVmlqYjRhN3NzMWfSAdcBQVVfeXFMUFlhRVpDb1R5bHk1aFhsMUNfY08zWFNrM1J4Ym5ORjR2cGJfcU0tcXoxV251WlVUMHU4VDNqbWs5RUh4ZmlhVlpPelJoNmRmeWZsSG1xb080N2k5ZFQtUkJxSEtOSXRoQmJfV0ZLVjBzVXR4dW85eWFpYlk1VTljSG1HT2c4ZTY2akpFcXozLS14UkMxeWI0akFHSUZPY2lsOVQ4V20xNG1uaGRPbDlFSU1BMUVad1dHU2ZJSkJmWlpLa0dkbnFxam9JMWEyMFhMa3UzSkplZG8?oc=5",
+      "category": "MP"
+    },
+    {
+      "title": "Madhya Pradesh Day Time Electricity for Irrigation: मध्य प्रदेश में किसानों को अब सिंचाई के लिए दिन में भी मिलेगी बिजली, सीएम मोहन यादव का ऐलान",
+      "summary": "Madhya Pradesh Day Time Electricity for Irrigation: मध्य प्रदेश में किसानों को अब सिंचाई के लिए दिन में भी मिलेगी बिजली, सीएम मोहन यादव का ऐलान। मध्य प्रदेश कृषि विभाग और शासन द्वारा प्रदेश के किसानों के उत्थान, उन्नत कृषि उत्पादन और कल्याणकारी कार्यक्रमों को प्रभावी बनाने के लिए यह कदम उठाया गया है। (स्रोत: The CSR Journal)",
+      "date": "02/09/2026",
+      "source": "The CSR Journal",
+      "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxObGpmcEFoSlNEYVZwSjhKWml3VDJjM3M1S2RrRUtzU1FXNnhKQlFCQ1JvMzFEdzVyYWozYS1MWEU0bVJqZ3R6LWJXWmt0eEtGQVdzRE4tT2tMQ01EVEx1eFNvcjlLa1pqeTh0SnRGRHFXbVdKY3pVdm9qUVR4Yk9PbWNpTQ?oc=5",
+      "category": "MP"
+    },
+    {
+      "title": "MP में किसानों के लिए गुड न्यूज! सिंचाई के लिए दिन में 10 घंटे मिलेगी बिजली, एक एकड़ उद्यानिकी पर मिलेंगे 2 लाख रुपये - mp farmers get 10hour daytime power 2 lakh for horticulture",
+      "summary": "MP में किसानों के लिए गुड न्यूज! सिंचाई के लिए दिन में 10 घंटे मिलेगी बिजली, एक एकड़ उद्यानिकी पर मिलेंगे 2 लाख रुपये - mp farmers get 10hour daytime power 2 lakh for horticulture। देश के किसानों के कल्याण और कृषि क्षेत्र की नवीनतम प्रगति से जुड़ा यह महत्वपूर्ण समाचार विश्वसनीय मीडिया रिपोर्ट के माध्यम से सामने आया है। (स्रोत: jagran.com)",
+      "date": "02/09/2026",
+      "source": "jagran.com",
+      "url": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxOZ3hkc19aWmxEdEg5b2R3QUotLXhzM2M5VG5sV2NBRnRSb3h3S1dFZThlYWMxbFBZVDNldGtISU4wUU1wdDZUMURrNEJlcm1GeXBjU0dhZkVncnU4dFdjLWlsQnNUanVPZGxjaVZ2Ujg5SFZwZnMyS3B5VzdDeXRKUEdWVjdwNzRxY1YzT1M1Y2tPdFVMa21oYWtsUU14SXk0MF9VV3ZqR0UxQ2xnSFZlcFhjV2RqZ2NhbS1B?oc=5",
+      "category": "India"
+    },
+    {
+      "title": "‘खेती में पंजाब से आगे निकलेगा मध्य प्रदेश’, किसानों को लेकर CM मोहन यादव का बड़ा विजन",
+      "summary": "‘खेती में पंजाब से आगे निकलेगा मध्य प्रदेश’, किसानों को लेकर CM मोहन यादव का बड़ा विजन। मध्य प्रदेश कृषि विभाग और शासन द्वारा प्रदेश के किसानों के उत्थान, उन्नत कृषि उत्पादन और कल्याणकारी कार्यक्रमों को प्रभावी बनाने के लिए यह कदम उठाया गया है। (स्रोत: indiatv.in)",
+      "date": "02/09/2026",
+      "source": "indiatv.in",
+      "url": "https://news.google.com/rss/articles/CBMi2gFBVV95cUxOcy1vSVozdUN2SkU5ZEpzc1o0dGs0S1UyeHRQZFByVjk2UktaT3VPQXJuT0dJMU16Wk1RZDZEU2hPeDFRNGxPQXpQTXVVQnU1VTItSlIyX0ROYXA0SVBhT2hLdlhzNU1TVkwwUzJQbVZXNkNjZzVBblY1WFY5VWwzWFk2aGgxNE1La21pazlzR0d2SEpuZWNKd0tPZHhyZUJVSUlENWlwM0pmT25Qd2xzZExHQVZXMnN3RGxTMUZYcjljZW8wZXJxeVB6MnozZ3NxNER3RWl3Q1I1QdIB3wFBVV95cUxPT0ZyNlZLNWVVNE9hMFNDaVhzNVYwZFREY1F3VzhfRU1yMUVzX2FJWGYydnc1TjdkcEI2azRSMzBKTV8tRFl5Y00yekJBUlRMWVpLclZKdnZrR1M0RHlPS2M2SzZxTTRpZFZQekdkYVdRWHJjMWhqV0pvek1jMVNiY19aMzZEN2Vna09IRHpBOTR5MmFOb3FaVkZUUlg4WDZNVW5oWUljRW5tZGpYZlFNUDFCVnZmSm9EY19pWGxtX2N5enpKRkc0bXFyMy1obmJ0R1dkWm8zQnVsRGYxbTlz?oc=5",
+      "category": "MP"
+    },
+    {
+      "title": "मध्य प्रदेश: बलराम जयंती पर सीएम मोहन यादव की बड़ी सौगात, किसानों को दिन में 10 घंटे बिजली देने का ऐलान",
+      "summary": "मध्य प्रदेश: बलराम जयंती पर सीएम मोहन यादव की बड़ी सौगात, किसानों को दिन में 10 घंटे बिजली देने का ऐलान। मध्य प्रदेश कृषि विभाग और शासन द्वारा प्रदेश के किसानों के उत्थान, उन्नत कृषि उत्पादन और कल्याणकारी कार्यक्रमों को प्रभावी बनाने के लिए यह कदम उठाया गया है। (स्रोत: Amar Ujala)",
+      "date": "02/09/2026",
+      "source": "Amar Ujala",
+      "url": "https://news.google.com/rss/articles/CBMivwJBVV95cUxNZWZ0MV9WM1l1UjJnMEJoYnBOUkpiOEF6MWtXVmxCWElLc19odGRKMnM1Y3RtYWxTYktaN2Q2Nkw0dmU2ZC1TZVl6Y0RmcTVONXdfdG9lRmw0azdWbk1sSVc5OVhvbXB4S0ZSdkZxR2F0Wm95SERseUFERWd3dnVMdGRCb1Q5alNkVVVKaHlZTDFCQW5pVWR1N0ZVcl92bTZObFh5UURBTmMyRm9iSmRFcUZkQm1XUTJZV0JhYnROSE11X0p4ckROa3RLMVhienhRT1ZQUkFSYTF0dU5SOGd4Mm1sWGx5RExoUHE2c0pDUW1uYURseUZkeXUzem5pV2x0ejlSTUVSMEU4WDVXaFVUNzk4TWh6LWl1VEFlZmxtMUlfMnpRYlJwN19SbXhFdGhHUjlaaGNGUlBXVFJIU0Nz0gHEAkFVX3lxTE5MOUVPOEg5NUFXRG5naEI4Rk5Gb1pseDd5WXNoeUNkSWEyWHpMNlRyeUVsaVNFNDdGWGsyNll3QjluTHlJQ2MwckU2bExHX28yR2V0c2R0aV9aSWtwNXA2bmFFLUNIV0lOVzQ3cTVXa2gtM21ULXBvaFBzSHNGczVfaExBQmF3bXpkbGVIVVF4cXdVSUxVU2NveWNYVm1NRjNGNE5uWjZNb2FjUGYyR1dBYl9iQXhON0x1X0hiUGZCa0diUFVkcm1sU3hTSWhEbjRhV01TZXI0Mi1LRWVwZVdOU3NPOXJZVV9HV1JCaVZ0R3B2Ukx6X1Z0cHQtNE1xZWdWUHp2Q1Vrcnc1VjZxYlFZLWczZ09lbEtMMkJ5R05xeGlwczFFZW5lUFFPZEtJWWZWeEc1Mk1BellvOXJfdzV0Unp6cg?oc=5",
+      "category": "MP"
+    },
+    {
+      "title": "मध्य प्रदेश में किसानों की बल्ले-बल्ले, अब दिन में 10 घंटे मिलेगी बिजली; सीएम मोहन यादव का बड़ा ऐलान",
+      "summary": "मध्य प्रदेश में किसानों की बल्ले-बल्ले, अब दिन में 10 घंटे मिलेगी बिजली; सीएम मोहन यादव का बड़ा ऐलान। मध्य प्रदेश कृषि विभाग और शासन द्वारा प्रदेश के किसानों के उत्थान, उन्नत कृषि उत्पादन और कल्याणकारी कार्यक्रमों को प्रभावी बनाने के लिए यह कदम उठाया गया है। (स्रोत: hindi.news18.com)",
+      "date": "02/09/2026",
+      "source": "hindi.news18.com",
+      "url": "https://news.google.com/rss/articles/CBMi7wFBVV95cUxQUFJkalNjUHhiZXQySUxfVXhOYVBNT3JnOVNzeEw5Q1V1ZnpvU1JTMnJ3bEdMU0ZZOHVZd2lSV0dGRjBucEJuMFhnakZIY0ptYS1FWWZIVFo3VWQ1S0FnWHl3U2pUQkVRYnpkMDZCUVlMNk5reThQeEZSZ3BNOGxUZi1pVUFYMUV4THVSYkVmSTZvWkpHQ3F3cnpTY0pMV2lsQnB3SEJYR2llXzFiazI0Z3ZjMWU5Q3E1c2JiVm1HNnliMlI4ckl3R3MyTXdKcmYySUdaTTA1c0FZaV95TEozTFk0ZlpSX0JpY1hOSDZqONIB9AFBVV95cUxPWXBOeWpVVFpEMV9keDFZdFdmVlZSNWkzUEtHYWFneG80T2NUc3YyVDdXelhlR0d3Y21tN1dydmhYNWFqa05pS3JBV2xCVThoYUNoM2tteW1IdnhfWkljSFRCQ0ZIWnlBNm9KclhvdzRjZkdZNzZCaUpOT2gxRkJOUExpcElNTENHbnhEZlZjWTduN3Y0V1FCdXVqZC1wcEwtenZNalF5Z0JXejFET2JNTG9HOF92dzk1RWNKel9fNklFWExMMlloWW04dU12aW9qRE9vb2ZiN3Riek1lTC1fVFlfTGd3dkUwMjNWblhrcmdzZXlm?oc=5",
+      "category": "MP"
     }
   ]
 }

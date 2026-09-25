@@ -243,7 +243,6 @@ ${item.source || "कृषि जागरण"}
         <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
           <button 
             onClick={() => {
-              if (!requireApiKey("ताज़ा कृषि समाचार लोड करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) return;
               loadNews(true);
             }}
             disabled={loading || silentSyncing}
@@ -286,7 +285,6 @@ ${item.source || "कृषि जागरण"}
             </div>
             <button
               onClick={() => {
-                if (!requireApiKey("ताज़ा कृषि समाचार लोड करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) return;
                 loadNews(true);
               }}
               disabled={loading || silentSyncing}

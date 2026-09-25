@@ -75,7 +75,7 @@ export const parseDDMMYYYY = (dateStr: string): Date => {
  * 1. Have invalid or unparseable dates.
  * 2. Are stamped with past years (e.g., 2024, 2023 when current year is 2026).
  * 3. Have publication dates older than MAX_NEWS_AGE_DAYS (30 days).
- * 4. Contain outdated year references (e.g. '2024', '2024-25', '20 अक्टूबर 2024') in the title or summary.
+ * 4. Contain outdated year references (e.g. '2024', '2024-25', '2023-24') in the title or summary.
  */
 export const validateArticleFreshness = (
   item: AgriNewsItem,
@@ -113,14 +113,13 @@ export const validateArticleFreshness = (
     return { isValid: false, reason: `Article is ${Math.round(ageInDays)} days old (limit: ${MAX_NEWS_AGE_DAYS} days)` };
   }
 
-  // Strict text inspection: If an old article is mistakenly stamped with today's date,
-  // but its content refers to past years (like 2024, 2024-25 registration, 2023), reject it!
+  // Strict text inspection: reject obsolete years
   const outdatedYearRegex = /\b(?:202[0-4]|2024-25|2023-24|2022-23)\b/i;
   if (outdatedYearRegex.test(item.title)) {
-    return { isValid: false, reason: "Title mentions outdated year/marketing season (e.g. 2024/2024-25)" };
+    return { isValid: false, reason: "Title mentions outdated year (e.g. 2024/2024-25)" };
   }
   if (outdatedYearRegex.test(item.summary)) {
-    return { isValid: false, reason: "Summary mentions outdated year/marketing season (e.g. 2024/2024-25)" };
+    return { isValid: false, reason: "Summary mentions outdated year (e.g. 2024/2024-25)" };
   }
 
   return { isValid: true };
@@ -187,7 +186,7 @@ export const recordSyncLog = (
   };
 
   try {
-    const LOGS_KEY = 'agri_news_sync_logs_v4';
+    const LOGS_KEY = 'agri_news_sync_logs_v5';
     const existingLogsStr = localStorage.getItem(LOGS_KEY);
     let logs: AgriNewsSyncLog[] = existingLogsStr ? JSON.parse(existingLogsStr) : [];
     logs.unshift(logEntry);
@@ -209,80 +208,55 @@ export const recordSyncLog = (
 };
 
 /**
- * Generates verified, realistic agricultural fallbacks anchored dynamically to the current date and season.
- * Ensures zero 2024/outdated references and maintains active relevance for Madhya Pradesh farmers.
+ * Verified evergreen agricultural advisories (clearly tagged as guidance)
+ * Used ONLY if the user is completely offline on initial install and has zero cache.
+ * NEVER forges breaking news dates.
  */
 export const generateFallbacks = (referenceDate: Date = new Date()): AgriNewsItem[] => {
-  const getRelativeDateStr = (daysAgo: number): string => {
-    const d = new Date(referenceDate);
-    d.setDate(referenceDate.getDate() - daysAgo);
-    return getFormattedDateString(d);
-  };
+  const currentYear = referenceDate.getFullYear();
+  const currentMonth = String(referenceDate.getMonth() + 1).padStart(2, '0');
+  const advisoryDate = `01/${currentMonth}/${currentYear}`;
 
   return [
     {
-      title: "मध्य प्रदेश के किसानों के लिए मुख्यमंत्री किसान कल्याण योजना की आगामी किश्त का सत्यापन शुरू",
-      summary: "मध्य प्रदेश कृषि विभाग ने प्रदेश के पंजीकृत लघु एवं सीमांत किसानों के बैंक खातों में डीबीटी (DBT) के माध्यम से किसान कल्याण राशि अंतरित करने के लिए आधार व ई-केवाईसी सत्यापन प्रक्रिया को अनिवार्य कर दिया है। किसान भाई अपने नजदीकी सहकारी बैंक या एमपी ऑनलाइन केंद्र से अपना ई-केवाईसी शीघ्र पूर्ण कर लें ताकि आगामी किश्त समय पर प्राप्त हो सके।",
-      date: getRelativeDateStr(0),
+      title: "कृषि परामर्श: मुख्यमंत्री किसान कल्याण योजना ई-केवाईसी सत्यापन प्रक्रिया",
+      summary: "मध्य प्रदेश कृषि विभाग द्वारा पंजीकृत लघु एवं सीमांत किसानों के बैंक खातों में डीबीटी के माध्यम से किसान कल्याण राशि प्राप्त करने हेतु आधार व ई-केवाईसी सत्यापन अनिवार्य किया गया है। किसान भाई अपने नजदीकी सहकारी बैंक या एमपी ऑनलाइन केंद्र से सत्यापन पूर्ण रखें।",
+      date: advisoryDate,
       source: "कृषि विभाग, MP",
       url: "https://mpkrishi.mp.gov.in/",
       category: "MP"
     },
     {
-      title: "मंडी भाव रिपोर्ट: मालवा-निमाड़ मंडियों में सोयाबीन व मक्का की नई आवक शुरू",
-      summary: "इंदौर, उज्जैन, देवास और धार कृषि उपज मंडियों में खरीफ फसलों की शुरुआती नई आवक दर्ज की जा रही है। व्यापारियों एवं मंडी समिति के अनुसार अच्छी गुणवत्ता वाली उपज को न्यूनतम समर्थन मूल्य (MSP) से ऊपर बेहतर भाव मिल रहे हैं। किसान भाइयों को सलाह दी गई है कि वे अपनी उपज को सुखाकर और साफ-सुथरा करके ही मंडी में विक्रय हेतु लाएं।",
-      date: getRelativeDateStr(0),
-      source: "मंडी रिपोर्ट",
+      title: "मंडी विपणन परामर्श: सोयाबीन व मक्का उपज को सुखाकर और साफ करके लाने का सुझाव",
+      summary: "कृषि उपज मंडियों में खरीफ फसलों की आवक के दौरान न्यूनतम समर्थन मूल्य और बेहतर भाव प्राप्त करने हेतु किसान भाइयों को सलाह दी जाती है कि उपज में नमी की मात्रा मानक अनुसार रखें और साफ-सफाई करके ही विक्रय हेतु लाएं।",
+      date: advisoryDate,
+      source: "मंडी समिति",
       url: "https://enam.gov.in/",
       category: "Market"
     },
     {
-      title: "प्रधानमंत्री फसल बीमा योजना: खरीफ फसल क्षति दावा दर्ज करने की समय-सीमा जारी",
-      summary: "अतिवृष्टि या कीट प्रकोप से प्रभावित फसल की स्थिति में किसान भाइयों को 72 घंटे के भीतर प्रधानमंत्री फसल बीमा पोर्टल या संबंधित बीमा कंपनी के टोल-फ्री नंबर पर सूचना दर्ज कराना आवश्यक है। कृषि वैज्ञानिकों ने बताया कि समय पर सूचना दर्ज कराने पर सर्वेक्षण दल द्वारा त्वरित स्थलीय निरीक्षण कर क्षतिपूर्ति का निर्धारण किया जाता है।",
-      date: getRelativeDateStr(1),
+      title: "प्रधानमंत्री फसल बीमा योजना: फसल क्षति सूचना दर्ज कराने की 72 घंटे की प्रक्रिया",
+      summary: "अतिवृष्टि या कीट प्रकोप से प्रभावित फसल की स्थिति में किसान भाइयों को 72 घंटे के भीतर प्रधानमंत्री फसल बीमा पोर्टल या संबंधित बीमा कंपनी के टोल-फ्री नंबर पर सूचना दर्ज कराना आवश्यक है ताकि त्वरित स्थलीय निरीक्षण हो सके।",
+      date: advisoryDate,
       source: "कृषि जागरण",
       url: "https://pmfby.gov.in/",
       category: "Scheme"
     },
     {
-      title: "मौसम चेतावनी: मध्य प्रदेश के पश्चिमी एवं मध्य जिलों में हल्की से मध्यम वर्षा का अलर्ट",
-      summary: "भारतीय मौसम विज्ञान विभाग (IMD) भोपाल केंद्र ने आगामी 48 घंटों में भोपाल, नर्मदापुरम, इंदौर और जबलपुर संभाग के जिलों में गरज-चमक के साथ रुक-रुक कर वर्षा की संभावना जताई है। किसानों को खेतों में जल निकासी की समुचित व्यवस्था रखने और पकी हुई फसलों को सुरक्षित रखने की सलाह दी गई है।",
-      date: getRelativeDateStr(1),
-      source: "IMD भोपाल",
+      title: "मौसम सतर्कता: खेतों में जल निकासी की समुचित व्यवस्था रखने की सलाह",
+      summary: "वर्षा एवं मौसम में उतार-चढ़ाव को देखते हुए खेतों में अनावश्यक जल-जमाव से बचाव के लिए जल निकासी की उचित व्यवस्था रखें जिससे फसलों की जड़ों में सड़न व फफूंद जनित रोगों का प्रकोप न हो।",
+      date: advisoryDate,
+      source: "IMD मौसम सेवा",
       url: "https://mausam.imd.gov.in/",
       category: "Weather"
     },
     {
-      title: "रबी सीजन की तैयारी: उन्नत गेहूं एवं चना बीजों के वितरण की रूपरेखा तैयार",
-      summary: "कृषि विभाग ने आगामी रबी बुवाई सीजन के लिए किसानों को प्रमाणित उच्च उत्पादन क्षमता वाले बीज रियायती दरों पर उपलब्ध कराने के लिए ग्राम सहकारी समितियों को आवंटन सूची भेज दी है। कृषि वैज्ञानिकों ने किसानों को बुवाई से पूर्व बीजोपचार (Seed Treatment) करने की विशेष सलाह दी है।",
-      date: getRelativeDateStr(2),
-      source: "ICAR",
+      title: "रबी फसल तैयारी: गेहूं एवं चना बुवाई पूर्व बीजोपचार की वैज्ञानिक विधि",
+      summary: "कृषि वैज्ञानिकों के अनुसार रबी फसलों में उन्नत उत्पादन के लिए प्रमाणित बीजों का चयन करें तथा बुवाई से पूर्व ट्राइकोडर्मा या उपयुक्त कवकनाशी से बीजोपचार अवश्य करें जिससे बीज जनित रोगों से सुरक्षा मिले।",
+      date: advisoryDate,
+      source: "ICAR अनुसंधान",
       url: "https://icar.org.in/",
       category: "Crop"
-    },
-    {
-      title: "सौर ऊर्जा से सिंचाई: मुख्यमंत्री सोलर पंप योजना के नए स्लॉट जारी",
-      summary: "मध्य प्रदेश ऊर्जा विकास निगम ने खेतों में 3 से 7.5 एचपी तक के सोलर पंप स्थापना हेतु नए आवेदन पोर्टल को लाइव किया है। योजना के अंतर्गत अनुसूचित जाति, जनजाति एवं सामान्य वर्ग के किसानों को पात्रता अनुसार अधिकतम 60 प्रतिशत तक का सरकारी अनुदान सीधे दिया जा रहा है।",
-      date: getRelativeDateStr(3),
-      source: "ऊर्जा विभाग, MP",
-      url: "https://cmsolarpump.mp.gov.in/",
-      category: "Innovation"
-    },
-    {
-      title: "कृषि ड्रोन तकनीक: कम लागत में कीटनाशक छिड़काव के लिए किसान समूहों को प्रोत्साहन",
-      summary: "कृषि यंत्रीकरण उप-मिशन के तहत किसान उत्पादक संगठनों (FPO) एवं कस्टम हायरिंग केंद्रों को कृषि ड्रोन उपलब्ध कराए जा रहे हैं। ड्रोन के माध्यम से केवल 7 से 10 मिनट में 1 एकड़ क्षेत्र में नैनो यूरिया और पोषक तत्वों का समान रूप से सुरक्षित छिड़काव किया जा सकता है।",
-      date: getRelativeDateStr(4),
-      source: "AgriTech",
-      url: "https://agriculture.gov.in/",
-      category: "Tech"
-    },
-    {
-      title: "प्राकृतिक एवं जैविक खेती: जीवामृत व वर्मी कम्पोस्ट निर्माण पर विशेष अनुदान",
-      summary: "मिट्टी की उपजाऊ क्षमता को संरक्षित करने के लिए रासायनिक खादों के विकल्प के रूप में प्राकृतिक खेती पद्धति अपनाने वाले कृषकों को प्रोत्साहन राशि दी जा रही है। कृषि विज्ञान केंद्रों द्वारा किसानों को गाय के गोबर और गोमूत्र से तरल खाद बनाने का व्यावहारिक प्रशिक्षण भी दिया जा रहा है।",
-      date: getRelativeDateStr(5),
-      source: "कृषि विभाग",
-      url: "https://mpkrishi.mp.gov.in/",
-      category: "Innovation"
     }
   ];
 };
@@ -330,15 +304,17 @@ export const mergeAndDeduplicateNews = (
 export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean = false): Promise<AgriNewsResponse> => {
   const now = new Date();
   const todayStr = getFormattedDateString(now);
-  const currentYear = now.getFullYear();
 
-  // Storage keys with versioning to cleanly migrate away from contaminated old caches
-  const CACHE_KEY = 'agri_news_cache_v4';
-  const CACHE_TIME_KEY = 'agri_news_cache_time_v4';
-  const CACHE_SYNC_TIMESTAMP_KEY = 'agri_news_last_sync_timestamp_v4';
+  // Storage keys with versioning (v5) to cleanly purge contaminated old caches
+  const CACHE_KEY = 'agri_news_cache_v5';
+  const CACHE_TIME_KEY = 'agri_news_cache_time_v5';
+  const CACHE_SYNC_TIMESTAMP_KEY = 'agri_news_last_sync_timestamp_v5';
 
-  // Purge legacy contaminated caches (v3, v2)
+  // Purge legacy contaminated caches (v4, v3, v2)
   try {
+    localStorage.removeItem('agri_news_cache_v4');
+    localStorage.removeItem('agri_news_cache_time_v4');
+    localStorage.removeItem('agri_news_last_sync_timestamp_v4');
     localStorage.removeItem('agri_news_cache_v3');
     localStorage.removeItem('agri_news_cache_time_v3');
     localStorage.removeItem('agri_news_last_sync_v3');
@@ -357,35 +333,20 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
     try {
       const parsed = JSON.parse(cachedDataStr);
       if (Array.isArray(parsed)) {
-        // Strict purge of any outdated articles from cache
-        currentCache = parsed.filter(item => {
-          const check = validateArticleFreshness(item, now);
-          if (!check.isValid) {
-            recordSyncLog('CACHED', `Purged outdated cached article: "${item.title}"`, { reason: check.reason });
-            return false;
-          }
-          return true;
-        });
+        currentCache = parsed.filter(item => validateArticleFreshness(item, now).isValid);
       }
     } catch (e) {
       console.warn("Error parsing cache, initializing fresh cache.", e);
     }
   }
 
-  // If no cache or all items were purged, initialize with verified recent fallbacks
-  if (currentCache.length === 0) {
-    currentCache = generateFallbacks(now);
-    localStorage.setItem(CACHE_KEY, JSON.stringify(currentCache));
-    localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
-    // NOTE: We do NOT set CACHE_SYNC_TIMESTAMP_KEY here because no network sync occurred yet
-    recordSyncLog('FALLBACK', 'Initialized local cache with fresh dynamic agricultural fallback data');
-  }
+  const CACHE_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours client cache
+  const cacheTimeStr = localStorage.getItem(CACHE_TIME_KEY);
+  const cacheAge = cacheTimeStr ? (now.getTime() - parseInt(cacheTimeStr, 10)) : Infinity;
 
-  const hasTodayInCache = currentCache.some(item => item.date === todayStr);
-
-  // If we already have news for today in the cache, and we are not forcing a refresh, return cached
-  if (hasTodayInCache && !forceRefresh) {
-    recordSyncLog('CACHED', `Serving cached news for ${todayStr}`, {
+  // 1. If not forcing refresh, and cache has items and is less than 2 hours old, serve cached data
+  if (!forceRefresh && currentCache.length > 0 && cacheAge < CACHE_MAX_AGE_MS) {
+    recordSyncLog('CACHED', `Serving cached real news for ${todayStr}`, {
       count: currentCache.length,
       lastSynced: lastSyncFormatted
     });
@@ -394,266 +355,130 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
       isCached: true,
       isOfflineFallback: false,
       syncFailed: false,
-      hasTodayNews: true,
+      hasTodayNews: currentCache.some(item => item.date === todayStr),
       lastSyncedTime: lastSyncFormatted,
       lastSyncedTimestamp: lastSyncTimestamp
     };
   }
 
-  // 1. Centralized Server Hub Strategy (Like Mandi Bhav)
-  // Check if any other farmer or server has already fetched today's news
-  if (!forceRefresh) {
-    try {
-      const srvRes = await fetch('/api/news/daily');
-      if (srvRes.ok) {
-        const srvJson = await srvRes.json();
-        if (srvJson.success && Array.isArray(srvJson.items) && srvJson.items.length > 0) {
-          const validServerItems = srvJson.items.filter((it: AgriNewsItem) => validateArticleFreshness(it, now).isValid);
-          if (validServerItems.length > 0) {
-            console.log(`[Central News Hub Hit] Loaded ${validServerItems.length} news items from server`);
-            const srvTimestamp = srvJson.lastSyncedTimestamp || now.getTime();
-            localStorage.setItem(CACHE_KEY, JSON.stringify(validServerItems));
-            localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
-            localStorage.setItem(CACHE_SYNC_TIMESTAMP_KEY, srvTimestamp.toString());
-
-            const formattedTime = formatLastSyncText(srvTimestamp);
-            recordSyncLog('SUCCESS', `Loaded ${validServerItems.length} items from Central Hub`, {
-              cached: srvJson.cached,
-              syncTime: formattedTime
-            });
-
-            return {
-              items: validServerItems,
-              isCached: true,
-              isOfflineFallback: false,
-              syncFailed: false,
-              hasTodayNews: validServerItems.some(i => i.date === todayStr),
-              lastSyncedTime: formattedTime,
-              lastSyncedTimestamp: srvTimestamp
-            };
-          }
-        }
-      }
-    } catch (srvErr) {
-      console.warn('[Central News Hub] Server check skipped or offline:', srvErr);
-    }
-  }
-
-  // Try to fetch fresh news using Google Search Grounding with Gemini
+  // 2. Centralized Real News Hub (Powered by live verified agricultural RSS feeds)
   try {
-    const ai = getAI(userApiKey);
-    if (!ai) {
-      throw {
-        type: 'key_missing',
-        message: 'कृषि समाचार की ताज़ा AI खबरें देखने के लिए कृपया अपनी Gemini API Key जोड़ें।'
-      };
-    }
+    const srvRes = await fetch(`/api/news/daily?forceRefresh=${forceRefresh ? 'true' : 'false'}`);
+    if (srvRes.ok) {
+      const srvJson = await srvRes.json();
+      if (srvJson.success && Array.isArray(srvJson.items) && srvJson.items.length > 0) {
+        const validServerItems = srvJson.items.filter((it: AgriNewsItem) => validateArticleFreshness(it, now).isValid);
+        if (validServerItems.length > 0) {
+          console.log(`[Central News Hub Hit] Loaded ${validServerItems.length} live news items from server`);
+          const srvTimestamp = srvJson.lastSyncedTimestamp || now.getTime();
+          localStorage.setItem(CACHE_KEY, JSON.stringify(validServerItems));
+          localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
+          localStorage.setItem(CACHE_SYNC_TIMESTAMP_KEY, srvTimestamp.toString());
 
-    const prompt = `आज ${todayStr} (वर्ष ${currentYear}) के लिए विश्वसनीय भारतीय कृषि स्रोतों जैसे 'Krishi Jagran' (krishijagran.com), 'ICAR', 'DD Kisan', और आधिकारिक कृषि विभाग से भारत एवं विशेष रूप से मध्य प्रदेश (Madhya Pradesh) के लिए नवीनतम और ताज़ा 10-15 कृषि समाचार (Agricultural News) खोजें।
-
-कृषि से जुड़े विषयों पर ही केवल वास्तविक (Real) और प्रमाणित समाचार आइटम प्रदान करें, जैसे:
-- फसलों के ताजा मंडी भाव/MSP, सरकारी योजनायें (Fasal Bima, CM/PM Kisan updates), मौसम की चेतावनी, कृषि तकनीक/ड्रोन, उर्वरक/कीटनाशक/बीज, जैविक खेती, पशुपालन, अनुसंधान।
-
-सख्त नियम (CRITICAL FRESHNESS RULES):
-1. केवल वर्तमान वर्ष (${currentYear}) के सक्रिय और नवीनतम समाचार ही शामिल करें।
-2. वर्ष 2024, 2023 या पुराने वर्षों के समाचार कतई न दें। यदि किसी समाचार में '2024', '2024-25', या '2024 की तारीख' लिखी है, तो उसे तुरंत अस्वीकार करें।
-3. "date" में समाचार की वास्तविक मूल प्रकाशन तिथि DD/MM/YYYY फॉर्मेट में ही दें (जैसे '19/09/${currentYear}' या '${todayStr}')। पुरानी खबर पर आज की तारीख जबरदस्ती न लगाएं।
-4. सभी शीर्षक (Titles) और सारांश (Summaries) अत्यंत विस्तृत, पूर्ण व्यावसायिक विवरण के साथ किसान-अनुकूल हिंदी में हों। प्रत्येक सारांश में कम से कम 3-4 जानकारीपूर्ण वाक्य हों।
-5. "source" बिल्कुल विश्वसनीय हो जैसे 'कृषि जागरण', 'IMD', 'ICAR' इत्यादि।
-6. "url" संबंधित न्यूज़ पोर्टल या आधिकारिक सरकारी पोर्टल की लिंक हो।
-7. "category" इनमें से एक हो: ['MP', 'India', 'Scheme', 'Weather', 'Crop', 'Market', 'Tech', 'Innovation']`;
-
-    recordSyncLog('SUCCESS', `Initiated search grounding fetch for date: ${todayStr}, year: ${currentYear}`);
-
-    const candidateModels = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview"];
-    let response: any = null;
-    let lastErr: any = null;
-
-    for (const model of candidateModels) {
-      // 1. Try with Google Search Grounding
-      try {
-        response = await ai.models.generateContent({
-          model,
-          contents: prompt,
-          config: {
-            systemInstruction: `You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Always search for and return authentic, high-quality agricultural news with real publication dates for year ${currentYear}. CRITICAL RULE: Under NO circumstances should you return outdated news from 2024, 2023, or past seasons. Check dates and marketing years inside the text. Do NOT forge dates.`,
-            tools: [{ googleSearch: {} }],
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: "ARRAY" as any,
-              items: {
-                type: "OBJECT" as any,
-                properties: {
-                  title: { type: "STRING" },
-                  summary: { type: "STRING" },
-                  date: { type: "STRING" },
-                  source: { type: "STRING" },
-                  url: { type: "STRING" },
-                  category: { 
-                    type: "STRING",
-                    enum: ['MP', 'India', 'Scheme', 'Weather', 'Crop', 'Market', 'Tech', 'Innovation'] 
-                  }
-                },
-                required: ["title", "summary", "date", "source", "url", "category"]
-              }
-            }
-          }
-        });
-        if (response?.text) break;
-      } catch (searchError: any) {
-        // 2. Try without Google Search Grounding
-        try {
-          response = await ai.models.generateContent({
-            model,
-            contents: prompt,
-            config: {
-              systemInstruction: `You are a highly professional Agricultural News editor representing 'फल्सावदिया कृषि बाजार'. Return authentic agricultural news for year ${currentYear}. Do NOT include 2024 news.`,
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: "ARRAY" as any,
-                items: {
-                  type: "OBJECT" as any,
-                  properties: {
-                    title: { type: "STRING" },
-                    summary: { type: "STRING" },
-                    date: { type: "STRING" },
-                    source: { type: "STRING" },
-                    url: { type: "STRING" },
-                    category: { 
-                      type: "STRING",
-                      enum: ['MP', 'India', 'Scheme', 'Weather', 'Crop', 'Market', 'Tech', 'Innovation'] 
-                    }
-                  },
-                  required: ["title", "summary", "date", "source", "url", "category"]
-                }
-              }
-            }
+          const formattedTime = formatLastSyncText(srvTimestamp);
+          recordSyncLog('SUCCESS', `Loaded ${validServerItems.length} items from Central Hub`, {
+            cached: srvJson.cached,
+            syncTime: formattedTime
           });
-          if (response?.text) break;
-        } catch (mErr: any) {
-          lastErr = mErr;
-          console.warn(`[News] Model ${model} attempt notice:`, mErr?.message || mErr);
+
+          return {
+            items: validServerItems,
+            isCached: srvJson.cached || false,
+            isOfflineFallback: false,
+            syncFailed: false,
+            hasTodayNews: validServerItems.some(i => i.date === todayStr),
+            lastSyncedTime: formattedTime,
+            lastSyncedTimestamp: srvTimestamp
+          };
         }
       }
     }
+  } catch (srvErr) {
+    console.warn('[Central News Hub] Server check skipped or offline:', srvErr);
+  }
 
-    if (!response?.text) {
-      throw lastErr || new Error("समाचार डेटा प्राप्त नहीं हो सका");
-    }
+  // 3. Optional Gemini AI Direct Enrichment (If user provided their own key)
+  if (userApiKey && userApiKey.trim() !== '') {
+    try {
+      const ai = getAI(userApiKey);
+      if (ai) {
+        const currentYear = now.getFullYear();
+        const prompt = `आज ${todayStr} (वर्ष ${currentYear}) के लिए विश्वसनीय भारतीय कृषि स्रोतों जैसे 'Krishi Jagran', 'ICAR', 'DD Kisan' से मध्य प्रदेश और भारत के लिए 5-10 ताज़ा कृषि समाचार प्रदान करें। केवल वर्ष ${currentYear} के समाचार हों। प्रत्येक समाचार में शीर्षक, सारांश, वास्तविक प्रकाशन तिथि (DD/MM/YYYY), स्रोत, और श्रेणी प्रदान करें।`;
 
-    const newlyFetched: AgriNewsItem[] = JSON.parse(response.text);
+        // Strict adherence to Rule 5: Primary gemini-3.6-flash, fallback gemini-3.5-flash
+        const models = ['gemini-3.6-flash', 'gemini-3.5-flash'];
+        let aiResponse: any = null;
 
-    if (Array.isArray(newlyFetched) && newlyFetched.length > 0) {
-      // Validate every fetched item and discard any stale articles
-      const validFetched: AgriNewsItem[] = [];
-      let rejectedCount = 0;
-
-      for (const item of newlyFetched) {
-        let finalDate = todayStr;
-        if (item.date) {
-          const trimmed = item.date.trim();
-          if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
-            finalDate = trimmed;
-          } else {
-            const parsed = Date.parse(trimmed);
-            if (!isNaN(parsed)) {
-              finalDate = getFormattedDateString(new Date(parsed));
-            } else {
-              finalDate = trimmed.length > 5 ? trimmed : todayStr;
-            }
+        for (const m of models) {
+          try {
+            aiResponse = await ai.models.generateContent({
+              model: m,
+              contents: prompt,
+              config: {
+                systemInstruction: `You are an Agricultural News editor for 'फल्सावदिया कृषि बाजार'. Return valid JSON array of agricultural news for year ${currentYear}. Format: [{"title":"...","summary":"...","date":"DD/MM/YYYY","source":"...","url":"...","category":"Crop|Market|Weather|Scheme|MP|Tech|India|Innovation"}]`,
+                responseMimeType: "application/json"
+              }
+            });
+            if (aiResponse?.text) break;
+          } catch (e) {
+            console.warn(`[Gemini News] Model ${m} attempt notice:`, e);
           }
         }
 
-        const candidateItem: AgriNewsItem = {
-          ...item,
-          date: finalDate
-        };
+        if (aiResponse?.text) {
+          const fetchedItems: AgriNewsItem[] = JSON.parse(aiResponse.text);
+          if (Array.isArray(fetchedItems) && fetchedItems.length > 0) {
+            const validAiItems = fetchedItems.filter(item => validateArticleFreshness(item, now).isValid);
+            if (validAiItems.length > 0) {
+              const mergedList = mergeAndDeduplicateNews(currentCache, validAiItems, now);
+              const newSyncTimestamp = Date.now();
+              localStorage.setItem(CACHE_KEY, JSON.stringify(mergedList));
+              localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
+              localStorage.setItem(CACHE_SYNC_TIMESTAMP_KEY, newSyncTimestamp.toString());
 
-        const validation = validateArticleFreshness(candidateItem, now);
-        if (validation.isValid) {
-          validFetched.push(candidateItem);
-        } else {
-          rejectedCount++;
-          recordSyncLog('CACHED', `Rejected stale/outdated news item: "${item.title}"`, { reason: validation.reason });
+              const newSyncFormatted = formatLastSyncText(newSyncTimestamp);
+              recordSyncLog('SUCCESS', `AI synced ${validAiItems.length} fresh articles`);
+
+              return {
+                items: mergedList,
+                isCached: false,
+                isOfflineFallback: false,
+                syncFailed: false,
+                hasTodayNews: mergedList.some(item => item.date === todayStr),
+                lastSyncedTime: newSyncFormatted,
+                lastSyncedTimestamp: newSyncTimestamp
+              };
+            }
+          }
         }
       }
-
-      if (validFetched.length > 0) {
-        // Merge & Deduplicate with current validated cache
-        const mergedList = mergeAndDeduplicateNews(currentCache, validFetched, now);
-
-        // Record real successful sync timestamp
-        const newSyncTimestamp = Date.now();
-        localStorage.setItem(CACHE_KEY, JSON.stringify(mergedList));
-        localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
-        localStorage.setItem(CACHE_SYNC_TIMESTAMP_KEY, newSyncTimestamp.toString());
-
-        // Asynchronously notify and update the Central Hub so all other users get this data instantly!
-        try {
-          fetch('/api/news/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: mergedList, clientDate: todayStr })
-          }).catch(err => console.warn('[Central News Hub] Background sync error:', err));
-        } catch {}
-
-        const newSyncFormatted = formatLastSyncText(newSyncTimestamp);
-        const hasToday = mergedList.some(item => item.date === todayStr);
-
-        recordSyncLog('SUCCESS', `Successfully synced ${validFetched.length} fresh articles`, {
-          totalMerged: mergedList.length,
-          rejectedOutdated: rejectedCount,
-          syncTime: newSyncFormatted
-        });
-
-        return {
-          items: mergedList,
-          isCached: false,
-          isOfflineFallback: false,
-          syncFailed: false,
-          hasTodayNews: hasToday,
-          lastSyncedTime: newSyncFormatted,
-          lastSyncedTimestamp: newSyncTimestamp
-        };
-      } else {
-        recordSyncLog('FAILED', `All ${newlyFetched.length} fetched items were discarded due to freshness rules`);
-      }
+    } catch (aiErr) {
+      console.warn('[Gemini AI News] Direct call skipped:', aiErr);
     }
+  }
 
-    // If zero valid items were returned, do NOT update lastSyncTimestamp
-    const hasToday = currentCache.some(item => item.date === todayStr);
+  // 4. If currentCache already has valid news from earlier, serve it
+  if (currentCache.length > 0) {
     return {
       items: currentCache,
       isCached: true,
       isOfflineFallback: false,
-      syncFailed: true,
-      hasTodayNews: hasToday,
-      lastSyncedTime: lastSyncFormatted,
-      lastSyncedTimestamp: lastSyncTimestamp
-    };
-
-  } catch (error: any) {
-    const friendlyError = getFriendlyAiError(error);
-    if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
-      recordSyncLog('FAILED', 'API key required or invalid', { error: friendlyError.message });
-      throw friendlyError;
-    }
-    
-    recordSyncLog('FAILED', 'News fetch failed', {
-      message: error?.message || String(error),
-      status: error?.status
-    });
-
-    const hasToday = currentCache.some(item => item.date === todayStr);
-    return {
-      items: currentCache,
-      isCached: true,
-      isOfflineFallback: false,
-      syncFailed: true,
-      hasTodayNews: hasToday,
+      syncFailed: false,
+      hasTodayNews: currentCache.some(item => item.date === todayStr),
       lastSyncedTime: lastSyncFormatted,
       lastSyncedTimestamp: lastSyncTimestamp
     };
   }
-};
 
+  // 5. Honest offline fallback (no fake breaking news dates)
+  const fallbacks = generateFallbacks(now);
+  return {
+    items: fallbacks,
+    isCached: true,
+    isOfflineFallback: true,
+    syncFailed: false,
+    hasTodayNews: false,
+    lastSyncedTime: undefined,
+    lastSyncedTimestamp: undefined
+  };
+};
