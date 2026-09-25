@@ -405,8 +405,8 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
         const currentYear = now.getFullYear();
         const prompt = `आज ${todayStr} (वर्ष ${currentYear}) के लिए विश्वसनीय भारतीय कृषि स्रोतों जैसे 'Krishi Jagran', 'ICAR', 'DD Kisan' से मध्य प्रदेश और भारत के लिए 5-10 ताज़ा कृषि समाचार प्रदान करें। केवल वर्ष ${currentYear} के समाचार हों। प्रत्येक समाचार में शीर्षक, सारांश, वास्तविक प्रकाशन तिथि (DD/MM/YYYY), स्रोत, और श्रेणी प्रदान करें।`;
 
-        // Strict adherence to Rule 5: Primary gemini-3.6-flash, fallback gemini-3.5-flash
-        const models = ['gemini-3.6-flash', 'gemini-3.5-flash'];
+        // Strict adherence to Rule 5: Primary gemini-3.6-flash, fallback gemini-3.5-flash, tertiary gemini-3.1-flash-lite
+        const models = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite'];
         let aiResponse: any = null;
 
         for (const m of models) {

@@ -483,8 +483,8 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
     - सभी जानकारी पूरी तरह शुद्ध व प्रामाणिक हिंदी में हो।
     - 'benefits' और 'requiredDocuments' स्ट्रिंग ऐरे (Array) होने चाहिए।`;
 
-    // Strictly adhere to Rule 5: Primary gemini-3.6-flash, Fallback gemini-3.5-flash
-    const candidateModels = ["gemini-3.6-flash", "gemini-3.5-flash"];
+    // Strictly adhere to Rule 5: Primary gemini-3.6-flash, Fallback gemini-3.5-flash, Tertiary gemini-3.1-flash-lite
+    const candidateModels = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"];
     let responseText: string | null = null;
     let lastError: any = null;
 

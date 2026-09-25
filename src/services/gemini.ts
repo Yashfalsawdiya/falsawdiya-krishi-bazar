@@ -417,16 +417,28 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
             systemInstruction
           }
         });
-      } catch (primaryErr: any) {
-        console.warn("Primary model fallback failed, trying secondary model...", primaryErr);
-        // Tier 3: Secondary fallback model without search tool
-        response = await ai.models.generateContent({
-          model: FALLBACK_GEMINI_MODEL,
-          contents: prompt,
-          config: {
-            systemInstruction
-          }
-        });
+        } catch (primaryErr: any) {
+          console.warn("Primary model fallback failed, trying secondary model...", primaryErr);
+          try {
+            // Tier 3: Secondary fallback model without search tool
+            response = await ai.models.generateContent({
+              model: FALLBACK_GEMINI_MODEL,
+              contents: prompt,
+              config: {
+                systemInstruction
+              }
+            });
+        } catch (secondaryErr: any) {
+          console.warn("Secondary model fallback failed, trying tertiary model (flash-lite)...", secondaryErr);
+          // Tier 4: Tertiary ultra-resilient fallback model
+          response = await ai.models.generateContent({
+            model: TERTIARY_GEMINI_MODEL,
+            contents: prompt,
+            config: {
+              systemInstruction
+            }
+          });
+        }
       }
     }
 
@@ -492,14 +504,26 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
         });
       } catch (primaryErr: any) {
         console.warn("Primary model attempt failed in chat, trying fallback model...", primaryErr);
-        // Tier 3: Resilient fallback to secondary flash model
-        response = await ai.models.generateContent({
-          model: FALLBACK_GEMINI_MODEL,
-          contents: prompt,
-          config: {
-            systemInstruction
-          }
-        });
+        try {
+          // Tier 3: Resilient fallback to secondary flash model
+          response = await ai.models.generateContent({
+            model: FALLBACK_GEMINI_MODEL,
+            contents: prompt,
+            config: {
+              systemInstruction
+            }
+          });
+        } catch (secondaryErr: any) {
+          console.warn("Secondary model attempt failed in chat, trying tertiary model (flash-lite)...", secondaryErr);
+          // Tier 4: Ultra-resilient fallback to tertiary model
+          response = await ai.models.generateContent({
+            model: TERTIARY_GEMINI_MODEL,
+            contents: prompt,
+            config: {
+              systemInstruction
+            }
+          });
+        }
       }
     }
 
@@ -990,15 +1014,28 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
         });
       } catch (primaryErr: any) {
         console.warn("Primary model attempt failed in getProductKnowledge, retrying with fallback model...", primaryErr);
-        response = await ai.models.generateContent({
-          model: FALLBACK_GEMINI_MODEL,
-          contents: prompt,
-          config: {
-            systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema
-          }
-        });
+        try {
+          response = await ai.models.generateContent({
+            model: FALLBACK_GEMINI_MODEL,
+            contents: prompt,
+            config: {
+              systemInstruction,
+              responseMimeType: "application/json",
+              responseSchema
+            }
+          });
+        } catch (secondaryErr: any) {
+          console.warn("Secondary model failed in getProductKnowledge, retrying with tertiary model (flash-lite)...", secondaryErr);
+          response = await ai.models.generateContent({
+            model: TERTIARY_GEMINI_MODEL,
+            contents: prompt,
+            config: {
+              systemInstruction,
+              responseMimeType: "application/json",
+              responseSchema
+            }
+          });
+        }
       }
     }
 

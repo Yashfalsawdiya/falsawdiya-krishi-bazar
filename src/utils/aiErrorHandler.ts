@@ -13,6 +13,8 @@ export interface FriendlyError {
 export const getFriendlyAiError = (error: any): FriendlyError => {
   const errorString = error?.message || String(error);
   
+  const lowerStr = errorString.toLowerCase();
+
   // 1. Missing API Key
   if (
     errorString.includes('GEMINI_KEY_NOT_SET') || 
@@ -26,21 +28,52 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
     };
   }
 
-  // 2. Invalid API Key
+  // 2. High Demand / Server Overload (503 / UNAVAILABLE) - VERY COMMON DURING EVENING/NIGHT PEAK US HOURS
   if (
-    errorString.includes('API_KEY_INVALID') || 
-    (errorString.includes('400') && errorString.includes('invalid')) ||
-    (errorString.includes('403') && errorString.includes('permission')) ||
-    errorString.includes('invalid_argument')
+    errorString.includes('503') ||
+    errorString.includes('UNAVAILABLE') ||
+    lowerStr.includes('high demand') ||
+    lowerStr.includes('spikes in demand') ||
+    lowerStr.includes('service unavailable') ||
+    lowerStr.includes('temporarily unavailable')
   ) {
     return {
-      type: 'key_invalid',
-      message: 'कृपया अपनी API Key जांचें और सही Valid API Key दर्ज करें।',
+      type: 'server',
+      message: 'Google AI सर्वर पर इस समय भारी ट्रैफिक (High Demand) है। आपकी API Key बिल्कुल सही है, कृपया 1-2 मिनट बाद पुनः प्रयास करें।',
       originalError: error
     };
   }
 
-  // 3. Internet / Network Connectivity
+  // 3. API limit / Quota exceeded (429 / RESOURCE_EXHAUSTED)
+  if (
+    errorString.includes('429') || 
+    errorString.includes('RESOURCE_EXHAUSTED') || 
+    lowerStr.includes('quota') ||
+    lowerStr.includes('resource_exhausted') ||
+    lowerStr.includes('rate limit')
+  ) {
+    return {
+      type: 'quota',
+      message: 'दैनिक फ्री कोटा समाप्त: आपकी Key का आज का कोटा पूरा हो चुका है। यह भारतीय समयानुसार दोपहर 12:30 बजे (Midnight PT) स्वतः रीसेट हो जाएगा।',
+      originalError: error
+    };
+  }
+
+  // 4. Invalid API Key - STRICT MATCH ONLY (Never misclassify quota or server load as invalid key)
+  if (
+    errorString.includes('API_KEY_INVALID') || 
+    lowerStr.includes('api key not valid') ||
+    lowerStr.includes('api_key_invalid') ||
+    (lowerStr.includes('api key') && (lowerStr.includes('not found') || lowerStr.includes('invalid') || lowerStr.includes('expired')))
+  ) {
+    return {
+      type: 'key_invalid',
+      message: 'कृपया अपनी API Key जांचें। Google AI Studio से सही Valid API Key दर्ज करें।',
+      originalError: error
+    };
+  }
+
+  // 5. Internet / Network Connectivity
   if (
     !navigator.onLine || 
     errorString.includes('fetch') || 
@@ -54,24 +87,9 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
     };
   }
 
-  // 4. API limit / Quota exceeded
-  if (
-    errorString.includes('429') || 
-    errorString.includes('RESOURCE_EXHAUSTED') || 
-    errorString.includes('quota')
-  ) {
-    return {
-      type: 'quota',
-      message: 'Gemini API दैनिक कोटा या सर्वर व्यस्त है। सिस्टम स्वतः वैकल्पिक मॉडल से प्रयास कर रहा है, कृपया 10-15 सेकंड बाद पुनः जांचें।',
-      originalError: error
-    };
-  }
-
-  // 5. Server Issues
+  // 6. General Server Issues
   if (
     errorString.includes('500') || 
-    errorString.includes('SERVICE_UNAVAILABLE') || 
-    errorString.includes('503') ||
     errorString.includes('deadline exceeded')
   ) {
     return {

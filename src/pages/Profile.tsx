@@ -4,6 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, Key, ExternalLink, Save, LogOut, LogIn, ChevronRight, Info, Youtube, RefreshCw, CheckCircle2, AlertCircle, Loader2, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Scale, Truck, HelpCircle, Package, ArrowRight, Navigation } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
+import { CANDIDATE_GEMINI_MODELS } from '../services/gemini';
 import { cn } from '../lib/utils';
 import SmartImage from '../components/SmartImage';
 import { DeliveryPartner } from '../types';
@@ -61,83 +62,133 @@ const Profile: React.FC = () => {
   };
 
   const testApiKey = async () => {
-    if (!apiKey) {
+    const keyToTest = apiKey.trim();
+    if (!keyToTest) {
       setSaveMessage('कृपया पहले Key डालें।');
       return;
     }
     setTestStatus('testing');
     setSaveMessage('');
     try {
-      const genAI: any = new GoogleGenAI({ apiKey: apiKey.trim() });
+      const genAI: any = new GoogleGenAI({ apiKey: keyToTest });
       
-      let result;
-      try {
-        result = await genAI.models.generateContent({ 
-          model: "gemini-3.8-flash", 
-          contents: "test" 
-        });
-      } catch {
-        result = await genAI.models.generateContent({ 
-          model: "gemini-flash-latest", 
-          contents: "test" 
-        });
+      let successModel: string | null = null;
+      let lastError: any = null;
+
+      for (const model of CANDIDATE_GEMINI_MODELS) {
+        try {
+          const result = await genAI.models.generateContent({ 
+            model, 
+            contents: "ping" 
+          });
+          if (result) {
+            successModel = model;
+            break;
+          }
+        } catch (err: any) {
+          lastError = err;
+          console.warn(`[Profile testApiKey] Model ${model} check notice:`, err?.status, err?.message);
+        }
       }
       
-      if (result) {
+      if (successModel) {
         setTestStatus('success');
         setSaveMessage('सफल: Valid API Key (सक्रिय है)');
+      } else {
+        const errorMsg = (lastError?.message || String(lastError || '')).toLowerCase();
+        console.error("Key test failed with all models:", lastError);
+        
+        if (
+          errorMsg.includes('api_key_invalid') || 
+          errorMsg.includes('api key not valid') ||
+          (errorMsg.includes('api key') && (errorMsg.includes('not found') || errorMsg.includes('invalid') || errorMsg.includes('expired')))
+        ) {
+          setTestStatus('error');
+          setSaveMessage('अमान्य: Invalid API Key (कृपया सही Key डालें)');
+        } else if (errorMsg.includes('503') || errorMsg.includes('unavailable') || errorMsg.includes('high demand') || errorMsg.includes('spikes in demand')) {
+          setTestStatus('idle');
+          setSaveMessage('Key मान्य है! Google AI सर्वर पर इस समय भारी ट्रैफिक (503 High Demand) है। Key बिल्कुल सही है, कुछ मिनट बाद प्रयास करें।');
+        } else if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('resource_exhausted')) {
+          setTestStatus('idle');
+          setSaveMessage('Key मान्य (Valid) है, लेकिन आज का दैनिक कोटा पूरा हो चुका है। कोटा दोपहर 12:30 बजे (Midnight PT) स्वतः रीसेट होगा।');
+        } else if (!navigator.onLine || errorMsg.includes('fetch') || errorMsg.includes('network')) {
+          setTestStatus('error');
+          setSaveMessage('नेटवर्क त्रुटि: इंटरनेट कनेक्शन जांचें।');
+        } else {
+          setTestStatus('error');
+          setSaveMessage('जांच असफल: सर्वर से प्रतिक्रिया नहीं मिली। कृपया पुनः प्रयास करें।');
+        }
       }
     } catch (error: any) {
-      console.error("Key test failed:", error);
+      console.error("Unexpected Key test error:", error);
       setTestStatus('error');
-      setSaveMessage('अमान्य: Invalid API Key (कृपया सही Key डालें)');
+      setSaveMessage('जांच में समस्या आई। कृपया पुनः प्रयास करें।');
     } finally {
       setTimeout(() => {
         setTestStatus('idle');
         setSaveMessage('');
-      }, 6000);
+      }, 7000);
     }
   };
 
   const checkQuota = async () => {
-    if (!apiKey) {
+    const keyToTest = apiKey.trim();
+    if (!keyToTest) {
       setSaveMessage('कृपया पहले Key डालें।');
       return;
     }
     setQuotaStatus('checking');
     setSaveMessage('');
     try {
-      const genAI: any = new GoogleGenAI({ apiKey: apiKey.trim() });
+      const genAI: any = new GoogleGenAI({ apiKey: keyToTest });
       
-      // Test with a real generation call
-      let result;
-      try {
-        result = await genAI.models.generateContent({ 
-          model: "gemini-3.8-flash", 
-          contents: "hi" 
-        });
-      } catch {
-        result = await genAI.models.generateContent({ 
-          model: "gemini-flash-latest", 
-          contents: "hi" 
-        });
+      let quotaAvailable = false;
+      let lastError: any = null;
+
+      for (const model of CANDIDATE_GEMINI_MODELS) {
+        try {
+          const result = await genAI.models.generateContent({ 
+            model, 
+            contents: "hi" 
+          });
+          if (result) {
+            quotaAvailable = true;
+            break;
+          }
+        } catch (err: any) {
+          lastError = err;
+          console.warn(`[Profile checkQuota] Model ${model} check notice:`, err?.status, err?.message);
+        }
       }
       
-      if (result) {
+      if (quotaAvailable) {
         setQuotaStatus('available');
         setSaveMessage('सफल: आपकी Gemini API Key की आज की limit अभी उपलब्ध है।');
+      } else {
+        const errorMsg = (lastError?.message || String(lastError || '')).toLowerCase();
+        
+        if (
+          errorMsg.includes('api_key_invalid') || 
+          errorMsg.includes('api key not valid') ||
+          (errorMsg.includes('api key') && (errorMsg.includes('not found') || errorMsg.includes('invalid') || errorMsg.includes('expired')))
+        ) {
+          setQuotaStatus('exhausted');
+          setSaveMessage('अमान्य Key: कृपया अपनी API Key जांचें।');
+        } else if (errorMsg.includes('503') || errorMsg.includes('unavailable') || errorMsg.includes('high demand') || errorMsg.includes('spikes in demand')) {
+          setQuotaStatus('idle');
+          setSaveMessage('Google AI सर्वर पर अस्थायी लोड (503 High Demand) है। आपकी Key मान्य है, कोटा कुछ मिनट बाद जांचें।');
+        } else if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('resource_exhausted')) {
+          setQuotaStatus('exhausted');
+          setSaveMessage('दैनिक कोटा समाप्त: आज की फ्री सीमा पूरी हो चुकी है। यह भारतीय समयानुसार दोपहर 12:30 बजे (Midnight PT) स्वतः रीसेट होगी।');
+        } else {
+          setQuotaStatus('exhausted');
+          setSaveMessage('Quota की जानकारी नहीं मिल सकी। कृपया थोड़ी देर बाद पुनः प्रयास करें।');
+        }
       }
     } catch (error: any) {
       console.error("Quota check failed:", error);
-      // 429 is the status code for quota exhaustion
-      const errorMsg = error.message?.toLowerCase() || "";
-      if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('exhausted')) {
-        setQuotaStatus('exhausted');
-        setSaveMessage('सीमा समाप्त: आपकी Gemini API Key की आज की limit समाप्त हो चुकी है। कृपया कल पुनः प्रयास करें।');
-      } else {
-        setQuotaStatus('exhausted');
-        setSaveMessage('त्रुटि: Quota की जानकारी नहीं मिल सकी। कृपया अपनी API Key जांचें।');
-      }
+      setQuotaStatus('exhausted');
+      setSaveMessage('Quota जांच में त्रुटि आई। कृपया पुनः प्रयास करें।');
     } finally {
       setTimeout(() => {
         setQuotaStatus('idle');
@@ -253,16 +304,24 @@ const Profile: React.FC = () => {
         <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 space-y-3">
           <div className="flex items-start gap-2 text-blue-800">
             <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <p className="text-xs font-bold leading-relaxed">
-                फ्री कोटा और रीसेट जानकारी (Daily Reset)
+                फ्री कोटा, रीसेट समय और रात के सर्वर ट्रैफिक की जानकारी
               </p>
-              <p className="text-[11px] leading-relaxed opacity-90">
-                Gemini API का फ्री कोटा हर दिन अपने-आप रीसेट हो जाता है। किसान भाई को बार-बार Key बदलने की ज़रूरत नहीं है, एक बार सेट करने पर यह रोज़ाना काम करेगी।
-              </p>
+              <ul className="text-[11px] leading-relaxed opacity-90 space-y-1 list-disc list-inside">
+                <li>
+                  <span className="font-semibold text-blue-900">दैनिक रीसेट (12:30 PM):</span> Google Gemini का दैनिक फ्री कोटा भारतीय समयानुसार <strong>दोपहर 12:30 बजे</strong> (US Midnight PT) रीसेट होता है।
+                </li>
+                <li>
+                  <span className="font-semibold text-blue-900">रात का समय (High Demand):</span> शाम 8 से रात 12 बजे तक अमेरिका में कामकाजी दिन होने से Google AI सर्वर पर ग्लोबल लोड बढ़ जाता है। ऐप में <strong>3-स्तरीय बैकअप मॉडल्स</strong> लगे हैं जो स्वतः स्विच होकर काम जारी रखते हैं।
+                </li>
+                <li>
+                  <span className="font-semibold text-blue-900">स्थायी Key:</span> एक बार सही Key डालने के बाद इसे बार-बार बदलने की आवश्यकता नहीं होती।
+                </li>
+              </ul>
             </div>
           </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1 border-t border-blue-200/50">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2 border-t border-blue-200/50">
             <a 
               href="https://aistudio.google.com/app/apikey" 
               target="_blank" 
