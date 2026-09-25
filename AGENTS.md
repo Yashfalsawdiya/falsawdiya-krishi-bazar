@@ -50,4 +50,28 @@ To prevent unexpected disruptions, 503 high-demand errors, or breaking changes i
 - **Farmer-Friendly Hindi Prompts**:
   - Prompt instructions for crop disease diagnosis, dosage prescriptions, mandi advisory, and schemes must maintain empathetic, respectful, and crystal-clear Hindi terminology suitable for Indian farmers.
 
+## 6. Centralized Hub & Incremental Auto-Merge Architecture (Permanent Immutable Rule)
+To ensure seamless scalability for 1,000,000 (10 Lakh) farmers with zero quota crashes and zero monthly cost, the Centralized Public Utility Architecture is strictly locked:
+
+- **Applicable Public Services**:
+  - **Mandi Bhav** (`/api/mandi/prices`)
+  - **Krishi Samachaar** (`/api/news/daily` & `/api/news/sync`)
+  - **Sarkari Yojanae** (`/api/schemes/all` & `/api/schemes/sync`)
+- **Zero API Key Requirement for Regular Farmers**:
+  - Normal farmers must NEVER be blocked from viewing Mandi Bhav, reading Krishi Samachaar, or browsing Sarkari Yojanae.
+  - All three public agricultural utilities load directly from the Centralized Server Hub and local cache (`localStorage`/IndexedDB) with zero (0) API key prompt and zero (0) cost to the farmer.
+- **Zero-Firestore Impact & Shared Server Cache**:
+  - Mandi Bhav, Krishi Samachaar, and Sarkari Yojanae do NOT consume Firestore read/write quota for regular user visits.
+  - Krishi Samachaar fetches live authentic news from free, public Google News RSS feeds (Hindi) and stores them in `data/agri-news-cache.json`.
+  - Mandi Bhav loads from public government Agmarknet / MandiPulse web feeds + cached in server memory.
+  - Sarkari Yojanae maintains a permanent verified library of 20+ Central & State (MP) schemes in `data/agri-schemes-cache.json`.
+- **Incremental Auto-Merge (Strict Non-Destructive Preservation)**:
+  - Daily searches or syncs must NEVER wipe out, overwrite, or lose existing verified schemes or articles.
+  - Newly announced schemes or subsidies are intelligently merged and added to the top with an `isNew: true` badge.
+  - If no new schemes are announced on a day, all existing verified schemes remain 100% preserved and visible to all users.
+  - When an existing scheme is updated with fresh subsidy percentages or links, it is enriched without creating duplicate entries.
+- **Strict Immutability & Admin-Only Modification Authority**:
+  - **LOCKED STANDARD**: Developers and AI agents are strictly forbidden from disabling the Centralized Hubs, reintroducing blocking API key modals for viewing, switching models, or altering this architecture unless EXPLICITLY ordered by the Admin (`yashfalsawdiya36@gmail.com`).
+
+
 

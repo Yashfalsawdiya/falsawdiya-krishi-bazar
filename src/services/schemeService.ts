@@ -1,15 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { getFriendlyAiError } from "../utils/aiErrorHandler";
 
-const getAI = (userApiKey?: string) => {
-  const apiKey = userApiKey;
-  
-  if (!apiKey || apiKey.trim() === "") {
-    return null;
-  }
-  return new GoogleGenAI({ apiKey: apiKey.trim() });
-};
-
 export interface Scheme {
   title: string;
   description: string;
@@ -24,214 +15,535 @@ export interface Scheme {
   link?: string;
   category?: string;
   type?: string;
+  isNew?: boolean;
+  lastUpdated?: string;
 }
 
+const CACHE_KEY = 'agri_schemes_cache_v3';
+const CACHE_TIME_KEY = 'agri_schemes_cache_time_v3';
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 Hours cache duration (Daily Sync)
+
+// Clear legacy cached states
+try {
+  ['agri_schemes_cache', 'agri_schemes_cache_time', 'agri_schemes_cache_v2'].forEach(k => {
+    localStorage.removeItem(k);
+  });
+} catch {}
+
+const getAI = (userApiKey?: string) => {
+  const apiKey = userApiKey?.trim();
+  if (!apiKey) return null;
+  return new GoogleGenAI({ apiKey });
+};
+
+/**
+ * 20 Permanent Verified Central & State (MP) Government Schemes
+ * Used as reliable offline fallback so farmers are never left without guidance.
+ */
+export const VERIFIED_OFFLINE_SCHEMES: Scheme[] = [
+  {
+    title: "पीएम-किसान सम्मान निधि (PM-Kisan Samman Nidhi)",
+    description: "किसानों को प्रति वर्ष ₹6,000 की प्रत्यक्ष आर्थिक सहायता प्रदान की जाती है।",
+    objective: "सीमांत और छोटे किसानों की वित्तीय जरूरतों को पूरा करना एवं बुवाई पूर्व खाद-बीज खरीदने में सहायता प्रदान करना।",
+    benefits: ["₹2,000 की 3 समान किस्तें प्रति वर्ष", "सीधे आधार लिंक बैंक खाते में DBT द्वारा भुगतान", "100% पारदर्शी डायरेक्ट ट्रांसफर"],
+    subsidyDetails: "100% केंद्र सरकार द्वारा वित्त पोषित (₹6,000 वार्षिक नकद सहायता)",
+    sector: "प्रत्यक्ष लाभ अंतरण (DBT)",
+    governmentLevel: "Central",
+    eligibility: "सभी भूमिधारक किसान परिवार जिनके नाम कृषि योग्य भूमि दर्ज है एवं e-KYC पूर्ण है।",
+    requiredDocuments: ["आधार कार्ड", "खसरा-खतौनी (भू-अभिलेख नकल)", "बैंक खाता पासबुक", "सक्रिय मोबाइल नंबर"],
+    howToApply: "pmkisan.gov.in पोर्टल पर 'New Farmer Registration' या नजदीकी CSC केंद्र से आवेदन करें।",
+    link: "https://pmkisan.gov.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "मुख्यमंत्री किसान कल्याण योजना (MP CM-Kisan Kalyan)",
+    description: "मध्य प्रदेश सरकार द्वारा पीएम-किसान के पात्र किसानों को प्रति वर्ष ₹6,000 की अतिरिक्त वित्तीय सहायता।",
+    objective: "मध्य प्रदेश के किसानों की आय में ठोस वृद्धि करना एवं राज्य स्तर पर अतिरिक्त संबल प्रदान करना।",
+    benefits: ["₹2,000 की 3 समान अतिरिक्त किस्तें", "पीएम-किसान (₹6,000) + सीएम किसान (₹6,000) = कुल ₹12,000 वार्षिक सहायता"],
+    subsidyDetails: "मध्य प्रदेश शासन द्वारा शत-प्रतिशत देय अतिरिक्त ₹6,000 वार्षिक भुगतान",
+    sector: "वित्तीय सहायता",
+    governmentLevel: "State",
+    eligibility: "मध्य प्रदेश के मूल निवासी किसान जो पीएम-किसान सम्मान निधि योजना के सत्यापित लाभार्थी हैं।",
+    requiredDocuments: ["पीएम-किसान पंजीयन क्रमांक", "समग्र आईडी (Samagra ID)", "आधार कार्ड", "बैंक पासबुक"],
+    howToApply: "सारा (SAARA) पोर्टल (saara.mp.gov.in) अथवा क्षेत्रीय पटवारी के माध्यम से पात्रता सत्यापन कराएं।",
+    link: "https://saara.mp.gov.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "प्रधानमंत्री फसल बीमा योजना (PMFBY)",
+    description: "प्राकृतिक आपदाओं, कीट प्रकोप व बेमौसम बारिश से फसल बर्बादी पर व्यापक वित्तीय सुरक्षा कवच।",
+    objective: "किसानों को फसल क्षति से होने वाले आर्थिक नुकसान से बचाना और आधुनिक कृषि तकनीक अपनाने हेतु प्रोत्साहित करना।",
+    benefits: ["खरीफ फसल पर केवल 2% एवं रबी फसल पर मात्र 1.5% किसान प्रीमियम", "वाणिज्यिक व बागवानी फसलों पर 5% प्रीमियम", "फसल कटाई उपरांत 14 दिन तक नुकसान पर क्षतिपूर्ति"],
+    subsidyDetails: "केंद्र एवं राज्य सरकार द्वारा प्रीमियम पर 90% से अधिक भारी सब्सिडी",
+    sector: "फसल बीमा एवं सुरक्षा",
+    governmentLevel: "Central",
+    eligibility: "अधिसूचित क्षेत्रों में अधिसूचित फसलें उगाने वाले सभी ऋणी एवं गैर-ऋणी किसान।",
+    requiredDocuments: ["आधार कार्ड", "खसरा/खतौनी नकल (B-1)", "पटवारी द्वारा जारी बुवाई प्रमाण पत्र", "बैंक पासबुक"],
+    howToApply: "pmfby.gov.in पोर्टल, अपनी बैंक शाखा, या नजदीकी CSC सेंटर से आवेदन करें।",
+    link: "https://pmfby.gov.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "पीएम-कुसुम सोलर पंप योजना (PM-KUSUM Scheme)",
+    description: "किसानों को सिंचाई हेतु सौर ऊर्जा पंप लगाने पर 60% तक भारी सरकारी अनुदान।",
+    objective: "डीजल पंपों पर निर्भरता समाप्त करना, सिंचाई लागत शून्य करना तथा अतिरिक्त सौर ऊर्जा बेचकर आमदनी का साधन बनाना।",
+    benefits: ["3 HP से 7.5 HP तक के सोलर पंप की स्थापना", "60% तक सब्सिडी (30% केंद्र + 30% राज्य)", "किसान को केवल 10% से 40% राशि का अंशदान देना होता है"],
+    subsidyDetails: "कुल लागत पर 60% सरकारी अनुदान, 30% तक बैंक ऋण सुविधा",
+    sector: "सौर ऊर्जा एवं सिंचाई",
+    governmentLevel: "Central",
+    eligibility: "कृषि भूमि के स्वामी किसान जिनके पास सिंचाई का जल स्रोत उपलब्ध हो और पूर्व से ग्रिड विद्युत कनेक्शन न हो।",
+    requiredDocuments: ["आधार कार्ड", "जमीन के राजस्व दस्तावेज (खसरा/खतौनी)", "बैंक खाता विवरण", "पासपोर्ट फोटो"],
+    howToApply: "pmkusum.mnre.gov.in अथवा राज्य ऊर्जा विकास निगम पोर्टल के माध्यम से ऑनलाइन पंजीयन करें।",
+    link: "https://pmkusum.mnre.gov.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "कृषि यंत्रीकरण उप-मिशन (SMAM - ट्रैक्टर व यंत्र सब्सिडी)",
+    description: "आधुनिक कृषि यंत्रों जैसे ट्रैक्टर, रोटावेटर, सीड ड्रिल, थ्रेशर पर 40% से 50% तक अनुदान।",
+    objective: "खेती में मशीनीकरण को बढ़ावा देना, मानव श्रम कम करना एवं उत्पादकता में तीव्र वृद्धि करना।",
+    benefits: ["ट्रैक्टर एवं विभिन्न कृषि यंत्रों पर 40% से 50% तक वित्तीय सब्सिडी", "महिला, अनुसूचित जाति एवं जनजाति के किसानों को प्राथमिकता व अतिरिक्त छूट"],
+    subsidyDetails: "यंत्रों की लागत पर 40% से 50% तक प्रत्यक्ष बैंक सब्सिडी",
+    sector: "कृषि यंत्रीकरण (Mechanization)",
+    governmentLevel: "Central",
+    eligibility: "सभी श्रेणी के लघु, सीमांत, महिला एवं सामान्य किसान।",
+    requiredDocuments: ["आधार कार्ड", "जमीन की खतौनी नकल (B-1)", "जाति प्रमाण पत्र (यदि लागू हो)", "बैंक पासबुक", "ट्रैक्टर आरसी"],
+    howToApply: "agrimachinery.nic.in अथवा मध्य प्रदेश ई-कृषि यंत्र अनुदान पोर्टल (dbt.mpdage.org) पर आवेदन करें।",
+    link: "https://agrimachinery.nic.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "प्रधानमंत्री कृषि सिंचाई योजना (PMKSY - ड्रिप व स्प्रिंकलर)",
+    description: "टपक (ड्रिप) एवं फव्वारा (स्प्रिंकलर) सूक्ष्म सिंचाई प्रणाली पर 45% से 55% तक सरकारी सब्सिडी।",
+    objective: "'हर खेत को पानी' और 'पर ड्रॉप मोर क्रॉप' के तहत जल उपयोग दक्षता बढ़ाना एवं सीमित पानी में अधिक उपज प्राप्त करना।",
+    benefits: ["ड्रिप एवं स्प्रिंकलर सिस्टम पर 55% तक अनुदान", "40-50% तक पानी व 25-30% तक उर्वरक की बचत", "फसल उत्पादन में 35% से 40% तक की बढ़ोत्तरी"],
+    subsidyDetails: "लघु/सीमांत किसानों को 55% एवं अन्य किसानों को 45% तक सब्सिडी",
+    sector: "सूक्ष्म सिंचाई (Micro Irrigation)",
+    governmentLevel: "Central",
+    eligibility: "सभी किसान जिनके पास स्वयं की कृषि भूमि एवं सिंचाई हेतु सुनिश्चित जल स्रोत उपलब्ध हो।",
+    requiredDocuments: ["आधार कार्ड", "खसरा-खतौनी की नकल", "बैंक पासबुक", "बिजली कनेक्शन बिल या पंप विवरण"],
+    howToApply: "उद्यानिकी विभाग के आधिकारिक पोर्टल (mpfsts.mp.gov.in) अथवा pmksy.gov.in पर ऑनलाइन आवेदन करें।",
+    link: "https://pmksy.gov.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "किसान क्रेडिट कार्ड योजना (Kisan Credit Card - KCC)",
+    description: "मात्र 4% की रियायती वार्षिक ब्याज दर पर ₹3 लाख तक का आसान और त्वरित संस्थागत कृषि ऋण।",
+    objective: "किसानों को स्थानीय साहूकारों के भारी ब्याज के चंगुल से मुक्त कर समय पर कम लागत पर कार्यशील पूंजी उपलब्ध कराना।",
+    benefits: ["₹3 लाख तक के अल्पकालिक कृषि ऋण पर 7% सामान्य ब्याज", "समय पर ऋण चुकाने पर 3% की अतिरिक्त ब्याज छूट, प्रभावी दर मात्र 4%", "पशुपालन एवं मत्स्य पालन हेतु ₹2 लाख तक का KCC ऋण उपलब्ध"],
+    subsidyDetails: "समय पर चुकता करने पर केंद्र सरकार द्वारा 3% वार्षिक ब्याज अनुदान (Interest Subvention)",
+    sector: "रियायती संस्थागत ऋण",
+    governmentLevel: "Central",
+    eligibility: "सभी व्यक्तिगत किसान, संयुक्त काश्तकार, पट्टेदार, पशुपालक एवं मछली पालक।",
+    requiredDocuments: ["आधार कार्ड", "पैन कार्ड", "जमीन के राजस्व अभिलेख", "बैंक शाखा से नो-ड्यूज प्रमाण पत्र", "पासपोर्ट फोटो"],
+    howToApply: "अपनी स्थानीय बैंक शाखा, प्राथमिक कृषि सहकारी समिति (PACS) अथवा CSC से KCC फॉर्म भरें।",
+    link: "https://www.myscheme.gov.in/schemes/kcc",
+    lastUpdated: "2026"
+  },
+  {
+    title: "मृदा स्वास्थ्य कार्ड योजना (Soil Health Card Scheme)",
+    description: "खेत की मिट्टी का निःशुल्क वैज्ञानिक 12-पैरामीटर रासायनिक परीक्षण एवं पोषक तत्व स्वास्थ्य कार्ड।",
+    objective: "किसानों को मिट्टी की वास्तविक उर्वरा शक्ति से अवगत कराना और संतुलित खाद-उर्वरक उपयोग को बढ़ावा देना।",
+    benefits: ["मिट्टी के 12 मुख्य पोषक तत्वों की विस्तृत जांच रिपोर्ट", "यूरिया, डीएपी, पोटाश व जिंक के अंधाधुंध उपयोग पर रोक", "खाद लागत में 20-25% की बचत और मिट्टी के स्वास्थ्य में सुधार"],
+    subsidyDetails: "मिट्टी नमूना संग्रहण एवं प्रयोगशाला परीक्षण पूर्णतः निःशुल्क",
+    sector: "मृदा परीक्षण एवं उर्वरक प्रबंधन",
+    governmentLevel: "Central",
+    eligibility: "देश के सभी भू-स्वामी एवं काश्तकार किसान।",
+    requiredDocuments: ["आधार कार्ड", "खेत का खसरा नंबर", "खेत से एकत्र मिट्टी का प्रामाणिक नमूना"],
+    howToApply: "नजदीकी कृषि विज्ञान केंद्र (KVK), ग्रामीण कृषि विस्तार अधिकारी अथवा soilhealth.dac.gov.in पर संपर्क करें।",
+    link: "https://soilhealth.dac.gov.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "परंपरागत कृषि विकास योजना (PKVY - प्राकृतिक व जैविक खेती)",
+    description: "जैविक एवं प्राकृतिक खेती को प्रोत्साहित करने हेतु ₹50,000 प्रति हेक्टेयर की 3-वर्षीय वित्तीय सहायता।",
+    objective: "पर्यावरण अनुकूल रासायनिक-मुक्त खेती को बढ़ावा देना और किसानों को प्रमाणित जैविक उत्पाद के प्रीमियम मूल्य दिलाना।",
+    benefits: ["प्रति हेक्टेयर ₹50,000 की वित्तीय सहायता", "निःशुल्क जैविक प्रमाणीकरण (PGS-India Certification)", "जैविक उत्पादों के विपणन व पैकेजिंग में सहायता"],
+    subsidyDetails: "3 वर्षों की अवधि में प्रति हेक्टेयर ₹50,000 का प्रत्यक्ष अनुदान",
+    sector: "जैविक एवं प्राकृतिक खेती",
+    governmentLevel: "Central",
+    eligibility: "किसानों के समूह (कम से कम 20-50 किसानों का क्लस्टर - 20 हेक्टेयर भूमि)।",
+    requiredDocuments: ["आधार कार्ड", "समूह पंजीयन दस्तावेज", "खसरा नकल", "बैंक खाता विवरण"],
+    howToApply: "jaivikkheti.in पोर्टल अथवा उप-संचालक किसान कल्याण एवं कृषि विकास कार्यालय से संपर्क करें।",
+    link: "https://jaivikkheti.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "मुख्यमंत्री सोलर पंप योजना - मध्य प्रदेश (MP CM Solar Pump)",
+    description: "मध्य प्रदेश के अविद्युतीकृत एवं सुदूर खेतों में सिंचाई हेतु 90% तक की भारी राज्य सब्सिडी।",
+    objective: "बिजली लाइन से दूर स्थित खेतों में सिंचाई सुविधा पहुंचाना और सिंचाई में डीजल का खर्च पूरी तरह समाप्त करना।",
+    benefits: ["1 HP से 7.5 HP क्षमता के उच्च गुणवत्ता सोलर पंप", "अनुसूचित जाति/जनजाति के किसानों को 90% तक अनुदान, सामान्य किसानों को 80-85% तक अनुदान"],
+    subsidyDetails: "पंप लागत पर 80% से 90% तक राज्य शासन द्वारा देय सब्सिडी",
+    sector: "सिंचाई एवं सौर ऊर्जा (MP State)",
+    governmentLevel: "State",
+    eligibility: "मध्य प्रदेश के मूल निवासी किसान जिनके खेत पर बिजली कनेक्शन न हो और स्थाई जल स्रोत हो।",
+    requiredDocuments: ["मध्य प्रदेश मूल निवासी प्रमाण पत्र", "खसरा-खतौनी नकल", "आधार कार्ड", "बैंक पासबुक", "जल स्रोत शपथ पत्र"],
+    howToApply: "cmsolarpump.mp.gov.in पोर्टल पर ऑनलाइन आवेदन जमा करें।",
+    link: "https://cmsolarpump.mp.gov.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "भावांतर भुगतान योजना - मध्य प्रदेश (Bhavantar Bhugtan)",
+    description: "मंडी में कृषि उपज का भाव न्यूनतम समर्थन मूल्य (MSP) से नीचे गिरने पर अंतर की राशि का सीधा भुगतान।",
+    objective: "मंडी में बाजार भाव में भारी उतार-चढ़ाव होने पर किसानों को घाटे से सुरक्षित रखना।",
+    benefits: ["घोषित मॉडल भाव और विक्रय भाव के अंतर की राशि सीधे बैंक खाते में", "बिना सरकारी खरीद लाइन में लगे अपनी उपज स्थानीय मंडी में बेचने की छूट", "सोयाबीन, मक्का, उड़द, मूंग आदि अधिसूचित फसलों पर प्रभावी सुरक्षा"],
+    subsidyDetails: "MSP और विक्रय मूल्य के अंतर (Deficit) की 100% भरपाई राज्य सरकार द्वारा",
+    sector: "मूल्य सुरक्षा एवं मंडी सहायता",
+    governmentLevel: "State",
+    eligibility: "मध्य प्रदेश के किसान जिन्होंने ई-उपार्जन पोर्टल पर समय पर अपनी फसल की बुवाई दर्ज कराई हो।",
+    requiredDocuments: ["ई-उपार्जन पंजीयन पावती", "मंडी विक्रय पर्ची व तौल पर्ची (अनुज्ञा पत्र)", "आधार कार्ड", "बैंक पासबुक"],
+    howToApply: "फसल बुवाई के समय mpeuparjan.nic.in पोर्टल पर पंजीयन कराएं और उपज अधिसूचित मंडी में बेचें।",
+    link: "https://mpeuparjan.nic.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "राष्ट्रीय पशुधन मिशन (National Livestock Mission - NLM)",
+    description: "बकरी पालन, भेड़ पालन, कुक्कुट (पोल्ट्री) व चारा यूनिट स्थापना पर 50% तक कैपिटल सब्सिडी।",
+    objective: "ग्रामीण क्षेत्रों में पशुपालन आधारित स्वरोजगार सृजित करना और किसानों की अतिरिक्त नियमित आय बढ़ाना।",
+    benefits: ["बकरी/भेड़/मुर्गी फार्म स्थापना हेतु 50% कैपिटल सब्सिडी (अधिकतम ₹25 लाख से ₹50 लाख तक)", "चारा उत्पादन, साइलेज मेकिंग एवं दाना निर्माण यूनिट्स पर अनुदान"],
+    subsidyDetails: "परियोजना लागत पर 50% सीधी पूंजीगत सब्सिडी (Capital Subsidy)",
+    sector: "पशुपालन एवं स्वरोजगार",
+    governmentLevel: "Central",
+    eligibility: "व्यक्तिगत किसान, स्वयं सहायता समूह (SHG), एफपीओ (FPO) एवं कृषि उद्यमी।",
+    requiredDocuments: ["आधार कार्ड", "पैन कार्ड", "भूमि स्वामित्व/लीज दस्तावेज", "बैंक सैंक्शन लेटर", "डिटेल्ड प्रोजेक्ट रिपोर्ट (DPR)"],
+    howToApply: "nlm.udyamimitra.in पोर्टल पर ऑनलाइन प्रोजेक्ट अपलोड कर आवेदन करें।",
+    link: "https://nlm.udyamimitra.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "प्रधानमंत्री मत्स्य संपदा योजना (PMMSY - मछली पालन)",
+    description: "नया तालाब निर्माण, बायोफ्लॉक, आरएएस (RAS) व फीड मिल पर 40% से 60% तक अनुदान।",
+    objective: "नीली क्रांति को गति देना, मत्स्य उत्पादन बढ़ाना और ग्रामीण युवाओं के लिए उच्च आय का सृजन करना।",
+    benefits: ["मछली पालन हेतु तालाब निर्माण व पट्टे पर अनुदान", "महिला व SC/ST लाभार्थियों को 60% तक सब्सिडी, सामान्य वर्ग को 40% सब्सिडी"],
+    subsidyDetails: "सामान्य वर्ग हेतु 40% एवं महिला/SC/ST हेतु 60% तक सरकारी अनुदान",
+    sector: "मत्स्य पालन (Fisheries)",
+    governmentLevel: "Central",
+    eligibility: "व्यक्तिगत किसान, मत्स्य पालक, सहकारी समितियां एवं मछली पालन में रुचि रखने वाले युवा।",
+    requiredDocuments: ["आधार कार्ड", "भूमि स्वामित्व या लीज एग्रीमेंट", "बैंक पासबुक", "परियोजना प्रस्ताव"],
+    howToApply: "pmmsy.dof.gov.in पोर्टल पर ऑनलाइन आवेदन करें अथवा जिला मत्स्य अधिकारी कार्यालय से संपर्क करें।",
+    link: "https://pmmsy.dof.gov.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "कृषि अवसंरचना कोष (Agriculture Infrastructure Fund - AIF)",
+    description: "कोल्ड स्टोरेज, वेयरहाउस, प्राथमिक ग्रेडिंग-पैकेजिंग यूनिट हेतु ₹2 करोड़ तक के ऋण पर 3% ब्याज छूट।",
+    objective: "फसल कटाई के बाद होने वाले 15-20% नुकसान को रोकना एवं स्थानीय स्तर पर भंडारण अवसंरचना तैयार करना।",
+    benefits: ["₹2 करोड़ तक के ऋण पर 3% वार्षिक ब्याज छूट", "क्रेडिट गारंटी कवरेज (CGTMSE) बिना भारी बंधक के", "वेयरहाउस, पैक-हाउस, राइपनिंग चेंबर, दाल मिल आदि स्थापना में सहायता"],
+    subsidyDetails: "3% वार्षिक ब्याज अनुदान (Interest Subvention) एवं क्रेडिट गारंटी",
+    sector: "कृषि अवसंरचना एवं पोस्ट-हार्वेस्ट",
+    governmentLevel: "Central",
+    eligibility: "किसान, प्राथमिक कृषि साख समितियां (PACS), एफपीओ (FPO), कृषि स्टार्टअप एवं उद्यमी।",
+    requiredDocuments: ["पैन कार्ड", "आधार कार्ड", "जमीन के दस्तावेज", "प्रोजेक्ट रिपोर्ट (DPR)", "बैंक सैंक्शन लेटर"],
+    howToApply: "agriinfra.dac.gov.in पोर्टल पर ऑनलाइन रजिस्ट्रेशन एवं प्रोजेक्ट प्रस्तुत करें।",
+    link: "https://agriinfra.dac.gov.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "पीएम किसान मानधन योजना (PM Kisan Maandhan Pension)",
+    description: "लघु व सीमांत किसानों को 60 वर्ष की आयु के बाद ₹3,000 प्रति माह (₹36,000 वार्षिक) सुनिश्चित पेंशन।",
+    objective: "वृद्धावस्था में किसानों को सामाजिक व वित्तीय सुरक्षा प्रदान करना ताकि वे आत्मनिर्भर जीवन जी सकें।",
+    benefits: ["60 वर्ष की उम्र से ₹3,000 निश्चित मासिक पेंशन", "किसान की मृत्यु पर जीवनसाथी को 50% पारिवारिक पेंशन (₹1,500/माह)", "समान अंशदान केंद्र सरकार द्वारा"],
+    subsidyDetails: "50% मासिक अंशदान केंद्र सरकार द्वारा वहन किया जाता है",
+    sector: "सामाजिक सुरक्षा एवं पेंशन",
+    governmentLevel: "Central",
+    eligibility: "18 से 40 वर्ष की आयु वाले लघु एवं सीमांत किसान जिनके पास अधिकतम 2 हेक्टेयर भूमि हो।",
+    requiredDocuments: ["आधार कार्ड", "बचत बैंक खाता/जनधन खाता पासबुक", "खसरा-खतौनी की प्रति"],
+    howToApply: "नजदीकी CSC केंद्र पर जाकर या maandhan.in पोर्टल पर सीधे पंजीकरण कराएं।",
+    link: "https://maandhan.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "गोबर-धन योजना एवं बायोगैस संयंत्र अनुदान (GOBARdhan Scheme)",
+    description: "बायोगैस संयंत्र लगाने पर ₹14,000 से ₹50,000 तक की सीधी सब्सिडी और स्वच्छ ऊर्जा व जैविक खाद।",
+    objective: "पशुधन अपशिष्ट व गोबर का सदुपयोग कर स्वच्छ रसोई गैस बनाना और उच्च कोटि की जैविक स्लरी खाद प्राप्त करना।",
+    benefits: ["घरेलू बायोगैस संयंत्र स्थापना पर प्रत्यक्ष नकद सब्सिडी", "एलपीजी सिलेंडर पर होने वाले मासिक खर्च में भारी बचत", "खेतों के लिए पोषक जैविक स्लरी"],
+    subsidyDetails: "घरेलू संयंत्र पर ₹14,000 से ₹25,000 एवं सामुदायिक संयंत्रों पर ₹50,000+ तक अनुदान",
+    sector: "स्वच्छ ऊर्जा एवं अपशिष्ट प्रबंधन",
+    governmentLevel: "Central",
+    eligibility: "सभी पशुपालक किसान परिवार जिनके पास कम से कम 2 से 4 दुधारू पशु उपलब्ध हों।",
+    requiredDocuments: ["आधार कार्ड", "बैंक पासबुक", "पशु उपलब्धता प्रमाण", "आवासीय/कृषि भूमि प्रमाण"],
+    howToApply: "gobardhan.co.in पोर्टल अथवा जिला पंचायत के स्वच्छ भारत मिशन कार्यालय में संपर्क करें।",
+    link: "https://gobardhan.co.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "एकीकृत बागवानी विकास मिशन (MIDH - फल, फूल व सब्जी)",
+    description: "पॉलीहाउस, शेडनेट हाउस, फलदार बगीचे लगाने व संरक्षित खेती पर 50% तक सरकारी अनुदान।",
+    objective: "पारंपरिक फसलों के साथ बागवानी को जोड़कर प्रति एकड़ आमदनी 2 से 3 गुना बढ़ाना।",
+    benefits: ["पॉलीहाउस व शेडनेट निर्माण पर 50% सब्सिडी", "नए बगीचे लगाने पर पौधे व खाद हेतु अनुदान", "मशरूम उत्पादन व कोल्ड रूम पर सहायता"],
+    subsidyDetails: "लागत मानकों पर 40% से 50% तक प्रत्यक्ष वित्तीय सहायता",
+    sector: "बागवानी एवं संरक्षित खेती (Horticulture)",
+    governmentLevel: "Central",
+    eligibility: "वे सभी किसान जो फल, सब्जी, फूल, मसाला या औषधीय फसलों की खेती करना चाहते हैं।",
+    requiredDocuments: ["आधार कार्ड", "खसरा-खतौनी नकल (B-1)", "मिट्टी एवं जल परीक्षण रिपोर्ट", "बैंक खाता विवरण"],
+    howToApply: "राज्य उद्यानिकी एवं खाद्य प्रसंस्करण विभाग (mpfsts.mp.gov.in) पर ऑनलाइन पंजीयन करें।",
+    link: "https://midh.gov.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "राष्ट्रीय मधुमक्खी पालन एवं शहद मिशन (NBHM)",
+    description: "मधुमक्खी पालन (Beekeeping) के बक्से, छत्ते व शहद प्रसंस्करण इकाई पर 50% से 75% तक अनुदान।",
+    objective: "फसलों में परागण (Pollination) बढ़ाकर उत्पादन बढ़ाना और शहद व मोम बेचकर किसानों को अतिरिक्त आमदनी देना।",
+    benefits: ["मधुमक्खी बक्से व कॉलोनियों पर 50-75% तक अनुदान", "सरसों, सूर्यमुखी आदि फसलों की पैदावार में 20-30% की प्राकृतिक वृद्धि", "शहद निष्कासन यंत्र एवं पैकेजिंग यूनिट पर सब्सिडी"],
+    subsidyDetails: "बक्से और उपकरणों पर 50% से 75% तक सरकारी सहायता",
+    sector: "मधुमक्खी पालन एवं अतिरिक्त आय",
+    governmentLevel: "Central",
+    eligibility: "लघु, सीमांत, भूमिहीन किसान एवं ग्रामीण युवा।",
+    requiredDocuments: ["आधार कार्ड", "बैंक पासबुक", "प्रशिक्षण प्रमाण पत्र (KVK द्वारा)", "पासपोर्ट फोटो"],
+    howToApply: "madhukranti.in पोर्टल अथवा राष्ट्रीय मधुमक्खी बोर्ड (NBB) पर ऑनलाइन आवेदन करें।",
+    link: "https://nbb.gov.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "ई-राष्ट्रीय कृषि बाजार (e-NAM - इलेक्ट्रॉनिक राष्ट्रीय कृषि बाजार)",
+    description: "पूरे भारत की 1300+ मंडियों से सीधा जुड़ाव और ऑनलाइन पारदर्शी बोली द्वारा उपज का सर्वोत्तम मूल्य।",
+    objective: "किसानों को स्थानीय व्यापारियों के सीमित दायरे से बाहर निकालकर देशव्यापी खुले बाजार में उच्चतम दाम दिलाना।",
+    benefits: ["देशभर के सत्यापित खरीदारों से ऑनलाइन प्रतिस्पर्धी बोलियां", "मंडी में निःशुल्क वैज्ञानिक गुणवत्ता जांच", "उपज बिकते ही उसी दिन सीधे बैंक खाते में ऑनलाइन भुगतान", "कोई अनुचित कमीशन नहीं"],
+    subsidyDetails: "मंडी में पंजीयन, गुणवत्ता जांच एवं ई-नाम प्लेटफॉर्म पूर्णतः निःशुल्क",
+    sector: "डिजिटल विपणन एवं पारदर्शी व्यापार",
+    governmentLevel: "Central",
+    eligibility: "देश का कोई भी किसान जो अपनी कृषि उपज उचित मूल्य पर बेचना चाहता है।",
+    requiredDocuments: ["आधार कार्ड", "बैंक खाता पासबुक", "मंडी प्रवेश गेट पास"],
+    howToApply: "enam.gov.in पर ऑनलाइन या किसी भी अधिसूचित ई-नाम कृषि उपज मंडी में निःशुल्क किसान पंजीकरण कराएं।",
+    link: "https://enam.gov.in",
+    lastUpdated: "2026"
+  },
+  {
+    title: "मध्य प्रदेश 0% ब्याज फसल ऋण योजना",
+    description: "प्राथमिक कृषि साख सहकारी सोसायटियों (PACS) के माध्यम से किसानों को 0% ब्याज पर अल्पकालिक फसल ऋण।",
+    objective: "किसानों को खरीफ एवं रबी फसल की बुवाई हेतु बिना किसी ब्याज भार के खाद, बीज एवं नकद राशि उपलब्ध कराना।",
+    benefits: ["शून्य प्रतिशत (0%) ब्याज दर पर खाद, बीज व कीटनाशक", "समय पर अदायगी करने पर कोई ब्याज नहीं देना होता", "ऋण नवीनीकरण की सुगम व्यवस्था"],
+    subsidyDetails: "ऋण पर लगने वाले संपूर्ण ब्याज की भरपाई मध्य प्रदेश शासन द्वारा सोसायटियों को की जाती है",
+    sector: "शून्य ब्याज दर फसल ऋण (MP State)",
+    governmentLevel: "State",
+    eligibility: "मध्य प्रदेश के सहकारी समितियों (PACS) के सदस्य किसान।",
+    requiredDocuments: ["सोसायटी ऋण पुस्तिका", "आधार कार्ड", "खसरा नकल (B-1)", "समग्र आईडी"],
+    howToApply: "अपनी ग्राम पंचायत से जुड़ी प्राथमिक कृषि साख सहकारी समिति (PACS) से संपर्क कर ऋण प्राप्त करें।",
+    link: "https://mpkrishi.mp.gov.in",
+    lastUpdated: "2026"
+  }
+];
+
+function normalizeSchemeTitle(str: string): string {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .replace(/[^\w\u0900-\u097F]/g, '')
+    .trim();
+}
+
+/**
+ * Smart Scheme Merger for Client
+ * Ensures that if a new scheme is found during daily search, it is added to the list,
+ * and if no new scheme is found, all existing recent schemes remain 100% intact!
+ */
+export function mergeClientSchemes(existingList: Scheme[] = [], incomingList: Scheme[] = []): Scheme[] {
+  const mergedMap = new Map<string, Scheme>();
+  const normalizedEntries: { norm: string; item: Scheme }[] = [];
+
+  for (const item of existingList) {
+    const norm = normalizeSchemeTitle(item.title);
+    if (!norm) continue;
+    mergedMap.set(norm, { ...item });
+    normalizedEntries.push({ norm, item });
+  }
+
+  for (const incoming of incomingList) {
+    const incomingNorm = normalizeSchemeTitle(incoming.title);
+    if (!incomingNorm) continue;
+
+    let matchedNorm: string | null = null;
+    if (mergedMap.has(incomingNorm)) {
+      matchedNorm = incomingNorm;
+    } else {
+      for (const entry of normalizedEntries) {
+        if (
+          (incomingNorm.length >= 6 && entry.norm.includes(incomingNorm)) ||
+          (entry.norm.length >= 6 && incomingNorm.includes(entry.norm))
+        ) {
+          matchedNorm = entry.norm;
+          break;
+        }
+      }
+    }
+
+    if (matchedNorm) {
+      const existing = mergedMap.get(matchedNorm)!;
+      mergedMap.set(matchedNorm, {
+        ...existing,
+        description: incoming.description?.length > (existing.description?.length || 0) ? incoming.description : existing.description,
+        objective: incoming.objective || existing.objective,
+        benefits: Array.isArray(incoming.benefits) && incoming.benefits.length > 0 ? incoming.benefits : existing.benefits,
+        subsidyDetails: incoming.subsidyDetails || existing.subsidyDetails,
+        sector: incoming.sector || existing.sector,
+        governmentLevel: incoming.governmentLevel || existing.governmentLevel,
+        eligibility: incoming.eligibility || existing.eligibility,
+        requiredDocuments: Array.isArray(incoming.requiredDocuments) && incoming.requiredDocuments.length > 0 ? incoming.requiredDocuments : existing.requiredDocuments,
+        howToApply: incoming.howToApply || existing.howToApply,
+        link: incoming.link || existing.link,
+        lastUpdated: incoming.lastUpdated || existing.lastUpdated || new Date().toISOString()
+      });
+    } else {
+      const newEntry: Scheme = {
+        ...incoming,
+        isNew: true,
+        lastUpdated: new Date().toISOString()
+      };
+      mergedMap.set(incomingNorm, newEntry);
+      normalizedEntries.unshift({ norm: incomingNorm, item: newEntry });
+    }
+  }
+
+  return Array.from(mergedMap.values());
+}
+
+/**
+ * Fetch Government Schemes
+ * - Unified across all user phones via Central Schemes Hub (/api/schemes/all).
+ * - Offline-first via localStorage.
+ * - Daily search with incremental merge: newly found schemes get added, recent schemes remain preserved!
+ */
 export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = false): Promise<Scheme[]> => {
   const now = new Date();
-  const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-
-  const CACHE_KEY = 'agri_schemes_cache';
-  const CACHE_TIME_KEY = 'agri_schemes_cache_time';
-  // 24 Hours cache duration to prevent exhausting Gemini AI quotas, with instant local-first response
-  const CACHE_DURATION = 24 * 60 * 60 * 1000;
-
   const cachedData = localStorage.getItem(CACHE_KEY);
   const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
 
+  let currentLocalSchemes: Scheme[] = [];
+  if (cachedData) {
+    try {
+      const parsed = JSON.parse(cachedData);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        currentLocalSchemes = parsed;
+      }
+    } catch {}
+  }
+  if (currentLocalSchemes.length === 0) {
+    currentLocalSchemes = VERIFIED_OFFLINE_SCHEMES;
+  }
+
+  // 1. Instant Cache Hit for regular users (zero latency, zero quota)
   if (!forceRefresh && cachedData && cachedTime) {
     const age = now.getTime() - parseInt(cachedTime);
-    if (age < CACHE_DURATION) {
-      try {
-        return JSON.parse(cachedData);
-      } catch (e) {
-        console.warn("Error parsing cached schemes:", e);
-      }
+    if (age < CACHE_DURATION && currentLocalSchemes.length > 0) {
+      return currentLocalSchemes;
     }
   }
 
-  // 1. Centralized Schemes Hub Check (Like Mandi Bhav)
-  // Check if server or another farmer has already synced verified government schemes
-  if (!forceRefresh) {
-    try {
-      const srvRes = await fetch('/api/schemes/all');
-      if (srvRes.ok) {
-        const srvJson = await srvRes.json();
-        if (srvJson.success && Array.isArray(srvJson.items) && srvJson.items.length > 0) {
-          console.log(`[Central Schemes Hub Hit] Loaded ${srvJson.items.length} schemes from server cache`);
-          localStorage.setItem(CACHE_KEY, JSON.stringify(srvJson.items));
-          localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
-          return srvJson.items;
+  // 2. Centralized Schemes Hub Check
+  // Fetches verified schemes from backend server so all users share the exact same synchronized library
+  try {
+    const url = forceRefresh ? '/api/schemes/all?forceRefresh=true' : '/api/schemes/all';
+    const srvRes = await fetch(url);
+    if (srvRes.ok) {
+      const srvJson = await srvRes.json();
+      if (srvJson.success && Array.isArray(srvJson.items) && srvJson.items.length > 0) {
+        const mergedWithLocal = mergeClientSchemes(currentLocalSchemes, srvJson.items);
+        localStorage.setItem(CACHE_KEY, JSON.stringify(mergedWithLocal));
+        localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
+
+        // If forceRefresh wasn't requested or user has no API key, server response is sufficient
+        if (!forceRefresh || !userApiKey?.trim()) {
+          return mergedWithLocal;
         }
       }
-    } catch (srvErr) {
-      console.warn('[Central Schemes Hub] Server check skipped or offline:', srvErr);
     }
+  } catch (srvErr) {
+    console.warn('[Central Schemes Hub] Server fetch skipped or offline:', srvErr);
   }
 
-  const fallbackData: Scheme[] = [
-    {
-      title: "पीएम-किसान सम्मान निधि (PM-Kisan)",
-      description: "किसानों को प्रति वर्ष 6000 रुपये की आर्थिक सहायता दी जाती है।",
-      objective: "सीमांत और छोटे किसानों को आय सहायता प्रदान करना।",
-      benefits: ["2000 रुपये की 3 किस्तें", "सीधे बैंक खाते में पैसा"],
-      subsidyDetails: "100% केंद्र सरकार द्वारा वित्त पोषित",
-      sector: "वित्तीय सहायता (Direct Benefit Transfer)",
-      governmentLevel: "Central",
-      eligibility: "सभी भूमिधारक किसान परिवार",
-      requiredDocuments: ["आधार कार्ड", "खतौनी/राजस्व दस्तावेज", "बैंक खाता विवरण"],
-      howToApply: "पीएम-किसान पोर्टल या CSC केंद्र के माध्यम से पंजीकरण करें।"
-    },
-    {
-      title: "मुख्यमंत्री किसान कल्याण योजना (MP CM-Kisan)",
-      description: "मध्य प्रदेश सरकार द्वारा पीएम-किसान के लाभार्थियों को अतिरिक्त आर्थिक सहायता।",
-      objective: "राज्य के किसानों की आर्थिक स्थिति में सुधार करना।",
-      benefits: ["4000 रुपये अतिरिक्त आर्थिक सहायता", "पीएम-किसान के साथ जुड़ाव"],
-      subsidyDetails: "राज्य सरकार द्वारा अतिरिक्त भुगतान",
-      sector: "वित्तीय सहायता",
-      governmentLevel: "State (MP)",
-      eligibility: "पीएम-किसान योजना के पात्र किसान",
-      requiredDocuments: ["पीएम-किसान आईडी", "बैंक विवरण"],
-      howToApply: "पीएम-किसान की पात्रता के आधार पर स्वतः लाभ।"
+  // 3. User-Initiated Deep AI Search (Requires User Gemini API Key)
+  // Strictly obeys Rule 5: Locked models gemini-3.6-flash and gemini-3.5-flash
+  const ai = getAI(userApiKey);
+  if (!ai) {
+    // If user has no API key, return the merged verified schemes
+    if (currentLocalSchemes.length > 0) {
+      return currentLocalSchemes;
     }
-  ];
+    return VERIFIED_OFFLINE_SCHEMES;
+  }
 
   try {
-    const ai = getAI(userApiKey);
-    if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
+    const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+    const prompt = `आज ${dateStr} तक की जानकारी के अनुसार भारत सरकार (Central) और मध्य प्रदेश सरकार (MP State) की नवीनतम कृषि योजनाओं (Government Schemes for Farmers), सब्सिडी नियमों, और नए कल्याणकारी कार्यक्रमों की सूची प्रदान करें।
     
-    const prompt = `आज ${dateStr} तक की जानकारी के अनुसार भारत (Central Govt) और मध्य प्रदेश (MP State Govt) की नवीनतम और सबसे महत्वपूर्ण 20 कृषि योजनाओं (Government Schemes for Farmers) की बहुत ही विस्तृत और प्रोफेशनल सूची प्रदान करें।
-    
-    प्रत्येक योजना में निम्नलिखित जानकारी शामिल होनी चाहिए (Strictly JSON format):
+    प्रत्येक योजना का विवरण शुद्ध JSON Array प्रारूप में दें:
     - title: योजना का पूरा नाम
     - governmentLevel: 'Central' या 'State'
     - description: संक्षिप्त विवरण
-    - objective: योजना का मुख्य उद्देश्य (विस्तार से)
-    - benefits: किसान को मिलने वाले लाभ (Array of strings)
-    - subsidyDetails: सब्सिडी या वित्तीय सहायता का विवरण (जैसे 50% सब्सिडी, ट्रैक्टर पर 1 लाख छूट आदि)
-    - sector: संबंधित क्षेत्र (जैस Infrastructure, Irrigation, Solar, Tractor, Insurance, Fertilizer, Dairy आदि)
-    - eligibility: कौन आवेदन कर सकता है (पात्रता)
+    - objective: मुख्य उद्देश्य (विस्तार से)
+    - benefits: लाभ (Array of strings)
+    - subsidyDetails: सब्सिडी विवरण (जैसे 50% अनुदान, ट्रैक्टर छूट आदि)
+    - sector: संबंधित क्षेत्र (Irrigation, Solar, Machinery, Credit, Organic, Insurance आदि)
+    - eligibility: पात्रता
     - requiredDocuments: आवश्यक दस्तावेज (Array of strings)
     - howToApply: आवेदन कैसे करें
-    - link: आधिकारिक सरकारी वेबसाइट लिंक
+    - link: आधिकारिक वेबसाइट लिंक
     
     नियम:
-    - डेटा केवल JSON ऐरे फॉर्मैट में हो।
-    - सभी जानकारी पूरी तरह शुद्ध हिंदी में हो।
-    - 'benefits' और 'requiredDocuments' स्ट्रिंग ऐरे (Array) होने चाहिए।
-    - जितनी ज्यादा हो सके केंद्र और राज्य दोनों की योजनाओं को कवर करें।`;
+    - डेटा केवल शुद्ध JSON ऐरे फॉर्मैट में हो।
+    - सभी जानकारी पूरी तरह शुद्ध व प्रामाणिक हिंदी में हो।
+    - 'benefits' और 'requiredDocuments' स्ट्रिंग ऐरे (Array) होने चाहिए।`;
 
-    const candidateModels = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview"];
-    let response: any = null;
+    // Strictly adhere to Rule 5: Primary gemini-3.6-flash, Fallback gemini-3.5-flash
+    const candidateModels = ["gemini-3.6-flash", "gemini-3.5-flash"];
+    let responseText: string | null = null;
     let lastError: any = null;
 
     for (const model of candidateModels) {
-      // 1. Try with search grounding
       try {
-        response = await ai.models.generateContent({
+        const resp = await ai.models.generateContent({
           model,
           contents: prompt,
           config: {
-            systemInstruction: "You are an expert Government Scheme Consultant for Indian Farmers representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Provide professional, detailed, and current schemes in a structured JSON format.",
-            tools: [{ googleSearch: {} }],
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: "ARRAY" as any,
-              items: {
-                type: "OBJECT" as any,
-                properties: {
-                  title: { type: "STRING" },
-                  governmentLevel: { type: "STRING" },
-                  description: { type: "STRING" },
-                  objective: { type: "STRING" },
-                  benefits: { type: "ARRAY" as any, items: { type: "STRING" } },
-                  subsidyDetails: { type: "STRING" },
-                  sector: { type: "STRING" },
-                  eligibility: { type: "STRING" },
-                  requiredDocuments: { type: "ARRAY" as any, items: { type: "STRING" } },
-                  howToApply: { type: "STRING" },
-                  link: { type: "STRING" }
-                },
-                required: ["title", "governmentLevel", "description", "objective", "benefits", "subsidyDetails", "sector", "eligibility", "requiredDocuments", "howToApply"]
-              }
-            }
+            systemInstruction: "You are an expert Government Scheme Consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Return valid JSON array containing verified Indian and MP agricultural schemes.",
+            responseMimeType: "application/json"
           }
         });
-        if (response?.text) break;
-      } catch (groundingErr: any) {
-        // 2. Try without search grounding
-        try {
-          response = await ai.models.generateContent({
-            model,
-            contents: prompt,
-            config: {
-              systemInstruction: "You are an expert Government Scheme Consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Provide 20 most important agri schemes in JSON format using latest knowledge.",
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: "ARRAY" as any,
-                items: {
-                  type: "OBJECT" as any,
-                  properties: {
-                    title: { type: "STRING" },
-                    governmentLevel: { type: "STRING" },
-                    description: { type: "STRING" },
-                    objective: { type: "STRING" },
-                    benefits: { type: "ARRAY" as any, items: { type: "STRING" } },
-                    subsidyDetails: { type: "STRING" },
-                    sector: { type: "STRING" },
-                    eligibility: { type: "STRING" },
-                    requiredDocuments: { type: "ARRAY" as any, items: { type: "STRING" } },
-                    howToApply: { type: "STRING" },
-                    link: { type: "STRING" }
-                  },
-                  required: ["title", "governmentLevel", "description", "objective", "benefits", "subsidyDetails", "sector", "eligibility", "requiredDocuments", "howToApply"]
-                }
-              }
-            }
-          });
-          if (response?.text) break;
-        } catch (mErr: any) {
-          lastError = mErr;
-          console.warn(`[Schemes] Candidate model ${model} notice:`, mErr?.message || mErr);
+        if (resp.text) {
+          responseText = resp.text;
+          break;
         }
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[Client Schemes Search] Model ${model} failed, trying fallback:`, err?.message || err);
       }
     }
 
-    if (!response?.text) {
-      throw lastError || new Error("योजनाओं का डेटा प्राप्त नहीं हो सका");
+    if (!responseText) {
+      throw lastError || new Error("सरकारी योजनाएं लोड नहीं हो सकीं");
     }
 
-    const data = JSON.parse(response.text);
+    const discoveredSchemes: Scheme[] = JSON.parse(responseText);
 
-    if (Array.isArray(data) && data.length > 0) {
-      localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+    if (Array.isArray(discoveredSchemes) && discoveredSchemes.length > 0) {
+      // INCREMENTAL MERGE:
+      // Merge newly discovered schemes with all existing recent schemes!
+      // New schemes are added, existing schemes are enriched, none are lost!
+      const merged = mergeClientSchemes(currentLocalSchemes, discoveredSchemes);
+
+      localStorage.setItem(CACHE_KEY, JSON.stringify(merged));
       localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
 
-      // Asynchronously upload to Central Hub so all other users get instant access!
+      // Broadcast to Central Hub asynchronously so ALL other 10 lakh users' devices get them!
       try {
         fetch('/api/schemes/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: data })
-        }).catch(err => console.warn('[Central Schemes Hub] Background sync error:', err));
+          body: JSON.stringify({ items: merged })
+        }).catch(err => console.warn('[Central Schemes Hub] Background sync notice:', err));
       } catch {}
 
-      return data;
+      return merged;
     }
 
-    return fallbackData;
+    return currentLocalSchemes;
   } catch (error: any) {
     const friendlyError = getFriendlyAiError(error);
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
+      // If key is invalid or missing, still deliver all verified schemes!
+      if (currentLocalSchemes.length > 0) return currentLocalSchemes;
       throw friendlyError;
     }
-    console.warn("Schemes generation notice, serving verified schemes data:", error?.message || error);
-
-    if (cachedData) {
-      try {
-        return JSON.parse(cachedData);
-      } catch (e) {}
-    }
-
-    return fallbackData;
+    console.warn("Schemes search notice, delivering verified schemes:", error?.message || error);
+    return currentLocalSchemes;
   }
 };
