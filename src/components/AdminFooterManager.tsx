@@ -5,7 +5,6 @@ import {
   Check, 
   AlertCircle, 
   Phone, 
-  MapPin, 
   MessageCircle, 
   ShieldCheck, 
   Plus, 
@@ -15,7 +14,6 @@ import {
   Award, 
   ExternalLink,
   Layers,
-  Sparkles,
   HelpCircle,
   CreditCard,
   Share2,
@@ -770,69 +768,6 @@ export const AdminFooterManager: React.FC = () => {
         </div>
       )}
 
-      {/* Live Preview Box */}
-      <div className="bg-[#122715] text-white p-6 rounded-3xl border border-[#23481F] shadow-lg space-y-4">
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-emerald-300">
-            <Sparkles className="w-4 h-4 text-amber-300" />
-            लाइव फुटर प्रीव्यू (Preview of Computer/Laptop Screen)
-          </div>
-          <span className="text-[10px] bg-white/10 px-2.5 py-1 rounded-full text-gray-300">
-            वास्तविक वेबसाइट रूप
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pt-2 text-xs">
-          <div className="md:col-span-4 space-y-2">
-            <h4 className="font-bold text-sm text-white">{config.brandName}</h4>
-            <p className="text-[11px] text-[#EAB308] font-semibold">{config.tagline}</p>
-            <p className="text-[11px] text-gray-300 line-clamp-2 leading-relaxed">{config.description}</p>
-            <div className="p-2.5 bg-[#1F4525] rounded-xl flex items-center justify-between text-[11px]">
-              <div>
-                <p className="text-[10px] text-emerald-200">{config.helplineTitle}</p>
-                <p className="font-bold text-white">+91 {config.helphoneNumber}</p>
-              </div>
-              <span className="px-2.5 py-1 bg-[#EAB308] text-[#16311A] font-bold rounded-lg text-[10px]">
-                {config.callButtonText}
-              </span>
-            </div>
-            <p className="text-[10px] text-gray-400 flex items-start gap-1">
-              <MapPin className="w-3 h-3 text-emerald-400 shrink-0 mt-0.5" />
-              <span className="line-clamp-2">{config.address}</span>
-            </p>
-          </div>
-
-          <div className="md:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {config.columns.map((col, idx) => (
-              <div key={idx} className="space-y-2">
-                <h5 className="font-bold text-[11px] text-[#EAB308] border-b border-white/10 pb-1">
-                  {col.title}
-                </h5>
-                <ul className="space-y-1 text-[10px] text-gray-300">
-                  {col.links.slice(0, 4).map((l, lIdx) => (
-                    <li key={lIdx} className="truncate">› {l.label}</li>
-                  ))}
-                  {col.links.length > 4 && (
-                    <li className="text-[9px] text-gray-500 font-italic">+{col.links.length - 4} और...</li>
-                  )}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="border-t border-white/10 pt-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-gray-400">
-          <p>© {new Date().getFullYear()} {config.brandName}. {config.copyrightText}</p>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span>{config.paymentLabel}</span>
-            {config.paymentMethods.map((pm, i) => (
-              <span key={i} className="bg-white/10 px-1.5 py-0.5 rounded text-white font-semibold text-[9px]">
-                {pm}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

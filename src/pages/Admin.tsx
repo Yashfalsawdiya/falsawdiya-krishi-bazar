@@ -1661,20 +1661,20 @@ const Admin: React.FC = () => {
       ) : (
         <form onSubmit={handleContentSubmit} className="space-y-8">
           {/* Instant Force Push Updates Card */}
-          <div className="bg-gradient-to-br from-[#1b3d18] via-[#234d1f] to-[#2D5A27] text-white p-6 rounded-3xl shadow-lg border border-emerald-700/40 space-y-4">
+          <div className="bg-white text-gray-800 p-6 rounded-3xl shadow-sm border border-gray-200/80 space-y-4">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="flex items-start sm:items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 text-amber-400 shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center border border-amber-200/80 text-amber-600 shrink-0">
                   <Zap className="w-6 h-6" />
                 </div>
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-bold text-lg text-white">लाइव अपडेट पुश केंद्र (Live Force Push)</h3>
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 border border-emerald-400/30">
+                    <h3 className="font-bold text-lg text-gray-900">लाइव अपडेट पुश केंद्र (Live Force Push)</h3>
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                       12 घंटे थ्रॉटल सक्रिय (10 लाख यूज़र्स क्षमता)
                     </span>
                   </div>
-                  <p className="text-xs text-emerald-100/80 mt-1 max-w-2xl leading-relaxed">
+                  <p className="text-xs text-gray-600 mt-1 max-w-2xl leading-relaxed">
                     यदि आपने नए उत्पाद जोड़े हैं, स्टॉक बदला है या कोई अति-महत्वपूर्ण अपडेट किया है, तो सभी किसानों के फ़ोन में बिना 12 घंटे का इंतज़ार किए तुरंत नया डेटा सिंक करने के लिए यह बटन दबाएं।
                   </p>
                 </div>
@@ -1684,7 +1684,7 @@ const Admin: React.FC = () => {
                 type="button"
                 onClick={handleForcePushUpdates}
                 disabled={isPushingUpdates}
-                className="bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-900 font-bold px-6 py-3.5 rounded-2xl shadow-md flex items-center justify-center gap-2.5 transition-all disabled:opacity-50 shrink-0 cursor-pointer"
+                className="bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-900 font-bold px-6 py-3.5 rounded-2xl shadow-sm flex items-center justify-center gap-2.5 transition-all disabled:opacity-50 shrink-0 cursor-pointer"
               >
                 {isPushingUpdates ? (
                   <>
@@ -1701,23 +1701,23 @@ const Admin: React.FC = () => {
             </div>
 
             {lastPushSuccessMessage && (
-              <div className="bg-emerald-500/20 border border-emerald-400/50 rounded-2xl p-3.5 flex items-center gap-2.5 text-sm font-medium text-emerald-100 animate-in fade-in">
-                <CheckCircle className="w-5 h-5 text-emerald-300 shrink-0" />
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center gap-2.5 text-sm font-medium text-emerald-800 animate-in fade-in">
+                <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
                 <span>{lastPushSuccessMessage}</span>
               </div>
             )}
 
-            <div className="pt-3 border-t border-white/10 flex flex-wrap items-center gap-y-2 gap-x-5 text-xs text-emerald-200/80">
+            <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center gap-y-2 gap-x-5 text-xs text-gray-500">
               <div className="flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
                 <span>10,00,000 किसानों के लिए न्यूनतम/शून्य कोटा खपत</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-emerald-300" />
+                <Clock className="w-4 h-4 text-emerald-600" />
                 <span>सामान्य ऑटो-चेक: हर 12 घंटे</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <Send className="w-4 h-4 text-emerald-300" />
+                <Send className="w-4 h-4 text-emerald-600" />
                 <span>पुश बटन: तुरंत रिमोट वर्ज़न अपडेट (0 सेकंड)</span>
               </div>
             </div>

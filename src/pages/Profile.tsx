@@ -306,14 +306,11 @@ const Profile: React.FC = () => {
             <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
             <div className="space-y-1.5">
               <p className="text-xs font-bold leading-relaxed">
-                फ्री कोटा, रीसेट समय और रात के सर्वर ट्रैफिक की जानकारी
+                फ्री कोटा और रीसेट जानकारी (Daily Reset)
               </p>
               <ul className="text-[11px] leading-relaxed opacity-90 space-y-1 list-disc list-inside">
                 <li>
                   <span className="font-semibold text-blue-900">दैनिक रीसेट (12:30 PM):</span> Google Gemini का दैनिक फ्री कोटा भारतीय समयानुसार <strong>दोपहर 12:30 बजे</strong> (US Midnight PT) रीसेट होता है।
-                </li>
-                <li>
-                  <span className="font-semibold text-blue-900">रात का समय (High Demand):</span> शाम 8 से रात 12 बजे तक अमेरिका में कामकाजी दिन होने से Google AI सर्वर पर ग्लोबल लोड बढ़ जाता है। ऐप में <strong>3-स्तरीय बैकअप मॉडल्स</strong> लगे हैं जो स्वतः स्विच होकर काम जारी रखते हैं।
                 </li>
                 <li>
                   <span className="font-semibold text-blue-900">स्थायी Key:</span> एक बार सही Key डालने के बाद इसे बार-बार बदलने की आवश्यकता नहीं होती।

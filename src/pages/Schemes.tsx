@@ -8,21 +8,14 @@ import {
   ExternalLink, 
   RefreshCw, 
   X, 
-  Key, 
   Search, 
-  ShieldCheck, 
-  Award, 
-  Sparkles, 
-  Tag, 
+  Sparkles,
   CheckCircle2,
-  FileText,
   AlertCircle
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
-
-type FilterType = 'all' | 'central' | 'state' | 'subsidy' | 'irrigation' | 'credit';
 
 const Schemes: React.FC = () => {
   const { loading: appLoading } = useAppContext();
@@ -39,7 +32,6 @@ const Schemes: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   const loadSchemes = async (force: boolean = false) => {
@@ -76,9 +68,9 @@ const Schemes: React.FC = () => {
   // Filter & Search Logic
   const filteredSchemes = useMemo(() => {
     return schemes.filter((scheme) => {
-      // 1. Text Search Match
       const q = searchQuery.toLowerCase().trim();
-      const matchesSearch = !q || (
+      if (!q) return true;
+      return (
         scheme.title.toLowerCase().includes(q) ||
         scheme.description.toLowerCase().includes(q) ||
         scheme.sector.toLowerCase().includes(q) ||
@@ -86,32 +78,8 @@ const Schemes: React.FC = () => {
         scheme.eligibility?.toLowerCase().includes(q) ||
         (Array.isArray(scheme.benefits) && scheme.benefits.some(b => b.toLowerCase().includes(q)))
       );
-
-      if (!matchesSearch) return false;
-
-      // 2. Category Tab Filter
-      if (selectedFilter === 'all') return true;
-      if (selectedFilter === 'central') {
-        return scheme.governmentLevel?.toLowerCase().includes('central');
-      }
-      if (selectedFilter === 'state') {
-        return scheme.governmentLevel?.toLowerCase().includes('state') || scheme.governmentLevel?.toLowerCase().includes('mp');
-      }
-      if (selectedFilter === 'subsidy') {
-        const text = `${scheme.sector} ${scheme.title} ${scheme.subsidyDetails}`.toLowerCase();
-        return text.includes('यंत्र') || text.includes('ट्रैक्टर') || text.includes('सब्सिडी') || text.includes('अनुदान') || text.includes('machin');
-      }
-      if (selectedFilter === 'irrigation') {
-        const text = `${scheme.sector} ${scheme.title} ${scheme.subsidyDetails}`.toLowerCase();
-        return text.includes('सिंचाई') || text.includes('सोलर') || text.includes('पंप') || text.includes('ड्रिप') || text.includes('solar');
-      }
-      if (selectedFilter === 'credit') {
-        const text = `${scheme.sector} ${scheme.title} ${scheme.subsidyDetails}`.toLowerCase();
-        return text.includes('ऋण') || text.includes('बीमा') || text.includes('क्रेडिट') || text.includes('kcc') || text.includes('पेंशन');
-      }
-      return true;
     });
-  }, [schemes, searchQuery, selectedFilter]);
+  }, [schemes, searchQuery]);
 
   const handleSyncClick = () => {
     loadSchemes(true);
@@ -126,26 +94,24 @@ const Schemes: React.FC = () => {
       />
 
       {/* Header Banner */}
-      <div className="bg-gradient-to-br from-[#2D5A27] to-[#1E3D1A] rounded-3xl p-5 text-white shadow-lg relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-        
+      <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm relative overflow-hidden">
         <div className="flex items-center justify-between gap-3 mb-2">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center backdrop-blur-sm">
-              <Landmark className="w-5 h-5 text-emerald-200" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#2D5A27] flex items-center justify-center border border-emerald-100/60">
+              <Landmark className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight">सरकारी योजनाएं</h1>
-              <p className="text-[11px] text-emerald-100">केंद्र एवं राज्य सरकार की किसान कल्याणकारी योजनाएं</p>
+              <h1 className="text-lg font-bold tracking-tight text-gray-900">सरकारी योजनाएं</h1>
+              <p className="text-[11px] text-gray-500 font-medium">केंद्र एवं राज्य सरकार की किसान कल्याणकारी योजनाएं</p>
             </div>
           </div>
 
           <button 
             onClick={handleSyncClick}
             disabled={loading || refreshing}
-            className="flex items-center gap-1.5 text-xs font-semibold bg-white/15 hover:bg-white/25 active:scale-95 transition-all px-3 py-2 rounded-2xl border border-white/20 backdrop-blur-sm shrink-0"
+            className="flex items-center gap-1.5 text-xs font-semibold bg-gray-50 hover:bg-gray-100 active:scale-95 transition-all px-3 py-2 rounded-2xl border border-gray-200 text-gray-700 shrink-0"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-[#2D5A27] ${refreshing ? 'animate-spin' : ''}`} />
             <span>{refreshing ? 'सर्च हो रहा है...' : 'ताज़ा करें'}</span>
           </button>
         </div>
@@ -157,9 +123,9 @@ const Schemes: React.FC = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="mt-2 text-xs bg-emerald-800/80 border border-emerald-400/40 text-emerald-100 px-3 py-1.5 rounded-xl flex items-center gap-2"
+              className="mt-2 text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-xl flex items-center gap-2"
             >
-              <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>{syncStatus}</span>
             </motion.div>
           )}
@@ -167,18 +133,18 @@ const Schemes: React.FC = () => {
 
         {/* Search Bar */}
         <div className="mt-4 relative">
-          <Search className="w-4 h-4 text-emerald-200 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input 
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="योजना खोजें... (जैसे: सोलर पंप, ट्रैक्टर, बीमा, खाद, KCC)"
-            className="w-full bg-white/10 border border-white/20 focus:border-white/40 focus:bg-white/15 text-white placeholder-emerald-200/70 text-xs rounded-2xl pl-9 pr-9 py-2.5 outline-none transition-all"
+            className="w-full bg-gray-50 border border-gray-200 focus:border-[#2D5A27] focus:bg-white text-gray-800 placeholder-gray-400 text-xs rounded-2xl pl-9 pr-9 py-2.5 outline-none transition-all shadow-xs"
           />
           {searchQuery && (
             <button 
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-200 hover:text-white"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
               <X className="w-4 h-4" />
             </button>
@@ -186,80 +152,7 @@ const Schemes: React.FC = () => {
         </div>
       </div>
 
-      {/* Category Filter Chips */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar text-xs">
-        <button
-          onClick={() => setSelectedFilter('all')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium shrink-0 transition-colors border ${
-            selectedFilter === 'all'
-              ? 'bg-[#2D5A27] text-white border-[#2D5A27] shadow-sm'
-              : 'bg-white text-gray-600 border-gray-200 hover:border-[#2D5A27]/30'
-          }`}
-        >
-          <Landmark className="w-3.5 h-3.5" />
-          <span>सभी ({schemes.length})</span>
-        </button>
 
-        <button
-          onClick={() => setSelectedFilter('central')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium shrink-0 transition-colors border ${
-            selectedFilter === 'central'
-              ? 'bg-[#2D5A27] text-white border-[#2D5A27] shadow-sm'
-              : 'bg-white text-gray-600 border-gray-200 hover:border-[#2D5A27]/30'
-          }`}
-        >
-          <Award className="w-3.5 h-3.5 text-blue-600" />
-          <span>भारत सरकार</span>
-        </button>
-
-        <button
-          onClick={() => setSelectedFilter('state')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium shrink-0 transition-colors border ${
-            selectedFilter === 'state'
-              ? 'bg-[#2D5A27] text-white border-[#2D5A27] shadow-sm'
-              : 'bg-white text-gray-600 border-gray-200 hover:border-[#2D5A27]/30'
-          }`}
-        >
-          <ShieldCheck className="w-3.5 h-3.5 text-orange-600" />
-          <span>मध्य प्रदेश</span>
-        </button>
-
-        <button
-          onClick={() => setSelectedFilter('subsidy')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium shrink-0 transition-colors border ${
-            selectedFilter === 'subsidy'
-              ? 'bg-[#2D5A27] text-white border-[#2D5A27] shadow-sm'
-              : 'bg-white text-gray-600 border-gray-200 hover:border-[#2D5A27]/30'
-          }`}
-        >
-          <Tag className="w-3.5 h-3.5 text-emerald-600" />
-          <span>यंत्र व सब्सिडी</span>
-        </button>
-
-        <button
-          onClick={() => setSelectedFilter('irrigation')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium shrink-0 transition-colors border ${
-            selectedFilter === 'irrigation'
-              ? 'bg-[#2D5A27] text-white border-[#2D5A27] shadow-sm'
-              : 'bg-white text-gray-600 border-gray-200 hover:border-[#2D5A27]/30'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
-          <span>सिंचाई व सोलर</span>
-        </button>
-
-        <button
-          onClick={() => setSelectedFilter('credit')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium shrink-0 transition-colors border ${
-            selectedFilter === 'credit'
-              ? 'bg-[#2D5A27] text-white border-[#2D5A27] shadow-sm'
-              : 'bg-white text-gray-600 border-gray-200 hover:border-[#2D5A27]/30'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5 text-purple-600" />
-          <span>ऋण व बीमा</span>
-        </button>
-      </div>
 
       {/* Loading State */}
       {loading ? (
@@ -276,12 +169,11 @@ const Schemes: React.FC = () => {
           </div>
           <h3 className="text-sm font-bold text-gray-800 mb-1">कोई योजना नहीं मिली</h3>
           <p className="text-xs text-gray-500 max-w-xs mx-auto mb-4">
-            कृपया अपने सर्च शब्द बदलें अथवा 'सभी' फ़िल्टर चुनें।
+            कृपया अपने सर्च शब्द बदलकर पुनः प्रयास करें।
           </p>
           <button
             onClick={() => {
               setSearchQuery('');
-              setSelectedFilter('all');
             }}
             className="px-4 py-2 bg-[#2D5A27] text-white text-xs font-bold rounded-xl shadow-sm active:scale-95 transition-transform"
           >
@@ -291,90 +183,74 @@ const Schemes: React.FC = () => {
       ) : (
         /* Schemes Grid */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {filteredSchemes.map((scheme, idx) => (
-            <motion.div
-              key={`${scheme.title}-${idx}`}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(idx * 0.03, 0.3) }}
-              onClick={() => setSelectedScheme(scheme)}
-              className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between cursor-pointer active:scale-[0.98] transition-all hover:border-[#2D5A27]/30 hover:shadow-md"
-            >
-              <div>
-                {/* Badges row */}
-                <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                  {scheme.isNew && (
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-amber-500 text-white flex items-center gap-1 shadow-xs">
-                      <Sparkles className="w-2.5 h-2.5" /> नई योजना
-                    </span>
-                  )}
+          {filteredSchemes.map((scheme, idx) => {
+            const isCentral = scheme.governmentLevel?.toLowerCase().includes('central');
+            return (
+              <motion.div
+                key={`${scheme.title}-${idx}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(idx * 0.03, 0.3) }}
+                onClick={() => setSelectedScheme(scheme)}
+                className="bg-white rounded-2xl p-4 sm:p-5 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_24px_-6px_rgba(45,90,39,0.12)] border border-gray-100 hover:border-[#2D5A27]/30 flex flex-col justify-between cursor-pointer transition-all duration-200 active:scale-[0.99] group relative overflow-hidden"
+              >
+                {/* Top Subtle Accent Bar on hover */}
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#2D5A27]/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                  {scheme.governmentLevel && (
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${
-                      scheme.governmentLevel.toLowerCase().includes('central') 
-                        ? 'bg-blue-50 text-blue-700 border-blue-200' 
-                        : 'bg-orange-50 text-orange-700 border-orange-200'
-                    }`}>
-                      {scheme.governmentLevel.toLowerCase().includes('central') ? (
-                        <>
-                          <Award className="w-2.5 h-2.5" />
-                          <span>भारत सरकार</span>
-                        </>
-                      ) : (
-                        <>
-                          <ShieldCheck className="w-2.5 h-2.5" />
-                          <span>मध्य प्रदेश</span>
-                        </>
-                      )}
-                    </span>
-                  )}
+                <div>
+                  {/* Modern Pill Tags Row matching user screenshots */}
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                    {scheme.governmentLevel && (
+                      <span className={`text-[11px] font-bold px-3 py-0.5 rounded-full border inline-flex items-center ${
+                        isCentral 
+                          ? 'bg-blue-50/80 text-blue-600 border-blue-200' 
+                          : 'bg-orange-50/80 text-orange-700 border-orange-200'
+                      }`}>
+                        {isCentral ? 'भारत सरकार (Central)' : 'मध्य प्रदेश (State)'}
+                      </span>
+                    )}
 
-                  {scheme.sector && (
-                    <span className="text-[9px] font-medium px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md border border-emerald-100">
-                      {scheme.sector}
-                    </span>
-                  )}
+                    {scheme.sector && (
+                      <span className="text-[11px] font-bold px-3 py-0.5 bg-emerald-50/80 text-emerald-700 rounded-full border border-emerald-200 inline-flex items-center">
+                        {scheme.sector}
+                      </span>
+                    )}
+
+                    {scheme.isNew && (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-300 inline-flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5 text-amber-500" /> नई योजना
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="font-bold text-gray-900 text-sm sm:text-[15px] leading-snug group-hover:text-[#2D5A27] transition-colors mb-1.5 line-clamp-2">
+                    {scheme.title}
+                  </h3>
+
+                  {/* Description */}
+                  <p className="text-[11.5px] text-gray-500 line-clamp-2 leading-relaxed">
+                    {scheme.description}
+                  </p>
                 </div>
 
-                {/* Title */}
-                <h3 className="font-bold text-gray-900 text-sm leading-snug mb-1.5">
-                  {scheme.title}
-                </h3>
-
-                {/* Description */}
-                <p className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed">
-                  {scheme.description}
-                </p>
-              </div>
-
-              {/* Subsidy Highlight & Bottom bar */}
-              <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between gap-2">
-                <div className="text-[10px] font-semibold text-[#2D5A27] bg-[#2D5A27]/8 px-2.5 py-1 rounded-lg truncate">
-                  {scheme.subsidyDetails ? `सहायता: ${scheme.subsidyDetails}` : 'लाभार्थी योजना'}
+                {/* Subsidy Highlight & Bottom bar */}
+                <div className="mt-3.5 pt-3 border-t border-gray-100/90 flex items-center justify-between gap-2">
+                  <div className="text-[10.5px] font-semibold text-[#2D5A27] bg-[#2D5A27]/8 px-2.5 py-1 rounded-lg border border-[#2D5A27]/10 truncate max-w-[72%] flex items-center gap-1.5">
+                    <span className="truncate">{scheme.subsidyDetails ? `सहायता: ${scheme.subsidyDetails}` : 'लाभार्थी योजना'}</span>
+                  </div>
+                  <div className="flex items-center text-[11px] font-bold text-gray-400 group-hover:text-[#2D5A27] transition-colors shrink-0">
+                    <span>विवरण</span>
+                    <ChevronRight className="w-3.5 h-3.5 ml-0.5 text-gray-400 group-hover:text-[#2D5A27] group-hover:translate-x-0.5 transition-all" />
+                  </div>
                 </div>
-                <div className="flex items-center text-[10px] font-bold text-gray-400 shrink-0">
-                  <span>विवरण</span>
-                  <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
-                </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
       )}
 
-      {/* AI Key Advisory (Non-blocking, helpful footer) */}
-      <div className="mt-6 bg-white border border-gray-100 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-xs text-gray-500">
-        <div className="flex items-center gap-2">
-          <Key className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>ताज़ा योजनाओं का केंद्रीकृत सर्वर सिंक सक्रिय है (सभी किसानों हेतु निःशुल्क)।</span>
-        </div>
-        <button
-          onClick={() => requireApiKey("नवीनतम योजनाएं खोजने के लिए कृपया अपनी Gemini API Key सक्रिय करें।")}
-          className="text-[11px] font-bold text-[#2D5A27] hover:underline shrink-0"
-        >
-          {effectiveApiKey ? 'API Key सक्रिय' : 'AI Key जोड़ें'}
-        </button>
-      </div>
+
 
       {/* Modal for Scheme Details */}
       <AnimatePresence>
