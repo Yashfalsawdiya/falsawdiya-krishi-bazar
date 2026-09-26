@@ -1994,7 +1994,7 @@ const GrievanceRedressalEditor: React.FC<{
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1">कार्यालय का भौतिक पता (Physical Office Address)</label>
+          <label className="block text-xs font-bold text-gray-700 mb-1">भौतिक पता (Physical Address)</label>
           <input
             type="text"
             value={data.officerAddress || ''}
