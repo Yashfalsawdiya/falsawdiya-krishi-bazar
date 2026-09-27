@@ -20,36 +20,17 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { useLanguage } from '../context/LanguageContext';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
-import { DEFAULT_LEGAL_PAGES_CONTENT_EN } from '../data/defaultPagesContentEn';
 
 export const GrievanceRedressal: React.FC = () => {
   const { appContent, legalPagesContent } = useAppContext();
-  const { isEnglish, translateText } = useLanguage();
 
   const branding = appContent?.branding || {
     name: 'फल्सावदिया कृषि बाजार',
     tagline: 'किसान का भरोसा, हमारी पहचान'
   };
 
-  const defaultGrv = isEnglish ? DEFAULT_LEGAL_PAGES_CONTENT_EN.grievanceRedressal : DEFAULT_LEGAL_PAGES_CONTENT.grievanceRedressal;
-  const rawGrvData = legalPagesContent?.grievanceRedressal || defaultGrv;
-  const grvData = {
-    ...rawGrvData,
-    bannerTitle: isEnglish ? (rawGrvData === defaultGrv ? rawGrvData.bannerTitle : translateText(rawGrvData.bannerTitle)) : rawGrvData.bannerTitle,
-    bannerSubtitle: isEnglish ? (rawGrvData === defaultGrv ? rawGrvData.bannerSubtitle : translateText(rawGrvData.bannerSubtitle)) : rawGrvData.bannerSubtitle,
-    introText: isEnglish ? (rawGrvData === defaultGrv ? rawGrvData.introText : translateText(rawGrvData.introText)) : rawGrvData.introText,
-    officerName: isEnglish ? (rawGrvData === defaultGrv ? rawGrvData.officerName : translateText(rawGrvData.officerName || '')) : rawGrvData.officerName,
-    officerDesignation: isEnglish ? (rawGrvData === defaultGrv ? rawGrvData.officerDesignation : translateText(rawGrvData.officerDesignation || '')) : rawGrvData.officerDesignation,
-    resolutionTimeframe: isEnglish ? (rawGrvData === defaultGrv ? rawGrvData.resolutionTimeframe : translateText(rawGrvData.resolutionTimeframe || '')) : rawGrvData.resolutionTimeframe,
-    sections: (rawGrvData.sections || []).map(sec => ({
-      ...sec,
-      title: isEnglish ? (rawGrvData === defaultGrv ? sec.title : translateText(sec.title)) : sec.title,
-      content: isEnglish ? (rawGrvData === defaultGrv ? sec.content : translateText(sec.content)) : sec.content,
-      bullets: sec.bullets ? sec.bullets.map(b => isEnglish ? (rawGrvData === defaultGrv ? b : translateText(b)) : b) : undefined
-    }))
-  };
+  const grvData = legalPagesContent?.grievanceRedressal || DEFAULT_LEGAL_PAGES_CONTENT.grievanceRedressal;
 
   return (
     <div className="space-y-6 pb-12">

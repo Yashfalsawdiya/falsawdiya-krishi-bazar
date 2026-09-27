@@ -128,20 +128,18 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
 
           {/* Product Name (Most Prominent - adapts to selected language) */}
           <h3 className="font-bold text-gray-900 text-sm sm:text-base leading-snug group-hover:text-[#2D5A27] transition-colors line-clamp-1">
-            {isEnglish 
-              ? (product.name && !/[\u0900-\u097F]/.test(product.name) ? product.name : translateText(product.name || product.hindiName))
-              : (product.hindiName || translateText(product.name))}
+            {isEnglish ? (product.name || product.hindiName) : (product.hindiName || product.name)}
           </h3>
-          <p className="text-xs text-gray-500 font-normal line-clamp-1 mb-1.5">
-            {isEnglish 
-              ? (product.hindiName || product.name)
-              : (product.name || translateText(product.hindiName))}
-          </p>
+          {(isEnglish ? product.hindiName : product.name) && (
+            <p className="text-xs text-gray-500 font-normal line-clamp-1 mb-1.5">
+              {isEnglish ? product.hindiName : product.name}
+            </p>
+          )}
 
           {/* Short Product Information */}
           {product.description && (
             <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed mb-2.5 font-normal">
-              {translateText(product.description)}
+              {product.description}
             </p>
           )}
 

@@ -19,35 +19,17 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { useLanguage } from '../context/LanguageContext';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
-import { DEFAULT_LEGAL_PAGES_CONTENT_EN } from '../data/defaultPagesContentEn';
 
 export const ShippingDeliveryPolicy: React.FC = () => {
   const { appContent, legalPagesContent } = useAppContext();
-  const { isEnglish, translateText } = useLanguage();
 
   const branding = appContent?.branding || {
     name: 'फल्सावदिया कृषि बाजार',
     tagline: 'किसान का भरोसा, हमारी पहचान'
   };
 
-  const defaultShipping = isEnglish ? DEFAULT_LEGAL_PAGES_CONTENT_EN.shippingPolicy : DEFAULT_LEGAL_PAGES_CONTENT.shippingPolicy;
-  const rawShipData = legalPagesContent?.shippingPolicy || defaultShipping;
-  const shipData = {
-    ...rawShipData,
-    bannerTitle: isEnglish ? (rawShipData === defaultShipping ? rawShipData.bannerTitle : translateText(rawShipData.bannerTitle)) : rawShipData.bannerTitle,
-    bannerSubtitle: isEnglish ? (rawShipData === defaultShipping ? rawShipData.bannerSubtitle : translateText(rawShipData.bannerSubtitle)) : rawShipData.bannerSubtitle,
-    introText: isEnglish ? (rawShipData === defaultShipping ? rawShipData.introText : translateText(rawShipData.introText)) : rawShipData.introText,
-    coverageAreaText: isEnglish ? (rawShipData === defaultShipping ? rawShipData.coverageAreaText : translateText(rawShipData.coverageAreaText || '')) : rawShipData.coverageAreaText,
-    standardDeliveryTime: isEnglish ? (rawShipData === defaultShipping ? rawShipData.standardDeliveryTime : translateText(rawShipData.standardDeliveryTime || '')) : rawShipData.standardDeliveryTime,
-    sections: (rawShipData.sections || []).map(sec => ({
-      ...sec,
-      title: isEnglish ? (rawShipData === defaultShipping ? sec.title : translateText(sec.title)) : sec.title,
-      content: isEnglish ? (rawShipData === defaultShipping ? sec.content : translateText(sec.content)) : sec.content,
-      bullets: sec.bullets ? sec.bullets.map(b => isEnglish ? (rawShipData === defaultShipping ? b : translateText(b)) : b) : undefined
-    }))
-  };
+  const shipData = legalPagesContent?.shippingPolicy || DEFAULT_LEGAL_PAGES_CONTENT.shippingPolicy;
 
   return (
     <div className="space-y-6 pb-12">

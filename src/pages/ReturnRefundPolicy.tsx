@@ -24,39 +24,20 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { useLanguage } from '../context/LanguageContext';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
-import { DEFAULT_LEGAL_PAGES_CONTENT_EN } from '../data/defaultPagesContentEn';
 
 const ICONS = [RotateCcw, AlertCircle, Clock, Ban, PackageX, Truck, CreditCard, Phone];
 
 const ReturnRefundPolicy: React.FC = () => {
   const navigate = useNavigate();
   const { appContent, legalPagesContent } = useAppContext();
-  const { isEnglish, translateText } = useLanguage();
 
   const branding = appContent?.branding || {
     name: 'फल्सावदिया कृषि बाजार',
     tagline: 'किसान का भरोसा, हमारी पहचान'
   };
 
-  const defaultRefund = isEnglish ? DEFAULT_LEGAL_PAGES_CONTENT_EN.refundPolicy : DEFAULT_LEGAL_PAGES_CONTENT.refundPolicy;
-  const rawRefundData = legalPagesContent?.refundPolicy || defaultRefund;
-  const refundData = {
-    ...rawRefundData,
-    bannerTitle: isEnglish ? (rawRefundData === defaultRefund ? rawRefundData.bannerTitle : translateText(rawRefundData.bannerTitle)) : rawRefundData.bannerTitle,
-    bannerSubtitle: isEnglish ? (rawRefundData === defaultRefund ? rawRefundData.bannerSubtitle : translateText(rawRefundData.bannerSubtitle)) : rawRefundData.bannerSubtitle,
-    introText: isEnglish ? (rawRefundData === defaultRefund ? rawRefundData.introText : translateText(rawRefundData.introText)) : rawRefundData.introText,
-    returnWindowText: isEnglish ? (rawRefundData === defaultRefund ? rawRefundData.returnWindowText : translateText(rawRefundData.returnWindowText || '')) : rawRefundData.returnWindowText,
-    refundProcessText: isEnglish ? (rawRefundData === defaultRefund ? rawRefundData.refundProcessText : translateText(rawRefundData.refundProcessText || '')) : rawRefundData.refundProcessText,
-    nonReturnableConditions: rawRefundData.nonReturnableConditions?.map(c => isEnglish ? (rawRefundData === defaultRefund ? c : translateText(c)) : c),
-    sections: (rawRefundData.sections || []).map(sec => ({
-      ...sec,
-      title: isEnglish ? (rawRefundData === defaultRefund ? sec.title : translateText(sec.title)) : sec.title,
-      content: isEnglish ? (rawRefundData === defaultRefund ? sec.content : translateText(sec.content)) : sec.content,
-      bullets: sec.bullets ? sec.bullets.map(b => isEnglish ? (rawRefundData === defaultRefund ? b : translateText(b)) : b) : undefined
-    }))
-  };
+  const refundData = legalPagesContent?.refundPolicy || DEFAULT_LEGAL_PAGES_CONTENT.refundPolicy;
 
   return (
     <div className="space-y-6 pb-8">

@@ -251,7 +251,7 @@ const MandiBhav: React.FC = () => {
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
           <h3 className="text-xs font-black text-gray-700 flex items-center gap-1.5">
             <Filter className="w-3.5 h-3.5 text-[#2D5A27]" />
-            {isHindi ? 'लोकेशन और मंडी चुनें (Select Location)' : 'Select Location & Mandi'}
+            लोकेशन और मंडी चुनें (Select Location)
           </h3>
           <span className="text-[10px] text-gray-400 font-semibold bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100">Mandi Bhaav</span>
         </div>
@@ -259,7 +259,7 @@ const MandiBhav: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {/* State Select */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{isHindi ? 'राज्य (State)' : 'State'}</label>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">राज्य (State)</label>
             <div className="relative">
               <select
                 value={selectedState}
@@ -276,7 +276,7 @@ const MandiBhav: React.FC = () => {
 
           {/* District Select */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{isHindi ? 'जिला (District)' : 'District'}</label>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">जिला (District)</label>
             <div className="relative">
               <select
                 value={selectedDistrict}
@@ -293,7 +293,7 @@ const MandiBhav: React.FC = () => {
 
           {/* Mandi Select */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{isHindi ? 'मंडी (Mandi Name)' : 'Mandi Name'}</label>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">मंडी (Mandi Name)</label>
             <div className="relative">
               <select
                 value={selectedMandi}
@@ -391,7 +391,7 @@ const MandiBhav: React.FC = () => {
                 {/* Metadata Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
                   <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100">
-                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">{isHindi ? 'डेटा स्रोत' : 'Data Source'}</span>
+                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">डेटा स्रोत</span>
                     <span className={`font-bold flex items-center gap-1 ${
                       data.sourceType === 'govt' 
                         ? 'text-emerald-700' 
@@ -404,29 +404,29 @@ const MandiBhav: React.FC = () => {
                       {data.sourceType === 'govt' ? (
                         <>
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          {isHindi ? 'सरकारी AGMARKNET' : 'Govt AGMARKNET'}
+                          सरकारी AGMARKNET
                         </>
                       ) : data.sourceType === 'mandipulse' ? (
                         <>
                           <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                          {isHindi ? 'मंडी पल्स (MandiPulse)' : 'MandiPulse Backup'}
+                          मंडी पल्स (MandiPulse)
                         </>
                       ) : data.sourceType === 'market_report' ? (
                         <>
                           <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                          {isHindi ? 'सत्यापित मंडी रिपोर्ट' : 'Verified Report'}
+                          सत्यापित मंडी रिपोर्ट
                         </>
                       ) : (
                         <>
                           <AlertTriangle className="w-3.5 h-3.5 text-orange-600 shrink-0" />
-                          {isHindi ? 'सांकेतिक / अनुमानित' : 'Indicative / Base'}
+                          सांकेतिक / अनुमानित
                         </>
                       )}
                     </span>
                   </div>
 
                   <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100">
-                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">{isHindi ? 'आवक / रिपोर्ट दिनांक' : 'Report Date'}</span>
+                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">आवक / रिपोर्ट दिनांक</span>
                     <span className="font-bold text-gray-700 flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
                       {data.sourceDate || data.date}
@@ -434,10 +434,10 @@ const MandiBhav: React.FC = () => {
                   </div>
 
                   <div className="col-span-2 sm:col-span-1 bg-gray-50 rounded-xl p-2.5 border border-gray-100">
-                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">{isHindi ? 'ऐप पर प्राप्ति समय' : 'Received Time'}</span>
+                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">ऐप पर प्राप्ति समय</span>
                     <span className="font-bold text-gray-700 flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-                      {data.fetchedAt || currentTime.toLocaleTimeString(isHindi ? 'hi-IN' : 'en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      {data.fetchedAt || currentTime.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                 </div>
@@ -530,24 +530,16 @@ const MandiBhav: React.FC = () => {
               ) : filteredItems.length === 0 ? (
                 <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 space-y-3">
                   <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-1" />
-                  <p className="text-xs font-bold text-gray-700">
-                    {isHindi 
-                      ? `इस मंडी में '${searchQuery || selectedCropFilter}' फसल मैच नहीं हुई!`
-                      : `No matching records found for '${searchQuery || selectedCropFilter}' in this mandi!`}
-                  </p>
-                  <p className="text-[10px] text-gray-400">
-                    {isHindi 
-                      ? 'कृपया सर्च कीवर्ड बदलें या सभी फसलों के भाव देखें।' 
-                      : 'Please change keyword or select all crops.'}
-                  </p>
+                  <p className="text-xs font-bold text-gray-700">इस मंडी में '{searchQuery || selectedCropFilter}' फसल मैच नहीं हुई!</p>
+                  <p className="text-[10px] text-gray-400">कृपया सर्च कीवर्ड बदलें या सभी फसलों के भाव देखें।</p>
                   <button
                     onClick={() => {
                       setSearchQuery("");
                       setSelectedCropFilter("ALL");
                     }}
-                    className="px-3.5 py-1.5 bg-[#2D5A27]/10 text-[#2D5A27] text-xs font-bold rounded-xl hover:bg-[#2D5A27]/20 transition-all cursor-pointer"
+                    className="px-3.5 py-1.5 bg-[#2D5A27]/10 text-[#2D5A27] text-xs font-bold rounded-xl hover:bg-[#2D5A27]/20 transition-all"
                   >
-                    {isHindi ? 'सर्च रीसेट करें' : 'Reset Search'}
+                    सर्च रीसेट करें
                   </button>
                 </div>
               ) : (
@@ -600,24 +592,24 @@ const MandiBhav: React.FC = () => {
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-emerald-50 text-[#2D5A27] rounded-xl flex items-center justify-center font-bold text-sm">
-                              {translateText(item.commodity).charAt(0)}
+                              {item.commodity.charAt(0)}
                             </div>
                             <div>
                               <div className="flex items-center gap-1.5">
-                                <h4 className="font-black text-gray-800 text-sm">{translateText(item.commodity)}</h4>
+                                <h4 className="font-black text-gray-800 text-sm">{item.commodity}</h4>
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-400 uppercase tracking-tight">
-                                  {translateText(item.unit)}
+                                  {item.unit}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2 mt-1">
                                 {item.quality && (
                                   <span className="text-[9px] bg-[#2D5A27]/5 text-[#2D5A27] font-semibold px-1.5 py-0.5 rounded">
-                                    {isHindi ? 'गुणवत्ता' : 'Quality'}: {translateText(item.quality)}
+                                    गुणवत्ता: {item.quality}
                                   </span>
                                 )}
                                 {item.arrival && (
                                   <span className="text-[9px] bg-amber-500/5 text-amber-700 font-semibold px-1.5 py-0.5 rounded">
-                                    {isHindi ? 'आवक' : 'Arrival'}: {item.arrival}
+                                    आवक: {item.arrival}
                                   </span>
                                 )}
                               </div>
@@ -626,7 +618,7 @@ const MandiBhav: React.FC = () => {
 
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <span className="text-[9px] font-bold text-gray-400 block uppercase">{isHindi ? 'मॉडल भाव' : 'Modal Price'}</span>
+                              <span className="text-[9px] font-bold text-gray-400 block uppercase">मॉडल भाव</span>
                               <div className="text-base font-black text-[#2D5A27]">₹{item.avgPrice}</div>
                               <div className="text-[10px] font-bold text-gray-400 mt-0.5 bg-gray-55 px-1 rounded">
                                 ₹{item.minPrice} - ₹{item.maxPrice}
@@ -655,9 +647,9 @@ const MandiBhav: React.FC = () => {
                               {/* Price Bar & Spread Gauge */}
                               <div className="space-y-1.5">
                                 <div className="flex justify-between text-[10px] font-bold text-gray-500">
-                                  <span>{isHindi ? 'न्यूनतम' : 'Min'}: ₹{item.minPrice}</span>
-                                  <span className="text-[#2D5A27]">{isHindi ? 'मॉडल' : 'Modal'}: ₹{item.avgPrice}</span>
-                                  <span>{isHindi ? 'अधिकतम' : 'Max'}: ₹{item.maxPrice}</span>
+                                  <span>न्यूनतम: ₹{item.minPrice}</span>
+                                  <span className="text-[#2D5A27]">मॉडल: ₹{item.avgPrice}</span>
+                                  <span>अधिकतम: ₹{item.maxPrice}</span>
                                 </div>
                                 <div className="h-2 w-full bg-gray-200 rounded-full relative overflow-hidden flex">
                                   {/* Visual representation of range */}
@@ -718,17 +710,17 @@ const MandiBhav: React.FC = () => {
                                   </svg>
                                 </div>
                                 <div className="flex justify-between text-[8px] text-gray-400 font-bold px-1 uppercase tracking-wider">
-                                  <span>{isHindi ? '15 दिन पहले' : '15 days ago'}</span>
-                                  <span>{isHindi ? '10 दिन पहले' : '10 days ago'}</span>
-                                  <span>{isHindi ? '5 दिन पहले' : '5 days ago'}</span>
-                                  <span>{isHindi ? 'आज' : 'Today'}</span>
+                                  <span>15 दिन पहले</span>
+                                  <span>10 दिन पहले</span>
+                                  <span>5 दिन पहले</span>
+                                  <span>आज</span>
                                 </div>
                               </div>
 
                               {/* Detailed Info Chips & WhatsApp Share button */}
                               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                                 <div className="text-[9px] text-gray-400 font-bold">
-                                  {isHindi ? 'अपडेट' : 'Updated'}: {item.lastUpdated}
+                                  अपडेट: {item.lastUpdated}
                                 </div>
                                 
                                 <a 
@@ -738,7 +730,7 @@ const MandiBhav: React.FC = () => {
                                   className="bg-[#25D366] text-white text-[10px] font-black px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-all hover:bg-[#20ba5a]"
                                 >
                                   <Share2 className="w-3.5 h-3.5" />
-                                  {isHindi ? 'व्हाट्सएप पर शेयर करें (WhatsApp Share)' : 'Share on WhatsApp'}
+                                  व्हाट्सएप पर शेयर करें (WhatsApp Share)
                                 </a>
                               </div>
                             </motion.div>

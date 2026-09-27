@@ -34,10 +34,8 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { useLanguage } from '../context/LanguageContext';
 import SmartImage from '../components/SmartImage';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
-import { DEFAULT_LEGAL_PAGES_CONTENT_EN } from '../data/defaultPagesContentEn';
 
 const SERVICE_ICONS = [
   Sprout, FlaskConical, ShieldCheck, BookOpen, Camera, Bug, Sparkles, Newspaper, ShoppingBag
@@ -57,7 +55,6 @@ const SERVICE_COLORS = [
 
 const AboutUs: React.FC = () => {
   const { appContent, legalPagesContent } = useAppContext();
-  const { isEnglish, translateText } = useLanguage();
 
   const branding = appContent?.branding || {
     name: 'फल्सावदिया कृषि बाजार',
@@ -65,34 +62,7 @@ const AboutUs: React.FC = () => {
     logo: ''
   };
 
-  const defaultAbout = isEnglish ? DEFAULT_LEGAL_PAGES_CONTENT_EN.aboutUs : DEFAULT_LEGAL_PAGES_CONTENT.aboutUs;
-  const rawAboutData = legalPagesContent?.aboutUs || defaultAbout;
-  const aboutData = {
-    ...rawAboutData,
-    bannerTitle: isEnglish ? (rawAboutData === defaultAbout ? rawAboutData.bannerTitle : translateText(rawAboutData.bannerTitle)) : rawAboutData.bannerTitle,
-    bannerSubtitle: isEnglish ? (rawAboutData === defaultAbout ? rawAboutData.bannerSubtitle : translateText(rawAboutData.bannerSubtitle)) : rawAboutData.bannerSubtitle,
-    introText: isEnglish ? (rawAboutData === defaultAbout ? rawAboutData.introText : translateText(rawAboutData.introText)) : rawAboutData.introText,
-    missionTitle: isEnglish ? (rawAboutData === defaultAbout ? rawAboutData.missionTitle : translateText(rawAboutData.missionTitle)) : rawAboutData.missionTitle,
-    missionText: isEnglish ? (rawAboutData === defaultAbout ? rawAboutData.missionText : translateText(rawAboutData.missionText)) : rawAboutData.missionText,
-    visionTitle: isEnglish ? (rawAboutData === defaultAbout ? rawAboutData.visionTitle : translateText(rawAboutData.visionTitle)) : rawAboutData.visionTitle,
-    visionText: isEnglish ? (rawAboutData === defaultAbout ? rawAboutData.visionText : translateText(rawAboutData.visionText)) : rawAboutData.visionText,
-    storyTitle: isEnglish ? (rawAboutData === defaultAbout ? rawAboutData.storyTitle : translateText(rawAboutData.storyTitle)) : rawAboutData.storyTitle,
-    storyText: isEnglish ? (rawAboutData === defaultAbout ? rawAboutData.storyText : translateText(rawAboutData.storyText)) : rawAboutData.storyText,
-    founderName: isEnglish ? (rawAboutData === defaultAbout ? rawAboutData.founderName : translateText(rawAboutData.founderName || '')) : rawAboutData.founderName,
-    founderRole: isEnglish ? (rawAboutData === defaultAbout ? rawAboutData.founderRole : translateText(rawAboutData.founderRole || '')) : rawAboutData.founderRole,
-    founderMessage: isEnglish ? (rawAboutData === defaultAbout ? rawAboutData.founderMessage : translateText(rawAboutData.founderMessage || '')) : rawAboutData.founderMessage,
-    services: (rawAboutData.services || []).map(s => ({
-      ...s,
-      title: isEnglish ? (rawAboutData === defaultAbout ? s.title : translateText(s.title)) : s.title,
-      desc: isEnglish ? (rawAboutData === defaultAbout ? s.desc : translateText(s.desc)) : s.desc
-    })),
-    highlights: (rawAboutData.highlights || []).map(h => isEnglish ? (rawAboutData === defaultAbout ? h : translateText(h)) : h),
-    sections: (rawAboutData.sections || []).map(sec => ({
-      ...sec,
-      title: isEnglish ? (rawAboutData === defaultAbout ? sec.title : translateText(sec.title)) : sec.title,
-      content: isEnglish ? (rawAboutData === defaultAbout ? sec.content : translateText(sec.content)) : sec.content
-    }))
-  };
+  const aboutData = legalPagesContent?.aboutUs || DEFAULT_LEGAL_PAGES_CONTENT.aboutUs;
 
   return (
     <div className="space-y-6 pb-8">

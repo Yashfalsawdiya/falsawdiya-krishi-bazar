@@ -1,11 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { 
   LanguageCode, 
   LanguageOption, 
   SUPPORTED_LANGUAGES, 
-  TRANSLATIONS 
+  TRANSLATIONS, 
+  PHRASE_MAP 
 } from '../i18n/translations';
-import { inAppTranslate, translateDomTree } from '../i18n/engine';
 
 interface LanguageContextType {
   language: LanguageCode;
@@ -36,10 +36,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     return 'hi'; // Default Hindi
   });
 
-  const observerRef = useRef<MutationObserver | null>(null);
-  const debounceTimerRef = useRef<number | null>(null);
-
-  // Sync DOM with In-App Translation Engine (Universal DOM Synchronizer)
+  // Sync with document element for accessibility and CSS if needed
   useEffect(() => {
     try {
       document.documentElement.lang = language;
@@ -47,47 +44,6 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     } catch (e) {
       console.warn('Unable to persist language preference', e);
     }
-
-    // Immediately translate the existing DOM
-    if (typeof document !== 'undefined' && document.body) {
-      translateDomTree(document.body, language);
-    }
-
-    // Disconnect any previous observer
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-      observerRef.current = null;
-    }
-
-    // When language is English, observe dynamic DOM changes (e.g. data loaded from IndexedDB, modals opening)
-    if (language === 'en' && typeof MutationObserver !== 'undefined' && document.body) {
-      const observer = new MutationObserver(() => {
-        if (debounceTimerRef.current) {
-          cancelAnimationFrame(debounceTimerRef.current);
-        }
-        debounceTimerRef.current = requestAnimationFrame(() => {
-          translateDomTree(document.body, 'en');
-        });
-      });
-
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-
-      observerRef.current = observer;
-    }
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-        observerRef.current = null;
-      }
-      if (debounceTimerRef.current) {
-        cancelAnimationFrame(debounceTimerRef.current);
-        debounceTimerRef.current = null;
-      }
-    };
   }, [language]);
 
   const setLanguage = useCallback((lang: LanguageCode) => {
@@ -98,20 +54,45 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     setLanguageState(prev => (prev === 'hi' ? 'en' : 'hi'));
   }, []);
 
-  // Standard dictionary translation by key with smart in-app fallback
+  // Standard dictionary translation by key
   const t = useCallback((key: string, fallback?: string): string => {
     const entry = TRANSLATIONS[key];
     if (entry) {
       return entry[language] || entry.hi || fallback || key;
     }
-    // If not found in primary dictionary, translate via inAppTranslate
-    return inAppTranslate(fallback || key, language);
+    return fallback || key;
   }, [language]);
 
-  // Universal phrase and text translator for dynamic texts (categories, units, statuses, product names, news, etc.)
+  // Universal phrase translator for dynamic text (categories, units, statuses, etc.)
   const translateText = useCallback((text: string): string => {
     if (!text || typeof text !== 'string') return text;
-    return inAppTranslate(text, language);
+    const trimmed = text.trim();
+
+    // If English is selected
+    if (language === 'en') {
+      // 1. Direct phrase map match
+      if (PHRASE_MAP[trimmed]) {
+        return PHRASE_MAP[trimmed];
+      }
+      // 2. Check if text matches any Hindi value in TRANSLATIONS
+      for (const item of Object.values(TRANSLATIONS)) {
+        if (item.hi === trimmed) {
+          return item.en;
+        }
+      }
+    } else {
+      // If Hindi is selected
+      if (PHRASE_MAP[trimmed]) {
+        return PHRASE_MAP[trimmed];
+      }
+      for (const item of Object.values(TRANSLATIONS)) {
+        if (item.en === trimmed) {
+          return item.hi;
+        }
+      }
+    }
+
+    return text;
   }, [language]);
 
   const currentLanguageOption = SUPPORTED_LANGUAGES.find(l => l.code === language) || SUPPORTED_LANGUAGES[0];

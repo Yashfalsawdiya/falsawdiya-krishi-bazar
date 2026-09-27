@@ -7,7 +7,6 @@ import SmartImage from './SmartImage';
 import ImageZoomModal from './ImageZoomModal';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { useLanguage } from '../context/LanguageContext';
 import { cn } from '../lib/utils';
 
 interface ProductDetailModalProps {
@@ -29,7 +28,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 }) => {
   const navigate = useNavigate();
   const { categories } = useAppContext();
-  const { isEnglish, translateText, t } = useLanguage();
   const { addToCart, cartItems, updateQuantity, updateVariant } = useCart();
   const [isZoomOpen, setIsZoomOpen] = React.useState(false);
   const [selectedVariant, setSelectedVariant] = React.useState<{id: string; quantity: string; price: number} | null>(null);
@@ -56,9 +54,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const categoryName = React.useMemo(() => {
     if (!product || !categories) return '';
     const cat = categories.find(c => c.id === product.category);
-    const rawName = cat ? cat.name : product.category;
-    return translateText(rawName);
-  }, [product, categories, translateText]);
+    return cat ? cat.name : product.category;
+  }, [product, categories]);
 
   React.useEffect(() => {
     if (product && cartItemId) {
@@ -142,19 +139,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     product.inStock !== false ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-red-500/20 text-red-400 border border-red-500/30"
                   )}>
                     <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", product.inStock !== false ? "bg-green-400" : "bg-red-400")} />
-                    {product.inStock !== false ? (isEnglish ? 'In Stock' : 'स्टॉक में उपलब्ध') : (isEnglish ? 'Out of Stock' : 'स्टॉक समाप्त')}
+                    {product.inStock !== false ? 'In Stock' : 'Out of Stock'}
                   </div>
                 </div>
-                <h3 className="text-2xl sm:text-3xl font-bold leading-tight">
-                  {isEnglish 
-                    ? (product.name && !/[\u0900-\u097F]/.test(product.name) ? product.name : translateText(product.name || product.hindiName))
-                    : (product.hindiName || translateText(product.name))}
-                </h3>
-                <p className="text-sm text-white/80 mt-1">
-                  {isEnglish 
-                    ? (product.hindiName || product.name)
-                    : (product.name || translateText(product.hindiName))}
-                </p>
+                <h3 className="text-2xl sm:text-3xl font-bold leading-tight">{product.hindiName}</h3>
+                <p className="text-sm text-white/80 mt-1">{product.name}</p>
               </div>
             </div>
 
@@ -165,7 +154,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm font-bold text-[#4A3728]">
                     <Tag className="w-4 h-4 text-[#2D5A27]" />
-                    {isEnglish ? 'Select Quantity' : 'उपलब्ध मात्रा चुनें (Select Quantity)'}
+                    उपलब्ध मात्रा चुनें (Select Quantity)
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {product.variants.map((v, i) => (
@@ -180,7 +169,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             : "bg-gray-50 border-gray-100 text-gray-500 hover:border-gray-200"
                         )}
                       >
-                        {translateText(v.quantity)}
+                        {v.quantity}
                       </button>
                     ))}
                   </div>
@@ -268,7 +257,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <div className="flex flex-wrap gap-2">
                     {product.crops.map((crop, i) => (
                       <span key={i} className="bg-[#2D5A27]/10 text-[#2D5A27] text-xs font-bold px-3 py-1.5 rounded-xl border border-[#2D5A27]/20">
-                        {translateText(crop)}
+                        {crop}
                       </span>
                     ))}
                   </div>
@@ -279,10 +268,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm font-bold text-[#4A3728]">
                   <Info className="w-4 h-4 text-[#2D5A27]" />
-                  {isEnglish ? 'Product Description' : 'उत्पाद विवरण (Product Description)'}
+                  उत्पाद विवरण (Product Description)
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-100 p-4 leading-relaxed text-gray-700 text-sm whitespace-pre-wrap">
-                  {product.description ? translateText(product.description) : (isEnglish ? 'Description not available.' : 'विवरण उपलब्ध नहीं है।')}
+                  {product.description || 'विवरण उपलब्ध नहीं है।'}
                 </div>
               </div>
 
@@ -291,10 +280,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm font-bold text-[#4A3728]">
                     <Droplets className="w-4 h-4 text-[#2D5A27]" />
-                    {isEnglish ? 'Dosage & Usage' : 'खुराक (Dosage / Usage)'}
+                    खुराक (Dosage / Usage)
                   </div>
                   <div className="bg-[#E7F3E1] rounded-2xl border border-[#2D5A27]/10 p-4 leading-relaxed text-[#2D5A27] text-sm whitespace-pre-wrap font-medium">
-                    {translateText(product.dosage.value)}
+                    {product.dosage.value}
                   </div>
                 </div>
               )}
