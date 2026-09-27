@@ -10,6 +10,8 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
+import { useLanguage } from '../context/LanguageContext';
+import LanguageSelector from './LanguageSelector';
 import { cn } from '../lib/utils';
 import SmartImage from './SmartImage';
 
@@ -20,6 +22,7 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
   const { appContent, isAdmin, legalPagesContent } = useAppContext();
   const { cartCount } = useCart();
+  const { t, isHindi } = useLanguage();
 
   const handleLogoClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -51,28 +54,28 @@ const Header: React.FC = () => {
   }
 
   const mainMenuItems: MenuItem[] = [
-    { icon: User, label: 'मेरा प्रोफाइल (Profile)', path: '/profile', color: 'text-purple-600' },
-    { icon: Info, label: 'हमारे बारे में (About Us)', path: '/about', color: 'text-emerald-700' },
-    { icon: Phone, label: 'AI कृषि विशेषज्ञ कॉल', path: '/ai-call', color: 'text-[#2D5A27]' },
-    { icon: Sparkles, label: 'AI उत्पाद जानकारी (Knowledge)', path: '/ai-product-knowledge', color: 'text-amber-500' },
-    { icon: TrendingUp, label: 'मंडी भाव (Mandi Bhav)', path: '/mandi', color: 'text-green-600' },
-    { icon: Bug, label: 'कीट एवं रोग निर्देशिका', path: '/encyclopedia', color: 'text-rose-600' },
-    { icon: Landmark, label: 'सरकारी योजनाएं', path: '/schemes', color: 'text-blue-600' },
-    { icon: Calculator, label: 'Calculator', path: '/calculator', color: 'text-orange-600' },
-    { icon: PhoneCall, label: 'हेल्पलाइन डायरेक्टरी', path: '/helpline', color: 'text-cyan-600' },
+    { icon: User, label: t('menu_my_profile'), path: '/profile', color: 'text-purple-600' },
+    { icon: Info, label: t('menu_about_us'), path: '/about', color: 'text-emerald-700' },
+    { icon: Phone, label: t('menu_ai_call'), path: '/ai-call', color: 'text-[#2D5A27]' },
+    { icon: Sparkles, label: t('menu_ai_knowledge'), path: '/ai-product-knowledge', color: 'text-amber-500' },
+    { icon: TrendingUp, label: t('menu_mandi'), path: '/mandi', color: 'text-green-600' },
+    { icon: Bug, label: t('menu_encyclopedia'), path: '/encyclopedia', color: 'text-rose-600' },
+    { icon: Landmark, label: t('menu_schemes'), path: '/schemes', color: 'text-blue-600' },
+    { icon: Calculator, label: t('menu_calculator'), path: '/calculator', color: 'text-orange-600' },
+    { icon: PhoneCall, label: t('menu_helpline'), path: '/helpline', color: 'text-cyan-600' },
   ];
 
   const legalMenuItems: MenuItem[] = [
-    { icon: Award, label: 'Statutory Licensing (वैधानिक लाइसेंस व DAESI)', path: '/licensing-disclaimer', color: 'text-emerald-800 font-bold' },
-    { icon: HelpCircle, label: 'FAQ (सहायता व प्रश्नोत्तरी)', path: '/faq', color: 'text-emerald-600' },
-    { icon: Truck, label: 'Shipping & Delivery (डिलीवरी नीति)', path: '/shipping-policy', color: 'text-emerald-700' },
-    { icon: ShieldCheck, label: 'Privacy Policy (गोपनीयता नीति)', path: '/privacy', color: 'text-blue-600' },
-    { icon: FileText, label: 'Terms (नियम एवं शर्तें)', path: '/terms', color: 'text-amber-600' },
-    { icon: RotateCcw, label: 'Refund Policy (वापसी व रिफंड)', path: '/refund-policy', color: 'text-rose-600' },
-    { icon: AlertTriangle, label: 'AI Disclaimer (कृषि एवं AI अस्वीकरण)', path: '/disclaimer', color: 'text-yellow-600' },
-    { icon: ShieldAlert, label: 'Chemical Safety (रासायनिक सुरक्षा)', path: '/safety-guidelines', color: 'text-red-600' },
-    { icon: Scale, label: 'Grievance Officer (शिकायत अधिकारी)', path: '/grievance', color: 'text-blue-700' },
-    { icon: PhoneCall, label: 'Contact Us (संपर्क करें)', path: '/contact', color: 'text-teal-600' },
+    { icon: Award, label: t('menu_licensing'), path: '/licensing-disclaimer', color: 'text-emerald-800 font-bold' },
+    { icon: HelpCircle, label: t('menu_faq'), path: '/faq', color: 'text-emerald-600' },
+    { icon: Truck, label: t('menu_shipping'), path: '/shipping-policy', color: 'text-emerald-700' },
+    { icon: ShieldCheck, label: t('menu_privacy'), path: '/privacy', color: 'text-blue-600' },
+    { icon: FileText, label: t('menu_terms'), path: '/terms', color: 'text-amber-600' },
+    { icon: RotateCcw, label: t('menu_refund'), path: '/refund-policy', color: 'text-rose-600' },
+    { icon: AlertTriangle, label: t('menu_disclaimer'), path: '/disclaimer', color: 'text-yellow-600' },
+    { icon: ShieldAlert, label: t('menu_safety'), path: '/safety-guidelines', color: 'text-red-600' },
+    { icon: Scale, label: t('menu_grievance'), path: '/grievance', color: 'text-blue-700' },
+    { icon: PhoneCall, label: t('menu_contact'), path: '/contact', color: 'text-teal-600' },
   ];
 
   return (
@@ -105,23 +108,26 @@ const Header: React.FC = () => {
               </motion.div>
               <div>
                 <h1 className="text-lg font-bold leading-snug">{branding.name}</h1>
-                <p className="text-[11px] text-[#EAB308] font-medium leading-normal">{branding.tagline}</p>
+                <p className="text-[11px] text-[#EAB308] font-medium leading-normal">
+                  {isHindi ? branding.tagline : t('brand_tagline')}
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Link to="/cart" className="p-1 hover:bg-white/10 rounded-full transition-colors relative" title="Cart Page">
-                <ShoppingCart className="w-6 h-6" />
+            <div className="flex items-center gap-2 sm:gap-3">
+              <LanguageSelector variant="compact" />
+              <Link to="/cart" className="p-1 hover:bg-white/10 rounded-full transition-colors relative" title={t('cart')}>
+                <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
                 {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold w-4.5 h-4.5 flex items-center justify-center rounded-full border border-[#2D5A27]">
                     {cartCount}
                   </span>
                 )}
               </Link>
-              <Link to="/profile" className="p-1 hover:bg-white/10 rounded-full transition-colors">
-                <User className="w-6 h-6" />
+              <Link to="/profile" className="p-1 hover:bg-white/10 rounded-full transition-colors" title={t('profile')}>
+                <User className="w-5 h-5 sm:w-6 sm:h-6" />
               </Link>
-              <button onClick={() => setIsMenuOpen(true)}>
-                <Menu className="w-6 h-6" />
+              <button onClick={() => setIsMenuOpen(true)} className="p-1 hover:bg-white/10 rounded-full cursor-pointer" title={t('menu_all_services')}>
+                <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
           </div>
@@ -137,7 +143,7 @@ const Header: React.FC = () => {
                 type="text" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="दवाई या बीज खोजें..." 
+                placeholder={t('search_placeholder')} 
                 className="w-full bg-white/10 border border-white/20 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:bg-white/20 placeholder:text-white/60"
               />
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-white/60" />
@@ -169,7 +175,7 @@ const Header: React.FC = () => {
                   {branding.name}
                 </h1>
                 <p className="text-[11px] text-[#EAB308] font-medium">
-                  {branding.tagline}
+                  {isHindi ? branding.tagline : t('brand_tagline')}
                 </p>
               </div>
             </Link>
@@ -187,31 +193,34 @@ const Header: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="दवाई या बीज खोजें..."
+              placeholder={t('search_placeholder')}
               className="w-full bg-white/10 border border-white/25 rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:bg-white/20 placeholder:text-white/70 text-white transition-all font-normal"
             />
             <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-white/70" />
           </form>
 
           {/* Tablet Actions */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
+            <LanguageSelector variant="compact" />
+
             {isAdmin && (
               <Link
                 to="/admin"
                 className="px-2.5 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-400/40 rounded-xl text-xs font-semibold transition-all flex items-center gap-1"
-                title="एडमिन पैनल"
+                title={t('admin_panel')}
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>एडमिन</span>
+                <span>{t('admin')}</span>
               </Link>
             )}
 
             <Link
               to="/cart"
-              className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all relative border border-white/15 text-white"
+              className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all relative border border-white/15 text-white"
+              title={t('cart')}
             >
               <ShoppingCart className="w-4 h-4 text-white" />
-              <span>कार्ट</span>
+              <span>{t('cart')}</span>
               {cartCount > 0 && (
                 <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
                   {cartCount}
@@ -222,16 +231,16 @@ const Header: React.FC = () => {
             <Link
               to="/profile"
               className="p-2 hover:bg-white/10 rounded-xl transition-colors text-white border border-white/10"
-              title="प्रोफाइल"
+              title={t('profile')}
             >
               <User className="w-4 h-4" />
             </Link>
 
-            {/* Tablet Hamburger Button (Preserved for Tablet) */}
+            {/* Tablet Hamburger Button */}
             <button
               onClick={() => setIsMenuOpen(true)}
-              className="p-2 hover:bg-white/10 rounded-xl transition-colors text-white border border-white/10"
-              title="सभी सेवाएं व नीतियां"
+              className="p-2 hover:bg-white/10 rounded-xl transition-colors text-white border border-white/10 cursor-pointer"
+              title={t('menu_all_services')}
             >
               <Menu className="w-4 h-4" />
             </button>
@@ -266,7 +275,7 @@ const Header: React.FC = () => {
                   {branding.name}
                 </h1>
                 <p className="text-xs 2xl:text-sm text-[#EAB308] font-medium">
-                  {branding.tagline}
+                  {isHindi ? branding.tagline : t('brand_tagline')}
                 </p>
               </Link>
             </div>
@@ -285,7 +294,7 @@ const Header: React.FC = () => {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="दवाई, खाद, बीज या कीटनाशक खोजें..."
+                    placeholder={t('search_placeholder')}
                     className="w-full bg-white/10 hover:bg-white/15 focus:bg-white focus:text-[#16311A] border border-white/25 rounded-2xl py-2.5 pl-11 pr-24 text-sm transition-all placeholder:text-white/70 focus:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#EAB308] text-white shadow-inner font-normal"
                   />
                   <Search className="absolute left-3.5 top-3 w-4 h-4 text-white/70" />
@@ -294,24 +303,27 @@ const Header: React.FC = () => {
                   type="submit"
                   className="absolute right-1.5 px-4 py-1.5 bg-[#EAB308] hover:bg-[#d4a107] text-[#16311A] font-semibold text-xs rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer"
                 >
-                  खोजें
+                  {t('search_button')}
                 </button>
               </form>
             </div>
 
             {/* Right: Quick Customer Actions */}
             <div className="flex items-center gap-3 shrink-0">
+              {/* Language Selector */}
+              <LanguageSelector variant="desktop" />
+
               {/* Missed Call / Helpline Badge */}
               <a
                 href={`tel:${cleanPhone}`}
                 className="hidden xl:flex items-center gap-2.5 px-3 py-1.5 bg-white/10 hover:bg-white/15 border border-white/15 rounded-2xl text-white transition-all group"
-                title="कृषि हेल्पलाइन पर कॉल करें"
+                title={t('helpline_call')}
               >
                 <div className="w-8 h-8 rounded-xl bg-[#EAB308]/20 flex items-center justify-center text-[#EAB308] shrink-0 group-hover:scale-105 transition-transform">
                   <Phone className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <p className="text-[10px] text-emerald-200 font-medium">हेल्पलाइन</p>
+                  <p className="text-[10px] text-emerald-200 font-medium">{t('helpline')}</p>
                   <p className="text-xs font-bold text-white">{phoneNumber}</p>
                 </div>
               </a>
@@ -325,10 +337,10 @@ const Header: React.FC = () => {
                     ? "bg-white/20 text-white border-white/30 shadow-xs" 
                     : "bg-white/10 hover:bg-white/15 text-white/90 border-white/10 hover:text-white"
                 )}
-                title="मेरे ऑर्डर"
+                title={t('my_orders')}
               >
                 <Package className="w-4 h-4 text-emerald-300" />
-                <span>मेरे ऑर्डर</span>
+                <span>{t('my_orders')}</span>
               </NavLink>
 
               {/* User Profile */}
@@ -340,10 +352,10 @@ const Header: React.FC = () => {
                     ? "bg-white/20 text-white border-white/30 shadow-xs" 
                     : "bg-white/10 hover:bg-white/15 text-white/90 border-white/10 hover:text-white"
                 )}
-                title="प्रोफाइल"
+                title={t('profile')}
               >
                 <User className="w-4 h-4 text-amber-300" />
-                <span>प्रोफाइल</span>
+                <span>{t('profile')}</span>
               </NavLink>
 
               {/* Shopping Cart */}
@@ -355,10 +367,10 @@ const Header: React.FC = () => {
                     ? "bg-[#EAB308] text-[#16311A] border-[#EAB308]" 
                     : "bg-white/15 hover:bg-white/25 text-white border-white/20"
                 )}
-                title="शॉपिंग कार्ट देखें"
+                title={t('cart')}
               >
                 <ShoppingCart className="w-4 h-4" />
-                <span>कार्ट</span>
+                <span>{t('cart')}</span>
                 {cartCount > 0 && (
                   <span className="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none shadow-sm">
                     {cartCount}
@@ -371,10 +383,10 @@ const Header: React.FC = () => {
                 <Link
                   to="/admin"
                   className="px-3 py-2 bg-amber-500/25 hover:bg-amber-500/35 text-amber-300 border border-amber-400/40 rounded-2xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs"
-                  title="एडमिन पैनल"
+                  title={t('admin_panel')}
                 >
                   <ShieldCheck className="w-4 h-4" />
-                  <span>एडमिन</span>
+                  <span>{t('admin')}</span>
                 </Link>
               )}
             </div>
@@ -392,7 +404,7 @@ const Header: React.FC = () => {
                     isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
-                  <Home className="w-3.5 h-3.5" /> मुख्य पृष्ठ
+                  <Home className="w-3.5 h-3.5" /> {t('nav_home')}
                 </NavLink>
 
                 <NavLink 
@@ -402,7 +414,7 @@ const Header: React.FC = () => {
                     isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
-                  <ShoppingBag className="w-3.5 h-3.5" /> कृषि बाज़ार
+                  <ShoppingBag className="w-3.5 h-3.5" /> {t('nav_products')}
                 </NavLink>
 
                 <NavLink 
@@ -412,7 +424,7 @@ const Header: React.FC = () => {
                     isActive ? "bg-white/20 text-amber-200 font-semibold shadow-xs" : "hover:text-amber-200 hover:bg-white/10 font-medium"
                   )}
                 >
-                  <Sparkles className="w-3.5 h-3.5" /> AI विशेषज्ञ कॉल
+                  <Sparkles className="w-3.5 h-3.5" /> {t('nav_ai_call')}
                 </NavLink>
 
                 <NavLink 
@@ -422,7 +434,7 @@ const Header: React.FC = () => {
                     isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
-                  <Camera className="w-3.5 h-3.5" /> बीमारी जाँच
+                  <Camera className="w-3.5 h-3.5" /> {t('nav_disease')}
                 </NavLink>
 
                 <NavLink 
@@ -432,7 +444,7 @@ const Header: React.FC = () => {
                     isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
-                  <TrendingUp className="w-3.5 h-3.5" /> मंडी भाव
+                  <TrendingUp className="w-3.5 h-3.5" /> {t('nav_mandi')}
                 </NavLink>
 
                 <NavLink 
@@ -442,7 +454,7 @@ const Header: React.FC = () => {
                     isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
-                  <Newspaper className="w-3.5 h-3.5" /> कृषि समाचार
+                  <Newspaper className="w-3.5 h-3.5" /> {t('nav_news')}
                 </NavLink>
 
                 <NavLink 
@@ -452,7 +464,7 @@ const Header: React.FC = () => {
                     isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
-                  <CloudSun className="w-3.5 h-3.5" /> मौसम
+                  <CloudSun className="w-3.5 h-3.5" /> {t('nav_weather')}
                 </NavLink>
 
                 <NavLink 
@@ -462,7 +474,7 @@ const Header: React.FC = () => {
                     isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
-                  <Landmark className="w-3.5 h-3.5" /> सरकारी योजनाएं
+                  <Landmark className="w-3.5 h-3.5" /> {t('nav_schemes')}
                 </NavLink>
 
                 <NavLink 
@@ -472,7 +484,7 @@ const Header: React.FC = () => {
                     isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
-                  <Calculator className="w-3.5 h-3.5" /> कैलकुलेटर
+                  <Calculator className="w-3.5 h-3.5" /> {t('nav_calculator')}
                 </NavLink>
 
                 <NavLink 
@@ -482,7 +494,7 @@ const Header: React.FC = () => {
                     isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
-                  <Info className="w-3.5 h-3.5" /> हमारे बारे में
+                  <Info className="w-3.5 h-3.5" /> {t('menu_about_us')}
                 </NavLink>
 
                 <NavLink 
@@ -492,7 +504,7 @@ const Header: React.FC = () => {
                     isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
-                  <Award className="w-3.5 h-3.5" /> वैधानिक लाइसेंस
+                  <Award className="w-3.5 h-3.5" /> {t('menu_licensing')}
                 </NavLink>
 
                 <NavLink 
@@ -502,7 +514,7 @@ const Header: React.FC = () => {
                     isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
-                  <Phone className="w-3.5 h-3.5" /> संपर्क करें
+                  <Phone className="w-3.5 h-3.5" /> {t('menu_contact')}
                 </NavLink>
               </nav>
             </div>
@@ -590,11 +602,18 @@ const Header: React.FC = () => {
                     <X className="w-6 h-6" />
                   </button>
                 </div>
-                <h2 className="text-xl font-bold">नमस्ते, किसान भाई!</h2>
-                <p className="text-xs text-white/70 mt-1">फल्सावदिया कृषि बाजार में आपका स्वागत है</p>
+                <h2 className="text-xl font-bold">
+                  {isHindi ? 'नमस्ते, किसान भाई!' : 'Welcome, Farmer Friend!'}
+                </h2>
+                <p className="text-xs text-white/70 mt-1">
+                  {isHindi ? `${branding.name} में आपका स्वागत है` : `Welcome to ${branding.name}`}
+                </p>
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {/* Language Selector Option */}
+                <LanguageSelector variant="drawer" />
+
                 {/* Main Navigation Items */}
                 <div className="space-y-1">
                   {mainMenuItems.map((item, idx) => (
@@ -625,7 +644,7 @@ const Header: React.FC = () => {
                 {/* Legal & Policy Pages - Shifted to Bottom */}
                 <div className="pt-2 border-t border-gray-100 space-y-1">
                   <p className="text-[11px] font-semibold text-gray-500 px-3 mb-1">
-                    नीतियां व सहायता (Legal & Info)
+                    {t('menu_policies_heading')}
                   </p>
                   {legalMenuItems.map((item, idx) => (
                     <button

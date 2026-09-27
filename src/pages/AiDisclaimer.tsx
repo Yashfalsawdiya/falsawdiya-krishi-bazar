@@ -22,19 +22,35 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
+import { DEFAULT_LEGAL_PAGES_CONTENT_EN } from '../data/defaultPagesContentEn';
 
 const ICONS = [Sparkles, Images, FlaskConical, Pill, HelpCircle, UserCheck, Flame, MessageSquare];
 
 const AiDisclaimer: React.FC = () => {
   const { appContent, legalPagesContent } = useAppContext();
+  const { isEnglish, translateText } = useLanguage();
 
   const branding = appContent?.branding || {
     name: 'फल्सावदिया कृषि बाजार',
     tagline: 'किसान का भरोसा, हमारी पहचान'
   };
 
-  const disclaimerData = legalPagesContent?.aiDisclaimer || DEFAULT_LEGAL_PAGES_CONTENT.aiDisclaimer;
+  const defaultAi = isEnglish ? DEFAULT_LEGAL_PAGES_CONTENT_EN.aiDisclaimer : DEFAULT_LEGAL_PAGES_CONTENT.aiDisclaimer;
+  const rawDisclaimerData = legalPagesContent?.aiDisclaimer || defaultAi;
+  const disclaimerData = {
+    ...rawDisclaimerData,
+    bannerTitle: isEnglish ? (rawDisclaimerData === defaultAi ? rawDisclaimerData.bannerTitle : translateText(rawDisclaimerData.bannerTitle)) : rawDisclaimerData.bannerTitle,
+    bannerSubtitle: isEnglish ? (rawDisclaimerData === defaultAi ? rawDisclaimerData.bannerSubtitle : translateText(rawDisclaimerData.bannerSubtitle)) : rawDisclaimerData.bannerSubtitle,
+    introText: isEnglish ? (rawDisclaimerData === defaultAi ? rawDisclaimerData.introText : translateText(rawDisclaimerData.introText)) : rawDisclaimerData.introText,
+    sections: (rawDisclaimerData.sections || []).map(sec => ({
+      ...sec,
+      title: isEnglish ? (rawDisclaimerData === defaultAi ? sec.title : translateText(sec.title)) : sec.title,
+      content: isEnglish ? (rawDisclaimerData === defaultAi ? sec.content : translateText(sec.content)) : sec.content,
+      bullets: sec.bullets ? sec.bullets.map(b => isEnglish ? (rawDisclaimerData === defaultAi ? b : translateText(b)) : b) : undefined
+    }))
+  };
 
   return (
     <div className="space-y-6 pb-8">

@@ -21,12 +21,14 @@ import {
   Key
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { cn } from '../lib/utils';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
 
 const AgriNews: React.FC = () => {
   const { loading: appLoading } = useAppContext();
+  const { t, isHindi, translateText } = useLanguage();
   const { 
     apiKey: effectiveApiKey, 
     requireApiKey, 
@@ -150,15 +152,15 @@ const AgriNews: React.FC = () => {
 
   const getCategoryName = (cat: string) => {
     switch (cat) {
-      case 'MP': return 'मध्य प्रदेश';
-      case 'India': return 'भारत';
-      case 'Scheme': return 'योजनाएँ';
-      case 'Weather': return 'मौसम';
-      case 'Crop': return 'फसल';
-      case 'Market': return 'मंडी भाव';
-      case 'Tech': return 'तकनीक';
-      case 'Innovation': return 'नवाचार';
-      default: return cat;
+      case 'MP': return isHindi ? 'मध्य प्रदेश' : 'Madhya Pradesh';
+      case 'India': return isHindi ? 'भारत' : 'India';
+      case 'Scheme': return isHindi ? 'योजनाएँ' : 'Schemes';
+      case 'Weather': return isHindi ? 'मौसम' : 'Weather';
+      case 'Crop': return isHindi ? 'फसल' : 'Crops';
+      case 'Market': return isHindi ? 'मंडी भाव' : 'Mandi Rates';
+      case 'Tech': return isHindi ? 'तकनीक' : 'Agri Tech';
+      case 'Innovation': return isHindi ? 'नवाचार' : 'Innovation';
+      default: return translateText(cat);
     }
   };
 
@@ -235,9 +237,9 @@ ${item.source || "कृषि जागरण"}
             <Newspaper className="w-6 h-6" />
           </div>
         </div>
-        <h2 className="text-2xl font-black text-[#2D5A27] tracking-tight">कृषि समाचार (Agri News)</h2>
+        <h2 className="text-2xl font-black text-[#2D5A27] tracking-tight">{t('news_title')}</h2>
         <p className="text-xs text-gray-500 font-medium mt-1">
-          फल्सावदिया कृषि बाजार • खेती-किसानी की ताज़ा, प्रमाणित और दैनिक खबरें
+          {t('news_subtitle')}
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
@@ -250,7 +252,7 @@ ${item.source || "कृषि जागरण"}
             id="btn-sync-news"
           >
             <RefreshCw className={cn("w-3.5 h-3.5 text-[#2D5A27]", (loading || silentSyncing) && "animate-spin")} />
-            {loading || silentSyncing ? "अपडेट हो रहा है..." : "ताज़ा खबरें प्राप्त करें (Sync)"}
+            {loading || silentSyncing ? t('loading') : (isHindi ? "ताज़ा खबरें प्राप्त करें (Sync)" : "Sync Latest News")}
           </button>
           
           {lastSyncedTime ? (
@@ -398,10 +400,10 @@ ${item.source || "कृषि जागरण"}
                         <Calendar className="w-3.5 h-3.5 text-[#2D5A27]" />
                         {isToday && (
                           <span className="bg-emerald-100 text-emerald-800 text-[8.5px] font-black px-1.5 py-0.5 rounded leading-none">
-                            आज
+                            {isHindi ? 'आज' : 'Today'}
                           </span>
                         )}
-                        <span>{convertToHindiDate(item.date)}</span>
+                        <span>{isHindi ? convertToHindiDate(item.date) : item.date}</span>
                       </div>
                     </div>
                     
@@ -420,7 +422,7 @@ ${item.source || "कृषि जागरण"}
                           {item.source ? item.source.charAt(0) : 'K'}
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">स्रोत</span>
+                          <span className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">{t('source')}</span>
                           <span className="text-[10px] font-black text-gray-700">{item.source || "कृषि जागरण"}</span>
                         </div>
                       </div>
@@ -435,17 +437,17 @@ ${item.source || "कृषि जागरण"}
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
                               : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
                           )}
-                          title="समाचार कॉपी करें"
+                          title={isHindi ? "समाचार कॉपी करें" : "Copy news"}
                         >
                           {copiedIdx === idx ? (
                             <>
                               <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>कॉपी हो गया!</span>
+                              <span>{isHindi ? 'कॉपी हो गया!' : 'Copied!'}</span>
                             </>
                           ) : (
                             <>
                               <Copy className="w-3.5 h-3.5 text-gray-500" />
-                              <span>कॉपी</span>
+                              <span>{isHindi ? 'कॉपी' : 'Copy'}</span>
                             </>
                           )}
                         </button>
@@ -456,10 +458,10 @@ ${item.source || "कृषि जागरण"}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10.5px] font-black bg-[#2D5A27] text-white hover:bg-[#1E3F1A] transition-all border border-transparent shadow-sm cursor-pointer"
-                          title="WhatsApp पर शेयर करें"
+                          title="WhatsApp"
                         >
                           <Share2 className="w-3.5 h-3.5 text-white" />
-                          <span>शेयर</span>
+                          <span>{isHindi ? 'शेयर' : 'Share'}</span>
                         </a>
 
                         {/* विस्तार देखें Link */}

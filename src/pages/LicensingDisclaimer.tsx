@@ -27,11 +27,28 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
+import { DEFAULT_LEGAL_PAGES_CONTENT_EN } from '../data/defaultPagesContentEn';
 
 export const LicensingDisclaimer: React.FC = () => {
   const { legalPagesContent } = useAppContext();
-  const pageData = legalPagesContent?.licensingDisclaimer || DEFAULT_LEGAL_PAGES_CONTENT.licensingDisclaimer;
+  const { isEnglish, translateText } = useLanguage();
+
+  const defaultLic = isEnglish ? DEFAULT_LEGAL_PAGES_CONTENT_EN.licensingDisclaimer : DEFAULT_LEGAL_PAGES_CONTENT.licensingDisclaimer;
+  const rawPageData = legalPagesContent?.licensingDisclaimer || defaultLic;
+  const pageData = {
+    ...rawPageData,
+    bannerTitle: isEnglish ? (rawPageData === defaultLic ? rawPageData.bannerTitle : translateText(rawPageData.bannerTitle)) : rawPageData.bannerTitle,
+    bannerSubtitle: isEnglish ? (rawPageData === defaultLic ? rawPageData.bannerSubtitle : translateText(rawPageData.bannerSubtitle)) : rawPageData.bannerSubtitle,
+    introText: isEnglish ? (rawPageData === defaultLic ? rawPageData.introText : translateText(rawPageData.introText)) : rawPageData.introText,
+    sections: (rawPageData.sections || []).map(sec => ({
+      ...sec,
+      title: isEnglish ? (rawPageData === defaultLic ? sec.title : translateText(sec.title)) : sec.title,
+      content: isEnglish ? (rawPageData === defaultLic ? sec.content : translateText(sec.content)) : sec.content,
+      bullets: sec.bullets ? sec.bullets.map(b => isEnglish ? (rawPageData === defaultLic ? b : translateText(b)) : b) : undefined
+    }))
+  };
 
   return (
     <div className="space-y-6 pb-16 font-sans max-w-4xl mx-auto px-3 sm:px-6 pt-2 sm:pt-4">
