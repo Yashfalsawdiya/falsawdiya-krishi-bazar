@@ -2,17 +2,14 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Home, ShoppingBag, Camera, CloudSun, Newspaper } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useLanguage } from '../context/LanguageContext';
 
 const BottomNav: React.FC = () => {
-  const { t } = useLanguage();
-
   const navItems = [
-    { to: '/', icon: Home, label: t('nav.home', t('bottom_home', 'Home')) },
-    { to: '/products', icon: ShoppingBag, label: t('nav.market', t('bottom_market', 'Market')) },
-    { to: '/disease', icon: Camera, label: t('nav.crop_scan', t('bottom_disease', 'Crop Scan')) },
-    { to: '/news', icon: Newspaper, label: t('nav.agri_news', t('bottom_news', 'Agri News')) },
-    { to: '/weather', icon: CloudSun, label: t('nav.weather', t('bottom_weather', 'Weather')) },
+    { to: '/', icon: Home, label: 'होम' },
+    { to: '/products', icon: ShoppingBag, label: 'बाजार' },
+    { to: '/disease', icon: Camera, label: 'बीमारी जाँच' },
+    { to: '/news', icon: Newspaper, label: 'कृषि समाचार' },
+    { to: '/weather', icon: CloudSun, label: 'मौसम' },
   ];
 
   return (

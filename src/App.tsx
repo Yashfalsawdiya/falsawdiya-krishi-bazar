@@ -2,7 +2,6 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { CartProvider } from './context/CartContext';
-import { LanguageProvider } from './context/LanguageContext';
 import Layout from './components/Layout';
 import SplashScreen from './components/SplashScreen';
 import PWAUpdater from './components/PWAUpdater';
@@ -79,9 +78,8 @@ const PageLoader = () => (
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <AppProvider>
-        <CartProvider>
+    <AppProvider>
+      <CartProvider>
         <DesktopTouchSimulator />
         <SplashScreen />
         <PWAUpdater />
@@ -154,6 +152,5 @@ export default function App() {
         </BrowserRouter>
       </CartProvider>
     </AppProvider>
-  </LanguageProvider>
   );
 }

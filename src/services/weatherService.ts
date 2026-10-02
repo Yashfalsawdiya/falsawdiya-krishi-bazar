@@ -1,7 +1,6 @@
 export interface WeatherData {
   temp: number;
   condition: string;
-  weatherCode?: number;
   humidity: number;
   windSpeed: number;
   rain: number;
@@ -10,16 +9,12 @@ export interface WeatherData {
   location?: string;
   forecast: {
     day: string;
-    dateStr?: string;
-    weatherCode?: number;
     temp: string;
     condition: string;
     rainProb?: number;
   }[];
   hourly?: {
     time: string;
-    timeIso?: string;
-    weatherCode?: number;
     temp: number;
     condition: string;
     rainProb: number;
@@ -112,13 +107,10 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
     const forecast = data.daily.time.slice(1, 8).map((time: string, index: number) => {
       const date = new Date(time);
       const dayName = index === 0 ? 'कल (Tomorrow)' : days[date.getDay()];
-      const wCode = data.daily.weather_code[index + 1];
       return {
         day: dayName,
-        dateStr: time,
-        weatherCode: wCode,
         temp: `${Math.round(data.daily.temperature_2m_max[index + 1])}°C`,
-        condition: CONDITION_MAP[wCode] || 'साफ',
+        condition: CONDITION_MAP[data.daily.weather_code[index + 1]] || 'साफ',
         rainProb: data.daily.precipitation_probability_max ? data.daily.precipitation_probability_max[index + 1] : undefined
       };
     });
@@ -129,7 +121,6 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
     const hourly = data.hourly.time.slice(startIndex, startIndex + 24).map((time: string, index: number) => {
       const actualIndex = startIndex + index;
       const date = new Date(time);
-      const wCode = data.hourly.weather_code[actualIndex];
       
       let isNight = false;
       const hourTimestamp = date.getTime();
@@ -158,11 +149,9 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
       }
 
       return {
-        time: date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }),
-        timeIso: time,
-        weatherCode: wCode,
+        time: date.toLocaleTimeString('hi-IN', { hour: 'numeric', minute: 'numeric', hour12: true }),
         temp: Math.round(data.hourly.temperature_2m[actualIndex]),
-        condition: CONDITION_MAP[wCode] || 'साफ',
+        condition: CONDITION_MAP[data.hourly.weather_code[actualIndex]] || 'साफ',
         rainProb: data.hourly.precipitation_probability[actualIndex],
         isNight
       };
@@ -171,7 +160,6 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
     const weatherResult: WeatherData = {
       temp: Math.round(data.current.temperature_2m),
       condition: CONDITION_MAP[data.current.weather_code] || 'साफ आसमान',
-      weatherCode: data.current.weather_code,
       humidity: data.current.relative_humidity_2m,
       windSpeed: data.current.wind_speed_10m,
       rain: data.current.precipitation,

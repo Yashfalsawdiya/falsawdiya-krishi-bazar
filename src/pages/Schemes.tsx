@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { fetchSchemes, Scheme } from '../services/schemeService';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -8,6 +8,7 @@ import {
   ExternalLink, 
   RefreshCw, 
   X, 
+  Search, 
   Sparkles,
   CheckCircle2,
   AlertCircle
@@ -30,6 +31,7 @@ const Schemes: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   const loadSchemes = async (force: boolean = false) => {
@@ -63,7 +65,21 @@ const Schemes: React.FC = () => {
     }
   }, [appLoading, effectiveApiKey]);
 
-  const filteredSchemes = schemes;
+  // Filter & Search Logic
+  const filteredSchemes = useMemo(() => {
+    return schemes.filter((scheme) => {
+      const q = searchQuery.toLowerCase().trim();
+      if (!q) return true;
+      return (
+        scheme.title.toLowerCase().includes(q) ||
+        scheme.description.toLowerCase().includes(q) ||
+        scheme.sector.toLowerCase().includes(q) ||
+        scheme.subsidyDetails?.toLowerCase().includes(q) ||
+        scheme.eligibility?.toLowerCase().includes(q) ||
+        (Array.isArray(scheme.benefits) && scheme.benefits.some(b => b.toLowerCase().includes(q)))
+      );
+    });
+  }, [schemes, searchQuery]);
 
   const handleSyncClick = () => {
     loadSchemes(true);
@@ -79,7 +95,7 @@ const Schemes: React.FC = () => {
 
       {/* Header Banner */}
       <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm relative overflow-hidden">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#2D5A27] flex items-center justify-center border border-emerald-100/60">
               <Landmark className="w-5 h-5" />
@@ -107,13 +123,33 @@ const Schemes: React.FC = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="mt-3 text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-xl flex items-center gap-2"
+              className="mt-2 text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-xl flex items-center gap-2"
             >
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>{syncStatus}</span>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Search Bar */}
+        <div className="mt-4 relative">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input 
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="योजना खोजें... (जैसे: सोलर पंप, ट्रैक्टर, बीमा, खाद, KCC)"
+            className="w-full bg-gray-50 border border-gray-200 focus:border-[#2D5A27] focus:bg-white text-gray-800 placeholder-gray-400 text-xs rounded-2xl pl-9 pr-9 py-2.5 outline-none transition-all shadow-xs"
+          />
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
 
@@ -131,17 +167,17 @@ const Schemes: React.FC = () => {
           <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-amber-200">
             <AlertCircle className="w-6 h-6 text-amber-600" />
           </div>
-          <h3 className="text-sm font-bold text-gray-800 mb-1">कोई योजना उपलब्ध नहीं है</h3>
+          <h3 className="text-sm font-bold text-gray-800 mb-1">कोई योजना नहीं मिली</h3>
           <p className="text-xs text-gray-500 max-w-xs mx-auto mb-4">
-            कृपया ताज़ा करें बटन दबाकर दोबारा प्रयास करें।
+            कृपया अपने सर्च शब्द बदलकर पुनः प्रयास करें।
           </p>
           <button
             onClick={() => {
-              loadSchemes(true);
+              setSearchQuery('');
             }}
             className="px-4 py-2 bg-[#2D5A27] text-white text-xs font-bold rounded-xl shadow-sm active:scale-95 transition-transform"
           >
-            ताज़ा करें
+            सभी योजनाएं देखें
           </button>
         </div>
       ) : (

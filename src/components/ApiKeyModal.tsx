@@ -4,7 +4,6 @@ import { Key, X, ExternalLink, Youtube, ArrowRight, Check, Loader2 } from 'lucid
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import useAiGuard from '../hooks/useAiGuard';
-import { useLanguage } from '../context/LanguageContext';
 
 interface ApiKeyModalProps {
   isOpen: boolean;
@@ -15,7 +14,6 @@ interface ApiKeyModalProps {
 const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, message }) => {
   const { appContent, updateUserSettings } = useAppContext();
   const { apiKey: currentKey } = useAiGuard();
-  const { isEnglish } = useLanguage();
   const [inputKey, setInputKey] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -67,30 +65,25 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, message }) =
               <button 
                 onClick={onClose}
                 className="absolute top-4 right-4 p-1 hover:bg-white/10 rounded-full transition-colors cursor-pointer"
-                aria-label={isEnglish ? "Close" : "बंद करें"}
               >
                 <X className="w-5 h-5" />
               </button>
               <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3 backdrop-blur-md">
                 <Key className="w-7 h-7 text-[#EAB308]" />
               </div>
-              <h3 className="text-lg font-bold">
-                {isEnglish ? 'API Key Required' : 'API Key आवश्यक है'}
-              </h3>
-              <p className="text-xs text-white/80 mt-0.5">
-                {isEnglish ? 'Enter your personal Gemini API Key' : 'अपनी व्यक्तिगत Gemini Key दर्ज करें'}
-              </p>
+              <h3 className="text-lg font-bold">API Key आवश्यक है</h3>
+              <p className="text-xs text-white/80 mt-0.5">अपनी व्यक्तिगत Gemini Key दर्ज करें</p>
             </div>
 
             <div className="p-5 space-y-4">
               <p className="text-xs text-gray-600 text-center font-medium leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">
-                {message || (isEnglish ? 'All AI features operate exclusively using your own personal Gemini API Key with zero cost.' : 'ऐप के सभी AI फीचर्स केवल आपकी अपनी व्यक्तिगत API Key से चलेंगे।')}
+                {message || "ऐप के सभी AI फीचर्स केवल आपकी अपनी व्यक्तिगत API Key से चलेंगे।"}
               </p>
 
               {/* Direct Input Field */}
               <div className="space-y-2">
                 <label className="text-[11px] font-bold text-gray-700 block">
-                  {isEnglish ? 'Paste your Gemini API Key here:' : 'अपनी Gemini API Key यहाँ पेस्ट करें:'}
+                  अपनी Gemini API Key यहाँ पेस्ट करें:
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -110,13 +103,13 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, message }) =
                     ) : saveSuccess ? (
                       <Check className="w-3.5 h-3.5 text-emerald-300" />
                     ) : (
-                      isEnglish ? 'Save' : 'सेव करें'
+                      "सेव करें"
                     )}
                   </button>
                 </div>
                 {saveSuccess && (
                   <p className="text-[11px] text-emerald-600 font-bold flex items-center gap-1 mt-1">
-                    <Check className="w-3.5 h-3.5" /> {isEnglish ? 'Key saved successfully!' : 'Key सफलतापूर्वक सहेज ली गई!'}
+                    <Check className="w-3.5 h-3.5" /> Key सफलतापूर्वक सहेज ली गई!
                   </p>
                 )}
               </div>
@@ -129,7 +122,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, message }) =
                   className="w-full flex items-center justify-between p-3 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold border border-blue-100 active:scale-95 transition-transform"
                 >
                   <span className="flex items-center gap-2">
-                    <ExternalLink className="w-3.5 h-3.5" /> {isEnglish ? 'Get your free key here' : 'फ्री Key यहाँ से जनरेट करें'}
+                    <ExternalLink className="w-3.5 h-3.5" /> फ्री Key यहाँ से जनरेट करें
                   </span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </a>
@@ -140,7 +133,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, message }) =
                   className="w-full flex items-center justify-between p-3 bg-red-50 text-red-700 rounded-xl text-xs font-bold border border-red-100 active:scale-95 transition-transform"
                 >
                   <span className="flex items-center gap-2">
-                    <Youtube className="w-3.5 h-3.5" /> {isEnglish ? 'Watch video guide' : 'वीडियो गाइड देखें'}
+                    <Youtube className="w-3.5 h-3.5" /> वीडियो गाइड देखें
                   </span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </a>
@@ -151,7 +144,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, message }) =
                 onClick={onClose}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform"
               >
-                {isEnglish ? 'Configure on Profile Page' : 'प्रोफाइल पेज पर जाकर सेट करें'}
+                प्रोफाइल पेज पर जाकर सेट करें
               </Link>
             </div>
           </motion.div>

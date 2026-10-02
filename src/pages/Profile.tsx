@@ -10,12 +10,9 @@ import SmartImage from '../components/SmartImage';
 import { DeliveryPartner } from '../types';
 import { listenDeliveryPartners, findDeliveryPartnerByUser } from '../services/deliveryPartnerService';
 import { getVehicleDisplayLabel } from '../data/defaultDeliveryConfig';
-import { useLanguage } from '../context/LanguageContext';
-import LanguageSelector from '../components/LanguageSelector';
 
 const Profile: React.FC = () => {
   const { user, isAdmin, userSettings, updateUserSettings, login, logout, loading, appContent } = useAppContext();
-  const { isEnglish, t } = useLanguage();
   const [apiKey, setApiKey] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
@@ -289,20 +286,13 @@ const Profile: React.FC = () => {
           </div>
           <div>
             <h3 className="text-sm font-bold text-gray-800 group-hover:text-[#2D5A27] transition-colors">
-              {isEnglish ? 'My Orders' : 'मेरे ऑनलाइन ऑर्डर'}
+              मेरे ऑनलाइन ऑर्डर (My Orders)
             </h3>
-            <p className="text-[11px] text-gray-400">
-              {isEnglish ? 'View order status, live tracking and invoices' : 'ऑर्डर स्थिति, लाइव ट्रैकिंग व रसीद देखें'}
-            </p>
+            <p className="text-[11px] text-gray-400">ऑर्डर स्थिति, लाइव ट्रैकिंग व रसीद देखें</p>
           </div>
         </div>
         <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#2D5A27] group-hover:translate-x-0.5 transition-all" />
       </Link>
-
-      {/* App Language Preference Selection */}
-      <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
-        <LanguageSelector variant="drawer" />
-      </div>
 
       {/* API Key Section */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
@@ -335,7 +325,7 @@ const Profile: React.FC = () => {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline"
             >
-              {isEnglish ? 'Get your free key here' : 'अपनी फ्री Key यहाँ से लें'} <ExternalLink className="w-3 h-3" />
+              अपनी फ्री Key यहाँ से लें <ExternalLink className="w-3 h-3" />
             </a>
             <a 
               href={appContent?.apiKeyGuideVideoUrl || "https://www.youtube.com/results?search_query=how+to+get+gemini+api+key"} 
@@ -343,16 +333,14 @@ const Profile: React.FC = () => {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs font-bold text-[#2D5A27] hover:underline"
             >
-              {isEnglish ? 'Watch video guide' : 'वीडियो गाइड देखें'} <Youtube className="w-3 h-3" />
+              वीडियो गाइड देखें <Youtube className="w-3 h-3" />
             </a>
           </div>
         </div>
 
         <div className="space-y-1.5">
           <div className="flex justify-between items-end mb-1">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
-              {isEnglish ? 'Your Gemini API Key' : 'अपनी Gemini API Key'}
-            </label>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">अपनी Gemini API Key</label>
             <div className="flex gap-2">
               {apiKey && (
                 <>
@@ -368,7 +356,7 @@ const Profile: React.FC = () => {
                     )}
                   >
                     {testStatus === 'testing' ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Key className="w-2.5 h-2.5" />}
-                    {isEnglish ? 'Test Key' : 'Key चेक करें'}
+                    Key चेक करें
                   </button>
 
                   <button 
@@ -383,7 +371,7 @@ const Profile: React.FC = () => {
                     )}
                   >
                     {quotaStatus === 'checking' ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Award className="w-2.5 h-2.5" />}
-                    {isEnglish ? 'Check Quota' : 'Quota चेक करें'}
+                    Quota चेक करें
                   </button>
                 </>
               )}
@@ -418,7 +406,7 @@ const Profile: React.FC = () => {
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
           ) : (
             <>
-              <Save className="w-5 h-5" /> {isEnglish ? 'Save' : 'सुरक्षित करें'}
+              <Save className="w-5 h-5" /> सुरक्षित करें
             </>
           )}
         </button>
@@ -426,9 +414,7 @@ const Profile: React.FC = () => {
         <div className="pt-2 border-t border-gray-100 flex flex-col gap-2">
           <button 
             onClick={() => {
-              if (confirm(isEnglish 
-                ? 'Do you want to clear app cache and refresh? This will resolve cached glitches.' 
-                : 'क्या आप ऐप की पुरानी कैश (Cache) साफ करके रिफ्रेश करना चाहते हैं? इससे पुराने ग्लिचेस ठीक हो जाएंगे।')) {
+              if (confirm('क्या आप ऐप की पुरानी कैश (Cache) साफ करके रिफ्रेश करना चाहते हैं? इससे पुराने ग्लिचेस ठीक हो जाएंगे।')) {
                 // 1. Clear Service Workers
                 if ('serviceWorker' in navigator) {
                   navigator.serviceWorker.getRegistrations().then(registrations => {
@@ -452,6 +438,7 @@ const Profile: React.FC = () => {
                 sessionStorage.clear();
 
                 // 4. Clear IndexedDB (Firebase, Offline Data)
+                // This is crucial for fixing Firestore/Data issues
                 if (window.indexedDB && window.indexedDB.databases) {
                   window.indexedDB.databases().then(databases => {
                     for (const db of databases) {
@@ -475,14 +462,14 @@ const Profile: React.FC = () => {
             }}
             className="w-full py-4 text-orange-600 text-[10px] font-bold flex items-center justify-center gap-2 bg-orange-50 rounded-xl border border-orange-100 active:scale-95 transition-transform shadow-sm"
           >
-            <RefreshCw className="w-3 h-3" /> {isEnglish ? 'Clear App Cache & Reset' : 'ऐप कैश साफ करें (Clear Cache & Reset)'}
+            <RefreshCw className="w-3 h-3" /> ऐप कैश साफ करें (Clear Cache & Reset)
           </button>
 
           <button 
             onClick={handleRenew}
             className="w-full py-3 text-[#2D5A27] text-[10px] font-bold flex items-center justify-center gap-2 bg-[#2D5A27]/5 rounded-xl border border-[#2D5A27]/10 active:scale-95 transition-transform"
           >
-            <RefreshCw className="w-3 h-3" /> {isEnglish ? 'Generate New Key (Renew)' : 'नई Key जनरेट करें (Renew)'}
+            <RefreshCw className="w-3 h-3" /> नई Key जनरेट करें (Renew)
           </button>
         </div>
 
@@ -490,7 +477,7 @@ const Profile: React.FC = () => {
           <motion.p 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`text-center text-xs font-bold ${saveMessage.includes('त्रुटि') || saveMessage.includes('Error') || saveMessage.includes('Invalid') ? 'text-red-500' : 'text-green-600'}`}
+            className={`text-center text-xs font-bold ${saveMessage.includes('त्रुटि') ? 'text-red-500' : 'text-green-600'}`}
           >
             {saveMessage}
           </motion.p>
@@ -499,19 +486,14 @@ const Profile: React.FC = () => {
 
       {/* Help Guide */}
       <div className="bg-[#F5F2ED] p-6 rounded-3xl border border-[#4A3728]/10 space-y-4">
-        <h4 className="font-bold text-[#4A3728]">{isEnglish ? 'How to get an API key?' : 'API Key कैसे प्राप्त करें?'}</h4>
+        <h4 className="font-bold text-[#4A3728]">API Key कैसे प्राप्त करें?</h4>
         <ul className="space-y-3">
-          {(isEnglish ? [
-            "1. Click the 'Free Key' link above.",
-            "2. Log in to Google AI Studio.",
-            "3. Click the 'Create API Key' button.",
-            "4. Copy the key and paste it here."
-          ] : [
-            "1. ऊपर दिए गए 'फ्री Key' लिंक पर क्लिक करें।",
-            "2. Google AI Studio में लॉगिन करें।",
-            "3. 'Create API Key' बटन पर क्लिक करें।",
-            "4. Key को कॉपी करें और यहाँ पेस्ट करें।"
-          ]).map((step, i) => (
+          {[
+            "ऊपर दिए गए 'फ्री Key' लिंक पर क्लिक करें।",
+            "Google AI Studio में लॉगिन करें।",
+            "'Create API Key' बटन पर क्लिक करें।",
+            "Key को कॉपी करें और यहाँ पेस्ट करें।"
+          ].map((step, i) => (
             <li key={i} className="flex items-start gap-3 text-sm text-gray-600">
               <span className="flex-shrink-0 w-5 h-5 bg-white rounded-full flex items-center justify-center text-[10px] font-bold text-[#2D5A27] shadow-sm">
                 {i + 1}

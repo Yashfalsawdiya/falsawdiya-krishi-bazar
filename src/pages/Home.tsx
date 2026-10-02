@@ -46,19 +46,19 @@ const BANNERS = [
 const VIDEOS = [
   {
     id: 'v1',
-    title: { hi: 'आधुनिक खेती की जानकारी', en: 'Modern Farming Methods & Guidance' },
+    title: 'आधुनिक खेती की जानकारी',
     videoId: '9-3-P4mXG3A',
     thumbnail: ''
   },
   {
     id: 'v2',
-    title: { hi: 'मिट्टी परीक्षण कैसे करें', en: 'How to Do Soil Testing' },
+    title: 'मिट्टी परीक्षण कैसे करें',
     videoId: '6Z_L2v_p-m8',
     thumbnail: ''
   },
   {
     id: 'v3',
-    title: { hi: 'जैविक खाद बनाने की विधि', en: 'How to Make Organic Fertilizer' },
+    title: 'जैविक खाद बनाने की विधि',
     videoId: 'dQw4w9WgXcQ',
     thumbnail: ''
   }
@@ -76,11 +76,9 @@ import ProductDetailModal from '../components/ProductDetailModal';
 import FeaturedProductCard from '../components/FeaturedProductCard';
 import SmartImage from '../components/SmartImage';
 import { Product, ImageSource } from '../types';
-import { useLanguage } from '../context/LanguageContext';
 
 const Home: React.FC = () => {
   const { products, categories, appContent, user, loadProducts, loadCategoryData, loading: appLoading } = useAppContext();
-  const { t, translateText, isEnglish } = useLanguage();
   const sortedCategories = useMemo(() => sortCategoriesByOrder(categories), [categories]);
   const { 
     apiKey: effectiveApiKey, 
@@ -197,9 +195,7 @@ const Home: React.FC = () => {
       return (a.hindiName || '').localeCompare(b.hindiName || '');
     });
 
-  const currentDate = isEnglish
-    ? new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
-    : new Date().toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  const currentDate = new Date().toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 
   // Logic to get a daily tip based on the month and day
   const getDailyTip = () => {
@@ -313,9 +309,7 @@ const Home: React.FC = () => {
         <p className="text-xs font-bold text-gray-500 flex items-center gap-1">
           <Calendar className="w-3 h-3" /> {currentDate}
         </p>
-        <p className="text-[10px] text-[#2D5A27] font-bold">
-          {isEnglish ? 'Shamgarh' : 'शामगढ़ (Shamgarh)'}
-        </p>
+        <p className="text-[10px] text-[#2D5A27] font-bold">शामगढ़ (Shamgarh)</p>
       </div>
 
       {/* Banner Slider */}
@@ -505,17 +499,17 @@ const Home: React.FC = () => {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
                     </span>
-                    <span>{isEnglish ? 'Live Voice Call' : 'लाइव वॉयस कॉल'}</span>
+                    <span>लाइव वॉयस कॉल</span>
                   </div>
                 </div>
 
                 {/* Title & Description */}
                 <div className="relative z-10 space-y-1">
                   <h3 className="text-base sm:text-lg font-black text-gray-900 group-hover:text-[#2D5A27] transition-colors tracking-tight">
-                    {isEnglish ? 'AI Agri Expert Call' : 'AI कृषि विशेषज्ञ कॉल'}
+                    AI कृषि विशेषज्ञ कॉल
                   </h3>
                   <p className="text-xs sm:text-[13px] text-gray-600 font-medium leading-relaxed">
-                    {isEnglish ? 'Speak directly to get instant crop problem solutions' : 'सीधे बोलकर बात करें और फसल समस्या का तुरंत समाधान पाएं'}
+                    सीधे बोलकर बात करें और फसल समस्या का तुरंत समाधान पाएं
                   </p>
                 </div>
               </div>
@@ -524,11 +518,11 @@ const Home: React.FC = () => {
               <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between gap-2 relative z-10">
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  {isEnglish ? 'Human-like Voice Call' : 'इंसानों की तरह बातचीत'}
+                  इंसानों की तरह बातचीत
                 </span>
                 
                 <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-800 group-hover:bg-[#2D5A27] group-hover:text-white group-hover:border-[#2D5A27] font-bold text-xs transition-all duration-300 shadow-2xs">
-                  <span>{isEnglish ? 'Call Now' : 'कॉल करें'}</span>
+                  <span>कॉल करें</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
@@ -557,17 +551,17 @@ const Home: React.FC = () => {
 
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200/80 shadow-2xs">
                     <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                    <span>{isEnglish ? 'Smart Dosage Guide' : 'स्मार्ट डोज़ गाइड'}</span>
+                    <span>स्मार्ट डोज़ गाइड</span>
                   </div>
                 </div>
 
                 {/* Title & Description */}
                 <div className="relative z-10 space-y-1">
                   <h3 className="text-base sm:text-lg font-black text-gray-900 group-hover:text-[#2D5A27] transition-colors tracking-tight">
-                    {isEnglish ? 'AI Product Knowledge' : 'AI उत्पाद जानकारी'}
+                    AI उत्पाद जानकारी
                   </h3>
                   <p className="text-xs sm:text-[13px] text-gray-600 font-medium leading-relaxed">
-                    {isEnglish ? 'Learn accurate per-acre dosage and application method for any medicine or fertilizer' : 'दवाई, खाद या टेक्निकल का सही प्रति एकड़ डोज़ और उपयोग विधि जानें'}
+                    दवाई, खाद या टेक्निकल का सही प्रति एकड़ डोज़ और उपयोग विधि जानें
                   </p>
                 </div>
               </div>
@@ -576,11 +570,11 @@ const Home: React.FC = () => {
               <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between gap-2 relative z-10">
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900">
                   <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  {isEnglish ? 'Accurate Dosage & Method' : 'सटीक डोज़ और उपयोग विधि'}
+                  सटीक डोज़ और उपयोग विधि
                 </span>
                 
                 <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-800 group-hover:bg-[#2D5A27] group-hover:text-white group-hover:border-[#2D5A27] font-bold text-xs transition-all duration-300 shadow-2xs">
-                  <span>{isEnglish ? 'Check Dosage' : 'डोज़ जानें'}</span>
+                  <span>डोज़ जानें</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
@@ -600,12 +594,12 @@ const Home: React.FC = () => {
             <div className="relative z-10 flex flex-col justify-between h-full">
               <div className="flex justify-between items-start">
                 <CloudSun className="w-8 h-8 text-[#EAB308]" />
-                <span className="text-[10px] font-bold opacity-70 uppercase">{isEnglish ? 'Weather' : 'मौसम'}</span>
+                <span className="text-[10px] font-bold opacity-70 uppercase">मौसम</span>
               </div>
               {weather ? (
                 <div className="mt-2">
                   <h2 className="text-2xl font-bold leading-none">{weather.temp}°C</h2>
-                  <p className="text-[10px] font-medium mt-1 truncate">{translateText(weather.condition)}</p>
+                  <p className="text-[10px] font-medium mt-1 truncate">{weather.condition}</p>
                 </div>
               ) : (
                 <Loader2 className="w-5 h-5 animate-spin opacity-50 my-2" />
@@ -623,13 +617,13 @@ const Home: React.FC = () => {
             <div className="relative z-10 flex flex-col justify-between h-full">
               <div className="flex justify-between items-start">
                 <TrendingUp className="w-8 h-8 text-[#2D5A27]" />
-                <span className="text-[10px] font-bold text-gray-400 uppercase">{isEnglish ? 'Mandi Rates' : 'मंडी भाव'}</span>
+                <span className="text-[10px] font-bold text-gray-400 uppercase">मंडी भाव</span>
               </div>
               {mandi ? (
                 <div className="animate-in fade-in duration-500 mt-2">
-                  <p className="text-[10px] font-bold text-gray-500 truncate">{translateText(mandi.items[0]?.commodity || '')}</p>
+                  <p className="text-[10px] font-bold text-gray-500 truncate">{mandi.items[0]?.commodity}</p>
                   <h2 className="text-xl font-bold text-[#2D5A27] leading-none">₹{mandi.items[0]?.avgPrice}</h2>
-                  <p className="text-[9px] text-gray-400 mt-1 truncate">{translateText(mandi.mandiName)} {isEnglish ? 'Mandi' : 'मंडी'}</p>
+                  <p className="text-[9px] text-gray-400 mt-1 truncate">{mandi.mandiName} मंडी</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-1 my-2">
@@ -654,13 +648,11 @@ const Home: React.FC = () => {
             <div className="relative z-10">
               <h3 className="text-base sm:text-lg font-bold flex items-center gap-2">
                 <Landmark className="w-5 h-5 text-[#EAB308] shrink-0" />
-                {isEnglish ? 'Govt Schemes' : 'सरकारी योजनाएं'}
+                सरकारी योजनाएं
               </h3>
-              <p className="text-xs text-white/80 mt-1">
-                {isEnglish ? 'PM-Kisan, Subsidies & Insurance' : 'PM-Kisan, सब्सिडी और बीमा'}
-              </p>
+              <p className="text-xs text-white/80 mt-1">PM-Kisan, सब्सिडी और बीमा</p>
               <div className="mt-3 inline-flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold backdrop-blur-sm">
-                {isEnglish ? 'Explore Now' : 'अभी देखें'} <ArrowRight className="w-3 h-3" />
+                अभी देखें <ArrowRight className="w-3 h-3" />
               </div>
             </div>
           </motion.div>
@@ -672,7 +664,7 @@ const Home: React.FC = () => {
         <div className="flex items-center justify-between mb-3 px-0.5">
           <div className="flex items-center gap-2">
             <h3 className="text-base sm:text-lg font-extrabold text-[#2A1F18] tracking-tight">
-              {isEnglish ? 'Categories' : 'श्रेणियाँ (Categories)'}
+              श्रेणियाँ (Categories)
             </h3>
             <span className="text-[10px] font-extrabold bg-[#2D5A27]/10 text-[#2D5A27] px-2 py-0.5 rounded-full border border-[#2D5A27]/15">
               {sortedCategories.length}
@@ -682,7 +674,7 @@ const Home: React.FC = () => {
             to="/products" 
             className="text-xs font-bold text-[#2D5A27] hover:text-[#1E3F1A] flex items-center gap-1 transition-colors"
           >
-            <span>{isEnglish ? 'All Products' : 'सभी उत्पाद'}</span>
+            <span>सभी उत्पाद</span>
             <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
@@ -690,11 +682,8 @@ const Home: React.FC = () => {
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 2xl:grid-cols-10 gap-2.5 sm:gap-3.5 xl:gap-4 2xl:gap-5">
           {sortedCategories.map((cat, index) => {
             const nameMatch = (cat.name || '').match(/^(.*?)(?:\s*\((.*?)\))?$/);
-            const rawMain = nameMatch && nameMatch[1] ? nameMatch[1].trim() : cat.name;
-            const rawSub = nameMatch && nameMatch[2] ? nameMatch[2].trim() : '';
-            
-            const mainName = isEnglish ? (rawSub || translateText(rawMain)) : rawMain;
-            const subName = isEnglish ? rawMain : rawSub;
+            const mainName = nameMatch && nameMatch[1] ? nameMatch[1].trim() : cat.name;
+            const subName = nameMatch && nameMatch[2] ? nameMatch[2].trim() : '';
 
             return (
               <motion.div
@@ -747,11 +736,9 @@ const Home: React.FC = () => {
       {/* Featured Products */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-bold text-[#4A3728]">
-            {isEnglish ? 'Featured Products' : 'विशेष उत्पाद (Featured)'}
-          </h3>
+          <h3 className="text-lg font-bold text-[#4A3728]">विशेष उत्पाद (Featured)</h3>
           <Link to="/products" className="text-sm font-bold text-[#2D5A27] flex items-center gap-1">
-            {isEnglish ? 'View All' : 'सभी देखें'} <ArrowRight className="w-3 h-3" />
+            सभी देखें <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
         <div className="flex md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 xl:gap-5 2xl:gap-6 overflow-x-auto md:overflow-x-visible pb-3 -mx-1 px-1 snap-x">
@@ -861,13 +848,9 @@ const Home: React.FC = () => {
                       </div>
                     </div>
                     <div className="p-3">
-                      <h4 className="text-sm font-bold text-gray-800 line-clamp-2">
-                        {translateText(video.title)}
-                      </h4>
+                      <h4 className="text-sm font-bold text-gray-800 line-clamp-2">{video.title}</h4>
                       {video.description && (
-                        <p className="text-xs text-gray-500 line-clamp-1 mt-1">
-                          {translateText(video.description)}
-                        </p>
+                        <p className="text-xs text-gray-500 line-clamp-1 mt-1">{video.description}</p>
                       )}
                     </div>
                   </a>
@@ -896,7 +879,6 @@ const Home: React.FC = () => {
           <div className="absolute -right-8 -bottom-8 w-28 h-28 bg-[#25D366]/10 rounded-full blur-2xl pointer-events-none group-hover:bg-[#25D366]/20 transition-colors" />
 
           {/* Top Header */}
-          {/* Top Header */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-[#25D366] to-[#1ebe57] text-white flex items-center justify-center shadow-md shadow-[#25D366]/25 group-hover:scale-105 transition-transform shrink-0">
@@ -906,13 +888,11 @@ const Home: React.FC = () => {
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse shrink-0" />
                   <span className="text-[10px] font-bold text-[#128C7E] uppercase tracking-wider">
-                    {whatsappSection.mode === 'group' 
-                      ? (isEnglish ? 'FARMING COMMUNITY GROUP' : 'कृषि समुदाय ग्रुप') 
-                      : (isEnglish ? 'Direct Support' : 'सीधी सहायता')}
+                    {whatsappSection.mode === 'group' ? 'कृषि समुदाय ग्रुप' : 'सीधी सहायता'}
                   </span>
                 </div>
                 <h4 className="font-extrabold text-sm sm:text-base text-gray-900 group-hover:text-[#128C7E] transition-colors truncate">
-                  {isEnglish ? 'Join us on WhatsApp' : translateText(whatsappSection.title)}
+                  {whatsappSection.title}
                 </h4>
               </div>
             </div>
@@ -923,15 +903,13 @@ const Home: React.FC = () => {
 
           {/* Description */}
           <p className="text-xs text-gray-600 font-medium leading-relaxed line-clamp-2">
-            {isEnglish ? 'Join our group for the latest updates.' : translateText(whatsappSection.description)}
+            {whatsappSection.description}
           </p>
 
           {/* Action Row */}
           <div className="pt-2 border-t border-emerald-100/80 flex items-center justify-between mt-auto text-xs font-bold text-[#128C7E]">
             <span className="flex items-center gap-1.5 group-hover:gap-2 transition-all">
-              {whatsappSection.mode === 'group' 
-                ? (isEnglish ? 'Join the Group' : 'ग्रुप में शामिल हों') 
-                : (isEnglish ? 'Message Us' : 'मैसेज करें')}
+              {whatsappSection.mode === 'group' ? 'ग्रुप में शामिल हों' : 'मैसेज करें'}
             </span>
             <span className="w-7 h-7 rounded-xl bg-[#25D366] group-hover:bg-[#20ba59] text-white flex items-center justify-center shadow-xs group-hover:translate-x-0.5 transition-all">
               <ArrowRight className="w-3.5 h-3.5" />
@@ -965,15 +943,15 @@ const Home: React.FC = () => {
 
                 <div>
                   <h4 className="font-extrabold text-xs sm:text-sm text-gray-900 group-hover:text-[#1877F2] transition-colors truncate">
-                    {isEnglish ? 'Follow us on Facebook' : translateText(facebookSection.title)}
+                    {facebookSection.title}
                   </h4>
                   <p className="text-[10px] sm:text-xs text-gray-500 font-medium line-clamp-1 mt-0.5">
-                    {isEnglish ? 'Get updates and expert farming advice' : translateText(facebookSection.description)}
+                    {facebookSection.description}
                   </p>
                 </div>
 
                 <div className="pt-2 border-t border-blue-100/80 flex items-center justify-between text-[10px] sm:text-xs font-extrabold text-[#1877F2]">
-                  <span className="truncate">{isEnglish ? 'View Profile' : translateText(facebookSection.buttonText || 'प्रोफाइल देखें')}</span>
+                  <span className="truncate">{facebookSection.buttonText || 'प्रोफाइल देखें'}</span>
                   <span className="w-6 h-6 rounded-lg bg-blue-50 group-hover:bg-[#1877F2] group-hover:text-white text-[#1877F2] flex items-center justify-center transition-colors">
                     <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </span>
@@ -1001,15 +979,15 @@ const Home: React.FC = () => {
 
                 <div>
                   <h4 className="font-extrabold text-xs sm:text-sm text-gray-900 group-hover:text-[#DD2A7B] transition-colors truncate">
-                    {isEnglish ? 'Follow us on Instagram' : (translateText(instagramSection.title) || 'इंस्टाग्राम पर हमें फॉलो करें')}
+                    {instagramSection.title}
                   </h4>
                   <p className="text-[10px] sm:text-xs text-gray-500 font-medium line-clamp-1 mt-0.5">
-                    {isEnglish ? 'Watch modern farming videos & reels' : (translateText(instagramSection.description) || 'आधुनिक खेती के वीडियो और रील्स देखें')}
+                    {instagramSection.description}
                   </p>
                 </div>
 
                 <div className="pt-2 border-t border-pink-100/80 flex items-center justify-between text-[10px] sm:text-xs font-extrabold text-[#DD2A7B]">
-                  <span className="truncate">{isEnglish ? 'Follow Now' : (translateText(instagramSection.buttonText) || 'अभी फॉलो करें')}</span>
+                  <span className="truncate">{instagramSection.buttonText || 'प्रोफाइल देखें'}</span>
                   <span className="w-6 h-6 rounded-lg bg-pink-50 group-hover:bg-[#DD2A7B] group-hover:text-white text-[#DD2A7B] flex items-center justify-center transition-colors">
                     <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </span>
@@ -1035,35 +1013,27 @@ const Home: React.FC = () => {
               </div>
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800/70 block">
-                  {isEnglish ? 'Our Store Address' : 'हमारा स्थायी पता'}
+                  हमारा स्थायी पता
                 </span>
                 <h4 className="font-extrabold text-xs sm:text-sm text-gray-900 group-hover:text-[#2D5A27] transition-colors leading-snug">
-                  {isEnglish ? 'Falsawdiya Krishi Bazaar' : 'फल्सावदिया कृषि बाजार'}
+                  फल्सावदिया कृषि बाजार
                 </h4>
               </div>
             </div>
             <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-2.5 py-0.5 rounded-full border border-emerald-200/70 shrink-0">
-              {isEnglish ? 'Shamgarh' : 'शामगढ़'}
+              शामगढ़
             </span>
           </div>
 
           {/* Address Content & Timings */}
           <div className="space-y-2">
             <p className="text-xs sm:text-[13px] font-medium text-gray-700 leading-relaxed">
-              {isEnglish 
-                ? 'Dimple Chauraha, near Kshatriya Khati Mangalik Bhawan, Shamgarh, District Mandsaur, Madhya Pradesh - 458883'
-                : (contactInfo.address || 'डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)')}
+              {contactInfo.address || 'डिम्पल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)'}
             </p>
 
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/90 border border-emerald-100/80 text-[11px] font-semibold text-gray-600 shadow-2xs">
               <Clock className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
-              <span>
-                {isEnglish ? (
-                  <>Store Hours: <strong className="text-gray-900 font-bold">8:00 AM to 8:00 PM Daily</strong></>
-                ) : (
-                  <>दुकान समय: <strong className="text-gray-900 font-bold">सुबह 8:00 से रात 8:00 बजे तक</strong></>
-                )}
-              </span>
+              <span>दुकान समय: <strong className="text-gray-900 font-bold">सुबह 8:00 से रात 8:00 बजे तक</strong></span>
             </div>
           </div>
 
@@ -1071,7 +1041,7 @@ const Home: React.FC = () => {
           <div className="pt-2.5 border-t border-emerald-100/80 flex items-center justify-between text-xs font-extrabold text-[#2D5A27]">
             <span className="flex items-center gap-1.5">
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>{isEnglish ? 'View Location on Google Maps' : 'गूगल मैप पर लोकेशन देखें'}</span>
+              <span>गूगल मैप पर लोकेशन देखें</span>
             </span>
             <span className="w-7 h-7 rounded-xl bg-emerald-50 group-hover:bg-[#2D5A27] group-hover:text-white text-[#2D5A27] flex items-center justify-center transition-all shadow-2xs">
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -1088,7 +1058,10 @@ const Home: React.FC = () => {
               <Sprout className="w-4 h-4 text-[#2D5A27]" />
             </span>
             <span>
-              {isEnglish ? "Today's Farm Advisory" : 'आज की सलाह'}
+              आज की सलाह
+              <span className="text-xs font-medium text-[#2D5A27]/80 font-sans ml-1.5 hidden sm:inline">
+                (Today's Tip)
+              </span>
             </span>
           </h3>
 
@@ -1096,14 +1069,14 @@ const Home: React.FC = () => {
             onClick={handleOpenChat}
             disabled={isAiLoading}
             className="group inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-[#2D5A27] hover:bg-[#23461e] active:scale-95 text-white text-xs sm:text-sm font-semibold px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-full shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 shrink-0 cursor-pointer"
-            title={isEnglish ? 'Ask farming query and chat with AI expert' : 'खेती से जुड़ा सवाल पूछें और AI कृषि सहायक से बात करें'}
+            title="खेती से जुड़ा सवाल पूछें और AI कृषि सहायक से बात करें"
           >
             {isAiLoading ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
             ) : (
               <Sparkles className="w-3.5 h-3.5 text-amber-300 transition-transform group-hover:rotate-12" />
             )}
-            <span>{isEnglish ? 'Get AI Advice' : 'AI से कृषि सलाह लें'}</span>
+            <span>AI से कृषि सलाह लें</span>
             <ArrowRight className="w-3.5 h-3.5 text-white/80 group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>
@@ -1119,10 +1092,10 @@ const Home: React.FC = () => {
         ) : (
           <div className="space-y-1">
             <p className="text-xs sm:text-sm text-[#263D23] font-medium leading-relaxed">
-              {translateText(dailyTip)}
+              {dailyTip}
             </p>
             <p className="text-[11px] text-[#42603E]/80 hidden sm:block">
-              {isEnglish ? 'Ask farming questions and chat directly with AI Agri Assistant' : 'खेती से जुड़ा सवाल पूछें और AI कृषि सहायक से सीधे बात करें'}
+              खेती से जुड़ा सवाल पूछें और AI कृषि सहायक से सीधे बात करें
             </p>
           </div>
         )}

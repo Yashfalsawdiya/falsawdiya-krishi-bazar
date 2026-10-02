@@ -20,36 +20,17 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { useLanguage } from '../context/LanguageContext';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
-import { DEFAULT_LEGAL_PAGES_CONTENT_EN } from '../data/defaultPagesContentEn';
 
 export const GrievanceRedressal: React.FC = () => {
   const { appContent, legalPagesContent } = useAppContext();
-  const { isEnglish, translateText } = useLanguage();
 
   const branding = appContent?.branding || {
     name: 'फल्सावदिया कृषि बाजार',
     tagline: 'किसान का भरोसा, हमारी पहचान'
   };
 
-  const defaultGrv = isEnglish ? DEFAULT_LEGAL_PAGES_CONTENT_EN.grievanceRedressal : DEFAULT_LEGAL_PAGES_CONTENT.grievanceRedressal;
-  const rawGrvData = legalPagesContent?.grievanceRedressal || defaultGrv;
-  const grvData = {
-    ...rawGrvData,
-    bannerTitle: isEnglish ? (rawGrvData === defaultGrv ? rawGrvData.bannerTitle : translateText(rawGrvData.bannerTitle)) : rawGrvData.bannerTitle,
-    bannerSubtitle: isEnglish ? (rawGrvData === defaultGrv ? rawGrvData.bannerSubtitle : translateText(rawGrvData.bannerSubtitle)) : rawGrvData.bannerSubtitle,
-    introText: isEnglish ? (rawGrvData === defaultGrv ? rawGrvData.introText : translateText(rawGrvData.introText)) : rawGrvData.introText,
-    officerName: isEnglish ? (rawGrvData === defaultGrv ? rawGrvData.officerName : translateText(rawGrvData.officerName || '')) : rawGrvData.officerName,
-    officerDesignation: isEnglish ? (rawGrvData === defaultGrv ? rawGrvData.officerDesignation : translateText(rawGrvData.officerDesignation || '')) : rawGrvData.officerDesignation,
-    resolutionTimeframe: isEnglish ? (rawGrvData === defaultGrv ? rawGrvData.resolutionTimeframe : translateText(rawGrvData.resolutionTimeframe || '')) : rawGrvData.resolutionTimeframe,
-    sections: (rawGrvData.sections || []).map(sec => ({
-      ...sec,
-      title: isEnglish ? (rawGrvData === defaultGrv ? sec.title : translateText(sec.title)) : sec.title,
-      content: isEnglish ? (rawGrvData === defaultGrv ? sec.content : translateText(sec.content)) : sec.content,
-      bullets: sec.bullets ? sec.bullets.map(b => isEnglish ? (rawGrvData === defaultGrv ? b : translateText(b)) : b) : undefined
-    }))
-  };
+  const grvData = legalPagesContent?.grievanceRedressal || DEFAULT_LEGAL_PAGES_CONTENT.grievanceRedressal;
 
   return (
     <div className="space-y-6 pb-12">
@@ -68,15 +49,15 @@ export const GrievanceRedressal: React.FC = () => {
           </div>
 
           <h1 className="text-2xl font-black tracking-tight text-white leading-tight">
-            {grvData.bannerTitle || (isEnglish ? 'Grievance Redressal Policy' : 'शिकायत निवारण अधिकारी')}
+            {grvData.bannerTitle || 'शिकायत निवारण अधिकारी'}
           </h1>
           <p className="text-sm font-semibold text-[#EAB308]">
-            {grvData.bannerSubtitle || (isEnglish ? 'Farmer Grievance Redressal Mechanism & Officer' : 'किसान शिकायत निवारण प्रणाली एवं नामित अधिकारी')}
+            {grvData.bannerSubtitle || 'Grievance Redressal Mechanism & Officer'}
           </p>
 
           <div className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-[11px] font-medium text-green-100 mt-2">
             <Clock className="w-3.5 h-3.5 text-yellow-300" />
-            <span>{isEnglish ? 'Last Updated: ' : 'अंतिम अपडेट: '}{grvData.lastUpdated || (isEnglish ? '24 August 2026' : '24 अगस्त 2026')}</span>
+            <span>अंतिम अपडेट: {grvData.lastUpdated || '24 August 2026'}</span>
           </div>
         </div>
       </motion.div>
@@ -90,7 +71,7 @@ export const GrievanceRedressal: React.FC = () => {
         >
           <div className="flex items-center gap-2 text-[#2D5A27] font-bold">
             <ShieldCheck className="w-4 h-4 text-[#2D5A27]" />
-            <h2 className="text-xs font-extrabold uppercase tracking-wider text-gray-500">{isEnglish ? 'Statutory Compliance & Accountability' : 'वैधानिक अनुपालन एवं उत्तरदायित्व'}</h2>
+            <h2 className="text-xs font-extrabold uppercase tracking-wider text-gray-500">वैधानिक अनुपालन एवं उत्तरदायित्व</h2>
           </div>
           <p className="text-xs text-gray-700 leading-relaxed font-normal whitespace-pre-line">
             {grvData.introText}
@@ -262,14 +243,14 @@ export const GrievanceRedressal: React.FC = () => {
             className="bg-white text-[#2D5A27] py-2.5 px-3 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all text-center"
           >
             <Mail className="w-3.5 h-3.5" />
-            <span>{isEnglish ? 'Send Email' : 'ईमेल भेजें'}</span>
+            <span>ईमेल भेजें</span>
           </a>
           <a
             href={`tel:${(grvData.officerPhone || '8982338046').replace(/\D/g, '')}`}
             className="bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 px-3 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all text-center"
           >
             <PhoneCall className="w-3.5 h-3.5" />
-            <span>{isEnglish ? 'Call Now' : 'कॉल करें'}</span>
+            <span>कॉल करें</span>
           </a>
         </div>
       </motion.div>
@@ -281,32 +262,32 @@ export const GrievanceRedressal: React.FC = () => {
             to="/terms"
             className="bg-white border border-gray-200 hover:border-amber-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Terms & Conditions' : 'नियम एवं शर्तें'}</span>
+            <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" /> <span className="truncate">नियम एवं शर्तें</span>
           </Link>
           <Link 
             to="/shipping-policy"
             className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Shipping Policy' : 'डिलीवरी नीति'}</span>
+            <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> <span className="truncate">डिलीवरी नीति</span>
           </Link>
           <Link 
             to="/privacy"
             className="bg-white border border-gray-200 hover:border-blue-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Privacy Policy' : 'गोपनीयता नीति'}</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">गोपनीयता नीति</span>
           </Link>
           <Link 
             to="/faq"
             className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <HelpCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Help & FAQs' : 'FAQ / सहायता'}</span>
+            <HelpCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> <span className="truncate">FAQ / सहायता</span>
           </Link>
         </div>
         <Link 
           to="/"
           className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
         >
-          {isEnglish ? 'Home' : 'मुख्य पृष्ठ'}
+          मुख्य पृष्ठ (Home)
         </Link>
       </div>
     </div>

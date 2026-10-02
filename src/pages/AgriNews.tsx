@@ -21,14 +21,12 @@ import {
   Key
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { useLanguage } from '../context/LanguageContext';
 import { cn } from '../lib/utils';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
 
 const AgriNews: React.FC = () => {
   const { loading: appLoading } = useAppContext();
-  const { t, isHindi, translateText } = useLanguage();
   const { 
     apiKey: effectiveApiKey, 
     requireApiKey, 
@@ -51,18 +49,12 @@ const AgriNews: React.FC = () => {
   const [lastSyncedTime, setLastSyncedTime] = useState<string | undefined>();
 
   // Tips to rotate while loading news
-  const newsTips = isHindi ? [
+  const newsTips = [
     "विश्वसनीय समाचार स्रोतों से ताज़ा खेती-किसानी की खबरें खोजी जा रही हैं...",
     "फसल, मौसम, सरकारी योजनाओं और एमएसपी (MSP) के नए अपडेट आ रहे हैं...",
     "कृषि जागरण और विश्वसनीय पोर्टल्स से लाइव समाचार खोज जारी है...",
     "ऑफ़लाइन पढ़ने के लिए लोकल कैश सुरक्षित रूप से तैयार किया जा रहा है...",
     "सत्यापित और वर्तमान कृषि समाचारों की जांच की जा रही है..."
-  ] : [
-    "Searching fresh agriculture and farming news from verified sources...",
-    "Gathering live updates on crops, weather, schemes and MSP...",
-    "Connecting to verified agricultural portals and daily feeds...",
-    "Preparing offline cache securely for seamless reading...",
-    "Validating authentic current agricultural news reports..."
   ];
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
 
@@ -78,25 +70,21 @@ const AgriNews: React.FC = () => {
   }, [loading]);
 
   /**
-   * Helper to convert DD/MM/YYYY into formatted Hindi or English date string (e.g. 27 September 2026 / 27 सितंबर 2026)
+   * Helper to convert DD/MM/YYYY into a beautiful Hindi date string (e.g. 21 सितंबर 2026)
    */
-  const formatNewsDate = (dateStr: string, english: boolean): string => {
+  const convertToHindiDate = (dateStr: string): string => {
     if (!dateStr) return "";
     const parts = dateStr.trim().split('/');
     if (parts.length === 3) {
       const day = parseInt(parts[0], 10);
       const monthIndex = parseInt(parts[1], 10) - 1;
       const year = parts[2];
-      const hindiMonths = [
+      const months = [
         "जनवरी", "फरवरी", "मार्च", "अप्रैल", "मई", "जून",
         "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"
       ];
-      const englishMonths = [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
-      ];
       if (monthIndex >= 0 && monthIndex < 12) {
-        return english ? `${day} ${englishMonths[monthIndex]} ${year}` : `${day} ${hindiMonths[monthIndex]} ${year}`;
+        return `${day} ${months[monthIndex]} ${year}`;
       }
     }
     return dateStr;
@@ -162,29 +150,29 @@ const AgriNews: React.FC = () => {
 
   const getCategoryName = (cat: string) => {
     switch (cat) {
-      case 'MP': return isHindi ? 'मध्य प्रदेश' : 'Madhya Pradesh';
-      case 'India': return isHindi ? 'भारत' : 'India';
-      case 'Scheme': return isHindi ? 'योजनाएँ' : 'Schemes';
-      case 'Weather': return isHindi ? 'मौसम' : 'Weather';
-      case 'Crop': return isHindi ? 'फसल' : 'Crops';
-      case 'Market': return isHindi ? 'मंडी भाव' : 'Mandi Rates';
-      case 'Tech': return isHindi ? 'तकनीक' : 'Agri Tech';
-      case 'Innovation': return isHindi ? 'नवाचार' : 'Innovation';
-      default: return translateText(cat);
+      case 'MP': return 'मध्य प्रदेश';
+      case 'India': return 'भारत';
+      case 'Scheme': return 'योजनाएँ';
+      case 'Weather': return 'मौसम';
+      case 'Crop': return 'फसल';
+      case 'Market': return 'मंडी भाव';
+      case 'Tech': return 'तकनीक';
+      case 'Innovation': return 'नवाचार';
+      default: return cat;
     }
   };
 
   // Format news text for Copy/Share strictly according to user guidelines
   const getFormattedNewsText = (item: AgriNewsItem): string => {
     const isToday = item.date.trim() === getFormattedDateString();
-    const formattedDate = (isToday ? (isHindi ? "आज, " : "Today, ") : "") + formatNewsDate(item.date, !isHindi);
-    return isHindi ? `📰 *कृषि समाचार*
+    const hindiDate = (isToday ? "आज, " : "") + convertToHindiDate(item.date);
+    return `📰 *कृषि समाचार*
 
 *शीर्षक:*
 ${item.title}
 
 📅 *प्रकाशित तिथि:*
-${formattedDate}
+${hindiDate}
 
 📝 *समाचार:*
 ${item.summary}
@@ -194,23 +182,7 @@ ${item.source || "कृषि जागरण"}
 
 ━━━━━━━━━━━━━━━
 
-*फल्सावदिया कृषि बाजार*` : `📰 *Agri News*
-
-*Title:*
-${translateText(item.title)}
-
-📅 *Published Date:*
-${formattedDate}
-
-📝 *News Summary:*
-${translateText(item.summary)}
-
-📚 *Source:*
-${translateText(item.source || "Krishi Jagran")}
-
-━━━━━━━━━━━━━━━
-
-*Falsawdiya Krishi Bazaar*`;
+*फल्सावदिया कृषि बाजार*`;
   };
 
   // Handle Clipboard Copy
@@ -263,9 +235,9 @@ ${translateText(item.source || "Krishi Jagran")}
             <Newspaper className="w-6 h-6" />
           </div>
         </div>
-        <h2 className="text-2xl font-black text-[#2D5A27] tracking-tight">{t('news_title')}</h2>
+        <h2 className="text-2xl font-black text-[#2D5A27] tracking-tight">कृषि समाचार (Agri News)</h2>
         <p className="text-xs text-gray-500 font-medium mt-1">
-          {t('news_subtitle')}
+          फल्सावदिया कृषि बाजार • खेती-किसानी की ताज़ा, प्रमाणित और दैनिक खबरें
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
@@ -278,16 +250,16 @@ ${translateText(item.source || "Krishi Jagran")}
             id="btn-sync-news"
           >
             <RefreshCw className={cn("w-3.5 h-3.5 text-[#2D5A27]", (loading || silentSyncing) && "animate-spin")} />
-            {loading || silentSyncing ? t('loading') : (isHindi ? "ताज़ा खबरें प्राप्त करें (Sync)" : "Sync Latest News")}
+            {loading || silentSyncing ? "अपडेट हो रहा है..." : "ताज़ा खबरें प्राप्त करें (Sync)"}
           </button>
           
           {lastSyncedTime ? (
             <span className="text-[9px] text-gray-500 font-bold bg-gray-100/80 border border-gray-200/50 px-2.5 py-1.5 rounded-full" id="lbl-last-sync-time">
-              {isHindi ? `अंतिम सफल अपडेट: ${lastSyncedTime}` : `Last Updated: ${translateText(lastSyncedTime)}`}
+              अंतिम सफल अपडेट: {lastSyncedTime}
             </span>
           ) : (
             <span className="text-[9px] text-amber-700 font-bold bg-amber-50 border border-amber-200/60 px-2.5 py-1.5 rounded-full" id="lbl-last-sync-none">
-              {isHindi ? 'अपडेट प्रतीक्षित (Sync करें)' : 'Update Pending (Click Sync)'}
+              अपडेट प्रतीक्षित (Sync करें)
             </span>
           )}
         </div>
@@ -305,13 +277,9 @@ ${translateText(item.source || "Krishi Jagran")}
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <p className="text-xs font-black text-rose-800">
-                  {isHindi ? 'ताज़ा समाचार सिंक नहीं हो सका' : 'Could not sync fresh news'}
-                </p>
+                <p className="text-xs font-black text-rose-800">ताज़ा समाचार सिंक नहीं हो सका</p>
                 <p className="text-[10px] text-rose-700/90 font-bold leading-relaxed">
-                  {isHindi 
-                    ? 'नेटवर्क या AI सेवा में अस्थायी समस्या के कारण नवीनतम समाचार प्राप्त नहीं हो सके। पूर्व में सत्यापित समाचार प्रदर्शित किए जा रहे हैं।' 
-                    : 'Temporary delay in fetching latest feed. Displaying previously verified authentic agricultural news.'}
+                  नेटवर्क या AI सेवा में अस्थायी समस्या के कारण नवीनतम समाचार प्राप्त नहीं हो सके। पूर्व में सत्यापित समाचार प्रदर्शित किए जा रहे हैं।
                 </p>
               </div>
             </div>
@@ -322,7 +290,7 @@ ${translateText(item.source || "Krishi Jagran")}
               disabled={loading || silentSyncing}
               className="text-[10px] font-black bg-rose-600 text-white px-3 py-1.5 rounded-xl hover:bg-rose-700 active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap cursor-pointer"
             >
-              {isHindi ? 'पुनः प्रयास' : 'Retry'}
+              पुनः प्रयास
             </button>
           </motion.div>
         )}
@@ -336,12 +304,8 @@ ${translateText(item.source || "Krishi Jagran")}
           >
             <WifiOff className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
-              <p className="text-xs font-black text-blue-800">
-                {isHindi ? 'सुरक्षित ऑफलाइन मोड' : 'Secure Offline Mode'}
-              </p>
-              <p className="text-[10px] text-blue-700/90 font-bold">
-                {isHindi ? 'यह समाचार स्थानीय रूप से सहेजे गए डेटा से प्रदर्शित किए जा रहे हैं।' : 'These articles are served from verified local cache.'}
-              </p>
+              <p className="text-xs font-black text-blue-800">सुरक्षित ऑफलाइन मोड</p>
+              <p className="text-[10px] text-blue-700/90 font-bold">यह समाचार स्थानीय रूप से सहेजे गए डेटा से प्रदर्शित किए जा रहे हैं।</p>
             </div>
           </motion.div>
         )}
@@ -355,12 +319,8 @@ ${translateText(item.source || "Krishi Jagran")}
           >
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
-              <p className="text-xs font-black text-amber-800">
-                {isHindi ? 'आज का नया समाचार अपडेट प्रतीक्षित है' : 'Today\'s fresh updates in queue'}
-              </p>
-              <p className="text-[10px] text-amber-700/90 font-bold">
-                {isHindi ? 'नीचे हाल ही में प्रकाशित प्रमाणित समाचार प्रदर्शित किए जा रहे हैं। ताज़ा खबरों के लिए Sync बटन दबाएं।' : 'Showing recently published authentic articles. Tap Sync for fresh updates.'}
-              </p>
+              <p className="text-xs font-black text-amber-800">आज का नया समाचार अपडेट प्रतीक्षित है</p>
+              <p className="text-[10px] text-amber-700/90 font-bold">नीचे हाल ही में प्रकाशित प्रमाणित समाचार प्रदर्शित किए जा रहे हैं। ताज़ा खबरों के लिए Sync बटन दबाएं।</p>
             </div>
           </motion.div>
         )}
@@ -374,9 +334,7 @@ ${translateText(item.source || "Krishi Jagran")}
             <Newspaper className="w-7 h-7 text-[#2D5A27] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
           </div>
           <div className="text-center space-y-1 max-w-[300px]">
-            <p className="text-sm font-black text-gray-700">
-              {isHindi ? 'नवीनतम समाचार लोड हो रहे हैं' : 'Loading latest news...'}
-            </p>
+            <p className="text-sm font-black text-gray-700">नवीनतम समाचार लोड हो रहे हैं</p>
             <p className="text-[10.5px] text-gray-400 font-bold leading-relaxed min-h-[32px]">
               {newsTips[currentTipIndex]}
             </p>
@@ -390,35 +348,29 @@ ${translateText(item.source || "Krishi Jagran")}
                 <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-200">
                   <Key className="w-8 h-8 text-amber-600" />
                 </div>
-                <h3 className="text-base font-bold text-gray-800 mb-2">
-                  {isHindi ? 'API Key आवश्यक है' : 'API Key Required'}
-                </h3>
+                <h3 className="text-base font-bold text-gray-800 mb-2">API Key आवश्यक है</h3>
                 <p className="text-xs text-gray-500 max-w-sm mx-auto mb-6">
-                  {isHindi 
-                    ? 'ताज़ा कृषि समाचार देखने के लिए कृपया अपनी Gemini API Key जोड़ें।' 
-                    : 'Please add your Gemini API Key to browse latest agriculture news.'}
+                  ताज़ा कृषि समाचार देखने के लिए कृपया अपनी Gemini API Key जोड़ें।
                 </p>
                 <button
-                  onClick={() => requireApiKey(isHindi ? "ताज़ा कृषि समाचार लोड करने के लिए कृपया अपनी Gemini API Key जोड़ें।" : "Please add your Gemini API Key to load fresh agriculture news.")}
+                  onClick={() => requireApiKey("ताज़ा कृषि समाचार लोड करने के लिए कृपया अपनी Gemini API Key जोड़ें।")}
                   className="px-6 py-3 bg-[#2D5A27] text-white text-xs font-bold rounded-2xl shadow-md active:scale-95 transition-transform inline-flex items-center gap-2 cursor-pointer"
                 >
-                  <Key className="w-4 h-4" /> {isHindi ? 'अपनी API Key दर्ज करें' : 'Enter your API Key'}
+                  <Key className="w-4 h-4" /> अपनी API Key दर्ज करें
                 </button>
               </div>
             ) : (
               <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
                 <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-xs font-bold text-gray-600 mb-1">
-                  {isHindi ? 'हालिया दिनों में कोई प्रमाणित समाचार उपलब्ध नहीं है।' : 'No verified news available for recent days.'}
-                </p>
+                <p className="text-xs font-bold text-gray-600 mb-1">हालिया दिनों में कोई प्रमाणित समाचार उपलब्ध नहीं है।</p>
                 <p className="text-[11px] text-gray-400 max-w-xs mx-auto mb-4">
-                  {isHindi ? 'नवीनतम खबरों की लाइव खोज करने के लिए पुनः प्रयास बटन दबाएं।' : 'Tap retry to search for latest agricultural news reports.'}
+                  नवीनतम खबरों की लाइव खोज करने के लिए पुनः प्रयास बटन दबाएं।
                 </p>
                 <button 
                   onClick={() => loadNews(true)} 
                   className="px-5 py-2.5 bg-[#2D5A27] text-white text-[11px] font-black rounded-full shadow-sm hover:bg-[#1E3F1A] active:scale-95 transition-all cursor-pointer"
                 >
-                  {isHindi ? 'पुनः प्रयास करें (Sync)' : 'Retry (Sync)'}
+                  पुनः प्रयास करें (Sync)
                 </button>
               </div>
             )
@@ -439,26 +391,26 @@ ${translateText(item.source || "Krishi Jagran")}
                         "px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border",
                         getCategoryColor(item.category)
                       )}>
-                        {translateText(getCategoryName(item.category))}
+                        {getCategoryName(item.category)}
                       </span>
                       
                       <div className="flex items-center gap-1.5 text-[10px] text-gray-600 font-bold bg-gray-50 px-2.5 py-1 rounded-full border border-gray-200/50">
                         <Calendar className="w-3.5 h-3.5 text-[#2D5A27]" />
                         {isToday && (
                           <span className="bg-emerald-100 text-emerald-800 text-[8.5px] font-black px-1.5 py-0.5 rounded leading-none">
-                            {isHindi ? 'आज' : 'Today'}
+                            आज
                           </span>
                         )}
-                        <span>{formatNewsDate(item.date, !isHindi)}</span>
+                        <span>{convertToHindiDate(item.date)}</span>
                       </div>
                     </div>
                     
                     <div className="space-y-2">
                       <h3 className="text-xs sm:text-sm font-black text-gray-800 leading-snug group-hover:text-[#2D5A27] transition-colors">
-                        {translateText(item.title)}
+                        {item.title}
                       </h3>
                       <p className="text-[11px] text-gray-600 leading-relaxed font-bold">
-                        {translateText(item.summary).replace(/\s*\((?:स्रोत|Source):?[^)]*\)/gi, '').trim()}
+                        {item.summary}
                       </p>
                     </div>
                     
@@ -468,8 +420,8 @@ ${translateText(item.source || "Krishi Jagran")}
                           {item.source ? item.source.charAt(0) : 'K'}
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">{t('source')}</span>
-                          <span className="text-[10px] font-black text-gray-700">{translateText(item.source || "कृषि जागरण")}</span>
+                          <span className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">स्रोत</span>
+                          <span className="text-[10px] font-black text-gray-700">{item.source || "कृषि जागरण"}</span>
                         </div>
                       </div>
 
@@ -483,17 +435,17 @@ ${translateText(item.source || "Krishi Jagran")}
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
                               : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
                           )}
-                          title={isHindi ? "समाचार कॉपी करें" : "Copy news"}
+                          title="समाचार कॉपी करें"
                         >
                           {copiedIdx === idx ? (
                             <>
                               <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>{isHindi ? 'कॉपी हो गया!' : 'Copied!'}</span>
+                              <span>कॉपी हो गया!</span>
                             </>
                           ) : (
                             <>
                               <Copy className="w-3.5 h-3.5 text-gray-500" />
-                              <span>{isHindi ? 'कॉपी' : 'Copy'}</span>
+                              <span>कॉपी</span>
                             </>
                           )}
                         </button>
@@ -504,10 +456,10 @@ ${translateText(item.source || "Krishi Jagran")}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10.5px] font-black bg-[#2D5A27] text-white hover:bg-[#1E3F1A] transition-all border border-transparent shadow-sm cursor-pointer"
-                          title="WhatsApp"
+                          title="WhatsApp पर शेयर करें"
                         >
                           <Share2 className="w-3.5 h-3.5 text-white" />
-                          <span>{isHindi ? 'शेयर' : 'Share'}</span>
+                          <span>शेयर</span>
                         </a>
 
                         {/* विस्तार देखें Link */}
@@ -518,7 +470,7 @@ ${translateText(item.source || "Krishi Jagran")}
                             rel="noopener noreferrer"
                             className="flex items-center gap-0.5 px-2 py-1.5 text-[10.5px] font-black text-[#2D5A27] hover:underline cursor-pointer"
                           >
-                            <span>{isHindi ? 'विस्तार देखें' : 'Read Full Story'}</span>
+                            <span>विस्तार देखें</span>
                             <ChevronRight className="w-3.5 h-3.5" />
                           </a>
                         )}

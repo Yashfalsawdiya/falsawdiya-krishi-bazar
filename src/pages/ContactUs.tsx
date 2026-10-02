@@ -22,35 +22,17 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { useLanguage } from '../context/LanguageContext';
-import { DEFAULT_LEGAL_PAGES_CONTENT, DEFAULT_LEGAL_PAGES_CONTENT_EN } from '../data/defaultPagesContent';
+import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
 
 const ContactUs: React.FC = () => {
   const { appContent, legalPagesContent } = useAppContext();
-  const { isEnglish, translateText } = useLanguage();
 
   const branding = appContent?.branding || {
     name: 'फल्सावदिया कृषि बाजार',
     tagline: 'किसान का भरोसा, हमारी पहचान'
   };
 
-  const defaultContact = isEnglish ? DEFAULT_LEGAL_PAGES_CONTENT_EN.contactUs : DEFAULT_LEGAL_PAGES_CONTENT.contactUs;
-  const rawContactData = legalPagesContent?.contactUs || defaultContact;
-  const contactData = {
-    ...rawContactData,
-    bannerTitle: isEnglish ? (rawContactData === defaultContact ? rawContactData.bannerTitle : translateText(rawContactData.bannerTitle)) : rawContactData.bannerTitle,
-    bannerSubtitle: isEnglish ? (rawContactData === defaultContact ? rawContactData.bannerSubtitle : translateText(rawContactData.bannerSubtitle)) : rawContactData.bannerSubtitle,
-    introText: isEnglish ? (rawContactData === defaultContact ? rawContactData.introText : translateText(rawContactData.introText)) : rawContactData.introText,
-    timings: isEnglish ? (rawContactData === defaultContact ? rawContactData.timings : translateText(rawContactData.timings || '')) : rawContactData.timings,
-    deliveryArea: isEnglish ? (rawContactData === defaultContact ? rawContactData.deliveryArea : translateText(rawContactData.deliveryArea || '')) : rawContactData.deliveryArea,
-    customNotes: rawContactData.customNotes ? (isEnglish ? (rawContactData === defaultContact ? rawContactData.customNotes : translateText(rawContactData.customNotes)) : rawContactData.customNotes) : undefined,
-    sections: (rawContactData.sections || []).map(sec => ({
-      ...sec,
-      title: isEnglish ? (rawContactData === defaultContact ? sec.title : translateText(sec.title)) : sec.title,
-      content: isEnglish ? (rawContactData === defaultContact ? sec.content : translateText(sec.content)) : sec.content,
-      bullets: sec.bullets ? sec.bullets.map(b => isEnglish ? (rawContactData === defaultContact ? b : translateText(b)) : b) : undefined
-    }))
-  };
+  const contactData = legalPagesContent?.contactUs || DEFAULT_LEGAL_PAGES_CONTENT.contactUs;
 
   return (
     <div className="space-y-6 pb-10">
@@ -69,15 +51,15 @@ const ContactUs: React.FC = () => {
           </div>
 
           <h1 className="text-2xl font-black tracking-tight text-white leading-tight">
-            {contactData.bannerTitle || (isEnglish ? 'Contact Us' : 'संपर्क करें')}
+            {contactData.bannerTitle || 'संपर्क करें (Contact Us)'}
           </h1>
           <p className="text-sm font-semibold text-[#EAB308]">
-            {contactData.bannerSubtitle || (isEnglish ? 'We are always here to assist you' : 'हम आपकी सहायता के लिए सदैव उपलब्ध हैं')}
+            {contactData.bannerSubtitle || 'हम आपकी सहायता के लिए सदैव उपलब्ध हैं'}
           </p>
 
           <div className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-[11px] font-medium text-green-100 mt-2">
             <Clock className="w-3.5 h-3.5 text-yellow-300" />
-            <span>{isEnglish ? 'Working Hours: ' : 'कार्य समय: '}{contactData.timings || (isEnglish ? '08:00 AM to 08:00 PM Daily' : 'सुबह 8:00 से शाम 8:00 तक')}</span>
+            <span>कार्य समय: {contactData.timings || 'सुबह 8:00 से शाम 8:00 तक'}</span>
           </div>
         </div>
       </motion.div>
@@ -92,11 +74,11 @@ const ContactUs: React.FC = () => {
             <Phone className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">{isEnglish ? 'Call Helpline' : 'कॉल हेल्पलाइन'}</p>
+            <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">कॉल हेल्पलाइन</p>
             <p className="text-sm font-black text-[#4A3728] mt-0.5">{contactData.phone || '8982338046'}</p>
           </div>
           <span className="text-[10px] text-emerald-700 bg-emerald-50 font-bold px-2 py-0.5 rounded-full mt-1">
-            {isEnglish ? 'Call Now' : 'त्वरित बात करें'}
+            त्वरित बात करें
           </span>
         </a>
 
@@ -110,11 +92,11 @@ const ContactUs: React.FC = () => {
             <MessageCircle className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">{isEnglish ? 'WhatsApp Chat' : 'WhatsApp चैट'}</p>
+            <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">WhatsApp चैट</p>
             <p className="text-sm font-black text-[#4A3728] mt-0.5">{contactData.whatsapp || '8982338046'}</p>
           </div>
           <span className="text-[10px] text-emerald-700 bg-emerald-50 font-bold px-2 py-0.5 rounded-full mt-1">
-            {isEnglish ? 'Message 24x7' : '24x7 मैसेज भेजें'}
+            24x7 मैसेज भेजें
           </span>
         </a>
       </div>
@@ -128,7 +110,7 @@ const ContactUs: React.FC = () => {
       >
         <div className="flex items-center gap-2 text-[#2D5A27] font-bold">
           <MapPin className="w-5 h-5 text-[#2D5A27]" />
-          <h2 className="text-base font-black text-[#4A3728]">{isEnglish ? 'Store & Office Address' : 'दुकान व कार्यालय का पता'}</h2>
+          <h2 className="text-base font-black text-[#4A3728]">दुकान व कार्यालय का पता (Store Address)</h2>
         </div>
 
         <div className="bg-[#F5F2ED]/60 p-4 rounded-2xl border border-[#4A3728]/10 space-y-2 text-xs">
@@ -144,7 +126,7 @@ const ContactUs: React.FC = () => {
           rel="noopener noreferrer"
           className="w-full bg-[#2D5A27] hover:bg-[#23471e] text-white py-3.5 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all"
         >
-          <Navigation className="w-4 h-4" /> {isEnglish ? 'View Directions on Google Maps' : 'Google Maps पर दिशा देखें'}
+          <Navigation className="w-4 h-4" /> Google Maps पर दिशा देखें
         </a>
       </motion.div>
 
@@ -156,7 +138,7 @@ const ContactUs: React.FC = () => {
               <Mail className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-gray-400 font-bold uppercase">{isEnglish ? 'Email Support' : 'ईमेल सपोर्ट'}</p>
+              <p className="text-[10px] text-gray-400 font-bold uppercase">ईमेल सपोर्ट</p>
               <p className="text-xs font-bold text-gray-800 break-all">{contactData.email}</p>
             </div>
           </div>
@@ -168,7 +150,7 @@ const ContactUs: React.FC = () => {
               <Truck className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-gray-400 font-bold uppercase">{isEnglish ? 'Delivery Coverage' : 'डिलीवरी क्षेत्र'}</p>
+              <p className="text-[10px] text-gray-400 font-bold uppercase">डिलीवरी क्षेत्र</p>
               <p className="text-xs font-bold text-gray-800">
                 {contactData.deliveryArea}
               </p>
@@ -182,7 +164,7 @@ const ContactUs: React.FC = () => {
               <HeartHandshake className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-[#2D5A27] font-extrabold uppercase">{isEnglish ? 'Special Note' : 'विशेष नोट'}</p>
+              <p className="text-[10px] text-[#2D5A27] font-extrabold uppercase">विशेष नोट</p>
               <p className="text-xs font-semibold text-[#4A3728]">
                 {contactData.customNotes}
               </p>
@@ -233,44 +215,44 @@ const ContactUs: React.FC = () => {
             to="/about"
             className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">{isEnglish ? 'About Us' : 'हमारे बारे में'}</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">हमारे बारे में</span>
           </Link>
           <Link 
             to="/terms"
             className="bg-white border border-gray-200 hover:border-amber-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Terms & Conditions' : 'नियम एवं शर्तें'}</span>
+            <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" /> <span className="truncate">नियम एवं शर्तें</span>
           </Link>
           <Link 
             to="/privacy"
             className="bg-white border border-gray-200 hover:border-blue-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Privacy Policy' : 'गोपनीयता नीति'}</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">गोपनीयता नीति</span>
           </Link>
           <Link 
             to="/refund-policy"
             className="bg-white border border-gray-200 hover:border-rose-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Return & Refund' : 'वापसी नीति'}</span>
+            <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" /> <span className="truncate">वापसी नीति</span>
           </Link>
           <Link 
             to="/disclaimer"
             className="bg-white border border-gray-200 hover:border-yellow-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <AlertTriangle className="w-3.5 h-3.5 text-yellow-600 shrink-0" /> <span className="truncate">{isEnglish ? 'AI Disclaimer' : 'AI अस्वीकरण'}</span>
+            <AlertTriangle className="w-3.5 h-3.5 text-yellow-600 shrink-0" /> <span className="truncate">AI अस्वीकरण</span>
           </Link>
           <Link 
             to="/safety-guidelines"
             className="bg-white border border-gray-200 hover:border-red-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldAlert className="w-3.5 h-3.5 text-red-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Safety Guidelines' : 'सुरक्षा निर्देश'}</span>
+            <ShieldAlert className="w-3.5 h-3.5 text-red-600 shrink-0" /> <span className="truncate">सुरक्षा निर्देश</span>
           </Link>
         </div>
         <Link 
           to="/"
           className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
         >
-          {isEnglish ? 'Home' : 'मुख्य पृष्ठ'}
+          मुख्य पृष्ठ (Home)
         </Link>
       </div>
     </div>

@@ -17,32 +17,20 @@ import SmartImage from '../components/SmartImage';
 import { generateOrderInvoicePDF } from '../utils/invoiceGenerator';
 import { formatFullHindiDate } from '../lib/dateUtils';
 
-import { useLanguage } from '../context/LanguageContext';
-
-const CANCELLATION_REASONS_HI = [
-  'गलती से दूसरा उत्पाद या मात्रा ऑर्डर हो गई',
-  'डिलीवरी पते या फोन नंबर में बदलाव करना है',
-  'अब इस उत्पाद/दवा की आवश्यकता नहीं है',
-  'डिलीवरी समय अधिक लग रहा है',
-  'अन्य कारण',
-];
-
-const CANCELLATION_REASONS_EN = [
-  'Ordered incorrect product or quantity by mistake',
-  'Need to change delivery address or phone number',
-  'Product or medicine no longer needed',
-  'Delivery time is taking too long',
-  'Other reason',
+const CANCELLATION_REASONS = [
+  'गलती से दूसरा उत्पाद या मात्रा ऑर्डर हो गई (Ordered by mistake)',
+  'डिलीवरी पते या फोन नंबर में बदलाव करना है (Need to change address)',
+  'अब इस उत्पाद/दवा की आवश्यकता नहीं है (No longer needed)',
+  'डिलीवरी समय अधिक लग रहा है (Delivery taking too long)',
+  'अन्य कारण (Other reason)',
 ];
 
 const OrderDetailsPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isEnglish, translateText } = useLanguage();
   const { appContent, invoiceTemplate } = useAppContext();
 
-  const cancellationReasons = isEnglish ? CANCELLATION_REASONS_EN : CANCELLATION_REASONS_HI;
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -50,7 +38,7 @@ const OrderDetailsPage: React.FC = () => {
 
   // Cancellation States
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancellationReason, setCancellationReason] = useState(() => cancellationReasons[0]);
+  const [cancellationReason, setCancellationReason] = useState(CANCELLATION_REASONS[0]);
   const [customReason, setCustomReason] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -958,24 +946,24 @@ const OrderDetailsPage: React.FC = () => {
               {/* Cancellation Reason Selector */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-700 block">
-                  {isEnglish ? 'Select reason for cancellation:' : 'रद्दीकरण का कारण चुनें:'}
+                  रद्दीकरण का कारण चुनें (Reason for cancellation):
                 </label>
                 <select
                   value={cancellationReason}
                   onChange={(e) => setCancellationReason(e.target.value)}
                   className="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-xs focus:outline-none focus:border-[#2D5A27]"
                 >
-                  {cancellationReasons.map((r, idx) => (
+                  {CANCELLATION_REASONS.map((r, idx) => (
                     <option key={idx} value={r}>
                       {r}
                     </option>
                   ))}
                 </select>
 
-                {(cancellationReason === 'अन्य कारण' || cancellationReason === 'Other reason') && (
+                {cancellationReason === 'अन्य कारण (Other reason)' && (
                   <textarea
                     rows={2}
-                    placeholder={isEnglish ? 'Please provide details...' : 'कृपया कारण विस्तार से बताएं...'}
+                    placeholder="कृपया कारण विस्तार से बताएं..."
                     value={customReason}
                     onChange={(e) => setCustomReason(e.target.value)}
                     className="w-full p-2 bg-white border border-gray-300 rounded-xl text-xs focus:outline-none focus:border-[#2D5A27] mt-1.5"

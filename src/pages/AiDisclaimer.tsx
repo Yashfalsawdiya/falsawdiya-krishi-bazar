@@ -22,35 +22,19 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { useLanguage } from '../context/LanguageContext';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
-import { DEFAULT_LEGAL_PAGES_CONTENT_EN } from '../data/defaultPagesContentEn';
 
 const ICONS = [Sparkles, Images, FlaskConical, Pill, HelpCircle, UserCheck, Flame, MessageSquare];
 
 const AiDisclaimer: React.FC = () => {
   const { appContent, legalPagesContent } = useAppContext();
-  const { isEnglish, translateText } = useLanguage();
 
   const branding = appContent?.branding || {
     name: 'फल्सावदिया कृषि बाजार',
     tagline: 'किसान का भरोसा, हमारी पहचान'
   };
 
-  const defaultAi = isEnglish ? DEFAULT_LEGAL_PAGES_CONTENT_EN.aiDisclaimer : DEFAULT_LEGAL_PAGES_CONTENT.aiDisclaimer;
-  const rawDisclaimerData = legalPagesContent?.aiDisclaimer || defaultAi;
-  const disclaimerData = {
-    ...rawDisclaimerData,
-    bannerTitle: isEnglish ? (rawDisclaimerData === defaultAi ? rawDisclaimerData.bannerTitle : translateText(rawDisclaimerData.bannerTitle)) : rawDisclaimerData.bannerTitle,
-    bannerSubtitle: isEnglish ? (rawDisclaimerData === defaultAi ? rawDisclaimerData.bannerSubtitle : translateText(rawDisclaimerData.bannerSubtitle)) : rawDisclaimerData.bannerSubtitle,
-    introText: isEnglish ? (rawDisclaimerData === defaultAi ? rawDisclaimerData.introText : translateText(rawDisclaimerData.introText)) : rawDisclaimerData.introText,
-    sections: (rawDisclaimerData.sections || []).map(sec => ({
-      ...sec,
-      title: isEnglish ? (rawDisclaimerData === defaultAi ? sec.title : translateText(sec.title)) : sec.title,
-      content: isEnglish ? (rawDisclaimerData === defaultAi ? sec.content : translateText(sec.content)) : sec.content,
-      bullets: sec.bullets ? sec.bullets.map(b => isEnglish ? (rawDisclaimerData === defaultAi ? b : translateText(b)) : b) : undefined
-    }))
-  };
+  const disclaimerData = legalPagesContent?.aiDisclaimer || DEFAULT_LEGAL_PAGES_CONTENT.aiDisclaimer;
 
   return (
     <div className="space-y-6 pb-8">
@@ -69,15 +53,15 @@ const AiDisclaimer: React.FC = () => {
           </div>
 
           <h1 className="text-2xl font-black tracking-tight text-white">
-            {disclaimerData.bannerTitle || (isEnglish ? 'Agricultural & AI Advisory Disclaimer' : 'कृषि एवं AI सलाह अस्वीकरण')}
+            {disclaimerData.bannerTitle || 'Agricultural & AI Disclaimer'}
           </h1>
           <p className="text-sm font-semibold text-[#EAB308]">
-            {disclaimerData.bannerSubtitle || (isEnglish ? 'Digital & AI Advisory Notice' : 'डिजिटल एवं AI कृषि सलाह सूचना')}
+            {disclaimerData.bannerSubtitle || 'कृषि एवं AI अस्वीकरण'}
           </p>
 
           <div className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-[11px] font-medium text-green-100 mt-2">
             <Clock className="w-3.5 h-3.5 text-yellow-300" />
-            <span>{isEnglish ? 'Last Updated: ' : 'अंतिम अपडेट: '}{disclaimerData.lastUpdated || (isEnglish ? '24 August 2026' : '24 अगस्त 2026')}</span>
+            <span>अंतिम अपडेट: {disclaimerData.lastUpdated || '24 August 2026'}</span>
           </div>
         </div>
       </motion.div>
@@ -91,7 +75,7 @@ const AiDisclaimer: React.FC = () => {
       >
         <div className="flex items-center gap-2 text-[#2D5A27] font-bold">
           <Info className="w-5 h-5 text-[#2D5A27]" />
-          <h2 className="text-base font-black text-[#4A3728]">{isEnglish ? 'Important Notice' : 'महत्वपूर्ण सूचना'}</h2>
+          <h2 className="text-base font-black text-[#4A3728]">महत्वपूर्ण सूचना (Important Notice)</h2>
         </div>
 
         <p className="text-xs text-gray-700 leading-relaxed font-normal whitespace-pre-line">
@@ -153,44 +137,44 @@ const AiDisclaimer: React.FC = () => {
             to="/about"
             className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">{isEnglish ? 'About Us' : 'हमारे बारे में'}</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">हमारे बारे में</span>
           </Link>
           <Link 
             to="/terms"
             className="bg-white border border-gray-200 hover:border-amber-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Terms & Conditions' : 'नियम एवं शर्तें'}</span>
+            <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" /> <span className="truncate">नियम एवं शर्तें</span>
           </Link>
           <Link 
             to="/privacy"
             className="bg-white border border-gray-200 hover:border-blue-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Privacy Policy' : 'गोपनीयता नीति'}</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">गोपनीयता नीति</span>
           </Link>
           <Link 
             to="/refund-policy"
             className="bg-white border border-gray-200 hover:border-rose-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Return & Refund' : 'वापसी नीति'}</span>
+            <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" /> <span className="truncate">वापसी नीति</span>
           </Link>
           <Link 
             to="/safety-guidelines"
             className="bg-white border border-gray-200 hover:border-red-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldAlert className="w-3.5 h-3.5 text-red-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Safety Guidelines' : 'सुरक्षा निर्देश'}</span>
+            <ShieldAlert className="w-3.5 h-3.5 text-red-600 shrink-0" /> <span className="truncate">सुरक्षा निर्देश</span>
           </Link>
           <Link 
             to="/contact"
             className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <PhoneCall className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">{isEnglish ? 'Contact Us' : 'संपर्क करें'}</span>
+            <PhoneCall className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">संपर्क करें</span>
           </Link>
         </div>
         <Link 
           to="/"
           className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
         >
-          {isEnglish ? 'Home' : 'मुख्य पृष्ठ'}
+          मुख्य पृष्ठ (Home)
         </Link>
       </div>
     </div>

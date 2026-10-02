@@ -35,8 +35,7 @@ import {
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import SmartImage from '../components/SmartImage';
-import { getLegalPageData } from '../data/defaultPagesContent';
-import { useLanguage } from '../context/LanguageContext';
+import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
 
 const SERVICE_ICONS = [
   Sprout, FlaskConical, ShieldCheck, BookOpen, Camera, Bug, Sparkles, Newspaper, ShoppingBag
@@ -56,15 +55,14 @@ const SERVICE_COLORS = [
 
 const AboutUs: React.FC = () => {
   const { appContent, legalPagesContent } = useAppContext();
-  const { isEnglish, translateText } = useLanguage();
 
   const branding = appContent?.branding || {
-    name: isEnglish ? 'Falsawdiya Krishi Bazaar' : 'फल्सावदिया कृषि बाजार',
-    tagline: isEnglish ? "Farmer's Trust, Our Identity" : 'किसान का भरोसा, हमारी पहचान',
+    name: 'फल्सावदिया कृषि बाजार',
+    tagline: 'किसान का भरोसा, हमारी पहचान',
     logo: ''
   };
 
-  const aboutData = getLegalPageData('aboutUs', legalPagesContent, isEnglish ? 'en' : 'hi');
+  const aboutData = legalPagesContent?.aboutUs || DEFAULT_LEGAL_PAGES_CONTENT.aboutUs;
 
   return (
     <div className="space-y-6 pb-8">
@@ -93,15 +91,13 @@ const AboutUs: React.FC = () => {
             <div className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 mb-2">
               <Info className="w-3.5 h-3.5 text-[#EAB308]" />
               <span className="text-[11px] font-bold text-white tracking-wide">
-                {aboutData.bannerSubtitle || (isEnglish ? 'About Us - Falsawdiya Krishi Bazaar' : 'हमारे बारे में')}
+                {aboutData.bannerSubtitle || 'हमारे बारे में (About Us)'}
               </span>
             </div>
             <h1 className="text-2xl font-black tracking-tight text-white">
-              {aboutData.bannerTitle || (isEnglish ? 'About Us' : 'हमारे बारे में')}
+              {aboutData.bannerTitle || branding.name}
             </h1>
-            <p className="text-sm font-semibold text-[#EAB308] mt-0.5">
-              {isEnglish ? "Farmer's Trust, Our Identity" : branding.tagline}
-            </p>
+            <p className="text-sm font-semibold text-[#EAB308] mt-0.5">{branding.tagline}</p>
           </div>
         </div>
       </motion.div>
@@ -115,9 +111,7 @@ const AboutUs: React.FC = () => {
       >
         <div className="flex items-center gap-2.5 text-[#2D5A27] font-bold">
           <Building2 className="w-5 h-5 text-[#2D5A27]" />
-          <h2 className="text-base font-black text-[#4A3728]">
-            {isEnglish ? 'Introduction' : 'परिचय'}
-          </h2>
+          <h2 className="text-base font-black text-[#4A3728]">परिचय (Introduction)</h2>
         </div>
 
         <div className="space-y-3 text-sm text-gray-700 leading-relaxed font-normal whitespace-pre-line">
@@ -147,12 +141,10 @@ const AboutUs: React.FC = () => {
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-6 bg-[#2D5A27] rounded-full" />
-              <h2 className="text-lg font-black text-[#4A3728]">
-                {isEnglish ? 'Our Services' : 'हमारी सेवाएँ'}
-              </h2>
+              <h2 className="text-lg font-black text-[#4A3728]">हमारी सेवाएँ</h2>
             </div>
             <span className="text-xs text-[#2D5A27] font-extrabold bg-[#2D5A27]/10 px-2.5 py-0.5 rounded-full">
-              {aboutData.services.length} {isEnglish ? 'Services' : 'मुख्य सुविधाएँ'}
+              {aboutData.services.length} मुख्य सुविधाएँ
             </span>
           </div>
 
@@ -201,7 +193,7 @@ const AboutUs: React.FC = () => {
                   <Target className="w-4 h-4" />
                 </div>
                 <h2 className="text-sm font-black text-[#2D5A27]">
-                  {aboutData.missionTitle || (isEnglish ? 'Our Mission' : 'हमारा लक्ष्य')}
+                  {aboutData.missionTitle || 'हमारा उद्देश्य (Mission)'}
                 </h2>
               </div>
               <p className="text-xs font-medium text-[#4A3728] leading-relaxed bg-white/90 p-3.5 rounded-2xl border border-emerald-100">
@@ -222,7 +214,7 @@ const AboutUs: React.FC = () => {
                   <Compass className="w-4 h-4" />
                 </div>
                 <h2 className="text-sm font-black text-blue-900">
-                  {aboutData.visionTitle || (isEnglish ? 'Our Vision' : 'हमारी दृष्टि')}
+                  {aboutData.visionTitle || 'हमारा विज़न (Vision)'}
                 </h2>
               </div>
               <p className="text-xs font-medium text-[#4A3728] leading-relaxed bg-white/90 p-3.5 rounded-2xl border border-blue-100">
@@ -245,9 +237,7 @@ const AboutUs: React.FC = () => {
             <div className="w-8 h-8 rounded-xl bg-[#2D5A27]/10 flex items-center justify-center text-[#2D5A27]">
               <Sparkles className="w-4 h-4 text-amber-500" />
             </div>
-            <h2 className="text-base font-black text-[#4A3728]">
-              {isEnglish ? 'Key Features & Highlights' : 'विशेषताएँ एवं मुख्य बिंदु'}
-            </h2>
+            <h2 className="text-base font-black text-[#4A3728]">विशेषताएँ एवं मुख्य बिंदु</h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
@@ -272,9 +262,7 @@ const AboutUs: React.FC = () => {
           <div className="w-9 h-9 rounded-xl bg-[#2D5A27]/10 flex items-center justify-center text-[#2D5A27]">
             <Building2 className="w-5 h-5" />
           </div>
-          <h2 className="text-base font-black text-[#4A3728]">
-            {isEnglish ? 'Identity & Contact' : 'हमारी पहचान व संपर्क'}
-          </h2>
+          <h2 className="text-base font-black text-[#4A3728]">हमारी पहचान व संपर्क</h2>
         </div>
 
         <div className="space-y-3.5 bg-[#F5F2ED]/60 p-4 rounded-2xl border border-[#4A3728]/10 text-xs">
@@ -282,6 +270,7 @@ const AboutUs: React.FC = () => {
             <CheckCircle2 className="w-4 h-4 text-[#2D5A27] shrink-0 mt-0.5" />
             <div>
               <p className="font-extrabold text-[#4A3728] text-sm">{branding.name}</p>
+              <p className="text-gray-500 font-medium mt-0.5">Falsawdiya Krishi Bazaar</p>
             </div>
           </div>
 
@@ -289,9 +278,7 @@ const AboutUs: React.FC = () => {
             <div className="flex items-start gap-3 pt-2 border-t border-gray-200/60">
               <UserCheck className="w-4 h-4 text-[#2D5A27] shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-gray-500">
-                  {aboutData.founderRole || (isEnglish ? 'Ownership:' : 'स्वामित्व:')}
-                </p>
+                <p className="font-bold text-gray-500">{aboutData.founderRole || 'स्वामित्व (Ownership)'}:</p>
                 <p className="font-extrabold text-[#4A3728] text-sm mt-0.5">{aboutData.founderName}</p>
                 {aboutData.founderMessage && (
                   <p className="text-[11px] text-gray-600 mt-1 italic font-medium">"{aboutData.founderMessage}"</p>
@@ -303,23 +290,12 @@ const AboutUs: React.FC = () => {
           <div className="flex items-start gap-3 pt-2 border-t border-gray-200/60">
             <MapPin className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-bold text-gray-500">{isEnglish ? 'Address:' : 'पता:'}</p>
+              <p className="font-bold text-gray-500">पता (Address):</p>
               <p className="font-bold text-[#4A3728] leading-relaxed mt-0.5">
-                {isEnglish ? (
-                  <>
-                    Dimple Square,<br />
-                    Near Kshatriya Khati Manglik Bhavan,<br />
-                    Shamgarh, District Mandsaur,<br />
-                    Madhya Pradesh – 458883
-                  </>
-                ) : (
-                  <>
-                    डिंपल चौराहा,<br />
-                    क्षत्रिय खाती मांगलिक भवन के पास,<br />
-                    शामगढ़, जिला मंदसौर,<br />
-                    मध्य प्रदेश – 458883
-                  </>
-                )}
+                डिंपल चौराहा,<br />
+                क्षत्रिय खाती मांगलिक भवन के पास,<br />
+                शामगढ़, जिला मंदसौर,<br />
+                मध्य प्रदेश – 458883
               </p>
             </div>
           </div>
@@ -331,7 +307,7 @@ const AboutUs: React.FC = () => {
             href="tel:8982338046"
             className="flex items-center justify-center gap-2 py-3 px-4 bg-[#2D5A27] text-white rounded-2xl text-xs font-bold shadow-sm active:scale-95 transition-all"
           >
-            <Phone className="w-4 h-4" /> {isEnglish ? 'Call Now' : 'कॉल करें'}
+            <Phone className="w-4 h-4" /> कॉल करें
           </a>
           <a 
             href="https://wa.me/918982338046?text=नमस्ते%20फल्सावदिया%20कृषि%20बाजार"
@@ -383,69 +359,69 @@ const AboutUs: React.FC = () => {
           to="/products"
           className="w-full bg-[#2D5A27] text-white py-3.5 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all"
         >
-          <ShoppingBag className="w-4 h-4" /> {isEnglish ? 'View Agri Market & Products' : 'कृषि बाजार एवं उत्पाद देखें'} <ChevronRight className="w-4 h-4" />
+          <ShoppingBag className="w-4 h-4" /> कृषि बाजार एवं उत्पाद देखें <ChevronRight className="w-4 h-4" />
         </Link>
         <div className="grid grid-cols-2 gap-2">
           <Link 
             to="/licensing-disclaimer"
             className="bg-emerald-50 border border-emerald-200 hover:border-emerald-400 text-emerald-900 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <Award className="w-3.5 h-3.5 text-emerald-700 shrink-0" /> <span className="truncate">{isEnglish ? 'Licensing & DAESI' : 'लाइसेंस एवं DAESI'}</span>
+            <Award className="w-3.5 h-3.5 text-emerald-700 shrink-0" /> <span className="truncate">लाइसेंस एवं DAESI</span>
           </Link>
           <Link 
             to="/shipping-policy"
             className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Shipping Policy' : 'डिलीवरी नीति'}</span>
+            <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> <span className="truncate">डिलीवरी नीति</span>
           </Link>
           <Link 
             to="/grievance"
             className="bg-white border border-gray-200 hover:border-blue-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <Scale className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Grievance Officer' : 'शिकायत अधिकारी'}</span>
+            <Scale className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">शिकायत अधिकारी</span>
           </Link>
           <Link 
             to="/faq"
             className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <HelpCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> <span className="truncate">{isEnglish ? 'FAQ & Help' : 'FAQ / सहायता'}</span>
+            <HelpCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> <span className="truncate">FAQ / सहायता</span>
           </Link>
           <Link 
             to="/contact"
             className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <PhoneCall className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">{isEnglish ? 'Contact Us' : 'संपर्क करें'}</span>
+            <PhoneCall className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">संपर्क करें</span>
           </Link>
           <Link 
             to="/privacy"
             className="bg-white border border-gray-200 hover:border-blue-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Privacy Policy' : 'गोपनीयता नीति'}</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">गोपनीयता नीति</span>
           </Link>
           <Link 
             to="/terms"
             className="bg-white border border-gray-200 hover:border-amber-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Terms & Conditions' : 'नियम एवं शर्तें'}</span>
+            <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" /> <span className="truncate">नियम एवं शर्तें</span>
           </Link>
           <Link 
             to="/refund-policy"
             className="bg-white border border-gray-200 hover:border-rose-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Return & Refund Policy' : 'वापसी नीति'}</span>
+            <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" /> <span className="truncate">वापसी नीति</span>
           </Link>
           <Link 
             to="/safety-guidelines"
             className="bg-white border border-gray-200 hover:border-red-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldAlert className="w-3.5 h-3.5 text-red-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Safety Guidelines' : 'सुरक्षा निर्देश'}</span>
+            <ShieldAlert className="w-3.5 h-3.5 text-red-600 shrink-0" /> <span className="truncate">सुरक्षा निर्देश</span>
           </Link>
         </div>
         <Link 
           to="/"
           className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
         >
-          {isEnglish ? 'Home' : 'मुख्य पृष्ठ'}
+          मुख्य पृष्ठ (Home)
         </Link>
       </div>
     </div>
