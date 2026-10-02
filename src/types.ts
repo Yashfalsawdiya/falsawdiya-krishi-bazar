@@ -403,6 +403,8 @@ export interface ShippingDeliveryPolicyPageData {
   lastUpdated: string;
   introText: string;
   deliveryAreas: string[];
+  coverageAreaText?: string;
+  standardDeliveryTime?: string;
   estimatedTimeline: string;
   freeDeliveryThreshold: string;
   standardDeliveryFee: string;
@@ -424,6 +426,7 @@ export interface GrievanceRedressalPageData {
   workingHours: string;
   acknowledgmentHours: string;
   resolutionDays: string;
+  resolutionTimeframe?: string;
   jurisdiction: string;
   sections: PageSectionItem[];
 }
@@ -444,7 +447,8 @@ export interface LicensingDisclaimerPageData {
   fertilizerLicenseNo: string;
   seedLicenseNo: string;
   issuingAuthority: string;
-  sections: PageSectionItem[];
+  complianceHighlights?: string[];
+  sections?: PageSectionItem[];
 }
 
 export interface InvoiceTemplateConfig {

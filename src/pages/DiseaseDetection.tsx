@@ -19,6 +19,7 @@ import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
+import { useLanguage } from '../context/LanguageContext';
 
 export interface DiseaseChatMessage {
   id: string;
@@ -57,6 +58,7 @@ const SUGGESTED_QUESTIONS = [
 
 const DiseaseDetection: React.FC = () => {
   const navigate = useNavigate();
+  const { isEnglish, translateText } = useLanguage();
   const { appContent, deliveryConfig, userSettings, products, categories, loading: appLoading } = useAppContext();
   const { addToCart } = useCart();
   const isDeliveryActive = deliveryConfig?.isDeliveryActive !== false && appContent?.isDeliveryActive !== false;
@@ -263,7 +265,7 @@ const DiseaseDetection: React.FC = () => {
     setLoading(true);
     setAnalysisError(null);
     try {
-      const analysis = await detectDisease(images, effectiveApiKey);
+      const analysis = await detectDisease(images, effectiveApiKey, isEnglish ? 'en' : 'hi');
       setAnalysisResult(analysis);
       setAnalysisError(null);
 
@@ -360,7 +362,8 @@ const DiseaseDetection: React.FC = () => {
         chatHistory: geminiHistory,
         location: "शामगढ़, मंदसौर, मध्य प्रदेश",
         weatherSummary: currentWeatherSummary,
-        userApiKey: effectiveApiKey
+        userApiKey: effectiveApiKey,
+        language: isEnglish ? 'en' : 'hi'
       });
 
       const aiMsg: DiseaseChatMessage = {
@@ -467,10 +470,10 @@ const DiseaseDetection: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-[#4A3728]">
-            बीमारी की सटीक जाँच (AI Scan)
+            {isEnglish ? 'Crop Health AI Scan' : 'बीमारी की सटीक जाँच'}
           </h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            फोटो अपलोड करें और रिपोर्ट के साथ AI से पूछें
+            {isEnglish ? 'Upload photo and consult AI with diagnostic report' : 'फोटो अपलोड करें और रिपोर्ट के साथ AI से पूछें'}
           </p>
         </div>
         {scanHistory.length > 0 && (
@@ -479,7 +482,7 @@ const DiseaseDetection: React.FC = () => {
             className="bg-[#2D5A27]/10 text-[#2D5A27] px-3 py-2 rounded-2xl text-xs font-bold flex items-center gap-1.5 hover:bg-[#2D5A27]/20 active:scale-95 transition-all shadow-sm border border-[#2D5A27]/20 shrink-0"
           >
             <History className="w-4 h-4" />
-            <span>इतिहास ({scanHistory.length})</span>
+            <span>{isEnglish ? 'History' : 'इतिहास'} ({scanHistory.length})</span>
           </button>
         )}
       </div>
@@ -672,8 +675,12 @@ const DiseaseDetection: React.FC = () => {
                 <Camera className="w-5 h-5" />
               </div>
               <div className="text-left min-w-0">
-                <div className="text-xs sm:text-[13px] font-extrabold tracking-tight truncate">कैमरा (Camera)</div>
-                <div className="text-[10px] text-gray-500 font-medium truncate">तुरंत फोटो लें</div>
+                <div className="text-xs sm:text-[13px] font-extrabold tracking-tight truncate">
+                  {isEnglish ? 'Camera' : 'कैमरा'}
+                </div>
+                <div className="text-[10px] text-gray-500 font-medium truncate">
+                  {isEnglish ? 'Take photo now' : 'तुरंत फोटो लें'}
+                </div>
               </div>
             </button>
 
@@ -690,8 +697,12 @@ const DiseaseDetection: React.FC = () => {
                 <ImageIcon className="w-5 h-5" />
               </div>
               <div className="text-left min-w-0">
-                <div className="text-xs sm:text-[13px] font-extrabold tracking-tight truncate">गैलरी (Gallery)</div>
-                <div className="text-[10px] text-gray-500 font-medium truncate">फ़ोन से चुनें</div>
+                <div className="text-xs sm:text-[13px] font-extrabold tracking-tight truncate">
+                  {isEnglish ? 'Gallery' : 'गैलरी'}
+                </div>
+                <div className="text-[10px] text-gray-500 font-medium truncate">
+                  {isEnglish ? 'Choose from phone' : 'फ़ोन से चुनें'}
+                </div>
               </div>
             </button>
           </div>
@@ -711,8 +722,8 @@ const DiseaseDetection: React.FC = () => {
                 <Loader2 className="w-6 h-6 animate-spin" />
                 <span>
                   {images.length > 1 
-                    ? `AI सभी ${images.length} फोटो की संयुक्त जाँच कर रहा है...`
-                    : 'AI जाँच हो रही है...'}
+                    ? (isEnglish ? `AI analyzing all ${images.length} photos...` : `AI सभी ${images.length} फोटो की संयुक्त जाँच कर रहा है...`)
+                    : (isEnglish ? 'AI Analyzing...' : 'AI जाँच हो रही है...')}
                 </span>
               </>
             ) : (
@@ -720,8 +731,8 @@ const DiseaseDetection: React.FC = () => {
                 <CheckCircle2 className="w-6 h-6" />
                 <span>
                   {images.length > 1 
-                    ? `सभी ${images.length} Photos की संयुक्त जाँच करें (AI Scan)`
-                    : 'जाँच करें (Analyze Now)'}
+                    ? (isEnglish ? `Analyze all ${images.length} photos` : `सभी ${images.length} फोटो की संयुक्त जाँच करें`)
+                    : (isEnglish ? 'Analyze Now' : 'जाँच करें')}
                 </span>
               </>
             )}
@@ -995,7 +1006,9 @@ const DiseaseDetection: React.FC = () => {
               <div className="flex items-center justify-between pb-4 border-b border-gray-100">
                 <div className="flex items-center gap-2">
                   <History className="w-5 h-5 text-[#2D5A27]" />
-                  <h3 className="font-extrabold text-[#4A3728] text-base">पिछली जाँच का इतिहास (Scan History)</h3>
+                  <h3 className="font-extrabold text-[#4A3728] text-base">
+                    {isEnglish ? 'Scan History' : 'पिछली जाँच का इतिहास'}
+                  </h3>
                 </div>
                 <button
                   onClick={() => setIsHistoryOpen(false)}
@@ -1008,7 +1021,7 @@ const DiseaseDetection: React.FC = () => {
               <div className="overflow-y-auto py-4 space-y-3 flex-1">
                 {scanHistory.length === 0 ? (
                   <div className="text-center py-10 text-gray-400 text-sm">
-                    कोई पुराना इतिहास नहीं मिला।
+                    {isEnglish ? 'No previous scan history found.' : 'कोई पुराना इतिहास नहीं मिला।'}
                   </div>
                 ) : (
                   scanHistory.map((scan) => (
@@ -1037,13 +1050,13 @@ const DiseaseDetection: React.FC = () => {
                         </div>
                         <div className="min-w-0">
                           <h4 className="font-bold text-gray-900 text-sm truncate">
-                            {scan.cropName || 'फसल बीमारी रिपोर्ट'}
+                            {isEnglish ? translateText(scan.cropName || 'Crop Disease Report') : (scan.cropName || 'फसल बीमारी रिपोर्ट')}
                           </h4>
                           <p className="text-[11px] text-gray-400 font-medium">{scan.dateStr}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-[10px] bg-[#2D5A27]/10 text-[#2D5A27] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
                               <MessageCircle className="w-3 h-3" />
-                              {scan.chatMessages?.length || 0} सन्देश
+                              {scan.chatMessages?.length || 0} {isEnglish ? 'Messages' : 'सन्देश'}
                             </span>
                           </div>
                         </div>
@@ -1053,7 +1066,7 @@ const DiseaseDetection: React.FC = () => {
                         <button
                           onClick={(e) => deleteHistoryScan(scan.id, e)}
                           className="p-2 text-gray-300 hover:text-red-500 rounded-xl hover:bg-red-50 transition-colors"
-                          title="हटाएं"
+                          title={isEnglish ? 'Delete' : 'हटाएं'}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1068,7 +1081,7 @@ const DiseaseDetection: React.FC = () => {
                 onClick={() => setIsHistoryOpen(false)}
                 className="w-full bg-gray-100 text-gray-600 py-3 rounded-2xl font-bold text-xs active:scale-95 transition-all mt-2"
               >
-                बंद करें (Close)
+                {isEnglish ? 'Close' : 'बंद करें'}
               </button>
             </motion.div>
           </>
@@ -1099,9 +1112,13 @@ const DiseaseDetection: React.FC = () => {
                     <Plus className="w-5 h-5 stroke-[2.5]" />
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-[#4A3728] text-base">फोटो जोड़ें (Add Photo)</h3>
+                    <h3 className="font-extrabold text-[#4A3728] text-base">
+                      {isEnglish ? 'Add Photo' : 'फोटो जोड़ें'}
+                    </h3>
                     <p className="text-[11px] text-gray-400 font-medium">
-                      उपलब्ध स्लॉट: {MAX_PHOTOS - images.length} (अधिकतम {MAX_PHOTOS})
+                      {isEnglish 
+                        ? `Available slots: ${MAX_PHOTOS - images.length} (Max ${MAX_PHOTOS})` 
+                        : `उपलब्ध स्लॉट: ${MAX_PHOTOS - images.length} (अधिकतम ${MAX_PHOTOS})`}
                     </p>
                   </div>
                 </div>
@@ -1124,8 +1141,10 @@ const DiseaseDetection: React.FC = () => {
                   <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-xs">
                     <Camera className="w-6 h-6 text-[#2D5A27]" />
                   </div>
-                  <span className="text-xs font-extrabold">कैमरा (Camera)</span>
-                  <span className="text-[9px] text-gray-500 font-medium text-center">सीधा फोटो खींचें</span>
+                  <span className="text-xs font-extrabold">{isEnglish ? 'Camera' : 'कैमरा'}</span>
+                  <span className="text-[9px] text-gray-500 font-medium text-center">
+                    {isEnglish ? 'Take photo directly' : 'सीधा फोटो खींचें'}
+                  </span>
                 </button>
 
                 <button
@@ -1138,8 +1157,10 @@ const DiseaseDetection: React.FC = () => {
                   <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-xs">
                     <ImageIcon className="w-6 h-6 text-[#2D5A27]" />
                   </div>
-                  <span className="text-xs font-extrabold">गैलरी (Gallery)</span>
-                  <span className="text-[9px] text-gray-500 font-medium text-center">गैलरी से चुनें</span>
+                  <span className="text-xs font-extrabold">{isEnglish ? 'Gallery' : 'गैलरी'}</span>
+                  <span className="text-[9px] text-gray-500 font-medium text-center">
+                    {isEnglish ? 'Choose from phone' : 'गैलरी से चुनें'}
+                  </span>
                 </button>
               </div>
 
@@ -1147,7 +1168,7 @@ const DiseaseDetection: React.FC = () => {
                 onClick={() => setIsAddPhotoPickerOpen(false)}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 py-2.5 rounded-xl text-xs font-bold transition-colors"
               >
-                रद्द करें (Cancel)
+                {isEnglish ? 'Cancel' : 'रद्द करें'}
               </button>
             </motion.div>
           </>
@@ -1224,36 +1245,42 @@ const DiseaseDetection: React.FC = () => {
               <div className="bg-gray-50 rounded-3xl p-5 mb-6 border border-gray-100">
                 <h4 className="text-xs font-black text-[#2D5A27] uppercase tracking-widest mb-4 flex items-center gap-2">
                   <Info className="w-4 h-4" />
-                  ऑर्डर की पूरी जानकारी
+                  {isEnglish ? 'Order & Product Details' : 'ऑर्डर की पूरी जानकारी'}
                 </h4>
                 
                 <div className="space-y-3 mb-5">
                   <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
-                    <span className="text-gray-500 text-sm font-medium">कंपनी (Brand):</span>
+                    <span className="text-gray-500 text-sm font-medium">{isEnglish ? 'Brand:' : 'कंपनी:'}</span>
                     <span className="text-gray-900 font-black text-sm">{selectedProduct.brand}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
-                    <span className="text-gray-500 text-sm font-medium">दवाई (Full Name):</span>
+                    <span className="text-gray-500 text-sm font-medium">{isEnglish ? 'Product Name:' : 'दवाई:'}</span>
                     <span className="text-gray-900 font-black text-sm">
-                      {selectedProduct.hindiName || selectedProduct.name}
+                      {isEnglish 
+                        ? (translateText(selectedProduct.name || selectedProduct.hindiName || '')) 
+                        : (selectedProduct.hindiName || selectedProduct.name)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
-                    <span className="text-gray-500 text-sm font-medium">मात्रा (Quantity):</span>
+                    <span className="text-gray-500 text-sm font-medium">{isEnglish ? 'Quantity:' : 'मात्रा:'}</span>
                     <span className="text-gray-900 font-black text-sm">{displayUnit}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
-                    <span className="text-gray-500 text-sm font-medium">कीमत (Price):</span>
+                    <span className="text-gray-500 text-sm font-medium">{isEnglish ? 'Price:' : 'कीमत:'}</span>
                     {selectedProduct.hidePrice || !displayPrice ? (
-                      <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-lg">कीमत उपलब्ध नहीं</span>
+                      <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-lg">
+                        {isEnglish ? 'Price not available' : 'कीमत उपलब्ध नहीं'}
+                      </span>
                     ) : (
                       <span className="text-[#2D5A27] font-black text-lg">₹{displayPrice}</span>
                     )}
                   </div>
                   <div className="py-2">
-                    <span className="text-gray-500 text-sm font-medium block mb-1">उपयोग (Best For):</span>
+                    <span className="text-gray-500 text-sm font-medium block mb-1">
+                      {isEnglish ? 'Best For / Description:' : 'उपयोग:'}
+                    </span>
                     <p className="text-gray-700 text-xs font-bold leading-relaxed bg-white/50 p-2 rounded-lg border border-gray-100">
-                      {selectedProduct.description}
+                      {isEnglish ? translateText(selectedProduct.description || '') : selectedProduct.description}
                     </p>
                   </div>
                 </div>
@@ -1262,7 +1289,9 @@ const DiseaseDetection: React.FC = () => {
                   <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3 flex items-start gap-2 shadow-sm">
                     <AlertCircle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
                     <p className="text-[10px] text-orange-800 font-black leading-tight">
-                      नोट (Disclaimer): आपको स्वयं “फल्सावदिया कृषि बाजार” दुकान पर आकर यह उत्पाद खरीदना होगा
+                      {isEnglish 
+                        ? 'Note: You will need to visit Falsawdiya Krishi Bazaar store in person to purchase this product' 
+                        : 'नोट: आपको स्वयं “फल्सावदिया कृषि बाजार” दुकान पर आकर यह उत्पाद खरीदना होगा'}
                     </p>
                   </div>
                 )}
@@ -1289,7 +1318,9 @@ const DiseaseDetection: React.FC = () => {
                     } py-4 rounded-2xl font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all text-xs outline-none`}
                   >
                     <ShoppingCart className="w-4 h-4" />
-                    {addedProductId === selectedProduct.id ? 'Added' : 'Add To Cart'}
+                    {addedProductId === selectedProduct.id 
+                      ? (isEnglish ? 'Added' : 'जोड़ा गया') 
+                      : (isEnglish ? 'Add to Cart' : 'कार्ट में जोड़ें')}
                   </button>
                   <button 
                     onClick={() => {
@@ -1306,14 +1337,14 @@ const DiseaseDetection: React.FC = () => {
                     className="flex-1 bg-[#EAB308] text-[#2D5A27] hover:bg-amber-500 py-4 rounded-2xl font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/10 active:scale-95 transition-all text-xs outline-none"
                   >
                     <ArrowRight className="w-4 h-4" />
-                    अभी खरीदें (Buy Now)
+                    {isEnglish ? 'Buy Now' : 'अभी खरीदें'}
                   </button>
                 </div>
                 <button 
                   onClick={() => setSelectedProduct(null)}
                   className="w-full bg-gray-100 text-gray-500 py-3 rounded-2xl font-semibold active:scale-95 transition-all text-xs outline-none"
                 >
-                  बंद करें (Close)
+                  {isEnglish ? 'Close' : 'बंद करें'}
                 </button>
               </div>
             </motion.div>

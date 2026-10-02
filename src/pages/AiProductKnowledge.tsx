@@ -1156,31 +1156,13 @@ ${result.safetyInstructions}
     }
   };
 
-  const devanagariToLatin = (str: string): string => {
-    if (!str) return '';
-    const charMap: Record<string, string> = {
-      'अ': 'a', 'आ': 'a', 'इ': 'i', 'ई': 'i', 'उ': 'u', 'ऊ': 'u', 'ऋ': 'r', 'ए': 'e', 'ऐ': 'ai', 'ओ': 'o', 'औ': 'au',
-      'क': 'k', 'ख': 'kh', 'ग': 'g', 'घ': 'gh', 'ङ': 'n',
-      'च': 'ch', 'छ': 'chh', 'ज': 'j', 'झ': 'jh', 'ञ': 'n',
-      'ट': 't', 'ठ': 'th', 'ड': 'd', 'ढ': 'dh', 'ण': 'n',
-      'त': 't', 'थ': 'th', 'द': 'd', 'ध': 'dh', 'न': 'n',
-      'प': 'p', 'फ': 'f', 'ब': 'b', 'भ': 'bh', 'म': 'm',
-      'य': 'y', 'र': 'r', 'ल': 'l', 'व': 'v', 'श': 'sh', 'ष': 'sh', 'स': 's', 'ह': 'h',
-      'ा': 'a', 'ि': 'i', 'ी': 'i', 'ु': 'u', 'ू': 'u', 'ृ': 'r', 'े': 'e', 'ै': 'ai', 'ो': 'o', 'ौ': 'au',
-      'ं': 'n', 'ँ': 'm', 'ः': 'h', '्': '', '़': ''
-    };
-    return str.split('').map(c => charMap[c] || c).join('').toLowerCase();
-  };
-
   const filteredSavedProducts = React.useMemo(() => {
     const rawQ = savedSearchQuery.trim().toLowerCase();
     if (!rawQ) {
       return bookmarkedProducts.map((prod, originalIndex) => ({ prod, originalIndex, score: 0 }));
     }
 
-    const latinQ = devanagariToLatin(rawQ);
     const searchWords = rawQ.split(/\s+/).filter(Boolean);
-    const latinWords = latinQ.split(/\s+/).filter(Boolean);
 
     const matched = bookmarkedProducts.map((prod, originalIndex) => {
       const pName = (prod.productName || '').toLowerCase();
@@ -1191,22 +1173,10 @@ ${result.safetyInstructions}
       const pAct = (prod.activeIngredient || '').toLowerCase();
       const pBenefits = (prod.benefits || '').toLowerCase();
 
-      const lName = devanagariToLatin(pName);
-      const lTech = devanagariToLatin(pTech);
-      const lComp = devanagariToLatin(pComp);
-      const lCat = devanagariToLatin(pCat);
-      const lForm = devanagariToLatin(pForm);
-
       const fullText = `${pName} ${pTech} ${pComp} ${pCat} ${pForm} ${pAct} ${pBenefits}`;
-      const latinFullText = `${lName} ${lTech} ${lComp} ${lCat} ${lForm}`;
 
-      const allWordsMatch = searchWords.every((word, idx) => {
-        const lWord = latinWords[idx] || devanagariToLatin(word);
-        return (
-          fullText.includes(word) || 
-          latinFullText.includes(word) || 
-          (lWord && (latinFullText.includes(lWord) || fullText.includes(lWord)))
-        );
+      const allWordsMatch = searchWords.every((word) => {
+        return fullText.includes(word);
       });
 
       if (!allWordsMatch) {
@@ -1214,19 +1184,19 @@ ${result.safetyInstructions}
       }
 
       let score = 10;
-      if (pName.startsWith(rawQ) || (lName && lName.startsWith(latinQ))) {
+      if (pName.startsWith(rawQ)) {
         score += 100;
-      } else if (pName.includes(rawQ) || (lName && lName.includes(latinQ))) {
+      } else if (pName.includes(rawQ)) {
         score += 80;
-      } else if (pTech.startsWith(rawQ) || (lTech && lTech.startsWith(latinQ))) {
+      } else if (pTech.startsWith(rawQ)) {
         score += 70;
-      } else if (pTech.includes(rawQ) || (lTech && lTech.includes(latinQ))) {
+      } else if (pTech.includes(rawQ)) {
         score += 60;
-      } else if (pComp.includes(rawQ) || (lComp && lComp.includes(latinQ))) {
+      } else if (pComp.includes(rawQ)) {
         score += 50;
-      } else if (pCat.includes(rawQ) || (lCat && lCat.includes(latinQ))) {
+      } else if (pCat.includes(rawQ)) {
         score += 40;
-      } else if (pForm.includes(rawQ) || (lForm && lForm.includes(latinQ))) {
+      } else if (pForm.includes(rawQ)) {
         score += 30;
       }
 

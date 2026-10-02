@@ -13,11 +13,13 @@ import {
   Lock
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import SmartImage from './SmartImage';
 import { mergeFooterConfig } from '../utils/footerDefaults';
 
 const Footer: React.FC = () => {
   const { appContent, legalPagesContent } = useAppContext();
+  const { translateText, t, isHindi } = useLanguage();
 
   const branding = appContent?.branding || {
     name: 'फल्सावदिया कृषि बाजार',
@@ -94,8 +96,8 @@ const Footer: React.FC = () => {
                     {iconData.icon}
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white leading-tight">{item.title}</h4>
-                    <p className="text-xs text-gray-300/80 mt-0.5 font-medium">{item.subtitle}</p>
+                    <h4 className="text-sm font-bold text-white leading-tight">{translateText(item.title)}</h4>
+                    <p className="text-xs text-gray-300/80 mt-0.5 font-medium">{translateText(item.subtitle)}</p>
                   </div>
                 </div>
               );
@@ -111,7 +113,7 @@ const Footer: React.FC = () => {
           <div className="col-span-12 xl:col-span-4 space-y-5 pr-0 xl:pr-6 2xl:pr-10">
             <Link 
               to="/" 
-              onClick={scrollToTop}
+              onClick={scrollToTop} 
               className="inline-flex items-center gap-3.5 group"
             >
               <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center p-1.5 shadow-md border border-white/20 shrink-0 group-hover:scale-105 transition-transform">
@@ -128,13 +130,13 @@ const Footer: React.FC = () => {
                   {footerConfig.brandName}
                 </h2>
                 <p className="text-xs text-[#EAB308] font-semibold mt-0.5">
-                  {footerConfig.tagline}
+                  {isHindi ? footerConfig.tagline : t('brand_tagline')}
                 </p>
               </div>
             </Link>
 
             <p className="text-xs text-gray-300 leading-relaxed font-normal">
-              {footerConfig.description}
+              {translateText(footerConfig.description)}
             </p>
 
             {/* Direct Helpline / Missed Call Button */}
@@ -145,7 +147,7 @@ const Footer: React.FC = () => {
                     <Phone className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="text-[10px] text-emerald-200 font-medium">{footerConfig.helplineTitle}</p>
+                    <p className="text-[10px] text-emerald-200 font-medium">{translateText(footerConfig.helplineTitle)}</p>
                     <a 
                       href={`tel:${cleanPhone}`} 
                       className="text-sm font-bold text-white hover:text-[#EAB308] transition-colors"
@@ -158,21 +160,21 @@ const Footer: React.FC = () => {
                   href={`tel:${cleanPhone}`}
                   className="px-3 py-1.5 bg-[#EAB308] hover:bg-[#d4a107] text-[#16311A] text-xs font-semibold rounded-xl transition-all shadow-xs"
                 >
-                  {footerConfig.callButtonText}
+                  {translateText(footerConfig.callButtonText)}
                 </a>
               </div>
 
               {/* Physical Address */}
               <div className="flex items-start gap-2.5 text-xs text-gray-300 pt-1">
                 <MapPin className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span className="leading-relaxed">{footerConfig.address}</span>
+                <span className="leading-relaxed">{translateText(footerConfig.address)}</span>
               </div>
             </div>
 
             {/* Social & Community Links */}
             <div className="pt-2">
               <p className="text-[11px] font-semibold text-gray-400 mb-2.5">
-                {footerConfig.socialTitle}
+                {translateText(footerConfig.socialTitle)}
               </p>
               <div className="flex items-center gap-2">
                 <a
@@ -180,7 +182,7 @@ const Footer: React.FC = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-9 h-9 rounded-xl bg-[#25D366]/20 border border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366] hover:text-white flex items-center justify-center transition-all shadow-xs"
-                  title="WhatsApp कम्युनिटी"
+                  title="WhatsApp Community"
                 >
                   <MessageCircle className="w-4 h-4" />
                 </a>
@@ -220,11 +222,12 @@ const Footer: React.FC = () => {
             {footerConfig.columns.map((col, cIdx) => (
               <div key={col.id || cIdx} className="space-y-3.5">
                 <h3 className="text-xs font-bold text-[#EAB308] border-b border-white/10 pb-2">
-                  {col.title}
+                  {translateText(col.title)}
                 </h3>
                 <ul className="space-y-2.5 text-xs text-gray-300">
                   {col.links.map((link, lIdx) => {
                     const isExt = link.isExternal || link.path.startsWith('http://') || link.path.startsWith('https://');
+                    const translatedLabel = translateText(link.label);
                     if (isExt) {
                       return (
                         <li key={link.id || lIdx}>
@@ -235,7 +238,7 @@ const Footer: React.FC = () => {
                             className="hover:text-white hover:translate-x-1 inline-flex items-center gap-1.5 transition-all"
                           >
                             <ChevronRight className="w-3 h-3 text-emerald-400/70 shrink-0" />
-                            <span>{link.label}</span>
+                            <span>{translatedLabel}</span>
                           </a>
                         </li>
                       );
@@ -248,7 +251,7 @@ const Footer: React.FC = () => {
                           className="hover:text-white hover:translate-x-1 inline-flex items-center gap-1.5 transition-all"
                         >
                           <ChevronRight className="w-3 h-3 text-emerald-400/70 shrink-0" />
-                          <span>{link.label}</span>
+                          <span>{translatedLabel}</span>
                         </Link>
                       </li>
                     );
@@ -267,12 +270,12 @@ const Footer: React.FC = () => {
             <div className="flex items-center gap-2">
               <Award className="w-4 h-4 text-[#EAB308] shrink-0" />
               <p>
-                © {new Date().getFullYear()} <span className="text-white font-bold">{footerConfig.brandName}</span>. {footerConfig.copyrightText}
+                © {new Date().getFullYear()} <span className="text-white font-bold">{footerConfig.brandName}</span>. {translateText(footerConfig.copyrightText)}
               </p>
             </div>
             {footerConfig.bottomText && (
               <p className="text-[11px] text-gray-400 sm:border-l sm:border-gray-700 sm:pl-2">
-                {footerConfig.bottomText}
+                {translateText(footerConfig.bottomText)}
               </p>
             )}
           </div>
@@ -280,7 +283,7 @@ const Footer: React.FC = () => {
           <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-[11px] text-gray-300">
             <span className="flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5 text-emerald-400" />
-              {footerConfig.paymentLabel}
+              {translateText(footerConfig.paymentLabel)}
             </span>
             {footerConfig.paymentMethods.map((method, mIdx) => (
               <span 

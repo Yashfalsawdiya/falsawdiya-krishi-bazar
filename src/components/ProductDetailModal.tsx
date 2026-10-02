@@ -7,6 +7,7 @@ import SmartImage from './SmartImage';
 import ImageZoomModal from './ImageZoomModal';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
+import { useLanguage } from '../context/LanguageContext';
 import { cn } from '../lib/utils';
 
 interface ProductDetailModalProps {
@@ -29,6 +30,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const navigate = useNavigate();
   const { categories } = useAppContext();
   const { addToCart, cartItems, updateQuantity, updateVariant } = useCart();
+  const { t, translateText, isEnglish } = useLanguage();
   const [isZoomOpen, setIsZoomOpen] = React.useState(false);
   const [selectedVariant, setSelectedVariant] = React.useState<{id: string; quantity: string; price: number} | null>(null);
   const [isAdded, setIsAdded] = React.useState(false);
@@ -132,18 +134,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-white/70 font-bold">
                     <Tag className="w-3.5 h-3.5 text-white/50" />
-                    {categoryName}
+                    {translateText(categoryName)}
                   </div>
                   <div className={cn(
                     "flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md",
                     product.inStock !== false ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-red-500/20 text-red-400 border border-red-500/30"
                   )}>
                     <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", product.inStock !== false ? "bg-green-400" : "bg-red-400")} />
-                    {product.inStock !== false ? 'In Stock' : 'Out of Stock'}
+                    {product.inStock !== false ? (isEnglish ? 'In Stock' : 'स्टॉक में उपलब्ध') : (isEnglish ? 'Out of Stock' : 'स्टॉक खत्म')}
                   </div>
                 </div>
-                <h3 className="text-2xl sm:text-3xl font-bold leading-tight">{product.hindiName}</h3>
-                <p className="text-sm text-white/80 mt-1">{product.name}</p>
+                <h3 className="text-2xl sm:text-3xl font-bold leading-tight">
+                  {isEnglish ? translateText(product.name || product.hindiName || '') : (product.hindiName || translateText(product.name || ''))}
+                </h3>
               </div>
             </div>
 
@@ -154,7 +157,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm font-bold text-[#4A3728]">
                     <Tag className="w-4 h-4 text-[#2D5A27]" />
-                    उपलब्ध मात्रा चुनें (Select Quantity)
+                    {isEnglish ? 'Select Quantity' : 'उपलब्ध मात्रा चुनें'}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {product.variants.map((v, i) => (
@@ -169,7 +172,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             : "bg-gray-50 border-gray-100 text-gray-500 hover:border-gray-200"
                         )}
                       >
-                        {v.quantity}
+                        {translateText(v.quantity)}
                       </button>
                     ))}
                   </div>
@@ -181,16 +184,16 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="flex items-center justify-between bg-[#F5F2ED] p-4 rounded-2xl border border-[#4A3728]/10">
                   <div>
                     <div className="flex items-center gap-1.5 text-xs text-[#4A3728]/60 font-bold uppercase mb-1">
-                      <Tag className="w-3.5 h-3.5" /> कीमत (Price)
+                      <Tag className="w-3.5 h-3.5" /> {isEnglish ? 'Price' : 'कीमत'}
                     </div>
                     {product.hidePrice || !displayPrice ? (
-                      <span className="text-sm font-bold text-gray-400">कीमत उपलब्ध नहीं</span>
+                      <span className="text-sm font-bold text-gray-400">{isEnglish ? 'Price Not Available' : 'कीमत उपलब्ध नहीं'}</span>
                     ) : (
                       <div className="flex items-baseline gap-1 animate-in fade-in zoom-in-95 duration-300" key={displayPrice}>
                         <span className="text-2xl font-bold text-[#2D5A27]">₹{displayPrice}</span>
                         {displayUnit && (
                           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest ml-1">
-                            / {displayUnit}
+                            / {translateText(displayUnit)}
                           </span>
                         )}
                       </div>
@@ -198,21 +201,21 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                   <div className="text-right">
                     <div className="flex items-center gap-1.5 text-xs text-[#4A3728]/60 font-bold uppercase mb-1 justify-end">
-                      स्थिति (Status)
+                      {isEnglish ? 'Status' : 'स्थिति'}
                     </div>
                     <span className={cn(
                       "text-xs font-bold px-3 py-1 rounded-lg inline-flex items-center gap-1.5",
                       product.inStock !== false ? "bg-[#2D5A27]/10 text-[#2D5A27]" : "bg-red-50 text-red-600"
                     )}>
                       <span className={cn("w-1.5 h-1.5 rounded-full", product.inStock !== false ? "bg-emerald-600" : "bg-red-600")} />
-                      {product.inStock !== false ? 'उपलब्ध (In Stock)' : 'स्टॉक में नहीं'}
+                      {product.inStock !== false ? (isEnglish ? 'In Stock' : 'स्टॉक में उपलब्ध') : (isEnglish ? 'Out of Stock' : 'स्टॉक खत्म')}
                     </span>
                   </div>
                 </div>
               ) : (
                 <div className="bg-gray-50 p-4 rounded-2xl border border-dashed border-gray-200 text-center">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">कीमत और उपलब्धता</p>
-                  <p className="text-sm font-bold text-[#4A3728]">कीमत उपलब्ध नहीं है</p>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{isEnglish ? 'Price & Availability' : 'कीमत और उपलब्धता'}</p>
+                  <p className="text-sm font-bold text-[#4A3728]">{isEnglish ? 'Price Not Available' : 'कीमत उपलब्ध नहीं है'}</p>
                 </div>
               )}
 
@@ -220,8 +223,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               {currentCartItem && (
                 <div className="bg-[#E7F3E1] p-4 rounded-2xl border-2 border-[#2D5A27]/20 flex items-center justify-between">
                   <div>
-                    <h5 className="text-xs font-black text-[#2D5A27] uppercase tracking-wider mb-0.5">यह मात्रा कार्ट में है (In Your Cart)</h5>
-                    <p className="text-[10px] text-[#2D5A27]/70 font-semibold">आप यहाँ से भी मात्रा बदल सकते हैं</p>
+                    <h5 className="text-xs font-black text-[#2D5A27] uppercase tracking-wider mb-0.5">{isEnglish ? 'In Your Cart' : 'यह मात्रा कार्ट में है'}</h5>
+                    <p className="text-[10px] text-[#2D5A27]/70 font-semibold">{isEnglish ? 'You can also adjust quantity here' : 'आप यहाँ से भी मात्रा बदल सकते हैं'}</p>
                   </div>
                   <div className="flex items-center border border-[#2D5A27]/30 rounded-xl p-0.5 shadow-inner bg-white">
                     <button
@@ -252,12 +255,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm font-bold text-[#4A3728]">
                     <Wheat className="w-4 h-4 text-[#2D5A27]" />
-                    उपयोगी फसलें (Target Crops)
+                    {isEnglish ? 'Target Crops' : 'उपयोगी फसलें'}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {product.crops.map((crop, i) => (
                       <span key={i} className="bg-[#2D5A27]/10 text-[#2D5A27] text-xs font-bold px-3 py-1.5 rounded-xl border border-[#2D5A27]/20">
-                        {crop}
+                        {translateText(crop)}
                       </span>
                     ))}
                   </div>
@@ -268,10 +271,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm font-bold text-[#4A3728]">
                   <Info className="w-4 h-4 text-[#2D5A27]" />
-                  उत्पाद विवरण (Product Description)
+                  {isEnglish ? 'Product Description' : 'उत्पाद विवरण'}
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-100 p-4 leading-relaxed text-gray-700 text-sm whitespace-pre-wrap">
-                  {product.description || 'विवरण उपलब्ध नहीं है।'}
+                  {product.description ? translateText(product.description) : (isEnglish ? 'Description not available.' : 'विवरण उपलब्ध नहीं है।')}
                 </div>
               </div>
 
@@ -280,10 +283,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm font-bold text-[#4A3728]">
                     <Droplets className="w-4 h-4 text-[#2D5A27]" />
-                    खुराक (Dosage / Usage)
+                    {isEnglish ? 'Dosage / Usage' : 'खुराक (डोज़)'}
                   </div>
                   <div className="bg-[#E7F3E1] rounded-2xl border border-[#2D5A27]/10 p-4 leading-relaxed text-[#2D5A27] text-sm whitespace-pre-wrap font-medium">
-                    {product.dosage.value}
+                    {translateText(product.dosage.value)}
                   </div>
                 </div>
               )}
@@ -297,9 +300,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       <p className="text-xs text-orange-800 leading-relaxed">
                         <span className="font-bold flex items-center gap-1.5 mb-1">
                           <AlertTriangle className="w-3.5 h-3.5 text-orange-600 shrink-0" />
-                          महत्वपूर्ण जानकारी ({productCategory.name}):
+                          {isEnglish ? `Important Info (${translateText(productCategory.name)}):` : `महत्वपूर्ण जानकारी (${productCategory.name}):`}
                         </span>
-                        {productCategory.importantInfo}
+                        {translateText(productCategory.importantInfo)}
                       </p>
                     </div>
                   );
@@ -314,7 +317,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 onClick={onClose}
                 className="flex-1 py-3 bg-white border border-gray-200 text-gray-500 rounded-xl font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-transform text-xs"
               >
-                बंद करें
+                {isEnglish ? 'Close' : 'बंद करें'}
               </button>
               <button
                 disabled={product.inStock === false}
@@ -335,7 +338,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 )}
               >
                 {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                {isAdded ? 'जोड़ा गया (Added)' : 'Add To Cart'}
+                {isAdded ? (isEnglish ? 'Added' : 'जोड़ दिया गया') : (isEnglish ? 'Add to Cart' : 'कार्ट में जोड़ें')}
               </button>
               <button
                 disabled={product.inStock === false}
@@ -352,7 +355,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 )}
               >
                 <ShoppingBag className="w-4 h-4" /> 
-                {product.inStock !== false ? 'अभी खरीदें (Buy)' : 'खत्म'}
+                {product.inStock !== false ? (isEnglish ? 'Buy Now' : 'अभी खरीदें') : (isEnglish ? 'Out of Stock' : 'स्टॉक खत्म')}
               </button>
             </div>
 

@@ -26,11 +26,13 @@ import {
   Key
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
 
 const MandiBhav: React.FC = () => {
   const { loading: appLoading } = useAppContext();
+  const { t, isHindi, translateText } = useLanguage();
   const { 
     apiKey: effectiveApiKey, 
     requireApiKey, 
@@ -57,13 +59,19 @@ const MandiBhav: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [currentTime] = useState<Date>(new Date());
   
-  // Loading Hindi tips
-  const loadingTips = [
-    "मंडी भाव (Mandi Bhaav) से नवीनतम दरें प्राप्त की जा रही हैं...",
+  // Loading tips
+  const loadingTips = isHindi ? [
+    "मंडी भाव से नवीनतम दरें प्राप्त की जा रही हैं...",
     "फसलों के न्यूनतम और अधिकतम भाव अपडेट हो रहे हैं...",
     "स्थानीय मंडियों की आवक और गुणवत्ता जांची जा रही है...",
     "आपकी चुनिंदा मंडी के ताज़ा दाम लोड किए जा रहे हैं...",
     "सुरक्षित ऑफलाइन कैश डेटा तैयार किया जा रहा है..."
+  ] : [
+    "Fetching latest rates from agricultural markets...",
+    "Updating minimum and maximum crop prices...",
+    "Checking arrivals and commodity quality...",
+    "Loading fresh rates for selected mandi...",
+    "Preparing offline cache data..."
   ];
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
 
@@ -202,43 +210,43 @@ const MandiBhav: React.FC = () => {
             <TrendingUp className="w-6 h-6" />
           </div>
         </div>
-        <h2 className="text-2xl font-black text-[#2D5A27] tracking-tight">मंडी भाव (Mandi Bhaav)</h2>
+        <h2 className="text-2xl font-black text-[#2D5A27] tracking-tight">{t('mandi_title')}</h2>
         <p className="text-xs text-gray-500 font-medium mt-1">
-          फल्सावदिया कृषि बाजार • सभी मंडियों और फसलों के ताज़ा लाइव दाम
+          {t('mandi_subtitle')}
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-2 mt-3.5">
           <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm border border-[#2D5A27]/10">
             <Calendar className="w-3.5 h-3.5 text-[#2D5A27]" />
             <span className="text-[11px] font-bold text-[#2D5A27]">
-              {currentTime.toLocaleDateString('hi-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
+              {currentTime.toLocaleDateString(isHindi ? 'hi-IN' : 'en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
             </span>
           </div>
 
           {loading ? (
             <div className="bg-gray-100 text-gray-700 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-gray-200">
               <Loader2 className="w-3 h-3 animate-spin text-[#2D5A27]" />
-              लाइव भाव खोज रहे हैं...
+              {isHindi ? 'लाइव भाव खोज रहे हैं...' : 'Fetching live rates...'}
             </div>
           ) : data?.sourceType === 'govt' ? (
             <div className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-              सरकारी डेटा (AGMARKNET OGD)
+              {isHindi ? 'सरकारी डेटा (AGMARKNET OGD)' : 'Govt Data (AGMARKNET OGD)'}
             </div>
           ) : data?.sourceType === 'mandipulse' ? (
             <div className="bg-teal-50 text-teal-800 border border-teal-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-              मंडी पल्स बैकअप (MandiPulse.com)
+              {isHindi ? 'मंडी पल्स बैकअप (MandiPulse.com)' : 'MandiPulse Live Data'}
             </div>
           ) : data?.sourceType === 'market_report' ? (
             <div className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              सत्यापित स्थानीय मंडी रिपोर्ट
+              {isHindi ? 'सत्यापित स्थानीय मंडी रिपोर्ट' : 'Verified Local Mandi Report'}
             </div>
           ) : (
             <div className="bg-orange-50 text-orange-800 border border-orange-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
               <AlertTriangle className="w-3 h-3 text-orange-600" />
-              आधार सांकेतिक भाव
+              {isHindi ? 'आधार सांकेतिक भाव' : 'Indicative Market Rates'}
             </div>
           )}
         </div>
@@ -249,15 +257,19 @@ const MandiBhav: React.FC = () => {
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
           <h3 className="text-xs font-black text-gray-700 flex items-center gap-1.5">
             <Filter className="w-3.5 h-3.5 text-[#2D5A27]" />
-            लोकेशन और मंडी चुनें (Select Location)
+            {isHindi ? 'लोकेशन और मंडी चुनें' : 'Select Location & Mandi'}
           </h3>
-          <span className="text-[10px] text-gray-400 font-semibold bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100">Mandi Bhaav</span>
+          <span className="text-[10px] text-gray-400 font-semibold bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100">
+            {isHindi ? 'मंडी भाव' : 'Mandi Rates'}
+          </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {/* State Select */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">राज्य (State)</label>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+              {isHindi ? 'राज्य' : 'State'}
+            </label>
             <div className="relative">
               <select
                 value={selectedState}
@@ -265,7 +277,9 @@ const MandiBhav: React.FC = () => {
                 className="w-full pl-3 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] appearance-none"
               >
                 {Object.keys(STATE_MANDI_DATA).map((state) => (
-                  <option key={state} value={state}>{state}</option>
+                  <option key={state} value={state}>
+                    {translateText(state)}
+                  </option>
                 ))}
               </select>
               <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -274,7 +288,9 @@ const MandiBhav: React.FC = () => {
 
           {/* District Select */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">जिला (District)</label>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+              {isHindi ? 'जिला' : 'District'}
+            </label>
             <div className="relative">
               <select
                 value={selectedDistrict}
@@ -282,7 +298,9 @@ const MandiBhav: React.FC = () => {
                 className="w-full pl-3 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] appearance-none"
               >
                 {districts.map((district) => (
-                  <option key={district} value={district}>{district}</option>
+                  <option key={district} value={district}>
+                    {translateText(district)}
+                  </option>
                 ))}
               </select>
               <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -291,7 +309,9 @@ const MandiBhav: React.FC = () => {
 
           {/* Mandi Select */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">मंडी (Mandi Name)</label>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+              {isHindi ? 'मंडी' : 'Mandi'}
+            </label>
             <div className="relative">
               <select
                 value={selectedMandi}
@@ -299,7 +319,9 @@ const MandiBhav: React.FC = () => {
                 className="w-full pl-3 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] appearance-none"
               >
                 {mandis.map((mandi) => (
-                  <option key={mandi} value={mandi}>{mandi}</option>
+                  <option key={mandi} value={mandi}>
+                    {translateText(mandi)}
+                  </option>
                 ))}
               </select>
               <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -316,7 +338,7 @@ const MandiBhav: React.FC = () => {
               <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="फसल का नाम खोजें (उदा. लहसुन, सोयाबीन)..."
+                placeholder={isHindi ? "फसल का नाम खोजें (उदा. लहसुन, सोयाबीन)..." : "Search crop name (e.g. Garlic, Soybean)..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-2xl text-xs font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27]"
@@ -329,9 +351,9 @@ const MandiBhav: React.FC = () => {
                 onChange={(e) => setSelectedCropFilter(e.target.value)}
                 className="w-full pl-3 pr-8 py-3 bg-white border border-gray-200 rounded-2xl text-xs font-bold text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] appearance-none"
               >
-                <option value="ALL">सभी फसलें</option>
+                <option value="ALL">{isHindi ? 'सभी फसलें' : 'All Crops'}</option>
                 {CROPS_LIST.map((crop) => (
-                  <option key={crop} value={crop}>{getHindiCropName(crop)}</option>
+                  <option key={crop} value={crop}>{isHindi ? getHindiCropName(crop) : crop}</option>
                 ))}
               </select>
               <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -346,7 +368,9 @@ const MandiBhav: React.FC = () => {
                 <Loader2 className="w-6 h-6 text-[#2D5A27] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
               </div>
               <div className="text-center space-y-1 max-w-[280px]">
-                <p className="text-xs font-bold text-gray-700">नवीनतम भाव खोजे जा रहे हैं</p>
+                <p className="text-xs font-bold text-gray-700">
+                  {isHindi ? 'नवीनतम भाव खोजे जा रहे हैं' : 'Fetching latest market rates...'}
+                </p>
                 <p className="text-[10px] text-gray-400 font-medium leading-relaxed min-h-[30px]">
                   {loadingTips[currentTipIndex]}
                 </p>
@@ -365,11 +389,17 @@ const MandiBhav: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <Building2 className="w-4 h-4 text-[#2D5A27]" />
                       <h3 className="text-sm font-black text-gray-800">
-                        {data.mandiName} <span className="text-xs font-semibold text-gray-500">({data.district}, {data.state.split(" (")[0]})</span>
+                        {translateText(data.mandiName)}{' '}
+                        <span className="text-xs font-semibold text-gray-500">
+                          ({translateText(data.district)}, {translateText(data.state.split(" (")[0])})
+                        </span>
                       </h3>
                     </div>
                     <p className="text-[11px] text-gray-500 font-medium">
-                      स्रोत: <span className="font-bold text-gray-700">{data.sourceName || (data.sourceType === 'govt' ? 'AGMARKNET (भारत सरकार OGD)' : data.sourceType === 'mandipulse' ? 'मंडी पल्स (MandiPulse.com)' : 'स्थानीय मंडी रिपोर्ट')}</span>
+                      {isHindi ? 'स्रोत:' : 'Source:'}{' '}
+                      <span className="font-bold text-gray-700">
+                        {data.sourceName || (data.sourceType === 'govt' ? (isHindi ? 'AGMARKNET (भारत सरकार OGD)' : 'AGMARKNET (Govt of India OGD)') : data.sourceType === 'mandipulse' ? 'MandiPulse.com' : (isHindi ? 'स्थानीय मंडी रिपोर्ट' : 'Local Mandi Report'))}
+                      </span>
                     </p>
                   </div>
 
@@ -378,10 +408,10 @@ const MandiBhav: React.FC = () => {
                       onClick={() => loadData(selectedState, selectedDistrict, selectedMandi, true)}
                       disabled={loading}
                       className="px-3.5 py-2 rounded-xl bg-[#2D5A27]/10 hover:bg-[#2D5A27]/15 text-[#2D5A27] text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
-                      title="ताज़ा लाइव भाव दोबारा फेच करें"
+                      title={isHindi ? 'ताज़ा लाइव भाव दोबारा फेच करें' : 'Fetch fresh live rates'}
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                      <span>{loading ? 'लोड हो रहा...' : 'रिफ्रेश'}</span>
+                      <span>{loading ? (isHindi ? 'लोड हो रहा...' : 'Loading...') : (isHindi ? 'रिफ्रेश' : 'Refresh')}</span>
                     </button>
                   </div>
                 </div>
@@ -389,7 +419,9 @@ const MandiBhav: React.FC = () => {
                 {/* Metadata Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
                   <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100">
-                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">डेटा स्रोत</span>
+                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">
+                      {isHindi ? 'डेटा स्रोत' : 'Data Source'}
+                    </span>
                     <span className={`font-bold flex items-center gap-1 ${
                       data.sourceType === 'govt' 
                         ? 'text-emerald-700' 
@@ -402,29 +434,31 @@ const MandiBhav: React.FC = () => {
                       {data.sourceType === 'govt' ? (
                         <>
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          सरकारी AGMARKNET
+                          {isHindi ? 'सरकारी AGMARKNET' : 'Govt AGMARKNET'}
                         </>
                       ) : data.sourceType === 'mandipulse' ? (
                         <>
                           <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                          मंडी पल्स (MandiPulse)
+                          MandiPulse
                         </>
                       ) : data.sourceType === 'market_report' ? (
                         <>
                           <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                          सत्यापित मंडी रिपोर्ट
+                          {isHindi ? 'सत्यापित मंडी रिपोर्ट' : 'Verified Mandi Report'}
                         </>
                       ) : (
                         <>
                           <AlertTriangle className="w-3.5 h-3.5 text-orange-600 shrink-0" />
-                          सांकेतिक / अनुमानित
+                          {isHindi ? 'सांकेतिक / अनुमानित' : 'Indicative / Estimated'}
                         </>
                       )}
                     </span>
                   </div>
 
                   <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100">
-                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">आवक / रिपोर्ट दिनांक</span>
+                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">
+                      {isHindi ? 'आवक / रिपोर्ट दिनांक' : 'Arrival / Report Date'}
+                    </span>
                     <span className="font-bold text-gray-700 flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
                       {data.sourceDate || data.date}
@@ -432,10 +466,12 @@ const MandiBhav: React.FC = () => {
                   </div>
 
                   <div className="col-span-2 sm:col-span-1 bg-gray-50 rounded-xl p-2.5 border border-gray-100">
-                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">ऐप पर प्राप्ति समय</span>
+                    <span className="text-[10px] text-gray-400 font-bold block mb-0.5">
+                      {isHindi ? 'ऐप पर प्राप्ति समय' : 'Fetched Time'}
+                    </span>
                     <span className="font-bold text-gray-700 flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-                      {data.fetchedAt || currentTime.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' })}
+                      {data.fetchedAt || currentTime.toLocaleTimeString(isHindi ? 'hi-IN' : 'en-IN', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                 </div>
@@ -446,11 +482,19 @@ const MandiBhav: React.FC = () => {
                     <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
                     <div className="space-y-0.5 text-[11px] leading-relaxed">
                       <p className="font-bold text-teal-900 flex items-center gap-1.5">
-                        <span>सरकारी पोर्टल पर डेटा अनुपलब्ध होने पर मंडी पल्स से लाइव बैकअप</span>
-                        <span className="px-1.5 py-0.5 text-[9px] bg-teal-100 text-teal-800 rounded-md font-bold">सत्यापित</span>
+                        <span>
+                          {isHindi 
+                            ? 'सरकारी पोर्टल पर डेटा अनुपलब्ध होने पर मंडी पल्स से लाइव बैकअप' 
+                            : 'Live backup from MandiPulse when govt portal has delays'}
+                        </span>
+                        <span className="px-1.5 py-0.5 text-[9px] bg-teal-100 text-teal-800 rounded-md font-bold">
+                          {isHindi ? 'सत्यापित' : 'Verified'}
+                        </span>
                       </p>
                       <p className="text-teal-800 text-[10px]">
-                        सरकारी AGMARKNET सर्वर पर इस समय ताज़ा डेटा न मिलने पर यह प्रमाणित दरें <a href="https://mandipulse.com" target="_blank" rel="noopener noreferrer" className="font-bold underline text-teal-900">MandiPulse.com</a> से सीधे फेच की गई हैं।
+                        {isHindi 
+                          ? 'सरकारी AGMARKNET सर्वर पर इस समय ताज़ा डेटा न मिलने पर यह प्रमाणित दरें MandiPulse.com से सीधे फेच की गई हैं।' 
+                          : 'Authentic market rates fetched directly from MandiPulse.com during temporary AGMARKNET delays.'}
                       </p>
                     </div>
                   </div>
@@ -461,9 +505,13 @@ const MandiBhav: React.FC = () => {
                   <div className="bg-orange-50 border border-orange-200/80 rounded-2xl p-3 flex items-start gap-2.5 text-orange-900">
                     <AlertTriangle className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
                     <div className="space-y-0.5 text-[11px] leading-relaxed">
-                      <p className="font-bold">पारदर्शी सूचना (Official Update Pending):</p>
+                      <p className="font-bold">
+                        {isHindi ? 'पारदर्शी सूचना (Official Update Pending):' : 'Transparent Notice (Official Update Pending):'}
+                      </p>
                       <p className="text-orange-800 text-[10px]">
-                        आज इस उप-मंडी का लाइव डेटा सरकारी पोर्टल (AGMARKNET) पर अभी अपलोड नहीं हुआ है। अतः संदर्भ हेतु सांकेतिक आधार भाव प्रदर्शित हैं। ऊपर रिफ्रेश बटन दबाकर नया डेटा चेक कर सकते हैं।
+                        {isHindi 
+                          ? 'आज इस उप-मंडी का लाइव डेटा सरकारी पोर्टल (AGMARKNET) पर अभी अपलोड नहीं हुआ है। अतः संदर्भ हेतु सांकेतिक आधार भाव प्रदर्शित हैं। ऊपर रिफ्रेश बटन दबाकर नया डेटा चेक कर सकते हैं।' 
+                          : 'Official bulletin for this market is not yet uploaded to the government portal today. Indicative prices shown. Tap refresh to check for live updates.'}
                       </p>
                     </div>
                   </div>
@@ -479,10 +527,14 @@ const MandiBhav: React.FC = () => {
 
                   <div className="space-y-2 max-w-lg mx-auto">
                     <h4 className="text-base font-black text-gray-800 leading-snug">
-                      {selectedMandi} ({selectedDistrict.split(' (')[0]}, {selectedState.split(' (')[0]}) मंडी के लिए आज का आधिकारिक डेटा उपलब्ध नहीं है।
+                      {isHindi 
+                        ? `${selectedMandi} (${selectedDistrict.split(' (')[0]}, ${selectedState.split(' (')[0]}) मंडी के लिए आज का आधिकारिक डेटा उपलब्ध नहीं है।` 
+                        : `Official bulletin not available today for ${translateText(selectedMandi)} (${translateText(selectedDistrict)}, ${translateText(selectedState)}).`}
                     </h4>
                     <p className="text-xs text-gray-500 font-medium leading-relaxed">
-                      सरकारी AGMARKNET पोर्टल व मंडी पल्स पर आज इस उप-मंडी का नया बुलेटिन अभी अपलोड नहीं हुआ है। कृपया अन्य नजदीकी मंडी चुनें या बाद में पुनः प्रयास करें।
+                      {isHindi 
+                        ? 'सरकारी AGMARKNET पोर्टल व मंडी पल्स पर आज इस उप-मंडी का नया बुलेटिन अभी अपलोड नहीं हुआ है। कृपया अन्य नजदीकी मंडी चुनें या बाद में पुनः प्रयास करें।' 
+                        : 'Official data for this mandi is not yet uploaded to AGMARKNET or MandiPulse today. Please select another nearby mandi or check back later.'}
                     </p>
                   </div>
 
@@ -493,7 +545,7 @@ const MandiBhav: React.FC = () => {
                       className="px-4 py-2.5 rounded-xl bg-[#2D5A27] text-white text-xs font-bold flex items-center gap-2 hover:bg-[#23461e] transition-all shadow-sm active:scale-95 disabled:opacity-50"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                      <span>{loading ? 'जाँच हो रही है...' : 'पुनः प्रयास करें (Refresh)'}</span>
+                      <span>{loading ? (isHindi ? 'जाँच हो रही है...' : 'Checking...') : (isHindi ? 'पुनः प्रयास करें (Refresh)' : 'Retry (Refresh)')}</span>
                     </button>
                   </div>
 
@@ -501,7 +553,9 @@ const MandiBhav: React.FC = () => {
                   {mandis.filter(m => m !== selectedMandi).length > 0 && (
                     <div className="pt-4 border-t border-gray-100 space-y-2.5">
                       <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                        {selectedDistrict.split(' (')[0]} जिले की अन्य नजदीकी मंडियां:
+                        {isHindi 
+                          ? `${selectedDistrict.split(' (')[0]} जिले की अन्य नजदीकी मंडियां:` 
+                          : `Other mandis in ${translateText(selectedDistrict)} district:`}
                       </p>
                       <div className="flex flex-wrap justify-center gap-2">
                         {mandis
@@ -513,7 +567,7 @@ const MandiBhav: React.FC = () => {
                               className="px-3 py-1.5 rounded-xl bg-gray-50 hover:bg-[#2D5A27]/10 text-gray-700 hover:text-[#2D5A27] text-xs font-bold border border-gray-200 transition-all flex items-center gap-1.5 active:scale-95"
                             >
                               <Building2 className="w-3.5 h-3.5 text-[#2D5A27]" />
-                              <span>{nearbyMandi}</span>
+                              <span>{translateText(nearbyMandi)}</span>
                             </button>
                           ))}
                       </div>
@@ -522,14 +576,24 @@ const MandiBhav: React.FC = () => {
 
                   <div className="inline-flex items-center gap-1.5 text-[10px] text-gray-400 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>सत्यापित रिपोर्ट: हम केवल चयनित मंडी का वास्तविक आधिकारिक डेटा ही प्रदर्शित करते हैं, कभी भी अन्य मंडियों का डेटा मिक्स नहीं किया जाता।</span>
+                    <span>
+                      {isHindi 
+                        ? 'सत्यापित रिपोर्ट: हम केवल चयनित मंडी का वास्तविक आधिकारिक डेटा ही प्रदर्शित करते हैं, कभी भी अन्य मंडियों का डेटा मिक्स नहीं किया जाता।' 
+                        : 'Verified Report: We only display authentic records for the selected market without cross-market mixing.'}
+                    </span>
                   </div>
                 </div>
               ) : filteredItems.length === 0 ? (
                 <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 space-y-3">
                   <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-1" />
-                  <p className="text-xs font-bold text-gray-700">इस मंडी में '{searchQuery || selectedCropFilter}' फसल मैच नहीं हुई!</p>
-                  <p className="text-[10px] text-gray-400">कृपया सर्च कीवर्ड बदलें या सभी फसलों के भाव देखें।</p>
+                  <p className="text-xs font-bold text-gray-700">
+                    {isHindi 
+                      ? `इस मंडी में '${searchQuery || selectedCropFilter}' फसल मैच नहीं हुई!` 
+                      : `No crop matching '${searchQuery || selectedCropFilter}' found in this market!`}
+                  </p>
+                  <p className="text-[10px] text-gray-400">
+                    {isHindi ? 'कृपया सर्च कीवर्ड बदलें या सभी फसलों के भाव देखें।' : 'Please change your search term or view all crops.'}
+                  </p>
                   <button
                     onClick={() => {
                       setSearchQuery("");
@@ -537,7 +601,7 @@ const MandiBhav: React.FC = () => {
                     }}
                     className="px-3.5 py-1.5 bg-[#2D5A27]/10 text-[#2D5A27] text-xs font-bold rounded-xl hover:bg-[#2D5A27]/20 transition-all"
                   >
-                    सर्च रीसेट करें
+                    {isHindi ? 'सर्च रीसेट करें' : 'Reset Search'}
                   </button>
                 </div>
               ) : (
@@ -594,20 +658,20 @@ const MandiBhav: React.FC = () => {
                             </div>
                             <div>
                               <div className="flex items-center gap-1.5">
-                                <h4 className="font-black text-gray-800 text-sm">{item.commodity}</h4>
+                                <h4 className="font-black text-gray-800 text-sm">{translateText(item.commodity)}</h4>
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-400 uppercase tracking-tight">
-                                  {item.unit}
+                                  {translateText(item.unit)}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2 mt-1">
                                 {item.quality && (
                                   <span className="text-[9px] bg-[#2D5A27]/5 text-[#2D5A27] font-semibold px-1.5 py-0.5 rounded">
-                                    गुणवत्ता: {item.quality}
+                                    {isHindi ? `गुणवत्ता: ${item.quality}` : `Quality: ${translateText(item.quality)}`}
                                   </span>
                                 )}
                                 {item.arrival && (
                                   <span className="text-[9px] bg-amber-500/5 text-amber-700 font-semibold px-1.5 py-0.5 rounded">
-                                    आवक: {item.arrival}
+                                    {isHindi ? `आवक: ${item.arrival}` : `Arrival: ${translateText(item.arrival)}`}
                                   </span>
                                 )}
                               </div>
@@ -616,7 +680,9 @@ const MandiBhav: React.FC = () => {
 
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <span className="text-[9px] font-bold text-gray-400 block uppercase">मॉडल भाव</span>
+                              <span className="text-[9px] font-bold text-gray-400 block uppercase">
+                                {isHindi ? 'मॉडल भाव' : 'Modal Price'}
+                              </span>
                               <div className="text-base font-black text-[#2D5A27]">₹{item.avgPrice}</div>
                               <div className="text-[10px] font-bold text-gray-400 mt-0.5 bg-gray-55 px-1 rounded">
                                 ₹{item.minPrice} - ₹{item.maxPrice}
@@ -645,9 +711,9 @@ const MandiBhav: React.FC = () => {
                               {/* Price Bar & Spread Gauge */}
                               <div className="space-y-1.5">
                                 <div className="flex justify-between text-[10px] font-bold text-gray-500">
-                                  <span>न्यूनतम: ₹{item.minPrice}</span>
-                                  <span className="text-[#2D5A27]">मॉडल: ₹{item.avgPrice}</span>
-                                  <span>अधिकतम: ₹{item.maxPrice}</span>
+                                  <span>{isHindi ? `न्यूनतम: ₹${item.minPrice}` : `Min: ₹${item.minPrice}`}</span>
+                                  <span className="text-[#2D5A27]">{isHindi ? `मॉडल: ₹${item.avgPrice}` : `Modal: ₹${item.avgPrice}`}</span>
+                                  <span>{isHindi ? `अधिकतम: ₹${item.maxPrice}` : `Max: ₹${item.maxPrice}`}</span>
                                 </div>
                                 <div className="h-2 w-full bg-gray-200 rounded-full relative overflow-hidden flex">
                                   {/* Visual representation of range */}
@@ -668,9 +734,11 @@ const MandiBhav: React.FC = () => {
                                 <div className="flex items-center justify-between">
                                   <span className="text-[10px] font-black text-gray-600 flex items-center gap-1">
                                     <ChartIcon className="w-3.5 h-3.5 text-[#2D5A27]" />
-                                    कीमत इतिहास रुझान (15 दिन)
+                                    {isHindi ? 'कीमत इतिहास रुझान (15 दिन)' : 'Price History Trend (15 Days)'}
                                   </span>
-                                  <span className="text-[9px] text-gray-400 font-bold">मंडी पल्स रिकॉर्ड</span>
+                                  <span className="text-[9px] text-gray-400 font-bold">
+                                    {isHindi ? 'मंडी पल्स रिकॉर्ड' : 'MandiPulse Record'}
+                                  </span>
                                 </div>
                                 
                                 <div className="relative py-2 flex justify-center">
@@ -708,17 +776,17 @@ const MandiBhav: React.FC = () => {
                                   </svg>
                                 </div>
                                 <div className="flex justify-between text-[8px] text-gray-400 font-bold px-1 uppercase tracking-wider">
-                                  <span>15 दिन पहले</span>
-                                  <span>10 दिन पहले</span>
-                                  <span>5 दिन पहले</span>
-                                  <span>आज</span>
+                                  <span>{isHindi ? '15 दिन पहले' : '15 days ago'}</span>
+                                  <span>{isHindi ? '10 दिन पहले' : '10 days ago'}</span>
+                                  <span>{isHindi ? '5 दिन पहले' : '5 days ago'}</span>
+                                  <span>{isHindi ? 'आज' : 'Today'}</span>
                                 </div>
                               </div>
 
                               {/* Detailed Info Chips & WhatsApp Share button */}
                               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                                 <div className="text-[9px] text-gray-400 font-bold">
-                                  अपडेट: {item.lastUpdated}
+                                  {isHindi ? 'अपडेट:' : 'Updated:'} {item.lastUpdated}
                                 </div>
                                 
                                 <a 
@@ -728,7 +796,7 @@ const MandiBhav: React.FC = () => {
                                   className="bg-[#25D366] text-white text-[10px] font-black px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-all hover:bg-[#20ba5a]"
                                 >
                                   <Share2 className="w-3.5 h-3.5" />
-                                  व्हाट्सएप पर शेयर करें (WhatsApp Share)
+                                  {isHindi ? 'व्हाट्सएप पर शेयर करें' : 'Share on WhatsApp'}
                                 </a>
                               </div>
                             </motion.div>
@@ -744,9 +812,13 @@ const MandiBhav: React.FC = () => {
               <div className="bg-[#F5F2ED] rounded-3xl p-5 border border-[#4A3728]/10 flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="text-[11px] font-black text-gray-700">मंडी भाव चेतावनी एवं अस्वीकरण (*Disclaimer):</p>
+                  <p className="text-[11px] font-black text-gray-700">
+                    {isHindi ? 'मंडी भाव चेतावनी एवं अस्वीकरण (*Disclaimer):' : 'Market Rates Advisory & Disclaimer:'}
+                  </p>
                   <p className="text-[10px] text-gray-600 font-medium leading-relaxed">
-                    दिखाए गए मंडी भाव इंटरनेट स्रोतों (Mandi Bhaav, Agmarknet) एवं विश्वसनीय स्थानीय रिपोर्टर्स से संकलित हैं। बाजार उतार-चढ़ाव के कारण कीमतें हर मिनट बदल सकती हैं। मंडी में फसल बेचने से पहले स्थानीय रूप से भावों की पुष्टि ज़रूर करें। हम किसी भी वित्तीय नुकसान के लिए उत्तरदायी नहीं हैं।
+                    {isHindi 
+                      ? 'दिखाए गए मंडी भाव इंटरनेट स्रोतों (Mandi Bhaav, Agmarknet) एवं विश्वसनीय स्थानीय रिपोर्टर्स से संकलित हैं। बाजार उतार-चढ़ाव के कारण कीमतें हर मिनट बदल सकती हैं। मंडी में फसल बेचने से पहले स्थानीय रूप से भावों की पुष्टि ज़रूर करें। हम किसी भी वित्तीय नुकसान के लिए उत्तरदायी नहीं हैं।' 
+                      : 'Market rates are compiled from official sources (Agmarknet, MandiPulse) and verified local market reporters. Market prices fluctuate depending on arrival quality and auction dynamics. Please verify locally before transacting.'}
                   </p>
                 </div>
               </div>
@@ -758,19 +830,27 @@ const MandiBhav: React.FC = () => {
                 className="w-full py-4 rounded-2xl border-2 border-[#2D5A27] text-[#2D5A27] bg-white font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-[#2D5A27]/5 disabled:opacity-50"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                <span>{loading ? 'ताज़ा भाव फेच हो रहे हैं...' : 'ताज़ा भाव अपडेट करें (Sync Live Data)'}</span>
+                <span>
+                  {loading 
+                    ? (isHindi ? 'ताज़ा भाव फेच हो रहे हैं...' : 'Fetching fresh rates...') 
+                    : (isHindi ? 'ताज़ा भाव अपडेट करें' : 'Sync Live Rates')}
+                </span>
               </button>
             </motion.div>
           ) : (
             <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm mx-1">
               <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-sm font-bold text-gray-500">मंडी डेटा लोड नहीं हो सका।</p>
-              <p className="text-xs text-gray-400 mt-1 mb-4">कृपया अपना इंटरनेट कनेक्शन चेक करें या दोबारा प्रयास करें।</p>
+              <p className="text-sm font-bold text-gray-500">
+                {isHindi ? 'मंडी डेटा लोड नहीं हो सका।' : 'Could not load mandi data.'}
+              </p>
+              <p className="text-xs text-gray-400 mt-1 mb-4">
+                {isHindi ? 'कृपया अपना इंटरनेट कनेक्शन चेक करें या दोबारा प्रयास करें।' : 'Please check your internet connection or try again.'}
+              </p>
               <button
                 onClick={() => loadData(selectedState, selectedDistrict, selectedMandi, true)}
-                className="px-6 py-2.5 bg-[#2D5A27] text-white text-xs font-bold rounded-full shadow-md active:scale-95"
+                className="px-6 py-2.5 bg-[#2D5A27] text-white text-xs font-bold rounded-full shadow-md active:scale-95 cursor-pointer"
               >
-                पुनः प्रयास करें
+                {isHindi ? 'पुनः प्रयास करें' : 'Try Again'}
               </button>
             </div>
           )}

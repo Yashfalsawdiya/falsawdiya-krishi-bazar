@@ -6,8 +6,10 @@ import { Minus, Plus, Trash2, ArrowLeft, ShoppingCart, CreditCard, ShieldCheck, 
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
 import ProductDetailModal from '../components/ProductDetailModal';
+import { useLanguage } from '../context/LanguageContext';
 
 const CartPage: React.FC = () => {
+  const { isEnglish, translateText } = useLanguage();
   const { 
     cartItems, 
     updateQuantity, 
@@ -46,20 +48,24 @@ const CartPage: React.FC = () => {
         <button
           onClick={handleBack}
           className="lg:hidden p-2 hover:bg-gray-100 rounded-full transition-colors active:scale-95 text-[#4A3728]"
-          title="वापस जाएँ (Back)"
+          title={isEnglish ? 'Go Back' : 'वापस जाएँ'}
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <h2 className="text-lg font-bold text-[#4A3728]">मेरा कार्ट (My Cart)</h2>
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{cartCount} Items Selected</p>
+          <h2 className="text-lg font-bold text-[#4A3728]">
+            {isEnglish ? 'My Cart' : 'मेरा कार्ट'}
+          </h2>
+          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+            {cartCount} {isEnglish ? 'Items Selected' : 'उत्पाद चयनित'}
+          </p>
         </div>
         {cartItems.length > 0 && (
           <button
             onClick={clearCart}
             className="text-xs text-red-500 font-bold hover:underline px-3 py-1 bg-red-50 rounded-lg"
           >
-            साफ करें (Empty)
+            {isEnglish ? 'Empty Cart' : 'साफ करें'}
           </button>
         )}
       </div>
@@ -77,16 +83,18 @@ const CartPage: React.FC = () => {
               <ShoppingCart className="w-10 h-10" />
             </div>
             <div>
-              <h3 className="font-bold text-gray-700 text-lg">आपका कार्ट खाली है</h3>
+              <h3 className="font-bold text-gray-700 text-lg">
+                {isEnglish ? 'Your cart is empty' : 'आपका कार्ट खाली है'}
+              </h3>
               <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
-                कृपया कृषि बाजार से बीज, खाद या दवाइयां अपने कार्ट में जोड़ें।
+                {isEnglish ? 'Please add seeds, fertilizers or medicines from Agri Market to your cart.' : 'कृपया कृषि बाजार से बीज, खाद या दवाइयां अपने कार्ट में जोड़ें।'}
               </p>
             </div>
             <button
               onClick={() => navigate('/products')}
               className="px-6 py-3 bg-[#2D5A27] text-white rounded-2xl text-xs font-bold shadow-md hover:bg-[#2D5A27]/90 transition-colors active:scale-95"
             >
-              उत्पाद देखें (Go to Shop)
+              {isEnglish ? 'Browse Products' : 'उत्पाद देखें'}
             </button>
           </motion.div>
         ) : (
@@ -198,7 +206,7 @@ const CartPage: React.FC = () => {
                         {/* Price and total labels */}
                         <div className="text-right flex flex-col justify-end">
                           <span className="text-[10px] text-gray-400 font-semibold leading-none mb-1">
-                            कुल (₹{item.price} x {item.quantity})
+                            {isEnglish ? 'Total' : 'कुल'} (₹{item.price} x {item.quantity})
                           </span>
                           <span className="text-base font-black text-[#2D5A27] leading-none">
                             ₹{itemTotal}
@@ -228,27 +236,33 @@ const CartPage: React.FC = () => {
               {/* Cart Summary details */}
               <div className="bg-[#F5F2ED] border border-[#4A3728]/10 rounded-2xl p-4 flex flex-col gap-2">
               <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
-                <span>कुल उत्पाद (Total Unique Items)</span>
+                <span>{isEnglish ? 'Total Items' : 'कुल उत्पाद'}</span>
                 <span>{cartItems.length}</span>
               </div>
               <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
-                <span>कुल मात्रा (Total Units)</span>
+                <span>{isEnglish ? 'Total Quantity' : 'कुल मात्रा'}</span>
                 <span>{cartCount}</span>
               </div>
               
               <div className="flex items-center justify-between text-xs text-gray-700 font-semibold border-t border-gray-200/60 pt-2">
-                <span>उत्पाद उप-योग (Products Subtotal)</span>
+                <span>{isEnglish ? 'Products Subtotal' : 'उत्पाद उप-योग'}</span>
                 <span className="font-bold text-gray-900">₹{cartTotal}</span>
               </div>
               
               <div className="flex items-center justify-between pt-2 border-t border-gray-300/60">
-                <span className="text-sm font-bold text-[#4A3728]">कुल उत्पाद राशि (Total Product Amount)</span>
+                <span className="text-sm font-bold text-[#4A3728]">
+                  {isEnglish ? 'Total Product Amount' : 'कुल उत्पाद राशि'}
+                </span>
                 <span className="text-xl font-black text-[#2D5A27]">₹{cartTotal}</span>
               </div>
 
               <div className="text-[10px] text-gray-500 bg-white/70 p-2 rounded-xl border border-gray-200/50 mt-1 flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
-                <span>डिलीवरी शुल्क व वाहन चयन अगले चेकआउट पेज पर आपके पते के अनुसार निकाला जाएगा।</span>
+                <span>
+                  {isEnglish 
+                    ? 'Delivery charges and vehicle selection will be calculated at checkout based on your address.' 
+                    : 'डिलीवरी शुल्क व वाहन चयन अगले चेकआउट पेज पर आपके पते के अनुसार निकाला जाएगा।'}
+                </span>
               </div>
             </div>
 
@@ -259,15 +273,19 @@ const CartPage: React.FC = () => {
                   <Truck className="w-5 h-5" />
                 </div>
                 <div className="text-xs space-y-1">
-                  <p className="font-black text-amber-900">अभी होम डिलीवरी सेवा उपलब्ध नहीं है</p>
+                  <p className="font-black text-amber-900">
+                    {isEnglish ? 'Home delivery is currently unavailable' : 'अभी होम डिलीवरी सेवा उपलब्ध नहीं है'}
+                  </p>
                   <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
-                    असुविधा के लिए खेद है। फिलहाल होम डिलीवरी सेवा अस्थायी रूप से बंद है। जल्द ही सेवा पुनः शुरू की जाएगी। कृपया कुछ समय बाद दोबारा प्रयास करें। आपके सहयोग के लिए धन्यवाद।
+                    {isEnglish 
+                      ? 'We apologize for the inconvenience. Home delivery service is temporarily suspended and will resume soon. Thank you for your support.' 
+                      : 'असुविधा के लिए खेद है। फिलहाल होम डिलीवरी सेवा अस्थायी रूप से बंद है। जल्द ही सेवा पुनः शुरू की जाएगी। आपके सहयोग के लिए धन्यवाद।'}
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Checkout Action: 100% Cart to Razorpay Checkout */}
+            {/* Checkout Action */}
             <div className="mt-4">
               <button
                 type="button"
@@ -275,7 +293,7 @@ const CartPage: React.FC = () => {
                 className="w-full bg-[#2D5A27] hover:bg-[#2D5A27]/90 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-[#2D5A27]/20 active:scale-95 transition-all"
               >
                 <CreditCard className="w-5 h-5 text-[#EAB308]" />
-                सुरक्षित ऑनलाइन ऑर्डर करें (Proceed to Checkout)
+                {isEnglish ? 'Proceed to Checkout' : 'सुरक्षित ऑनलाइन ऑर्डर करें'}
               </button>
             </div>
             </div>
@@ -300,10 +318,12 @@ const CartPage: React.FC = () => {
 
               <div className="space-y-2">
                 <h3 className="text-base sm:text-lg font-black text-gray-800">
-                  अभी होम डिलीवरी सेवा उपलब्ध नहीं है
+                  {isEnglish ? 'Home delivery is currently unavailable' : 'अभी होम डिलीवरी सेवा उपलब्ध नहीं है'}
                 </h3>
                 <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-medium">
-                  असुविधा के लिए खेद है। फिलहाल होम डिलीवरी सेवा अस्थायी रूप से बंद है। जल्द ही सेवा पुनः शुरू की जाएगी। कृपया कुछ समय बाद दोबारा प्रयास करें। आपके सहयोग के लिए धन्यवाद।
+                  {isEnglish
+                    ? 'We apologize for the inconvenience. Home delivery service is temporarily suspended and will resume soon. Please try again later. Thank you for your support.'
+                    : 'असुविधा के लिए खेद है। फिलहाल होम डिलीवरी सेवा अस्थायी रूप से बंद है। जल्द ही सेवा पुनः शुरू की जाएगी। कृपया कुछ समय बाद दोबारा प्रयास करें। आपके सहयोग के लिए धन्यवाद।'}
                 </p>
               </div>
 
@@ -313,7 +333,7 @@ const CartPage: React.FC = () => {
                   onClick={() => setShowDeliveryBlockedModal(false)}
                   className="w-full py-3.5 bg-[#2D5A27] hover:bg-[#2D5A27]/90 text-white rounded-2xl text-xs sm:text-sm font-black shadow-md shadow-[#2D5A27]/20 active:scale-95 transition-all"
                 >
-                  ठीक है
+                  {isEnglish ? 'Okay' : 'ठीक है'}
                 </button>
               </div>
             </motion.div>

@@ -12,42 +12,43 @@ import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
 import { getCustomerDetails } from '../utils/customerStorage';
 import { formatFullHindiDate } from '../lib/dateUtils';
+import { useLanguage } from '../context/LanguageContext';
 
-const getStatusBadge = (status: OrderStatus) => {
+const getStatusBadge = (status: OrderStatus, isEnglish: boolean = false) => {
   switch (status) {
     case 'placed':
       return {
-        label: 'ऑर्डर दर्ज हुआ (Placed)',
+        label: isEnglish ? 'Order Placed' : 'ऑर्डर दर्ज हुआ',
         bg: 'bg-blue-50 text-blue-700 border-blue-200',
         icon: Clock
       };
     case 'confirmed':
       return {
-        label: 'स्वीकृत एवं पैकिंग (Confirmed)',
+        label: isEnglish ? 'Confirmed & Packing' : 'स्वीकृत एवं पैकिंग',
         bg: 'bg-amber-50 text-amber-700 border-amber-200',
         icon: Package
       };
     case 'dispatched':
       return {
-        label: 'पार्सल रवाना (Shipped)',
+        label: isEnglish ? 'Shipped' : 'पार्सल रवाना',
         bg: 'bg-indigo-50 text-indigo-700 border-indigo-200',
         icon: Truck
       };
     case 'out_for_delivery':
       return {
-        label: 'डिलीवरी के लिए निकला',
+        label: isEnglish ? 'Out for Delivery' : 'डिलीवरी के लिए निकला',
         bg: 'bg-purple-50 text-purple-700 border-purple-200',
         icon: Truck
       };
     case 'delivered':
       return {
-        label: 'सफलतापूर्वक डिलीवर (Delivered)',
+        label: isEnglish ? 'Delivered' : 'सफलतापूर्वक डिलीवर',
         bg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
         icon: CheckCircle2
       };
     case 'cancelled':
       return {
-        label: 'रद्द (Cancelled)',
+        label: isEnglish ? 'Cancelled' : 'रद्द',
         bg: 'bg-red-50 text-red-700 border-red-200',
         icon: AlertCircle
       };
@@ -62,6 +63,7 @@ const getStatusBadge = (status: OrderStatus) => {
 
 const MyOrdersPage: React.FC = () => {
   const navigate = useNavigate();
+  const { isEnglish, translateText } = useLanguage();
   const { user } = useAppContext();
   
   // Instant load from Local Cache (0ms delay, 0 initial Firestore reads)
@@ -98,8 +100,12 @@ const MyOrdersPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
         <div>
-          <h2 className="text-lg font-bold text-[#4A3728]">मेरे ऑर्डर (My Orders)</h2>
-          <p className="text-xs text-gray-500">आपके सभी पिछले और वर्तमान ऑर्डर की स्थिति</p>
+          <h2 className="text-lg font-bold text-[#4A3728]">
+            {isEnglish ? 'My Orders' : 'मेरे ऑर्डर'}
+          </h2>
+          <p className="text-xs text-gray-500">
+            {isEnglish ? 'Status of all your past and current orders' : 'आपके सभी पिछले और वर्तमान ऑर्डर की स्थिति'}
+          </p>
         </div>
         <button
           onClick={loadOrders}
@@ -116,7 +122,7 @@ const MyOrdersPage: React.FC = () => {
         <div className="relative">
           <input
             type="text"
-            placeholder="ऑर्डर नंबर या दवाई का नाम खोजें..."
+            placeholder={isEnglish ? 'Search order number or product...' : 'ऑर्डर नंबर या दवाई का नाम खोजें...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-[#2D5A27]"
@@ -137,7 +143,9 @@ const MyOrdersPage: React.FC = () => {
       {loading && orders.length === 0 ? (
         <div className="py-12 text-center bg-white rounded-3xl border border-gray-100 shadow-sm space-y-3">
           <div className="w-8 h-8 border-3 border-[#2D5A27]/20 border-t-[#2D5A27] rounded-full animate-spin mx-auto" />
-          <p className="text-xs text-gray-400 font-medium">ऑर्डर लोड हो रहे हैं...</p>
+          <p className="text-xs text-gray-400 font-medium">
+            {isEnglish ? 'Loading orders...' : 'ऑर्डर लोड हो रहे हैं...'}
+          </p>
         </div>
       ) : filteredOrders.length === 0 ? (
         <div className="text-center py-12 px-6 bg-white rounded-3xl border border-dashed border-gray-200 space-y-4">
@@ -145,22 +153,26 @@ const MyOrdersPage: React.FC = () => {
             <Package className="w-8 h-8" />
           </div>
           <div>
-            <h3 className="font-bold text-gray-700 text-base">कोई ऑर्डर नहीं मिला</h3>
+            <h3 className="font-bold text-gray-700 text-base">
+              {isEnglish ? 'No orders found' : 'कोई ऑर्डर नहीं मिला'}
+            </h3>
             <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
-              {searchQuery ? 'खोज के अनुसार कोई ऑर्डर नहीं है।' : 'आपने अभी तक कोई ऑनलाइन ऑर्डर नहीं किया है।'}
+              {searchQuery 
+                ? (isEnglish ? 'No orders match your search.' : 'खोज के अनुसार कोई ऑर्डर नहीं है।') 
+                : (isEnglish ? 'You have not placed any orders yet.' : 'आपने अभी तक कोई ऑनलाइन ऑर्डर नहीं किया है।')}
             </p>
           </div>
           <button
             onClick={() => navigate('/products')}
             className="px-6 py-2.5 bg-[#2D5A27] text-white rounded-xl text-xs font-bold shadow-md hover:bg-[#2D5A27]/90 active:scale-95 transition-all cursor-pointer"
           >
-            उत्पाद देखें (Shop Now)
+            {isEnglish ? 'Shop Now' : 'उत्पाद देखें'}
           </button>
         </div>
       ) : (
         <div className="space-y-3">
           {visibleOrders.map((order) => {
-            const badge = getStatusBadge(order.status);
+            const badge = getStatusBadge(order.status, isEnglish);
             const BadgeIcon = badge.icon;
             const orderDate = formatFullHindiDate(order.createdAt, false);
 
@@ -175,7 +187,9 @@ const MyOrdersPage: React.FC = () => {
                 {/* Top Row: Order No, Date and Status */}
                 <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
                   <div>
-                    <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">ऑर्डर आईडी</span>
+                    <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">
+                      {isEnglish ? 'Order ID' : 'ऑर्डर आईडी'}
+                    </span>
                     <p className="font-black text-xs text-[#2D5A27]">{order.orderNumber}</p>
                     <p className="text-[10px] text-gray-400 mt-0.5">{orderDate}</p>
                   </div>

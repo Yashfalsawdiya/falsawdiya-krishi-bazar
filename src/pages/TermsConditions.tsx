@@ -24,19 +24,36 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
+import { DEFAULT_LEGAL_PAGES_CONTENT_EN } from '../data/defaultPagesContentEn';
 
 const ICONS = [Store, UserCheck, Package, Tag, ShoppingCart, CreditCard, Truck, AlertTriangle, Sparkles, Ban, Copyright, ShieldAlert, Scale];
 
 const TermsConditions: React.FC = () => {
   const { appContent, legalPagesContent } = useAppContext();
+  const { isEnglish, translateText } = useLanguage();
 
   const branding = appContent?.branding || {
     name: 'फल्सावदिया कृषि बाजार',
     tagline: 'किसान का भरोसा, हमारी पहचान'
   };
 
-  const termsData = legalPagesContent?.termsConditions || DEFAULT_LEGAL_PAGES_CONTENT.termsConditions;
+  const defaultTerms = isEnglish ? DEFAULT_LEGAL_PAGES_CONTENT_EN.termsConditions : DEFAULT_LEGAL_PAGES_CONTENT.termsConditions;
+  const rawTermsData = legalPagesContent?.termsConditions || defaultTerms;
+  const termsData = {
+    ...rawTermsData,
+    bannerTitle: isEnglish ? (rawTermsData === defaultTerms ? rawTermsData.bannerTitle : translateText(rawTermsData.bannerTitle)) : rawTermsData.bannerTitle,
+    bannerSubtitle: isEnglish ? (rawTermsData === defaultTerms ? rawTermsData.bannerSubtitle : translateText(rawTermsData.bannerSubtitle)) : rawTermsData.bannerSubtitle,
+    introText: isEnglish ? (rawTermsData === defaultTerms ? rawTermsData.introText : translateText(rawTermsData.introText)) : rawTermsData.introText,
+    governingLaw: isEnglish ? (rawTermsData === defaultTerms ? rawTermsData.governingLaw : translateText(rawTermsData.governingLaw || '')) : rawTermsData.governingLaw,
+    sections: (rawTermsData.sections || []).map(sec => ({
+      ...sec,
+      title: isEnglish ? (rawTermsData === defaultTerms ? sec.title : translateText(sec.title)) : sec.title,
+      content: isEnglish ? (rawTermsData === defaultTerms ? sec.content : translateText(sec.content)) : sec.content,
+      bullets: sec.bullets ? sec.bullets.map(b => isEnglish ? (rawTermsData === defaultTerms ? b : translateText(b)) : b) : undefined
+    }))
+  };
 
   return (
     <div className="space-y-6 pb-8">
@@ -148,44 +165,44 @@ const TermsConditions: React.FC = () => {
             to="/about"
             className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <Store className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">हमारे बारे में</span>
+            <Store className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">{isEnglish ? 'About Us' : 'हमारे बारे में'}</span>
           </Link>
           <Link 
             to="/privacy"
             className="bg-white border border-gray-200 hover:border-blue-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">गोपनीयता नीति</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Privacy Policy' : 'गोपनीयता नीति'}</span>
           </Link>
           <Link 
             to="/refund-policy"
             className="bg-white border border-gray-200 hover:border-rose-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" /> <span className="truncate">वापसी नीति</span>
+            <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Return Policy' : 'वापसी नीति'}</span>
           </Link>
           <Link 
             to="/disclaimer"
             className="bg-white border border-gray-200 hover:border-yellow-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <AlertTriangle className="w-3.5 h-3.5 text-yellow-600 shrink-0" /> <span className="truncate">AI अस्वीकरण</span>
+            <AlertTriangle className="w-3.5 h-3.5 text-yellow-600 shrink-0" /> <span className="truncate">{isEnglish ? 'AI Disclaimer' : 'AI अस्वीकरण'}</span>
           </Link>
           <Link 
             to="/safety-guidelines"
             className="bg-white border border-gray-200 hover:border-red-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldAlert className="w-3.5 h-3.5 text-red-600 shrink-0" /> <span className="truncate">सुरक्षा निर्देश</span>
+            <ShieldAlert className="w-3.5 h-3.5 text-red-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Safety Guidelines' : 'सुरक्षा निर्देश'}</span>
           </Link>
           <Link 
             to="/contact"
             className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <PhoneCall className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">संपर्क करें</span>
+            <PhoneCall className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">{isEnglish ? 'Contact Us' : 'संपर्क करें'}</span>
           </Link>
         </div>
         <Link 
           to="/"
           className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
         >
-          मुख्य पृष्ठ (Home)
+          {isEnglish ? 'Home' : 'मुख्य पृष्ठ'}
         </Link>
       </div>
     </div>

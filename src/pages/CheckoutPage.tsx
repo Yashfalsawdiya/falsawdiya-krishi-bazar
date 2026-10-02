@@ -30,9 +30,11 @@ import {
   UserCoordsWithAccuracy 
 } from '../services/deliveryDistanceService';
 import { VehicleIcon } from '../components/common/VehicleIcon';
+import { useLanguage } from '../context/LanguageContext';
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
+  const { isEnglish, translateText } = useLanguage();
   const { cartItems, cartTotal, cartCount, clearCart } = useCart();
   const { appContent, deliveryConfig, user } = useAppContext();
 
@@ -448,11 +450,11 @@ const CheckoutPage: React.FC = () => {
                   <MapPin className="w-4 h-4" />
                 </div>
                 <h3 className="font-bold text-[#4A3728] text-sm">
-                  डिलीवरी पता एवं विवरण (Delivery Address)
+                  {isEnglish ? 'Delivery Address & Details' : 'डिलीवरी पता एवं विवरण'}
                 </h3>
               </div>
               <span className="text-[10px] bg-amber-50 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-200">
-                * सभी विवरण अनिवार्य
+                {isEnglish ? '* All details required' : '* सभी विवरण अनिवार्य'}
               </span>
             </div>
 
@@ -460,13 +462,15 @@ const CheckoutPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Full Name */}
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-600 mb-1">पूरा नाम (Full Name) *</label>
+                  <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                    {isEnglish ? 'Full Name *' : 'पूरा नाम *'}
+                  </label>
                   <div className="relative">
                     <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       type="text"
                       required
-                      placeholder="उदा: किशोर पाटीदार / Kishore Patidar"
+                      placeholder={isEnglish ? 'e.g. Kishore Patidar' : 'उदा: किशोर पाटीदार'}
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
@@ -476,14 +480,16 @@ const CheckoutPage: React.FC = () => {
 
                 {/* Mobile Number */}
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-600 mb-1">मोबाइल नंबर (Mobile No.) *</label>
+                  <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                    {isEnglish ? 'Mobile Number *' : 'मोबाइल नंबर *'}
+                  </label>
                   <div className="relative">
                     <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       type="tel"
                       required
                       maxLength={10}
-                      placeholder="उदा: 9876543210"
+                      placeholder="9876543210"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                       className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
@@ -495,12 +501,12 @@ const CheckoutPage: React.FC = () => {
             {/* House / Street / Landmark */}
             <div>
               <label className="block text-[11px] font-bold text-gray-600 mb-1">
-                मकान / खेत का पता / गली (House, Street, Landmark) *
+                {isEnglish ? 'House / Farm Address / Street *' : 'मकान / खेत का पता / गली *'}
               </label>
               <input
                 type="text"
                 required
-                placeholder="उदा: मकान नं. 01, पाटीदार मोहल्ला"
+                placeholder={isEnglish ? 'e.g. House No. 01, Near Primary School' : 'उदा: मकान नं. 01, प्राथमिक विद्यालय के पास'}
                 value={addressHouse}
                 onChange={(e) => setAddressHouse(e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
@@ -510,22 +516,26 @@ const CheckoutPage: React.FC = () => {
             {/* Village / City & District */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[11px] font-bold text-gray-600 mb-1">गांव / शहर (Village/City) *</label>
+                <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                  {isEnglish ? 'Village / City *' : 'गांव / शहर *'}
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="उदा: शामगढ़ / गरोठ / सुवासरा"
+                  placeholder={isEnglish ? 'e.g. Shamgarh / Garoth / Suwasra' : 'उदा: शामगढ़ / गरोठ / सुवासरा'}
                   value={addressCity}
                   onChange={(e) => setAddressCity(e.target.value)}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-gray-600 mb-1">जिला (District) *</label>
+                <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                  {isEnglish ? 'District *' : 'जिला *'}
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="उदा: मंदसौर"
+                  placeholder={isEnglish ? 'e.g. Mandsaur' : 'उदा: मंदसौर'}
                   value={addressDistrict}
                   onChange={(e) => setAddressDistrict(e.target.value)}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
@@ -536,23 +546,27 @@ const CheckoutPage: React.FC = () => {
             {/* State & Pincode */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[11px] font-bold text-gray-600 mb-1">राज्य (State) *</label>
+                <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                  {isEnglish ? 'State *' : 'राज्य *'}
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="उदा: मध्य प्रदेश"
+                  placeholder={isEnglish ? 'e.g. Madhya Pradesh' : 'उदा: मध्य प्रदेश'}
                   value={addressState}
                   onChange={(e) => setAddressState(e.target.value)}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-gray-600 mb-1">पिन कोड (Pincode) *</label>
+                <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                  {isEnglish ? 'PIN Code *' : 'पिन कोड *'}
+                </label>
                 <input
                   type="text"
                   required
                   maxLength={6}
-                  placeholder="उदा: 458883"
+                  placeholder="458883"
                   value={addressPincode}
                   onChange={(e) => setAddressPincode(e.target.value.replace(/\D/g, ''))}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800 font-bold"
@@ -753,10 +767,14 @@ const CheckoutPage: React.FC = () => {
             <div className="bg-red-50 border border-red-200 rounded-3xl p-4 sm:p-5 text-xs text-red-900 space-y-2">
               <div className="flex items-center gap-2 font-bold text-red-800">
                 <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                <span>डिलीवरी दूरी निर्धारित नहीं हो सकी (Location Unresolved)</span>
+                <span>
+                  {isEnglish ? 'Delivery Distance Unresolved' : 'डिलीवरी दूरी निर्धारित नहीं हो सकी'}
+                </span>
               </div>
               <p className="text-[11px] text-red-700 leading-relaxed">
-                {distanceInfo?.errorMessage || 'दर्ज किए गए पते या पिनकोड से सटीक लोकेशन नहीं मिल पाई है। गलत डिलीवरी शुल्क से बचने के लिए कृपया मान्य 6-अंकीय पिनकोड और पूरा पता दर्ज करें या ऊपर दिए गए "वर्तमान GPS लोकेशन से सटीक दूरी निकालें" बटन को दबाएं।'}
+                {distanceInfo?.errorMessage || (isEnglish
+                  ? 'Unable to determine location from entered address. Please enter a valid 6-digit PIN code and address or use live GPS.'
+                  : 'दर्ज किए गए पते या पिनकोड से सटीक लोकेशन नहीं मिल पाई है। गलत डिलीवरी शुल्क से बचने के लिए कृपया मान्य 6-अंकीय पिनकोड और पूरा पता दर्ज करें या ऊपर दिए गए GPS बटन को दबाएं।')}
               </p>
             </div>
           )
@@ -765,10 +783,14 @@ const CheckoutPage: React.FC = () => {
           <div className="bg-amber-50/80 border border-amber-200/80 rounded-3xl p-4 sm:p-5 text-xs text-amber-900 space-y-2">
             <div className="flex items-center gap-2 font-bold">
               <Info className="w-4 h-4 text-amber-700 shrink-0" />
-              <span>डिलीवरी गणना प्रतीक्षा (Address Required)</span>
+              <span>
+                {isEnglish ? 'Delivery Calculation Pending' : 'डिलीवरी गणना प्रतीक्षा'}
+              </span>
             </div>
             <p className="text-[11px] text-amber-800 leading-relaxed">
-              कृपया ऊपर अपना <strong>पूरा पता, गांव/शहर और 6-अंकीय पिनकोड</strong> भरें। आपके पते के आधार पर फल्सावदिया स्टोर से वास्तविक दूरी (km), आटोमेटिक कार्ट वजन और डिलीवरी वाहन (बाइक, ई-रिक्शा, टेम्पो या ट्रक) का चयन होकर वास्तविक डिलीवरी शुल्क तय होगा।
+              {isEnglish 
+                ? 'Please enter your complete address, village/city and 6-digit PIN code above to calculate delivery charges.'
+                : 'कृपया ऊपर अपना पूरा पता, गांव/शहर और 6-अंकीय पिनकोड भरें ताकि वास्तविक दूरी और डिलीवरी शुल्क तय हो सके।'}
             </p>
           </div>
         )}
@@ -779,33 +801,35 @@ const CheckoutPage: React.FC = () => {
           {/* Step 3: Transparent Price Summary Card */}
           <div className="bg-[#F5F2ED] rounded-3xl p-4 sm:p-5 border border-[#4A3728]/10 space-y-2.5 text-xs">
             <h4 className="font-bold text-[#4A3728] text-sm border-b border-gray-200/60 pb-2">
-              ऑर्डर एवं मूल्य विवरण (Price Breakdown)
+              {isEnglish ? 'Price Breakdown' : 'ऑर्डर एवं मूल्य विवरण'}
             </h4>
 
             <div className="flex justify-between text-gray-700 font-medium">
-              <span>उत्पाद कुल मूल्य (Product Total):</span>
+              <span>{isEnglish ? 'Product Total:' : 'उत्पाद कुल मूल्य:'}</span>
               <span className="font-bold text-gray-900">₹{cartTotal}</span>
             </div>
 
             <div className="flex justify-between text-gray-700 font-medium">
               <span>
-                डिलीवरी शुल्क ({isLocationValid ? `${deliveryQuote.vehicleType} • ${deliveryQuote.distanceKm} km` : 'पते अनुसार'}):
+                {isEnglish ? 'Delivery Charge:' : 'डिलीवरी शुल्क:'}
               </span>
               <span className="font-bold text-emerald-800">
                 {isLocationValid ? (
                   deliveryQuote.isFreeDelivery || finalDeliveryCharges === 0 ? (
-                    <span className="text-emerald-700 font-black">मुफ़्त (FREE)</span>
+                    <span className="text-emerald-700 font-black">{isEnglish ? 'FREE' : 'मुफ़्त'}</span>
                   ) : (
                     `+ ₹${finalDeliveryCharges}`
                   )
                 ) : (
-                  <span className="text-amber-700 font-bold text-[11px]">स्थान सत्यापन आवश्यक</span>
+                  <span className="text-amber-700 font-bold text-[11px]">
+                    {isEnglish ? 'Address Required' : 'स्थान सत्यापन आवश्यक'}
+                  </span>
                 )}
               </span>
             </div>
 
             <div className="flex justify-between items-center pt-2.5 border-t border-gray-300/50 text-sm font-bold text-[#4A3728]">
-              <span>कुल देय राशि (Grand Total):</span>
+              <span>{isEnglish ? 'Grand Total:' : 'कुल देय राशि:'}</span>
               <span className="text-xl font-black text-[#2D5A27]">
                 ₹{isLocationValid ? finalPayableTotal : cartTotal}
               </span>
@@ -813,7 +837,11 @@ const CheckoutPage: React.FC = () => {
 
             <div className="pt-2 text-[11px] text-gray-500 flex items-center gap-1.5 border-t border-gray-200/50">
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>UPI (PhonePe / GPay / Paytm), कार्ड और नेट बैंकिंग द्वारा 100% सुरक्षित ऑनलाइन भुगतान</span>
+              <span>
+                {isEnglish 
+                  ? '100% secure online payment via UPI, Card, and Net Banking' 
+                  : 'UPI, कार्ड और नेट बैंकिंग द्वारा 100% सुरक्षित ऑनलाइन भुगतान'}
+              </span>
             </div>
           </div>
 
@@ -830,22 +858,22 @@ const CheckoutPage: React.FC = () => {
             {isProcessing ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                सुरक्षित पेमेंट विंडो खुल रही है...
+                {isEnglish ? 'Opening secure payment...' : 'सुरक्षित पेमेंट विंडो खुल रही है...'}
               </>
             ) : !isDeliveryActive ? (
               <>
                 <Truck className="w-5 h-5" />
-                डिलीवरी सेवा बंद है (Delivery Suspended)
+                {isEnglish ? 'Delivery Suspended' : 'डिलीवरी सेवा बंद है'}
               </>
             ) : !isLocationValid ? (
               <>
                 <MapPin className="w-5 h-5" />
-                मान्य डिलीवरी पता व पिनकोड दर्ज करें (Address Required)
+                {isEnglish ? 'Please enter valid delivery address and PIN' : 'मान्य डिलीवरी पता व पिनकोड दर्ज करें'}
               </>
             ) : (
               <>
                 <CreditCard className="w-5 h-5 text-[#EAB308]" />
-                ₹{finalPayableTotal} का ऑनलाइन भुगतान करें (Pay with UPI / Razorpay)
+                {isEnglish ? `Pay ₹${finalPayableTotal} Online` : `₹${finalPayableTotal} का ऑनलाइन भुगतान करें`}
               </>
             )}
           </button>

@@ -103,7 +103,7 @@ function parseDiseaseResponse(rawText: string): DiseaseAnalysis {
   };
 }
 
-export async function detectDisease(base64Image: string | string[], userApiKey?: string): Promise<DiseaseAnalysis> {
+export async function detectDisease(base64Image: string | string[], userApiKey?: string, language: 'hi' | 'en' = 'hi'): Promise<DiseaseAnalysis> {
   const ai = getAI(userApiKey);
   if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
   
@@ -121,30 +121,30 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
           Perform a combined, comprehensive, and highly accurate diagnosis by cross-referencing ALL ${imageList.length} attached photos.
           
           Identify:
-          1. **Crop Name (फसल का नाम)**
-          2. **Disease or Pest Type (बीमारी या कीट का प्रकार)**: Identify if it is a fungal/bacterial/viral disease, a Sucking Pest, Chewing Pest, or Nutrient Deficiency.
-          3. **Specific Name (नाम)**: Name of the disease or specific pest with scientific name.
-          4. **Symptoms (लक्षण)**: Pointwise detailed symptoms observed across the provided photos.
-          5. **Recommended Treatment (उपचार)**: Pointwise chemical and organic solutions with dosage (per 15L/20L pump and per Bigha/Acre).
-          6. **Prevention & Precautions (बचाव एवं सावधानियां)**: Pointwise long-term prevention tips and spray recommendations.
+          1. **Crop Name**
+          2. **Disease or Pest Type**: Identify if it is a fungal/bacterial/viral disease, a Sucking Pest, Chewing Pest, or Nutrient Deficiency.
+          3. **Specific Name**: Name of the disease or specific pest with scientific name.
+          4. **Symptoms**: Pointwise detailed symptoms observed across the provided photos.
+          5. **Recommended Treatment**: Pointwise chemical and organic solutions with dosage (per 15L/20L pump and per Bigha/Acre).
+          6. **Prevention & Precautions**: Pointwise long-term prevention tips and spray recommendations.
           
           FORMATTING INSTRUCTIONS:
-          1. Provide the analysis in CLEAR, SIMPLE, RESPECTFUL HINDI with English scientific/technical terms in brackets.
+          1. Respond only in ${language === 'en' ? 'English' : 'Hindi'} using natural, correct grammar.
           2. NEVER use HTML tags like <br> or <p>. Use clean standard newlines and bullet points.
           3. Provide keywords array for matching shop products.`
     : `You are an expert Indian agricultural scientist and plant pathologist. 
           Analyze this photo of a crop leaf or plant. 
           
           Identify:
-          1. **Crop Name (फसल का नाम)**
-          2. **Disease or Pest Type (बीमारी या कीट का प्रकार)**: Identify if it is a disease, a Sucking Pest, or a Chewing Pest.
-          3. **Specific Name (नाम)**: Name of the disease or specific pest with scientific name.
-          4. **Symptoms (लक्षण)**: Pointwise what is visible in the photo.
-          5. **Recommended Treatment (उपचार)**: Pointwise chemical and organic solutions with dosage.
-          6. **Prevention (बचाव)**: Pointwise long-term prevention tips.
+          1. **Crop Name**
+          2. **Disease or Pest Type**: Identify if it is a disease, a Sucking Pest, or a Chewing Pest.
+          3. **Specific Name**: Name of the disease or specific pest with scientific name.
+          4. **Symptoms**: Pointwise what is visible in the photo.
+          5. **Recommended Treatment**: Pointwise chemical and organic solutions with dosage.
+          6. **Prevention**: Pointwise long-term prevention tips.
           
           FORMATTING INSTRUCTIONS:
-          1. Provide the analysis in CLEAR, SIMPLE HINDI with English terms in brackets.
+          1. Respond only in ${language === 'en' ? 'English' : 'Hindi'} using natural, correct grammar.
           2. NEVER use HTML tags like <br> or <p>. Use clean standard newlines and bullet points.
           3. Provide keywords array for matching shop products.`;
 
@@ -168,7 +168,9 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
     });
   });
 
-  const systemInstruction = "You are an expert plant pathologist representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Located in Shamgarh, MP. Shop address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Hours: 8:00 AM to 8:00 PM daily. Always provide detailed analysis in Hindi, mention recommended products are available at our shop 'फल्सावदिया कृषि बाजार'. STRICT RULE: ONLY use 'फल्सावदिया' for the name. Never use 'फालसावदिया'. NEVER include HTML tags like <br> or <p>. Return structured JSON.";
+  const systemInstruction = language === 'en'
+    ? "You are an expert plant pathologist representing 'Falsawdiya Krishi Bazaar' (Shamgarh, MP). Hours: 8:00 AM to 8:00 PM daily. Respond only in English using natural, correct grammar. NEVER include HTML tags like <br> or <p>. Return structured JSON."
+    : "You are an expert plant pathologist representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Located in Shamgarh, MP. Shop address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Hours: 8:00 AM to 8:00 PM daily. Respond only in Hindi using natural, correct grammar. STRICT RULE: ONLY use 'फल्सावदिया' for the name. Never use 'फालसावदिया'. NEVER include HTML tags like <br> or <p>. Return structured JSON.";
 
   // Schema with resilient optional nested fields to prevent validation failures on atypical or healthy crop photos
   const responseSchema = {
@@ -285,6 +287,7 @@ export interface DiseaseReportChatInput {
   location?: string;
   weatherSummary?: string;
   userApiKey?: string;
+  language?: 'hi' | 'en';
 }
 
 export async function askDiseaseReportChat({
@@ -293,46 +296,38 @@ export async function askDiseaseReportChat({
   chatHistory,
   location = "शामगढ़, मंदसौर, मध्य प्रदेश",
   weatherSummary = "सामान्‍य",
-  userApiKey
+  userApiKey,
+  language = 'hi'
 }: DiseaseReportChatInput): Promise<string> {
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
 
     const historyPrompt = chatHistory && chatHistory.length > 0 
-      ? chatHistory.map(m => `${m.role === 'user' ? 'किसान' : 'AI विशेषज्ञ'}: ${m.text}`).join('\n')
-      : 'कोई पूर्व बातचीत नहीं';
+      ? chatHistory.map(m => `${m.role === 'user' ? (language === 'en' ? 'Farmer' : 'किसान') : (language === 'en' ? 'AI Agronomist' : 'AI विशेषज्ञ')}: ${m.text}`).join('\n')
+      : (language === 'en' ? 'No prior conversation' : 'कोई पूर्व बातचीत नहीं');
 
-    const systemInstruction = `आप 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar, Shamgarh, MP) के वरिष्ठ कृषि विशेषज्ञ और फसल रोग वैज्ञानिक हैं।
+    const systemInstruction = `You are a senior agricultural advisor and plant pathologist at 'Falsawdiya Krishi Bazaar' (Shamgarh, MP).
+    Respond only in ${language === 'en' ? 'English' : 'Hindi'} using natural, correct grammar.
     
-    आपका मुख्य कर्तव्य किसान द्वारा कराई गई **फसल बीमारी जाँच रिपोर्ट (Scan Report)** के संदर्भ (Context) में उनके प्रश्नों का उत्तर देना है।
-    
-    **इस Scan Report का पूरा संदर्भ निम्न है:**
+    Scan Report context:
     -------------------------------------------
     ${reportAnalysis}
     -------------------------------------------
-    स्थान: ${location}
-    मौसम की स्थिति: ${weatherSummary}
+    Location: ${location}
+    Weather: ${weatherSummary}
     
-    **दिशा-निर्देश (Guidelines for Answering):**
-    1. **Context-Aware Memory**: उत्तर देते समय हमेशा इसी रिपोर्ट की फसल, बीमारी, कीट, सुझाई गई दवाइयों/टेक्निकल और मौसम का ध्यान रखें।
-    2. **सरल हिन्दी**: हमेशा आसान हिन्दी में उत्तर दें। यदि तकनीकी शब्द (जैसे WDG, WP, SC, EC, PHI, IRAC) आएँ तो उनका सरल अर्थ भी समझाएँ।
-    3. **संक्षिप्त एवं पॉइंट-वाइज़**: लंबे पैराग्राफ न लिखें। छोटे, स्पष्ट और पढ़ने में आसान पॉइंट्स (Points) में उत्तर दें।
-    4. **विशिष्ट प्रश्नों के सटीक उत्तर**:
-       - **टैंक मिक्स (Tank Mix) का क्रम**: यदि किसान दवा मिलाने का क्रम पूछे, तो सही वैज्ञानिक क्रम बताएँ (1. पानी, 2. WDG, 3. WP, 4. SC, 5. EC, 6. SL, 7. स्टिकर/Adjuvant)।
-       - **मात्रा/डोज़**: 20 लीटर पंप या 500 लीटर टैंक या प्रति बीघा के लिए डोज़ स्पष्ट रूप से बताएँ।
-       - **ब्रांड विकल्प / सस्ता विकल्प / Organic**: यदि किसान सस्ता विकल्प, Bayer/UPL का विकल्प या ऑर्गेनिक उपाय पूछे तो इसी बीमारी/कीट का उपयुक्त विकल्प बताएँ।
-       - **छिड़काव का समय व मौसम**: सुबह या शाम ठंडे मौसम में छिड़काव की सलाह दें। बारिश आने पर स्टिकर मिलाने और सुखाने के समय (Rainfast period) का सुझाव दें।
-       - **दवा संगति (Compatibility)**: कौन-सी दवाएँ आपस में नहीं मिलानी चाहिए (जैसे कॉपर युक्त दवाएँ अन्य के साथ) स्पष्ट बताएँ।
-    5. **यदि फोटो या जानकारी से निश्चित न हों**:
-       यदि प्रश्न ऐसा हो जिसकी पुष्टि इस फोटो/रिपोर्ट से संभव न हो, तो स्पष्ट कहें:
-       "इस फोटो से पूरी पुष्टि संभव नहीं है। कृपया पूरी फसल, तने या दूसरी पत्तियों की फोटो भी भेजें ताकि अधिक सटीक सलाह दी जा सके।"
-    6. **दुकान का नाम**: हमेशा 'फल्सावदिया कृषि बाजार' ही लिखें। (STRICT RULE: 'फालसावदिया' कभी न लिखें।)`;
+    Guidelines:
+    1. Respond only in ${language === 'en' ? 'English' : 'Hindi'} using natural, correct grammar.
+    2. Provide clear, point-wise actionable agronomy advice.
+    3. State tank-mixing order if asked (1. Water, 2. WDG, 3. WP, 4. SC, 5. EC, 6. SL, 7. Adjuvant).
+    4. Provide dosages per 15L/20L pump and per acre.
+    5. Always state that recommended medicines are available at 'Falsawdiya Krishi Bazaar' (फल्सावदिया कृषि बाजार).`;
 
-    const prompt = `पूर्व बातचीत:
+    const prompt = `Previous conversation:
 ${historyPrompt}
 
-किसान का नया प्रश्न:
+Farmer's question:
 "${userQuestion}"`;
 
     let responseText: string | null = null;

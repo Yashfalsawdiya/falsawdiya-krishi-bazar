@@ -4,6 +4,7 @@ import { ShoppingBag, Building2, Plus, Check, Maximize2, Package } from 'lucide-
 import { Product, ImageSource } from '../types';
 import SmartImage from './SmartImage';
 import { cn } from '../lib/utils';
+import { useLanguage } from '../context/LanguageContext';
 
 interface KrishiBazaarProductCardProps {
   product: Product;
@@ -22,6 +23,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
   onAddToCart,
   onBuy
 }) => {
+  const { t, translateText, isEnglish } = useLanguage();
   // Extract all available packaging variants dynamically
   const variants = useMemo(() => {
     if (product.variants && product.variants.length > 0) {
@@ -89,7 +91,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
         {!isInStock ? (
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
             <span className="text-[10px] sm:text-xs font-bold text-white bg-red-600 px-3 py-1 rounded-full shadow-lg border border-white/30 rotate-[-8deg]">
-              STOCK OUT
+              {isEnglish ? 'Out of Stock' : 'स्टॉक खत्म'}
             </span>
           </div>
         ) : (
@@ -101,7 +103,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
               onZoom(product.image, product.hindiName);
             }}
             className="absolute bottom-2.5 right-2.5 bg-white/90 hover:bg-white text-gray-700 p-1.5 rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer"
-            title="इमेज बड़ी करें"
+            title={t('zoom_image')}
           >
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
@@ -115,7 +117,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <div className="flex items-center gap-1 text-[11px] font-semibold text-[#2D5A27] bg-[#2D5A27]/5 px-2 py-0.5 rounded-md border border-[#2D5A27]/15 truncate">
               <Building2 className="w-3 h-3 shrink-0" />
-              <span className="truncate">{product.brand || 'कृषि उत्पाद'}</span>
+              <span className="truncate">{product.brand || t('agri_product')}</span>
             </div>
             {product.customId && (
               <span className="text-[9px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 uppercase shrink-0">
@@ -124,20 +126,15 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
             )}
           </div>
 
-          {/* Product Name (Most Prominent) */}
-          <h3 className="font-bold text-gray-900 text-sm sm:text-base leading-snug group-hover:text-[#2D5A27] transition-colors line-clamp-1">
-            {product.hindiName}
+          {/* Product Name (Single language matching user preference) */}
+          <h3 className="font-bold text-gray-900 text-sm sm:text-base leading-snug group-hover:text-[#2D5A27] transition-colors line-clamp-1 mb-1.5">
+            {isEnglish ? translateText(product.name || product.hindiName || '') : (product.hindiName || translateText(product.name || ''))}
           </h3>
-          {product.name && (
-            <p className="text-xs text-gray-500 font-normal line-clamp-1 mb-1.5">
-              {product.name}
-            </p>
-          )}
 
           {/* Short Product Information */}
           {product.description && (
             <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed mb-2.5 font-normal">
-              {product.description}
+              {translateText(product.description)}
             </p>
           )}
 
@@ -145,13 +142,14 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
           <div className="pt-2 border-t border-gray-100">
             <span className="text-[11px] font-medium text-gray-500 flex items-center gap-1 mb-1.5">
               <Package className="w-3 h-3 text-gray-400" />
-              उपलब्ध पैक:
+              {t('available_packs')}
             </span>
 
             {/* Packaging Chips */}
             <div className="flex flex-wrap gap-1.5">
               {variants.map((v) => {
                 const isSelected = v.id === (activeVariant?.id || 'default');
+                const translatedQty = translateText(v.quantity);
                 return (
                   <button
                     key={v.id}
@@ -166,9 +164,9 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
                         ? "bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs scale-105 font-semibold"
                         : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
                     )}
-                    title={`${v.quantity} - ₹${v.price}`}
+                    title={`${translatedQty} - ₹${v.price}`}
                   >
-                    {v.quantity}
+                    {translatedQty}
                   </button>
                 );
               })}
@@ -182,7 +180,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
           <div className="mb-3 flex items-baseline justify-between">
             <div>
               {product.hidePrice || !displayPrice ? (
-                <span className="text-xs text-gray-400 font-medium">कीमत उपलब्ध नहीं</span>
+                <span className="text-xs text-gray-400 font-medium">{t('price_not_available')}</span>
               ) : (
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-base sm:text-lg font-bold text-[#2D5A27]">
@@ -190,7 +188,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
                   </span>
                   {displayUnit && (
                     <span className="text-[11px] text-gray-500 font-medium">
-                      / {displayUnit}
+                      / {translateText(displayUnit)}
                     </span>
                   )}
                 </div>
@@ -198,7 +196,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
             </div>
             {!isInStock && (
               <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
-                स्टॉक खत्म
+                {t('out_of_stock')}
               </span>
             )}
           </div>
@@ -221,17 +219,17 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
                     ? "bg-emerald-700 text-white"
                     : "bg-[#2D5A27] hover:bg-[#23471f] text-white"
               )}
-              title={isInStock ? "कार्ट में जोड़ें" : "स्टॉक समाप्त"}
+              title={isInStock ? t('add_to_cart') : t('out_of_stock')}
             >
               {isAdded ? (
                 <>
                   <Check className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>Added</span>
+                  <span>{t('added')}</span>
                 </>
               ) : (
                 <>
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Add To Cart</span>
+                  <span>{t('add_to_cart')}</span>
                 </>
               )}
             </button>
@@ -248,7 +246,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
                   ? "bg-[#EAB308] hover:bg-[#d4a007] text-[#2D5A27]"
                   : "bg-gray-200 text-gray-400 cursor-not-allowed"
               )}
-              title={isInStock ? "अभी खरीदें" : "स्टॉक समाप्त"}
+              title={isInStock ? t('buy_now') : t('out_of_stock')}
             >
               <ShoppingBag className="w-4 h-4" />
             </button>
