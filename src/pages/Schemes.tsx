@@ -14,13 +14,11 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { useLanguage } from '../context/LanguageContext';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
 
 const Schemes: React.FC = () => {
   const { loading: appLoading } = useAppContext();
-  const { t, translateText, isHindi } = useLanguage();
   const { 
     apiKey: effectiveApiKey, 
     requireApiKey, 
@@ -103,8 +101,8 @@ const Schemes: React.FC = () => {
               <Landmark className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-gray-900">{t('schemes_title')}</h1>
-              <p className="text-[11px] text-gray-500 font-medium">{t('schemes_subtitle')}</p>
+              <h1 className="text-lg font-bold tracking-tight text-gray-900">सरकारी योजनाएं</h1>
+              <p className="text-[11px] text-gray-500 font-medium">केंद्र एवं राज्य सरकार की किसान कल्याणकारी योजनाएं</p>
             </div>
           </div>
 
@@ -114,7 +112,7 @@ const Schemes: React.FC = () => {
             className="flex items-center gap-1.5 text-xs font-semibold bg-gray-50 hover:bg-gray-100 active:scale-95 transition-all px-3 py-2 rounded-2xl border border-gray-200 text-gray-700 shrink-0"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-[#2D5A27] ${refreshing ? 'animate-spin' : ''}`} />
-            <span>{refreshing ? t('loading') : t('refresh_rates')}</span>
+            <span>{refreshing ? 'सर्च हो रहा है...' : 'ताज़ा करें'}</span>
           </button>
         </div>
 
@@ -140,7 +138,7 @@ const Schemes: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={isHindi ? "योजना खोजें... (जैसे: सोलर पंप, ट्रैक्टर, बीमा, खाद, KCC)" : "Search schemes... (e.g. Solar Pump, Tractor, Insurance, Fertilizer, KCC)"}
+            placeholder="योजना खोजें... (जैसे: सोलर पंप, ट्रैक्टर, बीमा, खाद, KCC)"
             className="w-full bg-gray-50 border border-gray-200 focus:border-[#2D5A27] focus:bg-white text-gray-800 placeholder-gray-400 text-xs rounded-2xl pl-9 pr-9 py-2.5 outline-none transition-all shadow-xs"
           />
           {searchQuery && (
@@ -208,19 +206,19 @@ const Schemes: React.FC = () => {
                           ? 'bg-blue-50/80 text-blue-600 border-blue-200' 
                           : 'bg-orange-50/80 text-orange-700 border-orange-200'
                       }`}>
-                        {isCentral ? t('central_govt') : t('state_govt')}
+                        {isCentral ? 'भारत सरकार (Central)' : 'मध्य प्रदेश (State)'}
                       </span>
                     )}
 
                     {scheme.sector && (
                       <span className="text-[11px] font-bold px-3 py-0.5 bg-emerald-50/80 text-emerald-700 rounded-full border border-emerald-200 inline-flex items-center">
-                        {translateText(scheme.sector)}
+                        {scheme.sector}
                       </span>
                     )}
 
                     {scheme.isNew && (
                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-300 inline-flex items-center gap-1">
-                        <Sparkles className="w-2.5 h-2.5 text-amber-500" /> {isHindi ? 'नई योजना' : 'New Scheme'}
+                        <Sparkles className="w-2.5 h-2.5 text-amber-500" /> नई योजना
                       </span>
                     )}
                   </div>
@@ -239,12 +237,10 @@ const Schemes: React.FC = () => {
                 {/* Subsidy Highlight & Bottom bar */}
                 <div className="mt-3.5 pt-3 border-t border-gray-100/90 flex items-center justify-between gap-2">
                   <div className="text-[10.5px] font-semibold text-[#2D5A27] bg-[#2D5A27]/8 px-2.5 py-1 rounded-lg border border-[#2D5A27]/10 truncate max-w-[72%] flex items-center gap-1.5">
-                    <span className="truncate">
-                      {scheme.subsidyDetails ? `${t('subsidy')}: ${scheme.subsidyDetails}` : (isHindi ? 'लाभार्थी योजना' : 'Beneficiary Scheme')}
-                    </span>
+                    <span className="truncate">{scheme.subsidyDetails ? `सहायता: ${scheme.subsidyDetails}` : 'लाभार्थी योजना'}</span>
                   </div>
                   <div className="flex items-center text-[11px] font-bold text-gray-400 group-hover:text-[#2D5A27] transition-colors shrink-0">
-                    <span>{t('view_details')}</span>
+                    <span>विवरण</span>
                     <ChevronRight className="w-3.5 h-3.5 ml-0.5 text-gray-400 group-hover:text-[#2D5A27] group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </div>

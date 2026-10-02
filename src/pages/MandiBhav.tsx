@@ -26,13 +26,11 @@ import {
   Key
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { useLanguage } from '../context/LanguageContext';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
 
 const MandiBhav: React.FC = () => {
   const { loading: appLoading } = useAppContext();
-  const { t, isHindi, translateText } = useLanguage();
   const { 
     apiKey: effectiveApiKey, 
     requireApiKey, 
@@ -204,23 +202,23 @@ const MandiBhav: React.FC = () => {
             <TrendingUp className="w-6 h-6" />
           </div>
         </div>
-        <h2 className="text-2xl font-black text-[#2D5A27] tracking-tight">{t('mandi_title')}</h2>
+        <h2 className="text-2xl font-black text-[#2D5A27] tracking-tight">मंडी भाव (Mandi Bhaav)</h2>
         <p className="text-xs text-gray-500 font-medium mt-1">
-          {t('mandi_subtitle')}
+          फल्सावदिया कृषि बाजार • सभी मंडियों और फसलों के ताज़ा लाइव दाम
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-2 mt-3.5">
           <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm border border-[#2D5A27]/10">
             <Calendar className="w-3.5 h-3.5 text-[#2D5A27]" />
             <span className="text-[11px] font-bold text-[#2D5A27]">
-              {currentTime.toLocaleDateString(isHindi ? 'hi-IN' : 'en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
+              {currentTime.toLocaleDateString('hi-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
             </span>
           </div>
 
           {loading ? (
             <div className="bg-gray-100 text-gray-700 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-gray-200">
               <Loader2 className="w-3 h-3 animate-spin text-[#2D5A27]" />
-              {isHindi ? 'लाइव भाव खोज रहे हैं...' : 'Fetching live rates...'}
+              लाइव भाव खोज रहे हैं...
             </div>
           ) : data?.sourceType === 'govt' ? (
             <div className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
@@ -318,7 +316,7 @@ const MandiBhav: React.FC = () => {
               <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder={isHindi ? "फसल का नाम खोजें (उदा. लहसुन, सोयाबीन)..." : "Search crop name (e.g. Garlic, Soybean)..."}
+                placeholder="फसल का नाम खोजें (उदा. लहसुन, सोयाबीन)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-2xl text-xs font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27]"
@@ -331,9 +329,9 @@ const MandiBhav: React.FC = () => {
                 onChange={(e) => setSelectedCropFilter(e.target.value)}
                 className="w-full pl-3 pr-8 py-3 bg-white border border-gray-200 rounded-2xl text-xs font-bold text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] appearance-none"
               >
-                <option value="ALL">{isHindi ? 'सभी फसलें' : 'All Crops'}</option>
+                <option value="ALL">सभी फसलें</option>
                 {CROPS_LIST.map((crop) => (
-                  <option key={crop} value={crop}>{isHindi ? getHindiCropName(crop) : crop}</option>
+                  <option key={crop} value={crop}>{getHindiCropName(crop)}</option>
                 ))}
               </select>
               <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
