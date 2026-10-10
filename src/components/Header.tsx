@@ -4,7 +4,7 @@ import {
   Calculator, PhoneCall, Bug, TrendingUp, ShoppingCart, Sparkles, 
   Info, ShieldCheck, FileText, RotateCcw, AlertTriangle, ShieldAlert, 
   HelpCircle, Truck, Scale, Award, Camera, CloudSun, Package, MessageCircle,
-  Home, ShoppingBag
+  Home, ShoppingBag, TestTube2
 } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -58,6 +58,7 @@ const Header: React.FC = () => {
     { icon: TrendingUp, label: 'मंडी भाव (Mandi Bhav)', path: '/mandi', color: 'text-green-600' },
     { icon: Bug, label: 'कीट एवं रोग निर्देशिका', path: '/encyclopedia', color: 'text-rose-600' },
     { icon: Landmark, label: 'सरकारी योजनाएं', path: '/schemes', color: 'text-blue-600' },
+    { icon: TestTube2, label: 'मिट्टी परीक्षण (Soil Testing)', path: '/soil-testing', color: 'text-emerald-700' },
     { icon: Calculator, label: 'Calculator', path: '/calculator', color: 'text-orange-600' },
     { icon: PhoneCall, label: 'हेल्पलाइन डायरेक्टरी', path: '/helpline', color: 'text-cyan-600' },
   ];
@@ -402,7 +403,7 @@ const Header: React.FC = () => {
                     isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
-                  <ShoppingBag className="w-3.5 h-3.5" /> कृषि बाज़ार
+                  <ShoppingBag className="w-3.5 h-3.5" /> कृषि बाजार
                 </NavLink>
 
                 <NavLink 
