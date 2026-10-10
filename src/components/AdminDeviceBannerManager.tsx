@@ -39,6 +39,16 @@ interface AdminDeviceBannerManagerProps {
   onSaveContent?: () => Promise<void>;
 }
 
+const renderDeviceIcon = (type: DeviceType, className = "w-4 h-4") => {
+  switch (type) {
+    case 'mobile': return <Smartphone className={className} />;
+    case 'tablet': return <Tablet className={className} />;
+    case 'laptop': return <Laptop className={className} />;
+    case 'desktop': return <Monitor className={className} />;
+    default: return <Smartphone className={className} />;
+  }
+};
+
 const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
   contentForm,
   setContentForm,
@@ -329,7 +339,7 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                   : "text-gray-600 hover:text-gray-900 hover:bg-white/60"
               )}
             >
-              <span className="text-base">{meta.iconText}</span>
+              {renderDeviceIcon(type, "w-4 h-4 shrink-0")}
               <span>{meta.hindiLabel}</span>
               <span className={cn(
                 "text-[10px] px-2 py-0.5 rounded-full font-black ml-1",
@@ -348,8 +358,8 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
       <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-xl shrink-0 text-emerald-700">
-              {activeDeviceMeta.iconText}
+            <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0 text-emerald-700">
+              {renderDeviceIcon(activeDeviceTab, "w-5 h-5")}
             </div>
             <div>
               <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2">
@@ -410,8 +420,8 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
         <div className="bg-gradient-to-br from-emerald-50/90 to-emerald-100/40 border border-emerald-200 rounded-3xl p-4 sm:p-5 space-y-3.5 shadow-xs">
           <div className="flex items-start justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3 text-emerald-950">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-700 text-white flex items-center justify-center font-black text-base shadow-xs shrink-0">
-                {activeDeviceMeta.iconText}
+              <div className="w-10 h-10 rounded-2xl bg-emerald-700 text-white flex items-center justify-center shadow-xs shrink-0">
+                {renderDeviceIcon(activeDeviceTab, "w-5 h-5")}
               </div>
               <div>
                 <h4 className="font-black text-emerald-950 text-sm sm:text-base flex items-center gap-2 flex-wrap">
@@ -528,7 +538,8 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                     #{idx + 1}
                   </span>
                   <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                    {activeDeviceMeta.iconText} {activeDeviceMeta.hindiLabel} बैनर
+                    {renderDeviceIcon(activeDeviceTab, "w-3.5 h-3.5 text-emerald-700")}
+                    <span>{activeDeviceMeta.hindiLabel} बैनर</span>
                   </span>
                   <span className={cn(
                     "text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase",
@@ -791,8 +802,8 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
             >
               <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-sm font-bold">
-                    {activeDeviceMeta.iconText}
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                    {renderDeviceIcon(activeDeviceTab, "w-4 h-4 text-emerald-800")}
                   </div>
                   <div>
                     <h4 className="font-bold text-gray-900 text-base">

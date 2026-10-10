@@ -73,5 +73,17 @@ To ensure seamless scalability for 1,000,000 (10 Lakh) farmers with zero quota c
 - **Strict Immutability & Admin-Only Modification Authority**:
   - **LOCKED STANDARD**: Developers and AI agents are strictly forbidden from disabling the Centralized Hubs, reintroducing blocking API key modals for viewing, switching models, or altering this architecture unless EXPLICITLY ordered by the Admin (`yashfalsawdiya36@gmail.com`).
 
-
-
+## 7. Strict Restored Baseline & Zero-Regression Code Protection (Permanent Lock)
+- **Active Restored Baseline**:
+  - The codebase snapshot restored from version **"Sep 26 - Admin Panel Nitiyan Section"** (`v-baseline-sep26`) is the official immutable baseline.
+  - All existing UI pages, layout components (`Header.tsx`, `Footer.tsx`, `BottomNav.tsx`, `Layout.tsx`), color schemes, Lucide icons, fonts, routes, POS/Accounting modules, and Admin panels in this restored version are LOCKED.
+- **Zero Unsolicited Code/UI Modifications**:
+  - AI agents and developers must **NEVER** modify, redesign, refactor, replace, or simplify existing UI pages, components, CSS styles, or navigation bars on application load or during unrelated feature requests.
+  - Do NOT touch or rewrite functioning UI components unless the user's prompt explicitly asks for a change to that specific component.
+- **Strict Incremental-Only Version Progression**:
+  - When the admin requests a new feature or modification, all code changes **MUST** be built strictly on top of this restored baseline as a forward incremental step.
+  - Never revert, overwrite, or delete existing features or restore points.
+  - Every modification must be validated with `compile_applet` and `lint_applet` to guarantee zero build breakage or unintentional regressions.
+- **Git Baseline Checkpoint & Audit**:
+  - The repository maintains the tag `v-baseline-sep26`.
+  - Every new change must form a clean incremental commit so that any regression can be instantly diffed and verified against the restored baseline.

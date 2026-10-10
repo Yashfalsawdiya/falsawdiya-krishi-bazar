@@ -276,56 +276,25 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
           </span>
         </div>
 
-        {/* Treatment Shop Notice - Redesigned with visual hierarchy & elegant badges */}
-        <div className="bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/40 rounded-2xl border border-emerald-200/80 p-3.5 sm:p-4 shadow-xs space-y-3">
+        {/* Treatment Shop Notice */}
+        <div className="bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/40 rounded-2xl border border-emerald-200/80 p-3.5 sm:p-4 shadow-xs space-y-2.5">
           {/* Header Row */}
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-[#2D5A27] text-white flex items-center justify-center shadow-xs shrink-0">
                 <Store className="w-4 h-4" />
               </div>
-              <div>
-                <h5 className="font-extrabold text-[#2D5A27] text-xs sm:text-sm tracking-tight">
-                  फल्सावदिया कृषि बाजार पर उपलब्ध
-                </h5>
-                <p className="text-[11px] text-gray-600 font-medium">
-                  सभी अनुशंसित दवाएं व खाद हमारे स्टोर पर उचित दरों पर उपलब्ध हैं।
-                </p>
-              </div>
+              <h5 className="font-extrabold text-[#2D5A27] text-xs sm:text-sm tracking-tight">
+                रिपोर्ट में सुझाए गए सभी अनुशंसित कृषि उत्पाद फल्सावदिया कृषि बाजार पर उपलब्ध हैं
+              </h5>
             </div>
             <span className="inline-flex items-center gap-1 text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-200 shrink-0">
               <BadgeCheck className="w-3 h-3 text-[#2D5A27]" /> 100% असली ब्रांड्स
             </span>
           </div>
-
-          {/* Quick Info Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-            {/* Address */}
-            <div className="bg-white p-2.5 rounded-xl border border-emerald-100 flex items-start gap-2 shadow-2xs">
-              <MapPin className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-              <div className="min-w-0 flex-1">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-                  दुकान का पता
-                </span>
-                <span className="font-bold text-gray-800 leading-snug">
-                  डिम्पल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़ (458883)
-                </span>
-              </div>
-            </div>
-
-            {/* Timings */}
-            <div className="bg-white p-2.5 rounded-xl border border-emerald-100 flex items-start gap-2 shadow-2xs">
-              <Clock className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-              <div className="min-w-0 flex-1">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-                  दुकान का समय
-                </span>
-                <span className="font-bold text-gray-800 leading-snug">
-                  प्रतिदिन सुबह 8:00 बजे से रात 8:00 बजे तक
-                </span>
-              </div>
-            </div>
-          </div>
+          <p className="text-[11.5px] sm:text-xs text-gray-700 font-medium leading-relaxed">
+            अपनी फसल की समस्या के अनुसार अनुशंसित उत्पाद हमारे स्टोर से प्राप्त करें और बेहतर फसल सुरक्षा एवं पैदावार के लिए फल्सावदिया कृषि बाजार के साथ जुड़ें।
+          </p>
         </div>
 
         {/* Sub-section A: Chemical Control */}

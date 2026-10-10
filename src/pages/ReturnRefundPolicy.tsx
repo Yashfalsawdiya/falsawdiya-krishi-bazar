@@ -20,24 +20,44 @@ import {
   PhoneCall, 
   ShieldAlert,
   Layers,
-  ArrowLeft
+  ArrowLeft,
+  X
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
+import { DEFAULT_LEGAL_PAGES_CONTENT_EN } from '../data/defaultPagesContentEn';
 
 const ICONS = [RotateCcw, AlertCircle, Clock, Ban, PackageX, Truck, CreditCard, Phone];
 
 const ReturnRefundPolicy: React.FC = () => {
   const navigate = useNavigate();
   const { appContent, legalPagesContent } = useAppContext();
+  const { isEnglish, translateText } = useLanguage();
 
   const branding = appContent?.branding || {
     name: 'फल्सावदिया कृषि बाजार',
     tagline: 'किसान का भरोसा, हमारी पहचान'
   };
 
-  const refundData = legalPagesContent?.refundPolicy || DEFAULT_LEGAL_PAGES_CONTENT.refundPolicy;
+  const defaultRefund = isEnglish ? DEFAULT_LEGAL_PAGES_CONTENT_EN.refundPolicy : DEFAULT_LEGAL_PAGES_CONTENT.refundPolicy;
+  const rawRefundData = legalPagesContent?.refundPolicy || defaultRefund;
+  const refundData = {
+    ...rawRefundData,
+    bannerTitle: isEnglish ? (rawRefundData === defaultRefund ? rawRefundData.bannerTitle : translateText(rawRefundData.bannerTitle)) : rawRefundData.bannerTitle,
+    bannerSubtitle: isEnglish ? (rawRefundData === defaultRefund ? rawRefundData.bannerSubtitle : translateText(rawRefundData.bannerSubtitle)) : rawRefundData.bannerSubtitle,
+    introText: isEnglish ? (rawRefundData === defaultRefund ? rawRefundData.introText : translateText(rawRefundData.introText)) : rawRefundData.introText,
+    returnWindowText: isEnglish ? (rawRefundData === defaultRefund ? rawRefundData.returnWindowText : translateText(rawRefundData.returnWindowText || '')) : rawRefundData.returnWindowText,
+    refundProcessText: isEnglish ? (rawRefundData === defaultRefund ? rawRefundData.refundProcessText : translateText(rawRefundData.refundProcessText || '')) : rawRefundData.refundProcessText,
+    nonReturnableConditions: rawRefundData.nonReturnableConditions?.map(c => isEnglish ? (rawRefundData === defaultRefund ? c : translateText(c)) : c),
+    sections: (rawRefundData.sections || []).map(sec => ({
+      ...sec,
+      title: isEnglish ? (rawRefundData === defaultRefund ? sec.title : translateText(sec.title)) : sec.title,
+      content: isEnglish ? (rawRefundData === defaultRefund ? sec.content : translateText(sec.content)) : sec.content,
+      bullets: sec.bullets ? sec.bullets.map(b => isEnglish ? (rawRefundData === defaultRefund ? b : translateText(b)) : b) : undefined
+    }))
+  };
 
   return (
     <div className="space-y-6 pb-8">
@@ -46,10 +66,10 @@ const ReturnRefundPolicy: React.FC = () => {
         <button
           onClick={() => navigate(-1)}
           className="flex items-center gap-1.5 text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 active:scale-95 px-3.5 py-2 rounded-2xl shadow-xs border border-gray-200 transition-all cursor-pointer"
-          title="वापस जाएँ (Back)"
+          title={isEnglish ? 'Back' : 'वापस जाएँ'}
         >
           <ArrowLeft className="w-4 h-4 text-[#2D5A27]" />
-          <span>वापस जाएँ (Back)</span>
+          <span>{isEnglish ? 'Back' : 'वापस जाएँ'}</span>
         </button>
       </div>
 
@@ -121,7 +141,9 @@ const ReturnRefundPolicy: React.FC = () => {
           <div className="space-y-2">
             {refundData.nonReturnableConditions.map((item, idx) => (
               <div key={idx} className="flex items-center gap-2 bg-white/90 p-2.5 rounded-xl border border-rose-100 text-xs text-gray-800 font-medium">
-                <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-[10px] font-black shrink-0">✕</span>
+                <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                  <X className="w-2.5 h-2.5" />
+                </span>
                 <span>{item}</span>
               </div>
             ))}

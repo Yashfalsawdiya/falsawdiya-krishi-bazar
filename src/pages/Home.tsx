@@ -46,19 +46,19 @@ const BANNERS = [
 const VIDEOS = [
   {
     id: 'v1',
-    title: 'आधुनिक खेती की जानकारी',
+    title: { hi: 'आधुनिक खेती की जानकारी', en: 'Modern Farming Methods & Guidance' },
     videoId: '9-3-P4mXG3A',
     thumbnail: ''
   },
   {
     id: 'v2',
-    title: 'मिट्टी परीक्षण कैसे करें',
+    title: { hi: 'मिट्टी परीक्षण कैसे करें', en: 'How to Do Soil Testing' },
     videoId: '6Z_L2v_p-m8',
     thumbnail: ''
   },
   {
     id: 'v3',
-    title: 'जैविक खाद बनाने की विधि',
+    title: { hi: 'जैविक खाद बनाने की विधि', en: 'How to Make Organic Fertilizer' },
     videoId: 'dQw4w9WgXcQ',
     thumbnail: ''
   }
@@ -76,6 +76,12 @@ import ProductDetailModal from '../components/ProductDetailModal';
 import FeaturedProductCard from '../components/FeaturedProductCard';
 import SmartImage from '../components/SmartImage';
 import { Product, ImageSource } from '../types';
+
+const translateText = (field: any): string => {
+  if (!field) return '';
+  if (typeof field === 'string') return field;
+  return field.hi || field.en || '';
+};
 
 const Home: React.FC = () => {
   const { products, categories, appContent, user, loadProducts, loadCategoryData, loading: appLoading } = useAppContext();
@@ -309,7 +315,9 @@ const Home: React.FC = () => {
         <p className="text-xs font-bold text-gray-500 flex items-center gap-1">
           <Calendar className="w-3 h-3" /> {currentDate}
         </p>
-        <p className="text-[10px] text-[#2D5A27] font-bold">शामगढ़ (Shamgarh)</p>
+        <p className="text-[10px] text-[#2D5A27] font-bold">
+          शामगढ़ (Shamgarh)
+        </p>
       </div>
 
       {/* Banner Slider */}
@@ -599,7 +607,7 @@ const Home: React.FC = () => {
               {weather ? (
                 <div className="mt-2">
                   <h2 className="text-2xl font-bold leading-none">{weather.temp}°C</h2>
-                  <p className="text-[10px] font-medium mt-1 truncate">{weather.condition}</p>
+                  <p className="text-[10px] font-medium mt-1 truncate">{translateText(weather.condition)}</p>
                 </div>
               ) : (
                 <Loader2 className="w-5 h-5 animate-spin opacity-50 my-2" />
@@ -621,9 +629,9 @@ const Home: React.FC = () => {
               </div>
               {mandi ? (
                 <div className="animate-in fade-in duration-500 mt-2">
-                  <p className="text-[10px] font-bold text-gray-500 truncate">{mandi.items[0]?.commodity}</p>
+                  <p className="text-[10px] font-bold text-gray-500 truncate">{translateText(mandi.items[0]?.commodity || '')}</p>
                   <h2 className="text-xl font-bold text-[#2D5A27] leading-none">₹{mandi.items[0]?.avgPrice}</h2>
-                  <p className="text-[9px] text-gray-400 mt-1 truncate">{mandi.mandiName} मंडी</p>
+                  <p className="text-[9px] text-gray-400 mt-1 truncate">{translateText(mandi.mandiName)} मंडी</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-1 my-2">
@@ -640,7 +648,7 @@ const Home: React.FC = () => {
 
         {/* Government Schemes Banner (Takes full width of mobile, 1 column on md+) */}
         <Link to="/schemes" className="col-span-2 md:col-span-1">
-          <motion.div
+          <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-gradient-to-r from-[#2D5A27] to-[#3D7A35] rounded-2xl p-4 text-white shadow-md flex items-center justify-between overflow-hidden relative h-full"
@@ -650,7 +658,9 @@ const Home: React.FC = () => {
                 <Landmark className="w-5 h-5 text-[#EAB308] shrink-0" />
                 सरकारी योजनाएं
               </h3>
-              <p className="text-xs text-white/80 mt-1">PM-Kisan, सब्सिडी और बीमा</p>
+              <p className="text-xs text-white/80 mt-1">
+                PM-Kisan, सब्सिडी और बीमा
+              </p>
               <div className="mt-3 inline-flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold backdrop-blur-sm">
                 अभी देखें <ArrowRight className="w-3 h-3" />
               </div>
@@ -682,8 +692,11 @@ const Home: React.FC = () => {
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 2xl:grid-cols-10 gap-2.5 sm:gap-3.5 xl:gap-4 2xl:gap-5">
           {sortedCategories.map((cat, index) => {
             const nameMatch = (cat.name || '').match(/^(.*?)(?:\s*\((.*?)\))?$/);
-            const mainName = nameMatch && nameMatch[1] ? nameMatch[1].trim() : cat.name;
-            const subName = nameMatch && nameMatch[2] ? nameMatch[2].trim() : '';
+            const rawMain = nameMatch && nameMatch[1] ? nameMatch[1].trim() : cat.name;
+            const rawSub = nameMatch && nameMatch[2] ? nameMatch[2].trim() : '';
+            
+            const mainName = rawMain;
+            const subName = rawSub;
 
             return (
               <motion.div
@@ -736,7 +749,9 @@ const Home: React.FC = () => {
       {/* Featured Products */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-bold text-[#4A3728]">विशेष उत्पाद (Featured)</h3>
+          <h3 className="text-lg font-bold text-[#4A3728]">
+            विशेष उत्पाद (Featured)
+          </h3>
           <Link to="/products" className="text-sm font-bold text-[#2D5A27] flex items-center gap-1">
             सभी देखें <ArrowRight className="w-3 h-3" />
           </Link>
@@ -848,9 +863,13 @@ const Home: React.FC = () => {
                       </div>
                     </div>
                     <div className="p-3">
-                      <h4 className="text-sm font-bold text-gray-800 line-clamp-2">{video.title}</h4>
+                      <h4 className="text-sm font-bold text-gray-800 line-clamp-2">
+                        {translateText(video.title)}
+                      </h4>
                       {video.description && (
-                        <p className="text-xs text-gray-500 line-clamp-1 mt-1">{video.description}</p>
+                        <p className="text-xs text-gray-500 line-clamp-1 mt-1">
+                          {translateText(video.description)}
+                        </p>
                       )}
                     </div>
                   </a>
@@ -879,6 +898,7 @@ const Home: React.FC = () => {
           <div className="absolute -right-8 -bottom-8 w-28 h-28 bg-[#25D366]/10 rounded-full blur-2xl pointer-events-none group-hover:bg-[#25D366]/20 transition-colors" />
 
           {/* Top Header */}
+          {/* Top Header */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-[#25D366] to-[#1ebe57] text-white flex items-center justify-center shadow-md shadow-[#25D366]/25 group-hover:scale-105 transition-transform shrink-0">
@@ -888,11 +908,13 @@ const Home: React.FC = () => {
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse shrink-0" />
                   <span className="text-[10px] font-bold text-[#128C7E] uppercase tracking-wider">
-                    {whatsappSection.mode === 'group' ? 'कृषि समुदाय ग्रुप' : 'सीधी सहायता'}
+                    {whatsappSection.mode === 'group' 
+                      ? 'कृषि समुदाय ग्रुप' 
+                      : 'सीधी सहायता'}
                   </span>
                 </div>
                 <h4 className="font-extrabold text-sm sm:text-base text-gray-900 group-hover:text-[#128C7E] transition-colors truncate">
-                  {whatsappSection.title}
+                  {translateText(whatsappSection.title)}
                 </h4>
               </div>
             </div>
@@ -903,13 +925,15 @@ const Home: React.FC = () => {
 
           {/* Description */}
           <p className="text-xs text-gray-600 font-medium leading-relaxed line-clamp-2">
-            {whatsappSection.description}
+            {translateText(whatsappSection.description)}
           </p>
 
           {/* Action Row */}
           <div className="pt-2 border-t border-emerald-100/80 flex items-center justify-between mt-auto text-xs font-bold text-[#128C7E]">
             <span className="flex items-center gap-1.5 group-hover:gap-2 transition-all">
-              {whatsappSection.mode === 'group' ? 'ग्रुप में शामिल हों' : 'मैसेज करें'}
+              {whatsappSection.mode === 'group' 
+                ? 'ग्रुप में शामिल हों' 
+                : 'मैसेज करें'}
             </span>
             <span className="w-7 h-7 rounded-xl bg-[#25D366] group-hover:bg-[#20ba59] text-white flex items-center justify-center shadow-xs group-hover:translate-x-0.5 transition-all">
               <ArrowRight className="w-3.5 h-3.5" />
@@ -943,15 +967,15 @@ const Home: React.FC = () => {
 
                 <div>
                   <h4 className="font-extrabold text-xs sm:text-sm text-gray-900 group-hover:text-[#1877F2] transition-colors truncate">
-                    {facebookSection.title}
+                    {translateText(facebookSection.title)}
                   </h4>
                   <p className="text-[10px] sm:text-xs text-gray-500 font-medium line-clamp-1 mt-0.5">
-                    {facebookSection.description}
+                    {translateText(facebookSection.description)}
                   </p>
                 </div>
 
                 <div className="pt-2 border-t border-blue-100/80 flex items-center justify-between text-[10px] sm:text-xs font-extrabold text-[#1877F2]">
-                  <span className="truncate">{facebookSection.buttonText || 'प्रोफाइल देखें'}</span>
+                  <span className="truncate">{translateText(facebookSection.buttonText || 'प्रोफाइल देखें')}</span>
                   <span className="w-6 h-6 rounded-lg bg-blue-50 group-hover:bg-[#1877F2] group-hover:text-white text-[#1877F2] flex items-center justify-center transition-colors">
                     <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </span>
@@ -979,15 +1003,15 @@ const Home: React.FC = () => {
 
                 <div>
                   <h4 className="font-extrabold text-xs sm:text-sm text-gray-900 group-hover:text-[#DD2A7B] transition-colors truncate">
-                    {instagramSection.title}
+                    {translateText(instagramSection.title) || 'इंस्टाग्राम पर हमें फॉलो करें'}
                   </h4>
                   <p className="text-[10px] sm:text-xs text-gray-500 font-medium line-clamp-1 mt-0.5">
-                    {instagramSection.description}
+                    {translateText(instagramSection.description) || 'आधुनिक खेती के वीडियो और रील्स देखें'}
                   </p>
                 </div>
 
                 <div className="pt-2 border-t border-pink-100/80 flex items-center justify-between text-[10px] sm:text-xs font-extrabold text-[#DD2A7B]">
-                  <span className="truncate">{instagramSection.buttonText || 'प्रोफाइल देखें'}</span>
+                  <span className="truncate">{translateText(instagramSection.buttonText) || 'अभी फॉलो करें'}</span>
                   <span className="w-6 h-6 rounded-lg bg-pink-50 group-hover:bg-[#DD2A7B] group-hover:text-white text-[#DD2A7B] flex items-center justify-center transition-colors">
                     <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </span>
@@ -1028,12 +1052,14 @@ const Home: React.FC = () => {
           {/* Address Content & Timings */}
           <div className="space-y-2">
             <p className="text-xs sm:text-[13px] font-medium text-gray-700 leading-relaxed">
-              {contactInfo.address || 'डिम्पल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)'}
+              {contactInfo.address || 'डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)'}
             </p>
 
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/90 border border-emerald-100/80 text-[11px] font-semibold text-gray-600 shadow-2xs">
               <Clock className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
-              <span>दुकान समय: <strong className="text-gray-900 font-bold">सुबह 8:00 से रात 8:00 बजे तक</strong></span>
+              <span>
+                दुकान समय: <strong className="text-gray-900 font-bold">सुबह 8:00 से रात 8:00 बजे तक</strong>
+              </span>
             </div>
           </div>
 
@@ -1059,9 +1085,6 @@ const Home: React.FC = () => {
             </span>
             <span>
               आज की सलाह
-              <span className="text-xs font-medium text-[#2D5A27]/80 font-sans ml-1.5 hidden sm:inline">
-                (Today's Tip)
-              </span>
             </span>
           </h3>
 
@@ -1092,7 +1115,7 @@ const Home: React.FC = () => {
         ) : (
           <div className="space-y-1">
             <p className="text-xs sm:text-sm text-[#263D23] font-medium leading-relaxed">
-              {dailyTip}
+              {translateText(dailyTip)}
             </p>
             <p className="text-[11px] text-[#42603E]/80 hidden sm:block">
               खेती से जुड़ा सवाल पूछें और AI कृषि सहायक से सीधे बात करें

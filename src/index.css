@@ -25,6 +25,19 @@
     word-spacing: normal;
   }
 
+  /* Competitor-Grade E-Commerce Typography (Flipkart & Amazon standard) */
+  html[lang="hi"], 
+  html[lang="hi"] body {
+    font-family: "Noto Sans Devanagari", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    letter-spacing: normal !important;
+    word-spacing: normal !important;
+  }
+
+  html[lang="en"], 
+  html[lang="en"] body {
+    font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  }
+
   /* Universal E-Commerce Heading & Subheading Standards */
   h1, h2, h3, h4, h5, h6 {
     text-rendering: optimizeLegibility;

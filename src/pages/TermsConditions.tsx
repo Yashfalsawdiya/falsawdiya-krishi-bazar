@@ -185,7 +185,7 @@ const TermsConditions: React.FC = () => {
           to="/"
           className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
         >
-          मुख्य पृष्ठ (Home)
+          मुख्य पृष्ठ
         </Link>
       </div>
     </div>

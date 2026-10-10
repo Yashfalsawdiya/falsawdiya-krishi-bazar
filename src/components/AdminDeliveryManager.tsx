@@ -14,6 +14,7 @@ import {
 import { AdminDeliveryPartnersManager } from './AdminDeliveryPartnersManager';
 import { AdminEmailOtpManager } from './AdminEmailOtpManager';
 import { SafeErrorBoundary } from './SafeErrorBoundary';
+import { VehicleIcon } from './common/VehicleIcon';
 
 const COMMON_EMOJIS = ['🛵', '🛺', '🛻', '🚚', '🚛', '🚜', '🚐', '📦', '🚲', '🚗'];
 
@@ -718,7 +719,9 @@ const AdminDeliveryManager: React.FC = () => {
                         <td className="py-3.5 px-4 align-middle">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2.5">
-                              <span className="text-2xl select-none">{v.icon || '🚚'}</span>
+                              <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+                                <VehicleIcon emojiOrType={v.icon || v.id} className="w-4 h-4 text-emerald-800" />
+                              </div>
                               <div>
                                 <div className="flex items-center gap-2">
                                   <span className="font-black text-gray-800 text-xs block">{v.name}</span>
@@ -1167,13 +1170,13 @@ const AdminDeliveryManager: React.FC = () => {
                       key={emoji}
                       type="button"
                       onClick={() => setNewVehicle(prev => ({ ...prev, icon: emoji }))}
-                      className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl border transition-all ${
+                      className={`w-10 h-10 rounded-2xl flex items-center justify-center border transition-all ${
                         newVehicle.icon === emoji 
                           ? 'bg-emerald-50 border-[#2D5A27] shadow-xs scale-105' 
                           : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                       }`}
                     >
-                      {emoji}
+                      <VehicleIcon emojiOrType={emoji} className="w-5 h-5 text-gray-700" />
                     </button>
                   ))}
                 </div>
@@ -1316,13 +1319,13 @@ const AdminDeliveryManager: React.FC = () => {
                         key={emoji}
                         type="button"
                         onClick={() => handleUpdateVehicleDetails(v.id, { icon: emoji })}
-                        className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl border transition-all ${
+                        className={`w-10 h-10 rounded-2xl flex items-center justify-center border transition-all ${
                           v.icon === emoji 
                             ? 'bg-emerald-50 border-[#2D5A27] shadow-xs scale-105' 
                             : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                         }`}
                       >
-                        {emoji}
+                        <VehicleIcon emojiOrType={emoji} className="w-5 h-5 text-gray-700" />
                       </button>
                     ))}
                   </div>
@@ -1358,7 +1361,7 @@ const AdminDeliveryManager: React.FC = () => {
                 क्या आप इस वाहन को हटाना चाहते हैं?
               </h3>
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-50 border border-gray-200 rounded-xl text-xs font-black text-gray-700">
-                <span className="text-base">{vehicleToDelete.icon || '🚚'}</span>
+                <VehicleIcon emojiOrType={vehicleToDelete.icon || vehicleToDelete.id} className="w-4 h-4 text-emerald-800" />
                 <span>{vehicleToDelete.name}</span>
                 <span className="text-[10px] text-gray-500 font-bold">({vehicleToDelete.shortName})</span>
               </div>

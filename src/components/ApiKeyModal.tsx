@@ -65,19 +65,24 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, message }) =
               <button 
                 onClick={onClose}
                 className="absolute top-4 right-4 p-1 hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+                aria-label="बंद करें"
               >
                 <X className="w-5 h-5" />
               </button>
               <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3 backdrop-blur-md">
                 <Key className="w-7 h-7 text-[#EAB308]" />
               </div>
-              <h3 className="text-lg font-bold">API Key आवश्यक है</h3>
-              <p className="text-xs text-white/80 mt-0.5">अपनी व्यक्तिगत Gemini Key दर्ज करें</p>
+              <h3 className="text-lg font-bold">
+                API Key आवश्यक है
+              </h3>
+              <p className="text-xs text-white/80 mt-0.5">
+                अपनी व्यक्तिगत Gemini Key दर्ज करें
+              </p>
             </div>
 
             <div className="p-5 space-y-4">
               <p className="text-xs text-gray-600 text-center font-medium leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">
-                {message || "ऐप के सभी AI फीचर्स केवल आपकी अपनी व्यक्तिगत API Key से चलेंगे।"}
+                {message || 'ऐप के सभी AI फीचर्स केवल आपकी अपनी व्यक्तिगत API Key से चलेंगे।'}
               </p>
 
               {/* Direct Input Field */}
@@ -103,7 +108,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, message }) =
                     ) : saveSuccess ? (
                       <Check className="w-3.5 h-3.5 text-emerald-300" />
                     ) : (
-                      "सेव करें"
+                      'सेव करें'
                     )}
                   </button>
                 </div>

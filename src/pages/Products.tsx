@@ -136,7 +136,9 @@ const Products: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-[#4A3728]">कृषि बाजार (Market)</h2>
+      <h2 className="text-xl font-bold text-[#4A3728]">
+        कृषि बाज़ार
+      </h2>
       
       {/* Category Filter */}
       <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:flex-wrap md:overflow-x-visible">
@@ -147,7 +149,7 @@ const Products: React.FC = () => {
             selectedCategory === 'all' ? "bg-[#2D5A27] text-white" : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300"
           )}
         >
-          सभी (All)
+          सभी
         </button>
         {sortedCategories.map((cat) => (
           <button
@@ -185,8 +187,12 @@ const Products: React.FC = () => {
         ) : (
           <div className="col-span-full text-center py-12 bg-white rounded-2xl border border-dashed border-gray-200">
             <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-            <p className="text-gray-600 font-bold">कोई उत्पाद नहीं मिला</p>
-            <p className="text-xs text-gray-400">कृपया कुछ और खोजें या अन्य श्रेणी चुनें</p>
+            <p className="text-gray-600 font-bold">
+              कोई उत्पाद नहीं मिला
+            </p>
+            <p className="text-xs text-gray-400">
+              कृपया कुछ और खोजें या अन्य श्रेणी चुनें
+            </p>
           </div>
         )}
       </div>

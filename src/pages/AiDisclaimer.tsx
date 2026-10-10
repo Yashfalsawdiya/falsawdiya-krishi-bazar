@@ -53,15 +53,15 @@ const AiDisclaimer: React.FC = () => {
           </div>
 
           <h1 className="text-2xl font-black tracking-tight text-white">
-            {disclaimerData.bannerTitle || 'Agricultural & AI Disclaimer'}
+            {disclaimerData.bannerTitle || 'कृषि एवं AI सलाह अस्वीकरण'}
           </h1>
           <p className="text-sm font-semibold text-[#EAB308]">
-            {disclaimerData.bannerSubtitle || 'कृषि एवं AI अस्वीकरण'}
+            {disclaimerData.bannerSubtitle || 'डिजिटल एवं AI कृषि सलाह सूचना'}
           </p>
 
           <div className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-[11px] font-medium text-green-100 mt-2">
             <Clock className="w-3.5 h-3.5 text-yellow-300" />
-            <span>अंतिम अपडेट: {disclaimerData.lastUpdated || '24 August 2026'}</span>
+            <span>अंतिम अपडेट: {disclaimerData.lastUpdated || '24 अगस्त 2026'}</span>
           </div>
         </div>
       </motion.div>
@@ -75,7 +75,7 @@ const AiDisclaimer: React.FC = () => {
       >
         <div className="flex items-center gap-2 text-[#2D5A27] font-bold">
           <Info className="w-5 h-5 text-[#2D5A27]" />
-          <h2 className="text-base font-black text-[#4A3728]">महत्वपूर्ण सूचना (Important Notice)</h2>
+          <h2 className="text-base font-black text-[#4A3728]">महत्वपूर्ण सूचना</h2>
         </div>
 
         <p className="text-xs text-gray-700 leading-relaxed font-normal whitespace-pre-line">
@@ -174,7 +174,7 @@ const AiDisclaimer: React.FC = () => {
           to="/"
           className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
         >
-          मुख्य पृष्ठ (Home)
+          मुख्य पृष्ठ
         </Link>
       </div>
     </div>

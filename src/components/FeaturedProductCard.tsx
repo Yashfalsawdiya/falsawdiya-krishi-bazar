@@ -64,12 +64,12 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
         !isInStock && "opacity-75 grayscale-[0.3]"
       )}
     >
-      {/* Product Image Section - Full-Bleed Edge-to-Edge with 1:1 Square Proportion */}
+      {/* Product Image Section */}
       <div 
         className="relative aspect-square w-full overflow-hidden border-b border-gray-100 cursor-zoom-in bg-white"
         onClick={(e) => {
           e.stopPropagation();
-          onZoom(product.image, product.hindiName);
+          onZoom(product.image, product.hindiName || product.name);
         }}
       >
         <SmartImage 
@@ -83,7 +83,7 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
         {!isInStock && (
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
             <span className="text-[10px] sm:text-xs font-bold text-white bg-red-600 px-3 py-1 rounded-full shadow-lg border border-white/30 rotate-[-8deg]">
-              स्टॉक समाप्त
+              स्टॉक खत्म
             </span>
           </div>
         )}
@@ -94,7 +94,7 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onZoom(product.image, product.hindiName);
+              onZoom(product.image, product.hindiName || product.name);
             }}
             className="absolute bottom-2.5 right-2.5 bg-white/90 hover:bg-white text-gray-700 p-1.5 rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer"
             title="इमेज बड़ी करें"
@@ -114,19 +114,12 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
             </span>
           )}
 
-          {/* Product Hindi Title */}
-          <h4 className="text-xs sm:text-sm font-bold text-gray-900 group-hover:text-[#2D5A27] transition-colors line-clamp-1">
-            {product.hindiName}
+          {/* Product Title */}
+          <h4 className="text-xs sm:text-sm font-bold text-gray-900 group-hover:text-[#2D5A27] transition-colors line-clamp-1 mb-2">
+            {product.hindiName || product.name}
           </h4>
 
-          {/* Subtitle / English Name */}
-          {product.name && (
-            <p className="text-[11px] text-gray-500 font-normal line-clamp-1 mb-2">
-              {product.name}
-            </p>
-          )}
-
-          {/* Available Packaging Sizes (उपलब्ध पैकिंग) */}
+          {/* Available Packaging Sizes */}
           <div className="my-2 pt-1.5 border-t border-gray-100/80">
             <span className="text-[11px] font-medium text-gray-500 flex items-center gap-1 mb-1.5">
               <Package className="w-3 h-3 text-gray-400" /> 
@@ -165,7 +158,9 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
         <div className="pt-2.5 mt-2 border-t border-gray-100 flex items-center justify-between gap-2">
           <div>
             {product.hidePrice || !displayPrice ? (
-              <span className="text-[10px] text-gray-400 font-medium">कीमत उपलब्ध नहीं</span>
+              <span className="text-[10px] text-gray-400 font-medium">
+                कीमत उपलब्ध नहीं
+              </span>
             ) : (
               <div className="flex flex-col">
                 <span className="text-sm sm:text-base font-bold text-[#2D5A27]">
@@ -194,7 +189,7 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
                 ? "bg-[#EAB308] hover:bg-[#d4a007] text-[#2D5A27] active:scale-90"
                 : "bg-gray-200 text-gray-400 cursor-not-allowed"
             )}
-            title={isInStock ? "खरीदें / कार्ट में जोड़ें" : "स्टॉक समाप्त"}
+            title={isInStock ? 'अभी खरीदें' : 'स्टॉक खत्म'}
           >
             <ShoppingBag className="w-4 h-4" />
           </button>

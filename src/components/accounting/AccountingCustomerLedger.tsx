@@ -5,7 +5,7 @@ import {
   AlertTriangle, CheckCircle2, MessageSquare, 
   Printer, ArrowUpRight, ArrowDownLeft, FileText, X,
   Edit3, Eye, ChevronRight, Share2, ShoppingBag, ShieldCheck, Download,
-  Trash2, Archive, RotateCcw, ShieldAlert, AlertOctagon, Loader2, Sprout
+  Trash2, Archive, RotateCcw, ShieldAlert, AlertOctagon, Loader2, Sprout, Star
 } from 'lucide-react';
 import { 
   AccountingCustomer, 
@@ -1363,8 +1363,9 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                           <p className="text-[10px] text-gray-500 mt-1 leading-snug">
                             खाता बंद रहेगा। पुराना लेजर व बिल सुरक्षित रहेंगे। कभी भी पुनः चालू कर सकते हैं।
                           </p>
-                          <span className="mt-2 inline-block text-[9px] bg-emerald-200/80 text-emerald-900 font-extrabold px-2 py-0.5 rounded-full">
-                            ★ अनुशंसित (Recommended)
+                          <span className="mt-2 inline-flex items-center gap-1 text-[9px] bg-emerald-200/80 text-emerald-900 font-extrabold px-2 py-0.5 rounded-full">
+                            <Star className="w-2.5 h-2.5 fill-emerald-800 text-emerald-800" />
+                            <span>अनुशंसित (Recommended)</span>
                           </span>
                         </div>
 

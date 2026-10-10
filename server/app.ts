@@ -15,7 +15,7 @@ import {
   DeliveryEmailTemplateConfig,
   DEFAULT_SERVER_DELIVERY_TEMPLATE,
 } from './emailTemplates.js';
-import { handleScanBill, handleAccountingInsights } from './accountingRoutes.js';
+import { handleAccountingInsights } from './accountingRoutes.js';
 import { handleGetMandiPrices } from './mandiRoutes.js';
 import { handleGetDailyNews, handleSyncNews } from './newsRoutes.js';
 import { handleGetSchemes, handleSyncSchemes } from './schemeRoutes.js';
@@ -1421,9 +1421,8 @@ app.get('/api/delivery/in-app-otp/:orderId', async (req: Request, res: Response)
 });
 
 // ==========================================
-// OFFLINE ACCOUNTING & AI SCANNER ROUTES
+// OFFLINE ACCOUNTING & AI INSIGHTS ROUTES
 // ==========================================
-app.post('/api/accounting/scan-bill', handleScanBill);
 app.post('/api/accounting/insights', handleAccountingInsights);
 
 // ==========================================

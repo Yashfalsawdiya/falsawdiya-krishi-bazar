@@ -284,20 +284,6 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // Wholesaler Inward Purchases
-    match /accounting_purchases/{id} {
-      allow read, write: if isAdmin();
-    }
-
-    // Wholesalers & Distributors
-    match /accounting_suppliers/{id} {
-      allow read, write: if isAdmin();
-    }
-
-    // Supplier Ledger Passbook
-    match /accounting_supplier_ledger/{id} {
-      allow read, write: if isAdmin();
-    }
 
     // Business Expenses
     match /accounting_expenses/{id} {

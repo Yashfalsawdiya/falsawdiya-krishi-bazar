@@ -80,7 +80,9 @@ const Layout: React.FC = () => {
               objectFit="contain" 
             />
           </div>
-          <h1 className="text-2xl font-black text-[#4A3728] mb-4">ऐप अभी बंद है</h1>
+          <h1 className="text-2xl font-black text-[#4A3728] mb-4">
+            ऐप अभी बंद है
+          </h1>
           <p className="text-gray-500 mb-8 leading-relaxed text-sm">
             नमस्ते किसान भाइयों! ऐप में कुछ सुधार कार्य चल रहा है, इसलिए यह अभी उपलब्ध नहीं है। कृपया कुछ समय बाद प्रयास करें।
           </p>
@@ -100,10 +102,11 @@ const Layout: React.FC = () => {
       tagline: 'किसान का भरोसा, हमारी पहचान',
       logo: ''
     };
-    const loginText = appContent?.loginText || 'ऐप की सुविधाओं का उपयोग करने के लिए कृपया अपनी Gmail ID से लॉगिन करें।';
+    const defaultLoginHindi = 'ऐप की सुविधाओं का उपयोग करने के लिए कृपया अपनी Gmail ID से लॉगिन करें।';
+    const loginText = appContent?.loginText || defaultLoginHindi;
 
     return (
-      <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-center p-4 relative">
         <div className="bg-white/80 backdrop-blur-md max-w-md w-full rounded-3xl p-8 shadow-xl border border-gray-100 flex flex-col items-center text-center">
           <div className="w-24 h-24 bg-transparent rounded-3xl shadow-md flex items-center justify-center mb-6 border-2 border-[#2D5A27]/10 overflow-hidden p-2 relative">
             <SmartImage 
@@ -117,7 +120,9 @@ const Layout: React.FC = () => {
             <div className="absolute inset-0 bg-white/40 -z-10" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-[#4A3728] mb-2">{branding.name}</h1>
-          <p className="text-gray-500 mb-8 font-medium text-xs sm:text-sm">{branding.tagline}</p>
+          <p className="text-gray-500 mb-8 font-medium text-xs sm:text-sm">
+            {branding.tagline}
+          </p>
           
           <div className="w-full space-y-4">
             <div className="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100/50 mb-6">
@@ -128,7 +133,7 @@ const Layout: React.FC = () => {
             
             <button 
               onClick={login}
-              className="w-full bg-[#2D5A27] hover:bg-[#23481f] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-md active:scale-95 transition-all"
+              className="w-full bg-[#2D5A27] hover:bg-[#23481f] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-md active:scale-95 transition-all cursor-pointer"
             >
               <LogIn className="w-5 h-5" /> Google से लॉगिन करें
             </button>

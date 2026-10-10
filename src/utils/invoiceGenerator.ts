@@ -188,13 +188,13 @@ export const renderInvoiceHtml = (
                     <div style="margin-top: 5px; font-size: 10.5px; color: ${tpl.contactTextColor}; line-height: 1.35;">
                       ${tpl.showPhone ? `
                       <div style="font-weight: 600; margin-bottom: 2px;">
-                        <span style="color: ${tpl.accentColor};">📞</span>
+                        <svg style="display: inline-block; vertical-align: -1px; width: 12px; height: 12px; fill: none; stroke: ${tpl.accentColor}; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
                         <span style="margin-left: 3px;">${tpl.phoneLabel} <strong>${phone}</strong></span>
                       </div>
                       ` : ''}
                       ${tpl.showAddress ? `
                       <div style="color: ${tpl.contactTextColor}; font-weight: 500; font-size: 10px; line-height: 1.3;">
-                        <span style="color: ${tpl.accentColor};">📍</span>
+                        <svg style="display: inline-block; vertical-align: -1px; width: 12px; height: 12px; fill: none; stroke: ${tpl.accentColor}; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                         <span style="margin-left: 3px;">${tpl.addressLabel ? `${tpl.addressLabel} ` : ''}${address}</span>
                       </div>
                       ` : ''}
@@ -265,7 +265,7 @@ export const renderInvoiceHtml = (
                     <td style="color: #6b7280; font-weight: 600; padding: 4px 0; vertical-align: middle; text-align: left;">भुगतान स्थिति:</td>
                     <td style="text-align: right; padding: 4px 0; vertical-align: middle;">
                       <div style="display: inline-block; background: ${isPaid ? tpl.paidBadgeBg : tpl.pendingBadgeBg}; color: ${isPaid ? tpl.paidBadgeTextColor : tpl.pendingBadgeTextColor}; border: 1px solid ${isPaid ? tpl.paidBadgeBorderColor : tpl.pendingBadgeBorderColor}; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 6px; line-height: 1.2; text-align: center; white-space: nowrap; box-sizing: border-box;">
-                        ${isPaid ? '✓ ' : ''}${paymentStatusHindi}
+                        ${isPaid ? '<svg style="display: inline-block; vertical-align: -1px; width: 10px; height: 10px; margin-right: 4px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>' : ''}${paymentStatusHindi}
                       </div>
                     </td>
                   </tr>

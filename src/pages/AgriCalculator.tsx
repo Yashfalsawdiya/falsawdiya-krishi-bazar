@@ -14,7 +14,8 @@ import {
   RefreshCw, 
   CheckCircle2,
   Delete,
-  CornerDownLeft
+  CornerDownLeft,
+  ArrowRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -396,7 +397,7 @@ const AgriCalculator: React.FC = () => {
               : 'text-gray-500 hover:text-gray-800 hover:bg-white/40'}`}
         >
           <Scale className="w-4 h-4 shrink-0" />
-          <span>₹ ➔ वजन</span>
+          <span className="flex items-center gap-1">₹ <ArrowRight className="w-3 h-3" /> वजन</span>
         </button>
         <button 
           onClick={() => setActiveTab('amount')}
@@ -406,7 +407,7 @@ const AgriCalculator: React.FC = () => {
               : 'text-gray-500 hover:text-gray-800 hover:bg-white/40'}`}
         >
           <Coins className="w-4 h-4 shrink-0" />
-          <span>वजन ➔ ₹</span>
+          <span className="flex items-center gap-1">वजन <ArrowRight className="w-3 h-3" /> ₹</span>
         </button>
       </div>
 

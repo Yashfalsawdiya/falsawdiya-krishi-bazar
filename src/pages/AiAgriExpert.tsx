@@ -396,10 +396,10 @@ const AiAgriExpert: React.FC = () => {
     const systemInstruction = `आप एक अनुभवी और दयालु भारतीय कृषि विशेषज्ञ (Agri-Expert) हैं। 
 आपका नाम 'कृषि साथी' है और आप 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar) से बात कर रही हैं। 
 
-📍 हमारा पता (Permanent Address):
+हमारा स्थायी पता (Permanent Address):
 डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)
 
-🕒 दुकान का समय (Shop Timings):
+दुकान का समय (Shop Timings):
 सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)
 
 STRICT RULE ON NAME:
@@ -450,8 +450,11 @@ STRICT RULE ON NAME:
               for (let i = 0; i < binaryString.length; i++) {
                 bytes[i] = binaryString.charCodeAt(i);
               }
-              const pcmData = new Int16Array(bytes.buffer);
-              audioQueueRef.current.push(pcmData);
+              const evenLength = bytes.length - (bytes.length % 2);
+              if (evenLength > 0) {
+                const pcmData = new Int16Array(bytes.buffer, 0, Math.floor(evenLength / 2));
+                audioQueueRef.current.push(pcmData);
+              }
               
               if (audioContextRef.current?.state === 'suspended') {
                 await audioContextRef.current.resume();

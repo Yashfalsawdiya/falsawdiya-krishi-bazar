@@ -2,6 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { CloudSun, Wind, Droplets, Sun, CloudRain, Thermometer, Loader2, Cloud, CloudLightning, RefreshCw, Navigation, Moon, CloudMoon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { fetchWeather, WeatherData } from '../services/weatherService';
+import { 
+  getHindiCondition,
+  formatWeekday, 
+  formatWeatherTime, 
+  getLocalizedCity 
+} from '../utils/weatherLocalization';
+
+const language = 'hi';
 
 const Weather: React.FC = () => {
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -54,18 +62,14 @@ const Weather: React.FC = () => {
     return 10;
   };
 
-  const getSanitizedHourlyInfo = (hour: { time: string; temp: number; condition: string; rainProb: number; isNight?: boolean }) => {
+  const getSanitizedHourlyInfo = (hour: { time: string; temp: number; condition: string; rainProb: number; isNight?: boolean; weatherCode?: number }) => {
     let condition = hour.condition;
     const rainProb = hour.rainProb;
     const isNight = hour.isNight ?? false;
     
-    // Rule 1: Only show rain percentage if rain probability is strictly greater than 40%
+    // Only show rain percentage if rain probability is strictly greater than 40%
     const showProb = rainProb > 40;
 
-    // Rule 2: Smart Consistency Logic based on Rain Probability:
-    // - >= 40%: Show Rain/CloudRain icon (condition = 'वर्षा') or Thunderstorm icon (condition = 'गरज के साथ वर्षा')
-    // - 20% to 39%: Partly Cloudy / Mixed Weather Icon (condition = 'आंशिक बादल')
-    // - < 20%: Sun / Clear Weather Icon (condition = 'धूप' or 'साफ रात')
     if (rainProb >= 40) {
       if (rainProb >= 75) {
         condition = 'गरज के साथ वर्षा';
@@ -78,7 +82,6 @@ const Weather: React.FC = () => {
       condition = isNight ? 'साफ रात' : 'धूप';
     }
 
-    // Determine if weather is bad/critical for safety badge display
     const isBad = rainProb >= 50 && (condition.includes('वर्षा') || condition.includes('गरज') || condition.includes('बारिश') || condition.includes('ओले') || condition.includes('बौछारें'));
 
     return {
@@ -90,16 +93,12 @@ const Weather: React.FC = () => {
     };
   };
 
-  const getSanitizedDailyInfo = (item: { day: string; temp: string; condition: string; rainProb?: number }) => {
+  const getSanitizedDailyInfo = (item: { day: string; temp: string; condition: string; rainProb?: number; weatherCode?: number; dateStr?: string }) => {
     let condition = item.condition;
     const rainProb = item.rainProb ?? getEstRainProbability(item.condition);
 
-    // Rule 1: Only show rain percentage if rain probability is strictly greater than 30%
     const showProb = rainProb > 30;
 
-    // Rule 2: If rain probability is 30% or less:
-    // - Hide rain percentage (handled by showProb).
-    // - Clean up rainy conditions/icons to a normal weather condition (e.g. 'धूप' or 'आंशिक बादल').
     if (rainProb <= 30) {
       if (condition.includes('बारिश') || condition.includes('बूंदाबांदी') || condition.includes('बौछार') || condition.includes('गरज') || condition.includes('ओले')) {
         if (rainProb > 15) {
@@ -130,7 +129,6 @@ const Weather: React.FC = () => {
 
     const isWindy = data.windSpeed > 20;
 
-    // High rain alert: If probability >= 50%
     if (maxRainProb >= 50) {
       return {
         title: "वर्षा की चेतावनी (हाई अलर्ट)",
@@ -140,21 +138,19 @@ const Weather: React.FC = () => {
       };
     }
 
-    // Mid rain probability alerts: 20% - 49%
     if (maxRainProb >= 20 && maxRainProb < 50) {
       return {
         title: "मौसम सलाह (सामान्य बदलाव)",
-        message: `अगले 24 घंटे में मौसम में आंशिक बदलाव या हल्की वर्षा की सामान्य संभावना (${maxRainProb}%) है। सिंचाई केवल आवश्यकतानुसार ही करें। कीटनाशक छिड़काव करते समय ध्यान रखें कि हवा शांत हो।`,
+        message: `अगले 24 घंटे में मौसम में आंशिक बदलाव या हल्की वर्षा की सामान्य संभावना (${maxRainProb}%) है। सिंचाई केवल आवश्यकतानुसार ही करें।`,
         type: "normal",
         icon: CloudSun
       };
     }
 
-    // Low rain/No rain advisories (rain probability < 20%)
     if (temp >= 40) {
       return {
         title: "अत्यधिक गर्मी और धूप की चेतावनी",
-        message: "आज वर्षा की संभावना बहुत कम है। तापमान अधिक होने की वजह से दोपहर में सिंचाई न करें, इससे फसल जल सकती है। शाम या सुबह पानी देना बेहतर है। आज सिंचाई की जा सकती है।",
+        message: "आज वर्षा की संभावना बहुत कम है। तापमान अधिक होने की वजह से दोपहर में सिंचाई न करें, इससे फसल जल सकती है।",
         type: "heat",
         icon: Sun
       };
@@ -163,7 +159,7 @@ const Weather: React.FC = () => {
     if (isWindy) {
       return {
         title: "तेज़ हवा की चेतावनी",
-        message: "तेज़ हवाओं में कीटनाशकों का छिड़काव न करें, क्योंकि दवा हवा के साथ बिखर जाएगी। सिंचाई सावधानी से करें। आज वर्षा की संभावना बहुत कम है।",
+        message: "तेज़ हवाओं में कीटनाशकों का छिड़काव न करें, क्योंकि दवा हवा के साथ बिखर जाएगी।",
         type: "wind",
         icon: Wind
       };
@@ -172,7 +168,7 @@ const Weather: React.FC = () => {
     if (humidity > 80) {
       return {
         title: "उच्च नमी और आर्दता चेतावनी",
-        message: "हवा में नमी अधिक होने से कीट एवं फफूंद जनित रोगों का खतरा बढ़ सकता है। आज वर्षा की संभावना बहुत कम है, अतः आप सिंचाई और आवश्यकतानुसार छिड़काव का प्रबंधन कर सकते हैं।",
+        message: "हवा में नमी अधिक होने से कीट एवं फफूंद जनित रोगों का खतरा बढ़ सकता है।",
         type: "humidity",
         icon: Droplets
       };
@@ -181,7 +177,7 @@ const Weather: React.FC = () => {
     if (temp <= 15) {
       return {
         title: "शीतलहर और ठंड की चेतावनी",
-        message: "तापमान कम होने से पाला पड़ने की संभावना हो सकती है। फसल में हल्की सिंचाई करें। आज मौसम साफ रहेगा और वर्षा की संभावना नहीं है।",
+        message: "तापमान कम होने से पाला पड़ने की संभावना हो सकती है। फसल में हल्की सिंचाई करें।",
         type: "cold",
         icon: Thermometer
       };
@@ -189,25 +185,29 @@ const Weather: React.FC = () => {
 
     return {
       title: "स्मार्ट निर्णय सलाह (मौसम अनुकूल)",
-      message: "आज वर्षा की संभावना बहुत कम है। मौसम पूर्णतः खेती के अनुकूल है। फसलों में आवश्यकतानुसार सिंचाई की जा सकती है, और खेतों में कीटनाशक छिड़काव व खाद डालने के लिए आज का दिन सर्वोत्तम है।",
+      message: "आज वर्षा की संभावना बहुत कम है। मौसम पूर्णतः खेती के अनुकूल है। फसलों में आवश्यकतानुसार सिंचाई की जा सकती है।",
       type: "normal",
       icon: CloudSun
     };
   };
 
   const getIcon = (condition: string, isNight?: boolean) => {
-    if (condition.includes('गरज')) return CloudLightning;
-    if (condition.includes('बारिश') || condition.includes('बौछारें') || condition.includes('बूंदाबांदी') || condition.includes('वर्षा') || condition.includes('ओले')) return CloudRain;
+    if (condition.includes('गरज') || condition.includes('thunder')) return CloudLightning;
+    if (condition.includes('बारिश') || condition.includes('बौछारें') || condition.includes('बूंदाबांदी') || condition.includes('वर्षा') || condition.includes('ओले') || condition.includes('rain')) return CloudRain;
     
     if (isNight) {
-      if (condition.includes('बादल') || condition.includes('आंशिक')) return CloudMoon;
-      if (condition.includes('साफ') || condition.includes('धूप') || condition.includes('मुख्यतः साफ') || condition.includes('रात')) return Moon;
+      if (condition.includes('बादल') || condition.includes('आंशिक') || condition.includes('cloud')) return CloudMoon;
+      if (condition.includes('साफ') || condition.includes('धूप') || condition.includes('मुख्यतः साफ') || condition.includes('रात') || condition.includes('clear')) return Moon;
       return Cloud;
     } else {
-      if (condition.includes('बादल') || condition.includes('आंशिक')) return CloudSun;
-      if (condition.includes('साफ') || condition.includes('धूप') || condition.includes('मुख्यतः साफ')) return Sun;
+      if (condition.includes('बादल') || condition.includes('आंशिक') || condition.includes('cloud')) return CloudSun;
+      if (condition.includes('साफ') || condition.includes('धूप') || condition.includes('मुख्यतः साफ') || condition.includes('clear') || condition.includes('sunny')) return Sun;
       return Cloud;
     }
+  };
+
+  const getConditionLabel = (condition: string, weatherCode?: number): string => {
+    return getHindiCondition(condition, weatherCode);
   };
 
   if (loading) {
@@ -223,7 +223,9 @@ const Weather: React.FC = () => {
     return (
       <div className="text-center p-6 bg-red-50 border border-red-200 rounded-2xl">
         <p className="text-red-800 font-bold">{error}</p>
-        <button onClick={() => loadWeather()} className="mt-2 text-xs text-red-600 underline font-bold">दोबारा प्रयास करें</button>
+        <button onClick={() => loadWeather()} className="mt-2 text-xs text-red-600 underline font-bold">
+          दोबारा प्रयास करें
+        </button>
       </div>
     );
   }
@@ -233,8 +235,12 @@ const Weather: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-xl font-bold text-[#4A3728]">मौसम की जानकारी</h2>
-        <p className="text-sm text-gray-500">खेती के लिए सटीक मौसम अपडेट</p>
+        <h2 className="text-xl font-bold text-[#4A3728]">
+          मौसम की जानकारी
+        </h2>
+        <p className="text-sm text-gray-500">
+          खेती के लिए सटीक मौसम अपडेट
+        </p>
       </div>
 
       {/* Main Card */}
@@ -255,10 +261,13 @@ const Weather: React.FC = () => {
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2 text-[#2D5A27]">
               <Navigation className="w-3.5 h-3.5" />
-              <span className="text-sm font-bold">{locationName}</span>
+              <span className="text-sm font-bold">
+                {getLocalizedCity(locationName, language)}
+              </span>
             </div>
             <button 
               onClick={handleRefresh}
+              title="मौसम अपडेट करें"
               className="p-2 text-[#2D5A27] bg-[#2D5A27]/5 rounded-xl active:rotate-180 transition-all"
             >
               <RefreshCw className="w-4 h-4" />
@@ -267,25 +276,35 @@ const Weather: React.FC = () => {
           <div className="flex items-end gap-4 mb-6">
             <h1 className="text-6xl font-bold text-[#4A3728]">{weather.temp}°</h1>
             <div className="pb-2">
-              <p className="text-lg font-bold text-[#2D5A27]">{weather.condition}</p>
-              <p className="text-sm text-gray-400">अधिकतम: {weather.maxTemp}° | न्यूनतम: {weather.minTemp}°</p>
+              <p className="text-lg font-bold text-[#2D5A27]">
+                {getConditionLabel(weather.condition, weather.weatherCode)}
+              </p>
+              <p className="text-sm text-gray-400">
+                {`अधिकतम: ${weather.maxTemp}° | न्यूनतम: ${weather.minTemp}°`}
+              </p>
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-4 border-t border-gray-100 pt-6">
             <div className="text-center">
               <Droplets className="w-6 h-6 text-blue-500 mx-auto mb-1" />
-              <p className="text-[10px] text-gray-400 uppercase">नमी (Humidity)</p>
+              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">
+                नमी
+              </p>
               <p className="font-bold text-gray-700">{weather.humidity}%</p>
             </div>
             <div className="text-center">
               <Wind className="w-6 h-6 text-gray-400 mx-auto mb-1" />
-              <p className="text-[10px] text-gray-400 uppercase">हवा (Wind)</p>
+              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">
+                हवा
+              </p>
               <p className="font-bold text-gray-700">{weather.windSpeed} km/h</p>
             </div>
             <div className="text-center">
               <CloudRain className="w-6 h-6 text-blue-300 mx-auto mb-1" />
-              <p className="text-[10px] text-gray-400 uppercase">बारिश (Rain)</p>
+              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">
+                बारिश
+              </p>
               <p className="font-bold text-gray-700">{weather.rain} mm</p>
             </div>
           </div>
@@ -296,14 +315,18 @@ const Weather: React.FC = () => {
       {weather.hourly && weather.hourly.length > 0 && (
         <div className="space-y-3">
           <h3 className="font-bold text-[#4A3728] px-1 flex items-center justify-between">
-            प्रति घंटा पूर्वानुमान (Hourly Forecast)
-            <span className="text-[10px] text-[#2D5A27] font-bold bg-[#2D5A27]/10 px-2 py-0.5 rounded-full">अगले 24 घंटे</span>
+            प्रति घंटा पूर्वानुमान
+            <span className="text-[10px] text-[#2D5A27] font-bold bg-[#2D5A27]/10 px-2 py-0.5 rounded-full">
+              अगले 24 घंटे
+            </span>
           </h3>
           <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 hide-scrollbar snap-x">
             {weather.hourly.map((hour, idx) => {
               const sanitized = getSanitizedHourlyInfo(hour);
               const Icon = getIcon(sanitized.condition, sanitized.isNight);
               const isBadWeather = sanitized.isBad;
+              const formattedTime = hour.timeIso ? formatWeatherTime(hour.timeIso, language) : hour.time;
+
               return (
                 <motion.div 
                   key={idx}
@@ -316,7 +339,7 @@ const Weather: React.FC = () => {
                     : 'bg-white border-gray-100'
                   }`}
                 >
-                  <p className="text-[10px] font-bold text-gray-500">{hour.time}</p>
+                  <p className="text-[10px] font-bold text-gray-500">{formattedTime}</p>
                   <Icon className={`w-7 h-7 my-1 ${isBadWeather ? 'text-blue-500' : 'text-[#2D5A27]'}`} />
                   <p className="font-black text-gray-800">{hour.temp}°</p>
                   {sanitized.showProb && (
@@ -326,7 +349,9 @@ const Weather: React.FC = () => {
                     </div>
                   )}
                   {isBadWeather && (
-                    <span className="text-[8px] font-black text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded-full mt-1">सावधान</span>
+                    <span className="text-[8px] font-black text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded-full mt-1">
+                      सावधान
+                    </span>
                   )}
                 </motion.div>
               );
@@ -335,13 +360,20 @@ const Weather: React.FC = () => {
         </div>
       )}
 
-      {/* Forecast */}
+      {/* 7-Day Forecast */}
       <div className="space-y-3">
-        <h3 className="font-bold text-[#4A3728] px-1">अगले 7 दिन का पूर्वानुमान</h3>
+        <h3 className="font-bold text-[#4A3728] px-1">
+          अगले 7 दिन का पूर्वानुमान
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {weather.forecast.map((item, idx) => {
           const sanitized = getSanitizedDailyInfo(item);
           const Icon = getIcon(sanitized.condition);
+          const dayLabel = idx === 0 
+            ? 'कल' 
+            : (item.dateStr ? formatWeekday(item.dateStr, language) : item.day);
+          const conditionLabel = getConditionLabel(sanitized.condition, item.weatherCode);
+
           return (
             <motion.div 
               key={idx}
@@ -355,8 +387,8 @@ const Weather: React.FC = () => {
                   <Icon className="w-6 h-6 text-[#2D5A27]" />
                 </div>
                 <div>
-                  <p className="font-bold text-gray-800">{item.day}</p>
-                  <p className="text-xs text-gray-500">{sanitized.condition}</p>
+                  <p className="font-bold text-gray-800">{dayLabel}</p>
+                  <p className="text-xs text-gray-500">{conditionLabel}</p>
                   {sanitized.showProb && (
                     <p className="text-[11px] font-black text-sky-700 mt-1.5 flex items-center gap-1 bg-sky-50/80 px-2.5 py-1 rounded-full border border-sky-100/80 w-fit">
                       <Droplets className="w-3 h-3 text-sky-500 shrink-0" />

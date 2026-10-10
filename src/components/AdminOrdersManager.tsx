@@ -1056,7 +1056,12 @@ const AdminOrdersManager: React.FC = () => {
                               partner.availabilityStatus === 'on_delivery' ? 'bg-blue-100 text-blue-800 border-blue-200' :
                               'bg-gray-100 text-gray-600 border-gray-200'
                             }`}>
-                              {!partner.isActive ? 'निष्क्रिय' : isAvailable ? '🟢 उपलब्ध' : partner.availabilityStatus === 'on_delivery' ? 'डिलीवरी पर' : 'ऑफ ड्यूटी'}
+                              {!partner.isActive ? 'निष्क्रिय' : isAvailable ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                                  उपलब्ध
+                                </span>
+                              ) : partner.availabilityStatus === 'on_delivery' ? 'डिलीवरी पर' : 'ऑफ ड्यूटी'}
                             </span>
                             {isSelected && <Check className="w-4 h-4 text-[#2D5A27]" />}
                           </div>

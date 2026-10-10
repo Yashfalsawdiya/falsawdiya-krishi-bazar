@@ -93,9 +93,9 @@ export const validateArticleFreshness = (
   const currentYear = referenceDate.getFullYear();
   const articleYear = parsedDate.getFullYear();
 
-  // Reject articles from older years
-  if (articleYear < currentYear) {
-    return { isValid: false, reason: `Article year (${articleYear}) is older than current year (${currentYear})` };
+  // Reject articles from years prior to (currentYear - 1)
+  if (articleYear < currentYear - 1) {
+    return { isValid: false, reason: `Article year (${articleYear}) is older than allowable range` };
   }
 
   // Reject articles with dates far into the future (> 2 days ahead due to timezone differences)
@@ -199,11 +199,11 @@ export const recordSyncLog = (
   }
 
   if (status === 'FAILED') {
-    console.error(`[AgriNews Sync] ❌ ${message}`, details || '');
+    console.error(`[AgriNews Sync] [Error] ${message}`, details || '');
   } else if (status === 'SUCCESS') {
-    console.log(`[AgriNews Sync] ✅ ${message}`, details || '');
+    console.log(`[AgriNews Sync] [Success] ${message}`, details || '');
   } else {
-    console.log(`[AgriNews Sync] ℹ️ ${message}`, details || '');
+    console.log(`[AgriNews Sync] [Info] ${message}`, details || '');
   }
 };
 

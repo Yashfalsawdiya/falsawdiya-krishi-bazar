@@ -179,16 +179,14 @@ export const fetchUserOrders = async (
     if (userId) {
       const q = query(
         collection(db, 'orders'), 
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
+        where('userId', '==', userId)
       );
       const snap = await getDocs(q);
       snap.forEach(d => orderDocs.push(d.data() as Order));
     } else if (userEmail) {
       const q = query(
         collection(db, 'orders'), 
-        where('userEmail', '==', userEmail),
-        orderBy('createdAt', 'desc')
+        where('userEmail', '==', userEmail)
       );
       const snap = await getDocs(q);
       snap.forEach(d => orderDocs.push(d.data() as Order));
@@ -197,8 +195,7 @@ export const fetchUserOrders = async (
     if (userPhone) {
       const qPhone = query(
         collection(db, 'orders'), 
-        where('customerDetails.phone', '==', userPhone),
-        orderBy('createdAt', 'desc')
+        where('customerDetails.phone', '==', userPhone)
       );
       const snapPhone = await getDocs(qPhone);
       snapPhone.forEach(d => orderDocs.push(d.data() as Order));

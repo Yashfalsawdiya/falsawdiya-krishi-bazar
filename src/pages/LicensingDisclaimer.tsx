@@ -27,11 +27,28 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
+import { DEFAULT_LEGAL_PAGES_CONTENT_EN } from '../data/defaultPagesContentEn';
 
 export const LicensingDisclaimer: React.FC = () => {
   const { legalPagesContent } = useAppContext();
-  const pageData = legalPagesContent?.licensingDisclaimer || DEFAULT_LEGAL_PAGES_CONTENT.licensingDisclaimer;
+  const { isEnglish, translateText } = useLanguage();
+
+  const defaultLic = isEnglish ? DEFAULT_LEGAL_PAGES_CONTENT_EN.licensingDisclaimer : DEFAULT_LEGAL_PAGES_CONTENT.licensingDisclaimer;
+  const rawPageData = legalPagesContent?.licensingDisclaimer || defaultLic;
+  const pageData = {
+    ...rawPageData,
+    bannerTitle: isEnglish ? (rawPageData === defaultLic ? rawPageData.bannerTitle : translateText(rawPageData.bannerTitle)) : rawPageData.bannerTitle,
+    bannerSubtitle: isEnglish ? (rawPageData === defaultLic ? rawPageData.bannerSubtitle : translateText(rawPageData.bannerSubtitle)) : rawPageData.bannerSubtitle,
+    introText: isEnglish ? (rawPageData === defaultLic ? rawPageData.introText : translateText(rawPageData.introText)) : rawPageData.introText,
+    sections: (rawPageData.sections || []).map(sec => ({
+      ...sec,
+      title: isEnglish ? (rawPageData === defaultLic ? sec.title : translateText(sec.title)) : sec.title,
+      content: isEnglish ? (rawPageData === defaultLic ? sec.content : translateText(sec.content)) : sec.content,
+      bullets: sec.bullets ? sec.bullets.map(b => isEnglish ? (rawPageData === defaultLic ? b : translateText(b)) : b) : undefined
+    }))
+  };
 
   return (
     <div className="space-y-6 pb-16 font-sans max-w-4xl mx-auto px-3 sm:px-6 pt-2 sm:pt-4">
@@ -49,23 +66,23 @@ export const LicensingDisclaimer: React.FC = () => {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-semibold text-white border border-white/20 shadow-xs">
             <Award className="w-4 h-4 text-emerald-300" />
-            <span>DAESI Certified Agricultural Advisor</span>
+            <span>{isEnglish ? 'DAESI Certified Agricultural Advisor' : 'DAESI प्रमाणित कृषि सलाहकार'}</span>
           </div>
 
           {/* Main Title */}
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
-            {pageData.bannerTitle || 'वैधानिक कृषि लाइसेंस, DAESI प्रमाणन एवं गुणवत्ता नीति'}
+            {pageData.bannerTitle || (isEnglish ? 'Statutory Agri Licensing, DAESI Certification & Quality Policy' : 'वैधानिक कृषि लाइसेंस, DAESI प्रमाणन एवं गुणवत्ता नीति')}
           </h1>
 
           {/* Subtitle in clean white */}
           <p className="text-sm sm:text-base font-normal text-emerald-100/90 max-w-2xl leading-relaxed">
-            {pageData.bannerSubtitle || 'Fertilizer, Seed & Pesticide Statutory Compliance & Quality Assurance'}
+            {pageData.bannerSubtitle || (isEnglish ? 'Fertilizer, Seed & Pesticide Statutory Compliance & Quality Assurance' : 'उर्वरक, बीज व कीटनाशक वैधानिक अनुपालन एवं गुणवत्ता नीति')}
           </p>
 
           {/* Last Updated badge in elegant white and soft mint */}
           <div className="pt-1 flex items-center gap-2 text-xs font-medium text-white/90 bg-black/25 backdrop-blur-sm px-3.5 py-1.5 rounded-xl border border-white/15">
             <Clock className="w-3.5 h-3.5 text-emerald-300" />
-            <span>अंतिम अद्यतन: <span className="text-white font-bold ml-1">{pageData.lastUpdated}</span></span>
+            <span>{isEnglish ? 'Last Updated: ' : 'अंतिम अद्यतन: '}<span className="text-white font-bold ml-1">{pageData.lastUpdated}</span></span>
           </div>
         </div>
       </motion.div>
@@ -83,7 +100,7 @@ export const LicensingDisclaimer: React.FC = () => {
               </div>
               <div>
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700 block">
-                  प्रमाणित कृषि विस्तारक (Certified Agri-Input Advisor)
+                  {isEnglish ? 'Certified Agri-Input Advisor' : 'प्रमाणित कृषि विस्तारक सलाहकार'}
                 </span>
                 <h2 className="text-lg sm:text-xl font-bold text-[#4A3728]">
                   {pageData.operatorName}
@@ -252,7 +269,7 @@ export const LicensingDisclaimer: React.FC = () => {
               to="/contact"
               className="bg-white/15 hover:bg-white/25 text-white px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 border border-white/20 transition-colors"
             >
-              <span>संपर्क विवरण</span>
+              <span>{isEnglish ? 'Contact Details' : 'संपर्क विवरण'}</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -261,7 +278,7 @@ export const LicensingDisclaimer: React.FC = () => {
         {/* Quick Footer Links to Other Legal Pages */}
         <div className="pt-4 border-t border-gray-200/80 flex flex-col gap-2">
           <h4 className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1 text-center sm:text-left">
-            अन्य कानूनी एवं वैधानिक पृष्ठ (Legal & Compliance)
+            {isEnglish ? 'Other Legal & Compliance Pages' : 'अन्य कानूनी एवं वैधानिक पृष्ठ'}
           </h4>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <Link 
@@ -269,42 +286,42 @@ export const LicensingDisclaimer: React.FC = () => {
               className="bg-white border border-gray-200 hover:border-red-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors text-center shadow-xs"
             >
               <ShieldAlert className="w-3.5 h-3.5 text-red-600 shrink-0" />
-              <span className="truncate">केमिकल सुरक्षा</span>
+              <span className="truncate">{isEnglish ? 'Chemical Safety' : 'केमिकल सुरक्षा'}</span>
             </Link>
             <Link 
               to="/shipping-policy" 
               className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors text-center shadow-xs"
             >
               <Truck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-              <span className="truncate">डिलीवरी नीति</span>
+              <span className="truncate">{isEnglish ? 'Shipping Policy' : 'डिलीवरी नीति'}</span>
             </Link>
             <Link 
               to="/refund-policy" 
               className="bg-white border border-gray-200 hover:border-rose-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors text-center shadow-xs"
             >
               <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-              <span className="truncate">रिफंड व वापसी</span>
+              <span className="truncate">{isEnglish ? 'Return & Refund' : 'रिफंड व वापसी'}</span>
             </Link>
             <Link 
               to="/grievance" 
               className="bg-white border border-gray-200 hover:border-blue-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors text-center shadow-xs"
             >
               <Scale className="w-3.5 h-3.5 text-blue-700 shrink-0" />
-              <span className="truncate">शिकायत अधिकारी</span>
+              <span className="truncate">{isEnglish ? 'Grievance Officer' : 'शिकायत अधिकारी'}</span>
             </Link>
             <Link 
               to="/privacy" 
               className="bg-white border border-gray-200 hover:border-blue-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors text-center shadow-xs"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span className="truncate">गोपनीयता नीति</span>
+              <span className="truncate">{isEnglish ? 'Privacy Policy' : 'गोपनीयता नीति'}</span>
             </Link>
             <Link 
               to="/terms" 
               className="bg-white border border-gray-200 hover:border-amber-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors text-center shadow-xs"
             >
               <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span className="truncate">नियम एवं शर्तें</span>
+              <span className="truncate">{isEnglish ? 'Terms & Conditions' : 'नियम एवं शर्तें'}</span>
             </Link>
           </div>
 
@@ -312,7 +329,7 @@ export const LicensingDisclaimer: React.FC = () => {
             to="/"
             className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center mt-1"
           >
-            मुख्य पृष्ठ (Home)
+            {isEnglish ? 'Home' : 'मुख्य पृष्ठ'}
           </Link>
         </div>
 

@@ -23,10 +23,12 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
+import { useLanguage } from '../context/LanguageContext';
+import { DEFAULT_LEGAL_PAGES_CONTENT, DEFAULT_LEGAL_PAGES_CONTENT_EN } from '../data/defaultPagesContent';
 
 export const HelpFaq: React.FC = () => {
   const { appContent, legalPagesContent } = useAppContext();
+  const { isEnglish, translateText } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [expandedId, setExpandedId] = useState<string | null>('faq_1');
@@ -36,7 +38,27 @@ export const HelpFaq: React.FC = () => {
     tagline: 'किसान का भरोसा, हमारी पहचान'
   };
 
-  const faqData = legalPagesContent?.faqHelp || DEFAULT_LEGAL_PAGES_CONTENT.faqHelp;
+  const defaultFaq = isEnglish ? DEFAULT_LEGAL_PAGES_CONTENT_EN.faqHelp : DEFAULT_LEGAL_PAGES_CONTENT.faqHelp;
+  const rawFaqData = legalPagesContent?.faqHelp || defaultFaq;
+  const faqData = {
+    ...rawFaqData,
+    bannerTitle: isEnglish ? (rawFaqData === defaultFaq ? rawFaqData.bannerTitle : translateText(rawFaqData.bannerTitle)) : rawFaqData.bannerTitle,
+    bannerSubtitle: isEnglish ? (rawFaqData === defaultFaq ? rawFaqData.bannerSubtitle : translateText(rawFaqData.bannerSubtitle)) : rawFaqData.bannerSubtitle,
+    introText: isEnglish ? (rawFaqData === defaultFaq ? rawFaqData.introText : translateText(rawFaqData.introText)) : rawFaqData.introText,
+    supportTimings: isEnglish ? (rawFaqData === defaultFaq ? rawFaqData.supportTimings : translateText(rawFaqData.supportTimings)) : rawFaqData.supportTimings,
+    faqs: (rawFaqData.faqs || []).map(f => ({
+      ...f,
+      question: isEnglish ? (rawFaqData === defaultFaq ? f.question : translateText(f.question)) : f.question,
+      answer: isEnglish ? (rawFaqData === defaultFaq ? f.answer : translateText(f.answer)) : f.answer,
+      category: f.category ? (isEnglish ? (rawFaqData === defaultFaq ? f.category : translateText(f.category)) : f.category) : undefined
+    })),
+    sections: (rawFaqData.sections || []).map(sec => ({
+      ...sec,
+      title: isEnglish ? (rawFaqData === defaultFaq ? sec.title : translateText(sec.title)) : sec.title,
+      content: isEnglish ? (rawFaqData === defaultFaq ? sec.content : translateText(sec.content)) : sec.content,
+      bullets: sec.bullets ? sec.bullets.map(b => isEnglish ? (rawFaqData === defaultFaq ? b : translateText(b)) : b) : undefined
+    }))
+  };
 
   // Extract unique categories from faqs
   const categories = useMemo(() => {
@@ -85,15 +107,15 @@ export const HelpFaq: React.FC = () => {
           </div>
 
           <h1 className="text-2xl font-black tracking-tight text-white leading-tight">
-            {faqData.bannerTitle || 'सहायता केंद्र एवं प्रश्नोत्तरी'}
+            {faqData.bannerTitle || (isEnglish ? 'Help Center & FAQs' : 'सहायता केंद्र एवं प्रश्नोत्तरी')}
           </h1>
           <p className="text-sm font-semibold text-[#EAB308]">
-            {faqData.bannerSubtitle || 'Help Center & FAQ - फल्सावदिया कृषि बाजार'}
+            {faqData.bannerSubtitle || (isEnglish ? "Farmer Support & Frequently Asked Questions" : 'किसान सहायता एवं अक्सर पूछे जाने वाले सवाल')}
           </p>
 
           <div className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-[11px] font-medium text-green-100 mt-2">
             <Clock className="w-3.5 h-3.5 text-yellow-300" />
-            <span>हेल्पलाइन समय: {faqData.supportTimings || 'सुबह 8:00 से रात 8:00 तक'}</span>
+            <span>{isEnglish ? 'Helpline Timings: ' : 'हेल्पलाइन समय: '}{faqData.supportTimings || (isEnglish ? '08:00 AM to 08:00 PM Daily' : 'सुबह 8:00 से रात 8:00 तक')}</span>
           </div>
 
           {/* Search Box */}
@@ -102,7 +124,7 @@ export const HelpFaq: React.FC = () => {
               <Search className="w-4 h-4 text-gray-400 absolute left-3.5 pointer-events-none" />
               <input
                 type="text"
-                placeholder="अपने सवाल खोजें (उदा. डिलीवरी, ऑर्डर, रिफंड)..."
+                placeholder={isEnglish ? "Search questions (e.g. delivery, order, refund)..." : "अपने सवाल खोजें (उदा. डिलीवरी, ऑर्डर, रिफंड)..."}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full bg-white text-gray-800 placeholder-gray-400 pl-10 pr-9 py-2.5 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#EAB308] shadow-md"
@@ -131,7 +153,7 @@ export const HelpFaq: React.FC = () => {
                 : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-200'
             }`}
           >
-            सभी प्रश्न ({faqData.faqs?.length || 0})
+            {isEnglish ? 'All Questions' : 'सभी प्रश्न'} ({faqData.faqs?.length || 0})
           </button>
           {categories.map((cat, idx) => {
             const count = (faqData.faqs || []).filter(f => f.category === cat).length;
@@ -230,9 +252,11 @@ export const HelpFaq: React.FC = () => {
               <HelpCircle className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-sm font-bold text-[#4A3728]">कोई प्रश्न नहीं मिला</p>
+              <p className="text-sm font-bold text-[#4A3728]">{isEnglish ? 'No Questions Found' : 'कोई प्रश्न नहीं मिला'}</p>
               <p className="text-xs text-gray-500 mt-1">
-                "{searchQuery}" से संबंधित कोई सवाल नहीं मिला। आप सीधे हमारी किसान हेल्पलाइन पर संपर्क कर सकते हैं।
+                {isEnglish 
+                  ? `No questions matching "${searchQuery}". Feel free to reach out directly to our farmer helpline.` 
+                  : `"${searchQuery}" से संबंधित कोई सवाल नहीं मिला। आप सीधे हमारी किसान हेल्पलाइन पर संपर्क कर सकते हैं.`}
               </p>
             </div>
             <button
@@ -240,9 +264,9 @@ export const HelpFaq: React.FC = () => {
                 setSearchQuery('');
                 setSelectedCategory('all');
               }}
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-colors"
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
             >
-              सभी प्रश्न देखें
+              {isEnglish ? 'View All Questions' : 'सभी प्रश्न देखें'}
             </button>
           </div>
         )}
@@ -289,8 +313,8 @@ export const HelpFaq: React.FC = () => {
         <div className="flex items-center gap-2">
           <PhoneCall className="w-5 h-5 text-[#EAB308]" />
           <div>
-            <h2 className="text-sm font-black text-white">क्या आपको अपना समाधान नहीं मिला?</h2>
-            <p className="text-[11px] text-green-100 font-medium">हमारे कृषि सलाहकार आपकी सहायता के लिए तैयार हैं</p>
+            <h2 className="text-sm font-black text-white">{isEnglish ? 'Did not find what you were looking for?' : 'क्या आपको अपना समाधान नहीं मिला?'}</h2>
+            <p className="text-[11px] text-green-100 font-medium">{isEnglish ? 'Our dedicated agronomy advisors are ready to assist you' : 'हमारे कृषि सलाहकार आपकी सहायता के लिए तैयार हैं'}</p>
           </div>
         </div>
 
@@ -300,7 +324,7 @@ export const HelpFaq: React.FC = () => {
             className="bg-white text-[#2D5A27] py-2.5 px-3 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all text-center"
           >
             <Phone className="w-3.5 h-3.5" />
-            <span>कॉल करें ({faqData.supportPhone || '8982338046'})</span>
+            <span>{isEnglish ? 'Call Us' : 'कॉल करें'} ({faqData.supportPhone || '8982338046'})</span>
           </a>
           <a
             href={`https://wa.me/91${(faqData.supportWhatsapp || '8982338046').replace(/\D/g, '')}?text=नमस्ते%20फल्सावदिया%20कृषि%20बाजार,%20मुझे%20सहायता%20चाहिए`}
@@ -309,7 +333,7 @@ export const HelpFaq: React.FC = () => {
             className="bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 px-3 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all text-center"
           >
             <MessageCircle className="w-3.5 h-3.5" />
-            <span>WhatsApp चैट</span>
+            <span>{isEnglish ? 'WhatsApp Chat' : 'WhatsApp चैट'}</span>
           </a>
         </div>
       </motion.div>
@@ -321,50 +345,50 @@ export const HelpFaq: React.FC = () => {
             to="/about"
             className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">हमारे बारे में</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">{isEnglish ? 'About Us' : 'हमारे बारे में'}</span>
           </Link>
           <Link 
             to="/terms"
             className="bg-white border border-gray-200 hover:border-amber-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" /> <span className="truncate">नियम एवं शर्तें</span>
+            <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Terms & Conditions' : 'नियम एवं शर्तें'}</span>
           </Link>
           <Link 
             to="/privacy"
             className="bg-white border border-gray-200 hover:border-blue-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">गोपनीयता नीति</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Privacy Policy' : 'गोपनीयता नीति'}</span>
           </Link>
           <Link 
             to="/refund-policy"
             className="bg-white border border-gray-200 hover:border-rose-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" /> <span className="truncate">वापसी नीति</span>
+            <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Return & Refund' : 'वापसी नीति'}</span>
           </Link>
           <Link 
             to="/disclaimer"
             className="bg-white border border-gray-200 hover:border-yellow-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <AlertTriangle className="w-3.5 h-3.5 text-yellow-600 shrink-0" /> <span className="truncate">AI अस्वीकरण</span>
+            <AlertTriangle className="w-3.5 h-3.5 text-yellow-600 shrink-0" /> <span className="truncate">{isEnglish ? 'AI Disclaimer' : 'AI अस्वीकरण'}</span>
           </Link>
           <Link 
             to="/safety-guidelines"
             className="bg-white border border-gray-200 hover:border-red-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldAlert className="w-3.5 h-3.5 text-red-600 shrink-0" /> <span className="truncate">सुरक्षा निर्देश</span>
+            <ShieldAlert className="w-3.5 h-3.5 text-red-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Safety Guidelines' : 'सुरक्षा निर्देश'}</span>
           </Link>
         </div>
         <Link 
           to="/contact"
           className="w-full bg-[#2D5A27]/10 hover:bg-[#2D5A27]/20 text-[#2D5A27] py-2.5 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
         >
-          <PhoneCall className="w-3.5 h-3.5" /> संपर्क करें (Contact Us)
+          <PhoneCall className="w-3.5 h-3.5" /> {isEnglish ? 'Contact Us' : 'संपर्क करें'}
         </Link>
         <Link 
           to="/"
           className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
         >
-          मुख्य पृष्ठ (Home)
+          {isEnglish ? 'Home' : 'मुख्य पृष्ठ'}
         </Link>
       </div>
     </div>

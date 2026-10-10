@@ -27,31 +27,25 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
     if (product.variants && product.variants.length > 0) {
       return product.variants;
     }
-    if (product.unit) {
-      return [{ 
-        id: 'default', 
-        quantity: product.unit, 
-        price: product.price || 0 
-      }];
-    }
-    return [];
+    // Fallback: build default variant from primary product fields
+    return [{
+      id: 'default',
+      quantity: product.unit || '1 unit',
+      price: product.price || 0
+    }];
   }, [product.variants, product.unit, product.price]);
 
-  // Selected variant state (defaults to first variant)
-  const [selectedVariantId, setSelectedVariantId] = useState<string>(() => {
-    return variants[0]?.id || 'default';
-  });
-
-  // Added animation state
+  // Track the user-selected active packaging variant
+  const [selectedVariantId, setSelectedVariantId] = useState<string>(variants[0]?.id || 'default');
   const [isAdded, setIsAdded] = useState(false);
 
-  // Current active variant
+  // Derive the active variant configuration
   const activeVariant = useMemo(() => {
     return variants.find(v => v.id === selectedVariantId) || variants[0];
   }, [variants, selectedVariantId]);
 
-  const displayPrice = activeVariant ? activeVariant.price : product.price;
-  const displayUnit = activeVariant ? activeVariant.quantity : product.unit;
+  const displayPrice = activeVariant?.price || product.price || 0;
+  const displayUnit = activeVariant?.quantity || product.unit || '';
   const isInStock = product.inStock !== false;
 
   const handleVariantSelect = (variantId: string) => {
@@ -60,22 +54,18 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
 
   return (
     <motion.div
-      layout
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.03, 0.3) }}
+      transition={{ duration: 0.25, delay: Math.min(index * 0.04, 0.4) }}
       onClick={() => onSelect(product)}
-      className={cn(
-        "bg-white rounded-2xl border border-gray-200/90 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col justify-between overflow-hidden group cursor-pointer relative h-full",
-        !isInStock && "opacity-80"
-      )}
+      className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden group cursor-pointer relative"
     >
-      {/* TOP: Large Product Image Section - Full-Bleed Edge-to-Edge with 1:1 Square Proportion */}
+      {/* TOP: Product Image & Badges */}
       <div 
-        className="relative aspect-square w-full overflow-hidden border-b border-gray-100 cursor-zoom-in bg-white"
+        className="relative aspect-square w-full bg-[#FAF8F5] overflow-hidden flex items-center justify-center p-3"
         onClick={(e) => {
           e.stopPropagation();
-          onZoom(product.image, product.hindiName);
+          onZoom(product.image, product.hindiName || product.name);
         }}
       >
         <SmartImage 
@@ -89,7 +79,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
         {!isInStock ? (
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
             <span className="text-[10px] sm:text-xs font-bold text-white bg-red-600 px-3 py-1 rounded-full shadow-lg border border-white/30 rotate-[-8deg]">
-              STOCK OUT
+              स्टॉक खत्म
             </span>
           </div>
         ) : (
@@ -98,7 +88,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onZoom(product.image, product.hindiName);
+              onZoom(product.image, product.hindiName || product.name);
             }}
             className="absolute bottom-2.5 right-2.5 bg-white/90 hover:bg-white text-gray-700 p-1.5 rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer"
             title="इमेज बड़ी करें"
@@ -124,15 +114,10 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
             )}
           </div>
 
-          {/* Product Name (Most Prominent) */}
-          <h3 className="font-bold text-gray-900 text-sm sm:text-base leading-snug group-hover:text-[#2D5A27] transition-colors line-clamp-1">
-            {product.hindiName}
+          {/* Product Name */}
+          <h3 className="font-bold text-gray-900 text-sm sm:text-base leading-snug group-hover:text-[#2D5A27] transition-colors line-clamp-1 mb-1.5">
+            {product.hindiName || product.name}
           </h3>
-          {product.name && (
-            <p className="text-xs text-gray-500 font-normal line-clamp-1 mb-1.5">
-              {product.name}
-            </p>
-          )}
 
           {/* Short Product Information */}
           {product.description && (
@@ -145,7 +130,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
           <div className="pt-2 border-t border-gray-100">
             <span className="text-[11px] font-medium text-gray-500 flex items-center gap-1 mb-1.5">
               <Package className="w-3 h-3 text-gray-400" />
-              उपलब्ध पैक:
+              उपलब्ध पैक
             </span>
 
             {/* Packaging Chips */}
@@ -182,7 +167,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
           <div className="mb-3 flex items-baseline justify-between">
             <div>
               {product.hidePrice || !displayPrice ? (
-                <span className="text-xs text-gray-400 font-medium">कीमत उपलब्ध नहीं</span>
+                <span className="text-xs text-gray-400 font-medium">मूल्य उपलब्ध नहीं</span>
               ) : (
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-base sm:text-lg font-bold text-[#2D5A27]">
@@ -221,17 +206,17 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
                     ? "bg-emerald-700 text-white"
                     : "bg-[#2D5A27] hover:bg-[#23471f] text-white"
               )}
-              title={isInStock ? "कार्ट में जोड़ें" : "स्टॉक समाप्त"}
+              title={isInStock ? 'कार्ट में जोड़ें' : 'स्टॉक खत्म'}
             >
               {isAdded ? (
                 <>
                   <Check className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>Added</span>
+                  <span>जोड़ दिया गया</span>
                 </>
               ) : (
                 <>
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Add To Cart</span>
+                  <span>कार्ट में जोड़ें</span>
                 </>
               )}
             </button>
@@ -248,7 +233,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
                   ? "bg-[#EAB308] hover:bg-[#d4a007] text-[#2D5A27]"
                   : "bg-gray-200 text-gray-400 cursor-not-allowed"
               )}
-              title={isInStock ? "अभी खरीदें" : "स्टॉक समाप्त"}
+              title={isInStock ? 'तुरंत खरीदें' : 'स्टॉक खत्म'}
             >
               <ShoppingBag className="w-4 h-4" />
             </button>

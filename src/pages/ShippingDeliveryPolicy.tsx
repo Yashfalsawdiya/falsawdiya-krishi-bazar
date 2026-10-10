@@ -19,17 +19,35 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
+import { DEFAULT_LEGAL_PAGES_CONTENT_EN } from '../data/defaultPagesContentEn';
 
 export const ShippingDeliveryPolicy: React.FC = () => {
   const { appContent, legalPagesContent } = useAppContext();
+  const { isEnglish, translateText } = useLanguage();
 
   const branding = appContent?.branding || {
     name: 'फल्सावदिया कृषि बाजार',
     tagline: 'किसान का भरोसा, हमारी पहचान'
   };
 
-  const shipData = legalPagesContent?.shippingPolicy || DEFAULT_LEGAL_PAGES_CONTENT.shippingPolicy;
+  const defaultShipping = isEnglish ? DEFAULT_LEGAL_PAGES_CONTENT_EN.shippingPolicy : DEFAULT_LEGAL_PAGES_CONTENT.shippingPolicy;
+  const rawShipData = legalPagesContent?.shippingPolicy || defaultShipping;
+  const shipData = {
+    ...rawShipData,
+    bannerTitle: isEnglish ? (rawShipData === defaultShipping ? rawShipData.bannerTitle : translateText(rawShipData.bannerTitle)) : rawShipData.bannerTitle,
+    bannerSubtitle: isEnglish ? (rawShipData === defaultShipping ? rawShipData.bannerSubtitle : translateText(rawShipData.bannerSubtitle)) : rawShipData.bannerSubtitle,
+    introText: isEnglish ? (rawShipData === defaultShipping ? rawShipData.introText : translateText(rawShipData.introText)) : rawShipData.introText,
+    coverageAreaText: isEnglish ? (rawShipData === defaultShipping ? rawShipData.coverageAreaText : translateText(rawShipData.coverageAreaText || '')) : rawShipData.coverageAreaText,
+    standardDeliveryTime: isEnglish ? (rawShipData === defaultShipping ? rawShipData.standardDeliveryTime : translateText(rawShipData.standardDeliveryTime || '')) : rawShipData.standardDeliveryTime,
+    sections: (rawShipData.sections || []).map(sec => ({
+      ...sec,
+      title: isEnglish ? (rawShipData === defaultShipping ? sec.title : translateText(sec.title)) : sec.title,
+      content: isEnglish ? (rawShipData === defaultShipping ? sec.content : translateText(sec.content)) : sec.content,
+      bullets: sec.bullets ? sec.bullets.map(b => isEnglish ? (rawShipData === defaultShipping ? b : translateText(b)) : b) : undefined
+    }))
+  };
 
   return (
     <div className="space-y-6 pb-12">
@@ -48,15 +66,15 @@ export const ShippingDeliveryPolicy: React.FC = () => {
           </div>
 
           <h1 className="text-2xl font-black tracking-tight text-white leading-tight">
-            {shipData.bannerTitle || 'शिपिंग एवं डिलीवरी नीति'}
+            {shipData.bannerTitle || (isEnglish ? 'Shipping & Delivery Policy' : 'शिपिंग एवं डिलीवरी नीति')}
           </h1>
           <p className="text-sm font-semibold text-[#EAB308]">
-            {shipData.bannerSubtitle || 'Shipping & Delivery Policy - फल्सावदिया कृषि बाजार'}
+            {shipData.bannerSubtitle || (isEnglish ? 'Safe & Fast Delivery to Fields & Homes' : 'खेतों और घरों तक सुरक्षित व तीव्र डिलीवरी')}
           </p>
 
           <div className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-[11px] font-medium text-green-100 mt-2">
             <Clock className="w-3.5 h-3.5 text-yellow-300" />
-            <span>अंतिम अपडेट: {shipData.lastUpdated || '24 August 2026'}</span>
+            <span>{isEnglish ? 'Last Updated: ' : 'अंतिम अपडेट: '}{shipData.lastUpdated || (isEnglish ? '24 August 2026' : '24 अगस्त 2026')}</span>
           </div>
         </div>
       </motion.div>
@@ -227,13 +245,13 @@ export const ShippingDeliveryPolicy: React.FC = () => {
             className="bg-white text-[#2D5A27] py-2.5 px-3 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all text-center"
           >
             <PhoneCall className="w-3.5 h-3.5" />
-            <span>हेल्पलाइन (8982338046)</span>
+            <span>{isEnglish ? 'Helpline (8982338046)' : 'हेल्पलाइन (8982338046)'}</span>
           </a>
           <Link
             to="/contact"
             className="bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 px-3 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all text-center"
           >
-            <span>संपर्क विवरण</span>
+            <span>{isEnglish ? 'Contact Details' : 'संपर्क विवरण'}</span>
           </Link>
         </div>
       </motion.div>
@@ -245,32 +263,32 @@ export const ShippingDeliveryPolicy: React.FC = () => {
             to="/refund-policy"
             className="bg-white border border-gray-200 hover:border-rose-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" /> <span className="truncate">वापसी व रिफंड</span>
+            <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Return & Refund' : 'वापसी व रिफंड'}</span>
           </Link>
           <Link 
             to="/terms"
             className="bg-white border border-gray-200 hover:border-amber-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" /> <span className="truncate">नियम एवं शर्तें</span>
+            <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Terms & Conditions' : 'नियम एवं शर्तें'}</span>
           </Link>
           <Link 
             to="/faq"
             className="bg-white border border-gray-200 hover:border-emerald-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <HelpCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> <span className="truncate">FAQ / सहायता</span>
+            <HelpCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Help & FAQs' : 'FAQ / सहायता'}</span>
           </Link>
           <Link 
             to="/grievance"
             className="bg-white border border-gray-200 hover:border-blue-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">शिकायत अधिकारी</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Grievance Officer' : 'शिकायत अधिकारी'}</span>
           </Link>
         </div>
         <Link 
           to="/"
           className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
         >
-          मुख्य पृष्ठ (Home)
+          {isEnglish ? 'Home' : 'मुख्य पृष्ठ'}
         </Link>
       </div>
     </div>

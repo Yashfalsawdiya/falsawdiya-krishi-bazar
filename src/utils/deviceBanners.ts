@@ -134,7 +134,7 @@ export const DEVICE_METADATA: Record<DeviceType, DeviceMetadataItem> = {
     id: 'mobile',
     label: 'Mobile',
     hindiLabel: 'मोबाइल',
-    iconText: '📱',
+    iconText: '',
     recommendedResolution: '1080 × 810 px (4:3) या 1200 × 900 px',
     exactResolutions: [
       { dimensions: '1080 × 810 px', label: 'मानक Full HD मोबाइल (सर्वश्रेष्ठ)', isPrimary: true },
@@ -156,7 +156,7 @@ export const DEVICE_METADATA: Record<DeviceType, DeviceMetadataItem> = {
     id: 'tablet',
     label: 'Tablet',
     hindiLabel: 'टैबलेट',
-    iconText: '📲',
+    iconText: '',
     recommendedResolution: '1600 × 900 px या 1280 × 720 px (16:9)',
     exactResolutions: [
       { dimensions: '1600 × 900 px', label: 'हाई-रेज़ोल्यूशन टैबलेट (iPad)', isPrimary: true },
@@ -178,7 +178,7 @@ export const DEVICE_METADATA: Record<DeviceType, DeviceMetadataItem> = {
     id: 'laptop',
     label: 'Laptop',
     hindiLabel: 'लैपटॉप',
-    iconText: '💻',
+    iconText: '',
     recommendedResolution: '1920 × 820 px या 1600 × 685 px (21:9)',
     exactResolutions: [
       { dimensions: '1920 × 820 px', label: 'मानक फुल HD लैपटॉप (21:9)', isPrimary: true },
@@ -200,7 +200,7 @@ export const DEVICE_METADATA: Record<DeviceType, DeviceMetadataItem> = {
     id: 'desktop',
     label: 'Desktop',
     hindiLabel: 'डेस्कटॉप / कंप्यूटर',
-    iconText: '🖥️',
+    iconText: '',
     recommendedResolution: '1920 × 720 px या 2400 × 900 px (24:9 / 8:3)',
     exactResolutions: [
       { dimensions: '1920 × 720 px', label: 'मानक वेब कंप्यूटर (24:9 / सर्वश्रेष्ठ)', isPrimary: true },

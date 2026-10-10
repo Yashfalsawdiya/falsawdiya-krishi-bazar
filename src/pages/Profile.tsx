@@ -286,9 +286,11 @@ const Profile: React.FC = () => {
           </div>
           <div>
             <h3 className="text-sm font-bold text-gray-800 group-hover:text-[#2D5A27] transition-colors">
-              मेरे ऑनलाइन ऑर्डर (My Orders)
+              मेरे ऑनलाइन ऑर्डर
             </h3>
-            <p className="text-[11px] text-gray-400">ऑर्डर स्थिति, लाइव ट्रैकिंग व रसीद देखें</p>
+            <p className="text-[11px] text-gray-400">
+              ऑर्डर स्थिति, लाइव ट्रैकिंग व रसीद देखें
+            </p>
           </div>
         </div>
         <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#2D5A27] group-hover:translate-x-0.5 transition-all" />
@@ -340,7 +342,9 @@ const Profile: React.FC = () => {
 
         <div className="space-y-1.5">
           <div className="flex justify-between items-end mb-1">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">अपनी Gemini API Key</label>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
+              अपनी Gemini API Key
+            </label>
             <div className="flex gap-2">
               {apiKey && (
                 <>
@@ -438,7 +442,6 @@ const Profile: React.FC = () => {
                 sessionStorage.clear();
 
                 // 4. Clear IndexedDB (Firebase, Offline Data)
-                // This is crucial for fixing Firestore/Data issues
                 if (window.indexedDB && window.indexedDB.databases) {
                   window.indexedDB.databases().then(databases => {
                     for (const db of databases) {
@@ -477,7 +480,7 @@ const Profile: React.FC = () => {
           <motion.p 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`text-center text-xs font-bold ${saveMessage.includes('त्रुटि') ? 'text-red-500' : 'text-green-600'}`}
+            className={`text-center text-xs font-bold ${saveMessage.includes('त्रुटि') || saveMessage.includes('Error') || saveMessage.includes('Invalid') ? 'text-red-500' : 'text-green-600'}`}
           >
             {saveMessage}
           </motion.p>
@@ -489,10 +492,10 @@ const Profile: React.FC = () => {
         <h4 className="font-bold text-[#4A3728]">API Key कैसे प्राप्त करें?</h4>
         <ul className="space-y-3">
           {[
-            "ऊपर दिए गए 'फ्री Key' लिंक पर क्लिक करें।",
-            "Google AI Studio में लॉगिन करें।",
-            "'Create API Key' बटन पर क्लिक करें।",
-            "Key को कॉपी करें और यहाँ पेस्ट करें।"
+            "1. ऊपर दिए गए 'फ्री Key' लिंक पर क्लिक करें।",
+            "2. Google AI Studio में लॉगिन करें।",
+            "3. 'Create API Key' बटन पर क्लिक करें।",
+            "4. Key को कॉपी करें और यहाँ पेस्ट करें।"
           ].map((step, i) => (
             <li key={i} className="flex items-start gap-3 text-sm text-gray-600">
               <span className="flex-shrink-0 w-5 h-5 bg-white rounded-full flex items-center justify-center text-[10px] font-bold text-[#2D5A27] shadow-sm">
