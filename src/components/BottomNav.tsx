@@ -7,7 +7,7 @@ const BottomNav: React.FC = () => {
   const navItems = [
     { to: '/', icon: Home, label: 'होम' },
     { to: '/products', icon: ShoppingBag, label: 'बाजार' },
-    { to: '/disease', icon: Camera, label: 'रोग पहचान' },
+    { to: '/disease', icon: Camera, label: 'बीमारी जाँच' },
     { to: '/news', icon: Newspaper, label: 'कृषि समाचार' },
     { to: '/weather', icon: CloudSun, label: 'मौसम' },
   ];
@@ -15,10 +15,10 @@ const BottomNav: React.FC = () => {
   return (
     <nav 
       id="mobile-bottom-nav" 
-      aria-label="Mobile Navigation"
-      className="md:hidden fixed bottom-0 left-0 right-0 w-full bg-[#1E3F1A]/95 backdrop-blur-md border-t border-white/10 shadow-[0_-4px_24px_rgba(0,0,0,0.25)] z-50 px-2 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+      aria-label="Mobile and Tablet Navigation"
+      className="lg:hidden fixed bottom-0 left-0 right-0 w-full bg-[#1E3F1A]/95 backdrop-blur-md border-t border-white/10 shadow-[0_-4px_24px_rgba(0,0,0,0.25)] z-50 px-2 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
     >
-      <div className="max-w-md mx-auto grid grid-cols-5 items-center">
+      <div className="max-w-md md:max-w-xl mx-auto grid grid-cols-5 items-center">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
