@@ -63,6 +63,8 @@ const Schemes: React.FC = () => {
     }
   }, [appLoading, effectiveApiKey]);
 
+  const filteredSchemes = schemes;
+
   const handleSyncClick = () => {
     loadSchemes(true);
   };
@@ -75,39 +77,59 @@ const Schemes: React.FC = () => {
         message={apiKeyModalMessage}
       />
 
-      {/* Header Banner */}
-      <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm relative overflow-hidden">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#2D5A27] flex items-center justify-center border border-emerald-100/60">
-              <Landmark className="w-5 h-5" />
+      {/* Modern Header Banner */}
+      <div className="bg-gradient-to-br from-emerald-50/80 via-white to-emerald-50/30 rounded-3xl p-5 sm:p-6 border border-emerald-100/80 shadow-xs relative overflow-hidden">
+        {/* Subtle Decorative Elements */}
+        <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-8 -left-8 w-36 h-36 bg-[#2D5A27]/5 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {/* Title & Info */}
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#2D5A27] to-[#1e3d1a] text-white flex items-center justify-center shadow-md shadow-[#2D5A27]/20 shrink-0 border border-emerald-800/20">
+              <Landmark className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-gray-900">सरकारी योजनाएं</h1>
-              <p className="text-[11px] text-gray-500 font-medium">केंद्र एवं राज्य सरकार की किसान कल्याणकारी योजनाएं</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg sm:text-xl font-black tracking-tight text-gray-900">
+                  सरकारी योजनाएं
+                </h1>
+                {schemes.length > 0 && (
+                  <span className="text-[10px] font-extrabold bg-emerald-100/90 text-[#2D5A27] px-2.5 py-0.5 rounded-full border border-emerald-200/80 inline-flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-[#2D5A27]" />
+                    {schemes.length} योजनाएं उपलब्ध
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-600 font-medium mt-0.5">
+                केंद्र एवं राज्य सरकार की किसान कल्याणकारी एवं सब्सिडी योजनाएं
+              </p>
             </div>
           </div>
 
-          <button 
-            onClick={handleSyncClick}
-            disabled={loading || refreshing}
-            className="flex items-center gap-1.5 text-xs font-semibold bg-gray-50 hover:bg-gray-100 active:scale-95 transition-all px-3 py-2 rounded-2xl border border-gray-200 text-gray-700 shrink-0"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#2D5A27] ${refreshing ? 'animate-spin' : ''}`} />
-            <span>{refreshing ? 'सर्च हो रहा है...' : 'ताज़ा करें'}</span>
-          </button>
+          {/* Action Button */}
+          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+            <button 
+              onClick={handleSyncClick}
+              disabled={loading || refreshing}
+              className="flex items-center gap-1.5 text-xs font-bold bg-white hover:bg-emerald-50/60 active:scale-95 transition-all px-3.5 py-2.5 rounded-2xl border border-emerald-200/80 text-gray-700 hover:text-[#2D5A27] shadow-2xs shrink-0 cursor-pointer disabled:opacity-60"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-[#2D5A27] ${refreshing ? 'animate-spin' : ''}`} />
+              <span>{refreshing ? 'अपडेट हो रहा है...' : 'ताज़ा करें'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Sync Status Toast */}
         <AnimatePresence>
           {syncStatus && (
             <motion.div 
-              initial={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="mt-3 text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-xl flex items-center gap-2"
+              exit={{ opacity: 0, y: -6 }}
+              className="mt-3.5 text-xs bg-emerald-100/90 border border-emerald-300 text-emerald-900 px-3.5 py-2 rounded-xl flex items-center gap-2 font-medium shadow-2xs"
             >
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
               <span>{syncStatus}</span>
             </motion.div>
           )}
@@ -122,19 +144,17 @@ const Schemes: React.FC = () => {
             सत्यापित सरकारी योजनाएं लोड हो रही हैं...
           </p>
         </div>
-      ) : schemes.length === 0 ? (
+      ) : filteredSchemes.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
           <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-amber-200">
             <AlertCircle className="w-6 h-6 text-amber-600" />
           </div>
-          <h3 className="text-sm font-bold text-gray-800 mb-1">कोई योजना नहीं मिली</h3>
+          <h3 className="text-sm font-bold text-gray-800 mb-1">कोई योजना उपलब्ध नहीं है</h3>
           <p className="text-xs text-gray-500 max-w-xs mx-auto mb-4">
-            सरकारी योजनाएं लोड करने के लिए कृपया ताज़ा करें बटन दबाएं।
+            कृपया ताज़ा करें बटन दबाकर पुनः लोड करें।
           </p>
           <button
-            onClick={() => {
-              loadSchemes(true);
-            }}
+            onClick={handleSyncClick}
             className="px-4 py-2 bg-[#2D5A27] text-white text-xs font-bold rounded-xl shadow-sm active:scale-95 transition-transform"
           >
             ताज़ा करें
@@ -143,7 +163,7 @@ const Schemes: React.FC = () => {
       ) : (
         /* Schemes Grid */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {schemes.map((scheme, idx) => {
+          {filteredSchemes.map((scheme, idx) => {
             const isCentral = scheme.governmentLevel?.toLowerCase().includes('central');
             return (
               <motion.div

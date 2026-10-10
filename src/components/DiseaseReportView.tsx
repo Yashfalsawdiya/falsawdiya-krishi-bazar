@@ -285,7 +285,7 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
                 <Store className="w-4 h-4" />
               </div>
               <h5 className="font-extrabold text-[#2D5A27] text-xs sm:text-sm tracking-tight leading-snug">
-                रिपोर्ट में सुझाए गए सभी अनुशंसित कृषि उत्पाद फल्सावदिया कृषि बाजार पर उपलब्ध हैं
+                सभी कृषि उत्पाद फल्सावदिया कृषि बाजार पर उपलब्ध हैं
               </h5>
             </div>
             <span className="inline-flex items-center gap-1 text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-200 shrink-0">
