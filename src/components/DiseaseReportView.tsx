@@ -279,12 +279,12 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
         {/* Treatment Shop Notice */}
         <div className="bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/40 rounded-2xl border border-emerald-200/80 p-3.5 sm:p-4 shadow-xs space-y-2.5">
           {/* Header Row */}
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-xl bg-[#2D5A27] text-white flex items-center justify-center shadow-xs shrink-0">
                 <Store className="w-4 h-4" />
               </div>
-              <h5 className="font-extrabold text-[#2D5A27] text-xs sm:text-sm tracking-tight">
+              <h5 className="font-extrabold text-[#2D5A27] text-xs sm:text-sm tracking-tight leading-snug">
                 रिपोर्ट में सुझाए गए सभी अनुशंसित कृषि उत्पाद फल्सावदिया कृषि बाजार पर उपलब्ध हैं
               </h5>
             </div>
@@ -292,7 +292,9 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
               <BadgeCheck className="w-3 h-3 text-[#2D5A27]" /> 100% असली ब्रांड्स
             </span>
           </div>
-          <p className="text-[11.5px] sm:text-xs text-gray-700 font-medium leading-relaxed">
+
+          {/* Description */}
+          <p className="text-[11px] sm:text-xs text-gray-700 font-medium leading-relaxed">
             अपनी फसल की समस्या के अनुसार अनुशंसित उत्पाद हमारे स्टोर से प्राप्त करें और बेहतर फसल सुरक्षा एवं पैदावार के लिए फल्सावदिया कृषि बाजार के साथ जुड़ें।
           </p>
         </div>
