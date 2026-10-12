@@ -354,7 +354,7 @@ const CheckoutPage: React.FC = () => {
             razorpayOrderId: razorpayOrderId,
             razorpayMode: mode,
             status: 'confirmed',
-            estimatedDeliveryDate: '2-4 कार्य दिवस (2-4 Working Days)',
+            estimatedDeliveryDate: '3-7 कार्य दिवस (3-7 Working Days)',
           });
 
           clearCart();

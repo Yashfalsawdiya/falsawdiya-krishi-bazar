@@ -1,48 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import { fetchOrderById, cancelUserOrder, calculateOrderRefund } from '../services/orderService';
+import { fetchOrderById, subscribeToOrder, cancelUserOrder, calculateOrderRefund } from '../services/orderService';
 import { useAppContext } from '../context/AppContext';
 import { Order, OrderStatus } from '../types';
 import { getInAppDeliveryOtp } from '../services/deliveryOtpService';
 import { 
   ArrowLeft, CheckCircle2, Clock, Truck, 
   MapPin, Phone, User, Package, Download, 
-  AlertCircle, ShieldCheck, MessageSquare, 
+  AlertCircle, ShieldCheck, MessageSquare, MessageCircle,
   ChevronRight, Calendar, Sparkles, Loader2, FileCheck,
   ShoppingBag, ClipboardCheck, Bike, Check, XCircle,
-  AlertTriangle, RotateCcw, HelpCircle, FileText, Ban, Key, Mail, Lightbulb, X
+  AlertTriangle, RotateCcw, HelpCircle, FileText, Ban, Key, Mail, Lightbulb,
+  Copy, ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
 import { generateOrderInvoicePDF } from '../utils/invoiceGenerator';
 import { formatFullHindiDate } from '../lib/dateUtils';
+import { resolveTrackingUrl, listenCourierPartners, CourierPartnerConfig } from '../services/courierService';
 
-import { useLanguage } from '../context/LanguageContext';
-
-const CANCELLATION_REASONS_HI = [
-  'गलती से दूसरा उत्पाद या मात्रा ऑर्डर हो गई',
-  'डिलीवरी पते या फोन नंबर में बदलाव करना है',
-  'अब इस उत्पाद/दवा की आवश्यकता नहीं है',
-  'डिलीवरी समय अधिक लग रहा है',
-  'अन्य कारण',
-];
-
-const CANCELLATION_REASONS_EN = [
-  'Ordered incorrect product or quantity by mistake',
-  'Need to change delivery address or phone number',
-  'Product or medicine no longer needed',
-  'Delivery time is taking too long',
-  'Other reason',
+const CANCELLATION_REASONS = [
+  'गलती से दूसरा उत्पाद या मात्रा ऑर्डर हो गई (Ordered by mistake)',
+  'डिलीवरी पते या फोन नंबर में बदलाव करना है (Need to change address)',
+  'अब इस उत्पाद/दवा की आवश्यकता नहीं है (No longer needed)',
+  'डिलीवरी समय अधिक लग रहा है (Delivery taking too long)',
+  'अन्य कारण (Other reason)',
 ];
 
 const OrderDetailsPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isEnglish, translateText } = useLanguage();
   const { appContent, invoiceTemplate } = useAppContext();
 
-  const cancellationReasons = isEnglish ? CANCELLATION_REASONS_EN : CANCELLATION_REASONS_HI;
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -50,7 +40,7 @@ const OrderDetailsPage: React.FC = () => {
 
   // Cancellation States
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancellationReason, setCancellationReason] = useState(() => cancellationReasons[0]);
+  const [cancellationReason, setCancellationReason] = useState(CANCELLATION_REASONS[0]);
   const [customReason, setCustomReason] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -60,18 +50,62 @@ const OrderDetailsPage: React.FC = () => {
   const [inAppOtp, setInAppOtp] = useState<string | null>(null);
   const [copiedOtp, setCopiedOtp] = useState(false);
 
+  // Dynamic Courier Tracking State
+  const [courierPartners, setCourierPartners] = useState<CourierPartnerConfig[]>([]);
+  const [copiedTracking, setCopiedTracking] = useState(false);
+
+  useEffect(() => {
+    const unsub = listenCourierPartners(setCourierPartners);
+    return () => unsub();
+  }, []);
+
+  const handleTrackOnCourier = (trackingNo: string, courierName?: string, explicitUrl?: string) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(trackingNo.trim()).catch(() => {});
+    }
+    setCopiedTracking(true);
+    setTimeout(() => setCopiedTracking(false), 3500);
+
+    const { url } = resolveTrackingUrl(courierName, trackingNo, explicitUrl, courierPartners);
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   const isJustPlaced = (location.state as any)?.justPlaced;
   const whatsappNumber = appContent?.contactInfo?.whatsapp || '918982338046';
 
+  // Real-time live order listener via Firestore onSnapshot
   useEffect(() => {
     if (!orderId) return;
+
+    let unsub: (() => void) | null = null;
+    let isMounted = true;
+
     const loadOrder = async () => {
       setLoading(true);
       const data = await fetchOrderById(orderId);
-      setOrder(data);
-      setLoading(false);
+      if (isMounted && data) {
+        setOrder(data);
+      }
+      if (isMounted) {
+        setLoading(false);
+      }
+
+      // Live subscription so order status updates immediately on admin or delivery changes
+      unsub = subscribeToOrder(orderId, (liveOrder) => {
+        if (isMounted && liveOrder) {
+          setOrder(liveOrder);
+        }
+      });
     };
+
     loadOrder();
+
+    return () => {
+      isMounted = false;
+      if (unsub) unsub();
+    };
   }, [orderId]);
 
   // Fetch in-app delivery OTP if order is out for delivery or dispatched
@@ -161,8 +195,38 @@ const OrderDetailsPage: React.FC = () => {
   };
 
   const handleOrderSupport = () => {
+    if (!order) return;
     const msg = `नमस्ते! मुझे अपने ऑर्डर *#${order.orderNumber}* के संबंध में सहायता चाहिए।\nग्राहक: ${order.customerDetails.name}\nकुल राशि: ₹${order.totalAmount}`;
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`, '_blank');
+  };
+
+  // WhatsApp 1-Click Order Confirmation & Details Sender
+  const handleSendWhatsAppOrderConfirmation = () => {
+    if (!order) return;
+    const cleanPhone = (whatsappNumber || '8982338046').replace(/\D/g, '');
+    const itemsList = order.items
+      .map((i, idx) => `• ${i.hindiName || i.name} (${i.unit || '1 इकाई'}) x ${i.quantity} = ₹${i.price * i.quantity}`)
+      .join('\n');
+    const paymentLabel = order.paymentMethod === 'online_razorpay'
+      ? 'ऑनलाइन भुगतान (Razorpay)'
+      : 'ऑनलाइन भुगतान (UPI)';
+    
+    const addressStr = `${order.customerDetails.addressHouse}, ${order.customerDetails.addressCity}, ${order.customerDetails.addressDistrict || ''} (${order.customerDetails.addressPincode})`;
+
+    const msg = `*🌱 फल्सावदिया कृषि बाजार - नया ऑर्डर विवरण*\n\n` +
+      `📦 *ऑर्डर नंबर:* ${order.orderNumber}\n` +
+      `👤 *किसान का नाम:* ${order.customerDetails.name}\n` +
+      `📞 *मोबाइल नंबर:* ${order.customerDetails.phone}\n` +
+      `📍 *डिलीवरी पता:* ${addressStr}\n\n` +
+      `🛒 *ऑर्डर किए गए उत्पाद:*\n${itemsList}\n\n` +
+      `💰 *सामान मूल्य:* ₹${order.itemsTotal || order.totalAmount}\n` +
+      `🚚 *डिलीवरी शुल्क:* ${order.deliveryCharges === 0 ? 'मुफ़्त (FREE)' : `₹${order.deliveryCharges}`}\n` +
+      `💵 *कुल देय राशि:* ₹${order.totalAmount}\n` +
+      `💳 *भुगतान प्रकार:* ${paymentLabel} (${order.paymentStatus === 'paid' ? 'सफल' : 'प्रक्रियाधीन'})\n\n` +
+      `कृपया मेरे ऑर्डर की पुष्टि करें और डिलीवरी का अपडेट भेजें। धन्यवाद! 🙏`;
+
+    const targetUrl = `https://wa.me/91${cleanPhone.replace(/^91/, '')}?text=${encodeURIComponent(msg)}`;
+    window.open(targetUrl, '_blank');
   };
 
   // Open cancellation modal
@@ -269,28 +333,39 @@ const OrderDetailsPage: React.FC = () => {
           </div>
         </div>
 
-        <button
-          onClick={handleDownloadInvoice}
-          disabled={isGeneratingPdf}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 ${
-            isGeneratingPdf
-              ? 'bg-[#2D5A27]/10 text-[#2D5A27] cursor-wait'
-              : 'bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90'
-          }`}
-          title="Download PDF Invoice"
-        >
-          {isGeneratingPdf ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2D5A27]" />
-              <span>PDF तैयार हो रहा है...</span>
-            </>
-          ) : (
-            <>
-              <Download className="w-3.5 h-3.5" />
-              <span>रसीद (Invoice)</span>
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleSendWhatsAppOrderConfirmation}
+            className="flex items-center gap-1.5 px-3 py-2 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] border border-[#25D366]/30 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+            title="WhatsApp पर विवरण भेजें"
+          >
+            <MessageCircle className="w-3.5 h-3.5 fill-[#128C7E]" />
+            <span className="hidden sm:inline">WhatsApp</span>
+          </button>
+
+          <button
+            onClick={handleDownloadInvoice}
+            disabled={isGeneratingPdf}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 ${
+              isGeneratingPdf
+                ? 'bg-[#2D5A27]/10 text-[#2D5A27] cursor-wait'
+                : 'bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90'
+            }`}
+            title="Download PDF Invoice"
+          >
+            {isGeneratingPdf ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2D5A27]" />
+                <span>PDF तैयार हो रहा है...</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-3.5 h-3.5" />
+                <span>रसीद (Invoice)</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* PDF / Cancel Alerts */}
@@ -316,10 +391,9 @@ const OrderDetailsPage: React.FC = () => {
             </div>
             <button
               onClick={() => setPdfMessage(null)}
-              className="p-1 text-gray-400 hover:text-gray-700 ml-2"
-              title="बंद करें"
+              className="text-[10px] uppercase font-bold text-gray-400 hover:text-gray-700 ml-2"
             >
-              <X className="w-3.5 h-3.5" />
+              ✕
             </button>
           </motion.div>
         )}
@@ -337,10 +411,9 @@ const OrderDetailsPage: React.FC = () => {
             </div>
             <button
               onClick={() => setCancelSuccessMsg(null)}
-              className="p-1 text-emerald-700 hover:text-emerald-900 ml-2"
-              title="बंद करें"
+              className="text-[10px] uppercase font-bold text-emerald-700 hover:text-emerald-900 ml-2"
             >
-              <X className="w-3.5 h-3.5" />
+              ✕
             </button>
           </motion.div>
         )}
@@ -351,15 +424,36 @@ const OrderDetailsPage: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-emerald-50 border border-emerald-200 p-4 rounded-3xl text-center space-y-2 print:hidden"
+          className="bg-emerald-50 border border-emerald-200 p-4 sm:p-5 rounded-3xl text-center space-y-3.5 print:hidden shadow-xs"
         >
           <div className="w-12 h-12 bg-emerald-600 text-white rounded-full flex items-center justify-center mx-auto shadow-md">
             <CheckCircle2 className="w-7 h-7" />
           </div>
-          <h3 className="text-base font-black text-emerald-900">बधाई हो! आपका ऑर्डर सफलतापूर्वक प्राप्त हुआ</h3>
-          <p className="text-xs text-emerald-700 max-w-sm mx-auto">
-            ऑनलाइन भुगतान प्राप्त हो गया है। हमारी टीम जल्द ही आपका पार्सल पैक करके रवाना करेगी।
-          </p>
+          <div>
+            <h3 className="text-base font-black text-emerald-900">बधाई हो! आपका ऑर्डर सफलतापूर्वक दर्ज हुआ</h3>
+            <p className="text-xs text-emerald-700 max-w-sm mx-auto mt-0.5">
+              {order.paymentStatus === 'paid' ? 'ऑनलाइन भुगतान प्राप्त हो गया है।' : 'ऑर्डर प्राप्त हो गया है।'} हमारी टीम जल्द ही आपका पार्सल पैक करके रवाना करेगी।
+            </p>
+          </div>
+
+          {/* 1-Click WhatsApp Order Confirmation Button */}
+          <div className="pt-1 flex flex-col sm:flex-row items-center justify-center gap-2 max-w-md mx-auto">
+            <button
+              onClick={handleSendWhatsAppOrderConfirmation}
+              className="w-full sm:w-auto px-5 py-3 bg-[#25D366] hover:bg-[#20ba59] active:scale-95 text-white rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
+            >
+              <MessageCircle className="w-4 h-4 fill-white" />
+              <span>WhatsApp पर ऑर्डर विवरण भेजें</span>
+            </button>
+            <button
+              onClick={handleDownloadInvoice}
+              disabled={isGeneratingPdf}
+              className="w-full sm:w-auto px-4 py-3 bg-white hover:bg-emerald-50 active:scale-95 text-[#2D5A27] border border-emerald-200 rounded-2xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>रसीद डाउनलोड करें</span>
+            </button>
+          </div>
         </motion.div>
       )}
 
@@ -651,20 +745,205 @@ const OrderDetailsPage: React.FC = () => {
           </div>
         )}
 
-        {/* Courier / Tracking Number if dispatched */}
-        {order.trackingNumber && order.status !== 'cancelled' && (
-          <div className="bg-indigo-50/70 border border-indigo-100 p-3 rounded-2xl text-xs flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Truck className="w-4 h-4 text-indigo-600" />
-              <div>
-                <p className="font-bold text-indigo-900">
-                  कूरियर पार्टनर: {order.courierPartner || 'Speed Post / Delivery'}
-                </p>
-                <p className="text-[10px] text-indigo-700">ट्रैकिंग नंबर: {order.trackingNumber}</p>
+        {/* =============================================================== */}
+        {/* HIGH-TRUST COURIER & LOCAL DELIVERY LIVE TRACKING CARD */}
+        {/* =============================================================== */}
+        {order.status !== 'cancelled' && (order.trackingNumber || order.courierPartner || order.status === 'dispatched' || order.status === 'out_for_delivery' || order.status === 'delivered') && (() => {
+          const resolved = resolveTrackingUrl(
+            order.courierPartner,
+            order.trackingNumber,
+            order.courierTrackingUrl,
+            courierPartners
+          );
+
+          if (resolved.isLocal) {
+            // Local Delivery / Own Delivery Card (Direct store delivery tracked inside the app)
+            return (
+              <div className="p-4 sm:p-5 rounded-3xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/80 via-white to-green-50/40 shadow-xs space-y-3.5 transition-all">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                      <Bike className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                          {resolved.displayName || 'फल्सावदिया कृषि बाजार (Own Delivery)'}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> पार्सल रवाना
+                        </span>
+                      </div>
+                      <h4 className="text-xs sm:text-sm font-black text-gray-900 mt-0.5">
+                        स्टोर स्थानीय डिलीवरी (Direct Store Delivery)
+                      </h4>
+                    </div>
+                  </div>
+
+                  {order.estimatedDeliveryDate && (
+                    <div className="text-right">
+                      <span className="text-[10px] text-gray-500 font-medium block">अनुमानित डिलीवरी</span>
+                      <span className="text-xs font-black text-[#2D5A27]">{order.estimatedDeliveryDate}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Local Delivery Info Box */}
+                <div className="bg-emerald-100/40 p-3 sm:p-3.5 rounded-2xl border border-emerald-200/80 text-[11px] sm:text-xs text-emerald-950 space-y-1.5">
+                  <p className="flex items-center gap-1.5 font-bold text-emerald-900">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>यह पार्सल हमारे स्थानीय डिलीवरी पार्टनर द्वारा सीधे आपके पते पर पहुँचाया जाएगा।</span>
+                  </p>
+                  <p className="text-[10px] sm:text-[11px] text-emerald-800/90 pl-5 leading-relaxed">
+                    डिलीवरी बॉय के पहुँचने पर आपको संपर्क किया जाएगा। आप ऐप में ही ऑर्डर का लाइव स्टेटस ट्रैक कर सकते हैं। किसी भी सहायता के लिए स्टोर हेल्पलाइन पर संपर्क करें।
+                  </p>
+                </div>
+              </div>
+            );
+          }
+
+          // Third-Party Courier Partner Card (requires trackingNumber)
+          if (!order.trackingNumber) {
+            return null;
+          }
+
+          const isSpeedPost = resolved.displayName.toLowerCase().includes('speed post') || resolved.displayName.toLowerCase().includes('इंडिया पोस्ट');
+          const isDelhivery = resolved.displayName.toLowerCase().includes('delhivery');
+          const isDtdc = resolved.displayName.toLowerCase().includes('dtdc');
+
+          let cardBg = 'bg-gradient-to-br from-indigo-50/80 via-white to-sky-50/40 border-indigo-200/90';
+          let badgeBg = 'bg-indigo-100/90 text-indigo-800 border-indigo-200';
+          let btnBg = 'bg-[#1e40af] hover:bg-[#1d3bb0]';
+          let iconBg = 'bg-indigo-600 text-white';
+
+          if (isSpeedPost) {
+            cardBg = 'bg-gradient-to-br from-red-50/80 via-white to-orange-50/40 border-red-200/90';
+            badgeBg = 'bg-red-100/90 text-red-800 border-red-200';
+            btnBg = 'bg-[#C4122F] hover:bg-[#a80e27]';
+            iconBg = 'bg-[#C4122F] text-white';
+          } else if (isDelhivery) {
+            cardBg = 'bg-gradient-to-br from-amber-50/80 via-white to-amber-50/40 border-amber-200/90';
+            badgeBg = 'bg-amber-100/90 text-amber-900 border-amber-200';
+            btnBg = 'bg-amber-600 hover:bg-amber-700';
+            iconBg = 'bg-amber-600 text-white';
+          } else if (isDtdc) {
+            cardBg = 'bg-gradient-to-br from-blue-50/80 via-white to-blue-50/40 border-blue-200/90';
+            badgeBg = 'bg-blue-100/90 text-blue-900 border-blue-200';
+            btnBg = 'bg-blue-700 hover:bg-blue-800';
+            iconBg = 'bg-blue-700 text-white';
+          }
+
+          return (
+            <div className={`p-4 sm:p-5 rounded-3xl border shadow-xs space-y-3.5 transition-all ${cardBg}`}>
+              {/* Header / Brand Badge */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-xs shrink-0 ${iconBg}`}>
+                    <Truck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeBg}`}>
+                        {resolved.displayName}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> पार्सल रवाना
+                      </span>
+                    </div>
+                    <h4 className="text-xs sm:text-sm font-black text-gray-900 mt-0.5">
+                      आधिकारिक कूरियर पार्सल ट्रैकिंग
+                    </h4>
+                  </div>
+                </div>
+
+                {order.estimatedDeliveryDate && (
+                  <div className="text-right">
+                    <span className="text-[10px] text-gray-500 font-medium block">अनुमानित डिलीवरी</span>
+                    <span className="text-xs font-black text-[#2D5A27]">{order.estimatedDeliveryDate}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Consignment Number + One-Click Copy */}
+              <div className="bg-white/95 p-3 sm:p-3.5 rounded-2xl border border-gray-200/70 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div>
+                  <span className="text-[10px] uppercase font-extrabold tracking-wider text-gray-500 block">
+                    कंसाइनमेंट / ट्रैकिंग नंबर (Consignment No.)
+                  </span>
+                  <span className="font-mono text-base sm:text-lg font-black tracking-wider text-gray-900 select-all">
+                    {order.trackingNumber}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (navigator?.clipboard?.writeText) {
+                      navigator.clipboard.writeText(order.trackingNumber!.trim()).catch(() => {});
+                    }
+                    setCopiedTracking(true);
+                    setTimeout(() => setCopiedTracking(false), 3000);
+                  }}
+                  className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                    copiedTracking
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      : 'bg-gray-50 hover:bg-gray-100 text-gray-800 border-gray-200'
+                  }`}
+                >
+                  {copiedTracking ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-white" />
+                      <span>नंबर कॉपी हो गया! ✓</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>नंबर कॉपी करें</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Big Action Button: Track on Official Portal */}
+              <div className="pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => handleTrackOnCourier(order.trackingNumber!, order.courierPartner, order.courierTrackingUrl)}
+                  className={`w-full py-3 px-4 ${btnBg} active:scale-[0.99] text-white rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer`}
+                >
+                  <span>{resolved.displayName} पोर्टल पर लाइव ट्रैक करें</span>
+                  <ExternalLink className="w-4 h-4 text-white shrink-0" />
+                </button>
+              </div>
+
+              {/* Farmer Friendly Step-by-Step Instructions */}
+              <div className="bg-white/90 p-3 sm:p-3.5 rounded-2xl border border-gray-200/80 text-[11px] text-gray-800 space-y-2 shadow-2xs">
+                <div className="flex items-center gap-1.5 font-black text-gray-900">
+                  <Lightbulb className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span className="text-xs sm:text-[13px]">किसान भाइयों के लिए आसान तरीका:</span>
+                </div>
+                <div className="space-y-1.5 pl-3 sm:pl-4 text-[11px] sm:text-xs text-gray-700 leading-relaxed">
+                  <div className="flex items-start gap-1.5">
+                    <span className="font-extrabold text-[#2D5A27] shrink-0">1.</span>
+                    <span>सबसे पहले कंसाइनमेंट / ट्रैकिंग नंबर कॉपी करें।</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <span className="font-extrabold text-[#2D5A27] shrink-0">2.</span>
+                    <span>
+                      फिर <b>"लाइव ट्रैक करें"</b> बटन दबाएं, दबाते ही <b>Courier Partner (कूरियर पार्टनर)</b> की आधिकारिक वेबसाइट खुलेगी।
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <span className="font-extrabold text-[#2D5A27] shrink-0">3.</span>
+                    <span>
+                      वहाँ <b>Consignment / Tracking Number</b> में नंबर पेस्ट करें और <b>Track</b> बटन दबाएं।
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Detailed Timeline Events */}
         <div className="pt-2 border-t border-gray-100 space-y-3">
@@ -902,9 +1181,8 @@ const OrderDetailsPage: React.FC = () => {
                 <button
                   onClick={() => setShowCancelModal(false)}
                   className="text-gray-400 hover:text-gray-600 p-1"
-                  title="बंद करें"
                 >
-                  <X className="w-4 h-4" />
+                  ✕
                 </button>
               </div>
 
@@ -961,24 +1239,24 @@ const OrderDetailsPage: React.FC = () => {
               {/* Cancellation Reason Selector */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-700 block">
-                  {isEnglish ? 'Select reason for cancellation:' : 'रद्दीकरण का कारण चुनें:'}
+                  रद्दीकरण का कारण चुनें (Reason for cancellation):
                 </label>
                 <select
                   value={cancellationReason}
                   onChange={(e) => setCancellationReason(e.target.value)}
                   className="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-xs focus:outline-none focus:border-[#2D5A27]"
                 >
-                  {cancellationReasons.map((r, idx) => (
+                  {CANCELLATION_REASONS.map((r, idx) => (
                     <option key={idx} value={r}>
                       {r}
                     </option>
                   ))}
                 </select>
 
-                {(cancellationReason === 'अन्य कारण' || cancellationReason === 'Other reason') && (
+                {cancellationReason === 'अन्य कारण (Other reason)' && (
                   <textarea
                     rows={2}
-                    placeholder={isEnglish ? 'Please provide details...' : 'कृपया कारण विस्तार से बताएं...'}
+                    placeholder="कृपया कारण विस्तार से बताएं..."
                     value={customReason}
                     onChange={(e) => setCustomReason(e.target.value)}
                     className="w-full p-2 bg-white border border-gray-300 rounded-xl text-xs focus:outline-none focus:border-[#2D5A27] mt-1.5"

@@ -13,7 +13,8 @@ import {
   CheckCircle2, AlertCircle, Eye, Phone, MapPin, 
   ChevronDown, Edit3, Loader2, RefreshCw, Download,
   Calendar, DollarSign, Send, Bell, BellRing, ChevronRight,
-  TrendingUp, AlertTriangle, ArrowUpRight, Check, Users, UserPlus, UserCheck, X, Hash
+  TrendingUp, AlertTriangle, ArrowUpRight, Check, Users, UserPlus, UserCheck, X, Hash,
+  ExternalLink, Copy, Globe, Shield, Plus, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateOrderInvoicePDF } from '../utils/invoiceGenerator';
@@ -21,6 +22,15 @@ import { useAppContext } from '../context/AppContext';
 import { formatFullHindiDate } from '../lib/dateUtils';
 import { getVehicleDisplayLabel, getVehicleIcon } from '../data/defaultDeliveryConfig';
 import { VehicleIcon } from './common/VehicleIcon';
+import { 
+  CourierPartnerConfig, 
+  listenCourierPartners, 
+  resolveTrackingUrl, 
+  DEFAULT_COURIER_PARTNERS, 
+  getCachedCourierPartners,
+  addCustomCourierPartner,
+  deleteCustomCourierPartner
+} from '../services/courierService';
 
 // Web Audio API Chime generator (Zero external files, 100% reliable)
 const playOrderChime = () => {
@@ -91,9 +101,17 @@ const AdminOrdersManager: React.FC = () => {
   const [newStatus, setNewStatus] = useState<OrderStatus>('confirmed');
   const [statusNote, setStatusNote] = useState('');
   const [courierPartner, setCourierPartner] = useState('');
+  const [courierTrackingUrl, setCourierTrackingUrl] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
-  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('');
+  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('3-7 कार्य दिवस (3-7 Working Days)');
   const [isSavingStatus, setIsSavingStatus] = useState(false);
+
+  // Dynamic Courier Partners State
+  const [courierPartners, setCourierPartners] = useState<CourierPartnerConfig[]>(getCachedCourierPartners());
+  const [showInlineAddCourier, setShowInlineAddCourier] = useState(false);
+  const [inlineCourierName, setInlineCourierName] = useState('');
+  const [inlineTrackingUrl, setInlineTrackingUrl] = useState('');
+  const [inlineTrackingNumber, setInlineTrackingNumber] = useState('');
 
   // Delivery Partners State & Assign Modal
   const [deliveryPartners, setDeliveryPartners] = useState<DeliveryPartner[]>([]);
@@ -112,7 +130,14 @@ const AdminOrdersManager: React.FC = () => {
     const unsubPartners = listenDeliveryPartners((list) => {
       setDeliveryPartners(list);
     });
-    return () => unsubPartners();
+    // Listen to courier partners
+    const unsubCouriers = listenCourierPartners((list) => {
+      setCourierPartners(list);
+    });
+    return () => {
+      unsubPartners();
+      unsubCouriers();
+    };
   }, []);
 
   useEffect(() => {
@@ -280,18 +305,115 @@ const AdminOrdersManager: React.FC = () => {
     setUpdatingOrderId(order.id);
     setNewStatus((order.status === 'placed' || order.status === 'confirmed') ? 'dispatched' : order.status);
     setStatusNote(order.notes || '');
-    setCourierPartner(order.courierPartner || 'Speed Post (इंडिया पोस्ट)');
-    setTrackingNumber(order.trackingNumber || '');
-    setEstimatedDeliveryDate(order.estimatedDeliveryDate || '2-4 कार्य दिवस');
+    const defaultCourier = 'फल्सावदिया कृषि बाजार (Own Delivery)';
+    const currentCourier = (order.courierPartner && order.courierPartner !== 'लोकल डिलीवरी (Own Delivery)')
+      ? order.courierPartner
+      : defaultCourier;
+    setCourierPartner(currentCourier);
+
+    const isCurrentOwnDelivery = Boolean(
+      currentCourier.toLowerCase().includes('own delivery') ||
+      currentCourier.toLowerCase().includes('फल्सावदिया') ||
+      currentCourier.toLowerCase().includes('लोकल') ||
+      currentCourier.toLowerCase().includes('store delivery') ||
+      courierPartners.find(p => p.name.toLowerCase() === currentCourier.toLowerCase().trim() && p.isLocal)
+    );
+
+    // If own delivery, do not set external tracking number or external url
+    setTrackingNumber(isCurrentOwnDelivery ? '' : (order.trackingNumber || ''));
+
+    // Default delivery time: If empty or legacy "2-4", default to "3-7 कार्य दिवस (3-7 Working Days)"
+    const rawDelivery = (order.estimatedDeliveryDate || '').trim();
+    const defaultDelivery = '3-7 कार्य दिवस (3-7 Working Days)';
+    const normalizedDelivery = (!rawDelivery || rawDelivery.includes('2-4'))
+      ? defaultDelivery
+      : rawDelivery;
+    setEstimatedDeliveryDate(normalizedDelivery);
+
+    const matched = courierPartners.find(p => p.name.toLowerCase() === currentCourier.toLowerCase());
+    setCourierTrackingUrl(isCurrentOwnDelivery ? '' : (order.courierTrackingUrl || matched?.trackingUrl || ''));
+
+    // Reset inline add form
+    setShowInlineAddCourier(false);
+    setInlineCourierName('');
+    setInlineTrackingUrl('');
+    setInlineTrackingNumber('');
+  };
+
+  // Delete a specific courier partner immediately on cross click (Protected for store own delivery)
+  const handleDeleteCourierPartner = async (preset: CourierPartnerConfig, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (preset.id === 'own_delivery' || preset.isPermanent || preset.name.includes('फल्सावदिया')) {
+      return; // Cannot delete store's permanent own delivery system
+    }
+    try {
+      // 1. Instant 0ms local state update
+      const updated = courierPartners.filter((p) => p.id !== preset.id);
+      setCourierPartners(updated);
+
+      // If deleted partner was active, switch to next available partner or own delivery
+      if (courierPartner.toLowerCase() === preset.name.toLowerCase()) {
+        const fallback = updated[0];
+        setCourierPartner(fallback ? fallback.name : 'फल्सावदिया कृषि बाजार (Own Delivery)');
+        setCourierTrackingUrl(fallback ? (fallback.trackingUrl || '') : '');
+      }
+
+      // 2. Persist deletion in localStorage & Firestore
+      await deleteCustomCourierPartner(preset.id);
+    } catch (err) {
+      console.error('Failed to delete courier partner:', err);
+    }
+  };
+
+  // Inline add new courier partner directly inside the card
+  const handleSaveInlineCourier = async () => {
+    if (!inlineCourierName.trim()) return;
+    const name = inlineCourierName.trim();
+    const url = inlineTrackingUrl.trim();
+    const num = inlineTrackingNumber.trim().toUpperCase();
+
+    try {
+      const isLocal = name.toLowerCase().includes('लोकल') || name.toLowerCase().includes('own delivery');
+      const updated = await addCustomCourierPartner({
+        name,
+        trackingUrl: url,
+        isLocal,
+      });
+      setCourierPartners(updated);
+      setCourierPartner(name);
+      setCourierTrackingUrl(url);
+      if (num) {
+        setTrackingNumber(num);
+      }
+      setInlineCourierName('');
+      setInlineTrackingUrl('');
+      setInlineTrackingNumber('');
+      setShowInlineAddCourier(false);
+    } catch (err) {
+      console.error('Failed to add custom courier partner:', err);
+    }
   };
 
   const handleSaveStatusUpdate = async () => {
     if (!updatingOrderId) return;
     setIsSavingStatus(true);
     try {
+      const isOwnDeliverySelected = Boolean(
+        courierPartner.toLowerCase().includes('own delivery') ||
+        courierPartner.toLowerCase().includes('फल्सावदिया') ||
+        courierPartner.toLowerCase().includes('लोकल') ||
+        courierPartner.toLowerCase().includes('store delivery') ||
+        courierPartners.find(p => p.name.toLowerCase() === courierPartner.toLowerCase().trim() && p.isLocal)
+      );
+
+      const effectiveTrackingNumber = isOwnDeliverySelected ? undefined : (trackingNumber.trim() || undefined);
+      const effectiveCourierTrackingUrl = isOwnDeliverySelected ? undefined : (courierTrackingUrl.trim() || undefined);
+
       await updateOrderStatus(updatingOrderId, newStatus, statusNote, {
         courierPartner: courierPartner.trim() || undefined,
-        trackingNumber: trackingNumber.trim() || undefined,
+        trackingNumber: effectiveTrackingNumber,
+        courierTrackingUrl: effectiveCourierTrackingUrl,
         estimatedDeliveryDate: estimatedDeliveryDate.trim() || undefined,
       });
 
@@ -302,7 +424,8 @@ const AdminOrdersManager: React.FC = () => {
             ...o,
             status: newStatus,
             courierPartner,
-            trackingNumber,
+            trackingNumber: effectiveTrackingNumber || '',
+            courierTrackingUrl: effectiveCourierTrackingUrl || '',
             estimatedDeliveryDate,
             notes: statusNote,
             updatedAt: Date.now(),
@@ -372,7 +495,12 @@ const AdminOrdersManager: React.FC = () => {
     if (order.status === 'confirmed') {
       msg = `नमस्ते ${custName} जी!\n\n${storeName} से आपका ऑर्डर (${order.orderNumber}) स्वीकार कर लिया गया है और पैकिंग हो रही है।\nकुल राशि: ₹${order.totalAmount} (ऑनलाइन भुगतान सफल)\n\nजल्द ही आपका पार्सल रवाना किया जाएगा।\nधन्यवाद! 🙏`;
     } else if (order.status === 'dispatched') {
-      msg = `नमस्ते ${custName} जी!\n\nआपका ऑर्डर (${order.orderNumber}) रवाना (Shipped) कर दिया गया है।\n📦 कूरियर: ${order.courierPartner || 'Speed Post'}\n🔢 ट्रैकिंग नं: ${order.trackingNumber || 'उपलब्ध'}\n⏱ अनुमानित समय: ${order.estimatedDeliveryDate || '2-4 दिन'}\n\nधन्यवाद!\n${storeName}`;
+      const resolved = resolveTrackingUrl(order.courierPartner, order.trackingNumber, order.courierTrackingUrl, courierPartners);
+      if (resolved.isLocal) {
+        msg = `नमस्ते ${custName} जी!\n\nआपका ऑर्डर (${order.orderNumber}) रवाना (Shipped) कर दिया गया है।\n📦 डिलीवरी: स्थानीय डिलीवरी (लोकल स्टोर पार्टनर द्वारा)\n🔢 पर्ची / संदर्भ नं: ${order.trackingNumber || 'उपलब्ध'}\n⏱ अनुमानित समय: ${order.estimatedDeliveryDate || '3-7 कार्य दिवस (3-7 Working Days)'}\n\nधन्यवाद!\n${storeName}`;
+      } else {
+        msg = `नमस्ते ${custName} जी!\n\nआपका ऑर्डर (${order.orderNumber}) रवाना (Shipped) कर दिया गया है।\n📦 कूरियर: ${order.courierPartner || 'Speed Post (इंडिया पोस्ट)'}\n🔢 कंसाइनमेंट / ट्रैकिंग नं: ${order.trackingNumber || 'उपलब्ध'}\n⏱ अनुमानित समय: ${order.estimatedDeliveryDate || '3-7 कार्य दिवस (3-7 Working Days)'}\n🌐 ऑनलाइन ट्रैक करें: ${resolved.url}\n\nधन्यवाद!\n${storeName}`;
+      }
     } else if (order.status === 'out_for_delivery') {
       msg = `नमस्ते ${custName} जी!\n\nआपका ऑर्डर (${order.orderNumber}) आज डिलीवरी के लिए निकल चुका है। कृपया फोन चालू रखें।\n\nधन्यवाद!\n${storeName}`;
     } else if (order.status === 'delivered') {
@@ -825,11 +953,11 @@ const AdminOrdersManager: React.FC = () => {
                   <div className="bg-indigo-50 border border-indigo-100 p-2.5 rounded-xl text-[11px] text-indigo-900 flex flex-wrap justify-between items-center gap-2">
                     <span className="flex items-center gap-1.5">
                       <Truck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                      <span>कूरियर: <b>{order.courierPartner}</b></span>
+                      <span>कूरियर: <b>{order.courierPartner || 'Speed Post'}</b></span>
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Hash className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                      <span>ट्रैकिंग: <b>{order.trackingNumber}</b></span>
+                      <span className="font-mono">ट्रैकिंग: <b>{order.trackingNumber}</b></span>
                     </span>
                     {order.estimatedDeliveryDate && (
                       <span className="flex items-center gap-1.5">
@@ -837,6 +965,28 @@ const AdminOrdersManager: React.FC = () => {
                         <span>डिलीवरी: <b>{order.estimatedDeliveryDate}</b></span>
                       </span>
                     )}
+                    {(() => {
+                      const res = resolveTrackingUrl(order.courierPartner, order.trackingNumber, order.courierTrackingUrl, courierPartners);
+                      if (res.isLocal) {
+                        return (
+                          <span className="px-2 py-1 bg-emerald-100/90 text-emerald-800 rounded-lg border border-emerald-200 font-bold text-[10px] ml-auto">
+                            लोकल डिलीवरी
+                          </span>
+                        );
+                      }
+                      return (
+                        <a
+                          href={res.url || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-white hover:bg-indigo-100/70 text-indigo-700 rounded-lg border border-indigo-200 font-bold flex items-center gap-1 text-[10px] ml-auto transition-all"
+                          title="आधिकारिक ट्रैकिंग पोर्टल खोलें"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>पोर्टल खोलें ↗</span>
+                        </a>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -899,37 +1049,386 @@ const AdminOrdersManager: React.FC = () => {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">कूरियर पार्टनर का नाम</label>
-                  <input
-                    type="text"
-                    placeholder="उदाँ: Speed Post (इंडिया पोस्ट), Delhivery, DTDC, लोकल डिलीवरी"
-                    value={courierPartner}
-                    onChange={(e) => setCourierPartner(e.target.value)}
-                    className="w-full p-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#2D5A27]"
-                  />
-                </div>
+                {/* =============================================================== */}
+                {/* MODERN COURIER & DISPATCH SETTINGS CARD */}
+                {/* =============================================================== */}
+                <div className="bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/30 rounded-3xl p-4 sm:p-5 border border-emerald-200/90 shadow-xs space-y-4">
+                  {/* Card Section Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-emerald-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#2D5A27] to-[#1e3d1a] text-white flex items-center justify-center shadow-xs shrink-0">
+                        <Truck className="w-4.5 h-4.5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs sm:text-sm font-black text-gray-900 leading-tight">
+                            कूरियर पार्टनर व पार्सल ट्रैकिंग
+                          </h4>
+                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100/90 text-emerald-800 border border-emerald-200">
+                            लाइव ट्रैकिंग
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                          पार्सल डिस्पैच, आधिकारिक ट्रैकिंग लिंक व कंसाइनमेंट नंबर
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">ट्रैकिंग नंबर / डॉकेट नंबर</label>
-                  <input
-                    type="text"
-                    placeholder="उदाँ: SP123456789IN"
-                    value={trackingNumber}
-                    onChange={(e) => setTrackingNumber(e.target.value)}
-                    className="w-full p-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#2D5A27]"
-                  />
-                </div>
+                  {/* Courier Partner Selector Pills & Manual Name */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold text-gray-700">
+                        कूरियर पार्टनर चुनें या नया नाम डालें
+                      </label>
+                      <span className="text-[10px] font-bold text-gray-500">
+                        सक्रिय: <b className="text-gray-800">{courierPartner || 'कोई नहीं'}</b>
+                      </span>
+                    </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">अनुमानित डिलीवरी समय</label>
-                  <input
-                    type="text"
-                    placeholder="उदाँ: 2-3 कार्य दिवस (2-3 Working Days)"
-                    value={estimatedDeliveryDate}
-                    onChange={(e) => setEstimatedDeliveryDate(e.target.value)}
-                    className="w-full p-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#2D5A27]"
-                  />
+                    {/* Dynamic Courier Partner Preset Buttons & Plus Button */}
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      {courierPartners.map((preset) => {
+                        const isSelected = courierPartner.toLowerCase() === preset.name.toLowerCase();
+                        const isPermanentStoreDelivery = preset.id === 'own_delivery' || preset.isPermanent || preset.name.includes('फल्सावदिया');
+
+                        return (
+                          <div
+                            key={preset.id}
+                            className={`group inline-flex items-center text-[10px] sm:text-[11px] rounded-xl border font-bold transition-all shadow-2xs ${
+                              isSelected
+                                ? preset.isLocal
+                                  ? 'bg-emerald-600 text-white border-emerald-600 ring-2 ring-emerald-200'
+                                  : 'bg-[#C4122F] text-white border-[#C4122F] ring-2 ring-red-200'
+                                : 'bg-white hover:bg-emerald-50/80 text-gray-700 border-gray-200 hover:border-emerald-300'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCourierPartner(preset.name);
+                                if (preset.isLocal || preset.name.includes('फल्सावदिया') || preset.name.includes('Own Delivery') || preset.id === 'own_delivery') {
+                                  setCourierTrackingUrl('');
+                                  setTrackingNumber('');
+                                } else {
+                                  setCourierTrackingUrl(preset.trackingUrl || '');
+                                }
+                              }}
+                              className={`py-1.5 flex items-center gap-1 cursor-pointer ${
+                                isPermanentStoreDelivery ? 'px-3' : 'pl-2.5 pr-1.5'
+                              }`}
+                            >
+                              <span>{preset.name}</span>
+                              {preset.isLocal && !isSelected && (
+                                <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold">
+                                  लोकल
+                                </span>
+                              )}
+                            </button>
+
+                            {/* Cross (X) icon to delete this courier partner - ONLY for external/custom partners, never store own delivery */}
+                            {!isPermanentStoreDelivery && (
+                              <button
+                                type="button"
+                                title={`"${preset.name}" हटाएं`}
+                                onClick={(e) => handleDeleteCourierPartner(preset, e)}
+                                className={`p-1 mr-1 rounded-md transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+                                  isSelected
+                                    ? 'text-white/80 hover:text-white hover:bg-black/25 active:scale-90'
+                                    : 'text-gray-400 hover:text-red-600 hover:bg-red-50 active:scale-90'
+                                }`}
+                              >
+                                <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Plus button directly after the courier partners / लोकल डिलीवरी */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowInlineAddCourier(!showInlineAddCourier);
+                          if (!showInlineAddCourier) {
+                            setInlineCourierName('');
+                            setInlineTrackingUrl('');
+                            setInlineTrackingNumber(trackingNumber || '');
+                          }
+                        }}
+                        title="नया कूरियर पार्टनर जोड़ें"
+                        className={`text-[10px] sm:text-[11px] px-2.5 py-1.5 rounded-xl border font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs ${
+                          showInlineAddCourier
+                            ? 'bg-emerald-600 text-white border-emerald-600 ring-2 ring-emerald-200'
+                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-dashed border-emerald-300 hover:border-emerald-400'
+                        }`}
+                      >
+                        <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>कूरियर जोड़ें</span>
+                      </button>
+                    </div>
+
+                    {/* Inline Form to Add Courier Partner + Tracking Link + Consignment No directly inside card */}
+                    <AnimatePresence>
+                      {showInlineAddCourier && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="bg-gradient-to-br from-emerald-50/90 via-white to-teal-50/50 p-3.5 sm:p-4 rounded-2xl border-2 border-dashed border-emerald-300 shadow-sm space-y-3">
+                            <div className="flex items-center justify-between pb-2 border-b border-emerald-100">
+                              <div className="flex items-center gap-1.5 text-xs font-black text-emerald-900">
+                                <Plus className="w-4 h-4 text-emerald-700 stroke-[2.5]" />
+                                <span>नया कूरियर पार्टनर जोड़ें (Add Courier Partner)</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setShowInlineAddCourier(false)}
+                                className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              {/* 1. Courier Name */}
+                              <div className="space-y-1">
+                                <label className="block text-[10px] uppercase tracking-wider font-extrabold text-gray-700">
+                                  कूरियर पार्टनर का नाम <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="उदाँ: XpressBees, Shadowfax, Maruti Courier"
+                                  value={inlineCourierName}
+                                  onChange={(e) => setInlineCourierName(e.target.value)}
+                                  className="w-full p-2 bg-white border border-gray-200 rounded-xl font-bold text-xs text-gray-800 outline-none focus:border-[#2D5A27] focus:ring-1 focus:ring-emerald-200"
+                                />
+                              </div>
+
+                              {/* 3. Consignment / Tracking Number */}
+                              <div className="space-y-1">
+                                <label className="block text-[10px] uppercase tracking-wider font-extrabold text-gray-700 flex items-center gap-1">
+                                  <Hash className="w-3 h-3 text-red-600" />
+                                  <span>ट्रैकिंग / कंसाइनमेंट नंबर (Consignment No.)</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="उदाँ: AWB123456789, TRK987654"
+                                  value={inlineTrackingNumber}
+                                  onChange={(e) => setInlineTrackingNumber(e.target.value.toUpperCase())}
+                                  className="w-full p-2 bg-white border border-gray-200 rounded-xl font-mono font-bold text-xs text-gray-800 outline-none focus:border-[#2D5A27] focus:ring-1 focus:ring-emerald-200 tracking-wider"
+                                />
+                              </div>
+                            </div>
+
+                            {/* 2. Official Tracking URL */}
+                            <div className="space-y-1">
+                              <label className="block text-[10px] uppercase tracking-wider font-extrabold text-gray-700 flex items-center gap-1">
+                                <Globe className="w-3 h-3 text-indigo-600" />
+                                <span>आधिकारिक ट्रैकिंग वेबसाइट लिंक (Tracking URL Link)</span>
+                              </label>
+                              <input
+                                type="url"
+                                placeholder="उदाँ: https://www.xpressbees.com/track?awb={trackingNumber}"
+                                value={inlineTrackingUrl}
+                                onChange={(e) => setInlineTrackingUrl(e.target.value)}
+                                className="w-full p-2 bg-white border border-gray-200 rounded-xl font-mono text-xs text-gray-800 outline-none focus:border-[#2D5A27] focus:ring-1 focus:ring-emerald-200"
+                              />
+                              <p className="text-[9.5px] text-gray-500 font-medium">
+                                लिंक में <code className="bg-emerald-100/70 text-emerald-900 px-1 py-0.5 rounded font-bold font-mono">{'{trackingNumber}'}</code> रखने पर ग्राहक का असली ट्रैकिंग नंबर लिंक में अपने-आप जुड़ जाएगा।
+                              </p>
+                            </div>
+
+                            {/* Save button and Cancel button */}
+                            <div className="flex items-center gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={handleSaveInlineCourier}
+                                disabled={!inlineCourierName.trim()}
+                                className="flex-1 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>पार्टनर सुरक्षित करें व लागू करें (Save & Select)</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowInlineAddCourier(false);
+                                  setInlineCourierName('');
+                                  setInlineTrackingUrl('');
+                                  setInlineTrackingNumber('');
+                                }}
+                                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                              >
+                                रद्द करें
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <input
+                      type="text"
+                      placeholder="उदाँ: Speed Post (इंडिया पोस्ट), Delhivery, DTDC, मारुति कूरियर"
+                      value={courierPartner}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCourierPartner(val);
+                        const matched = courierPartners.find(p => p.name.toLowerCase() === val.toLowerCase().trim());
+                        if (matched) {
+                          if (matched.isLocal || matched.name.includes('फल्सावदिया') || matched.name.includes('Own Delivery')) {
+                            setCourierTrackingUrl('');
+                            setTrackingNumber('');
+                          } else {
+                            setCourierTrackingUrl(matched.trackingUrl || '');
+                          }
+                        }
+                      }}
+                      className="w-full p-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2D5A27] font-bold text-xs text-gray-800 transition-all shadow-2xs"
+                    />
+                  </div>
+
+                  {/* If store's own delivery is selected, hide external tracking URL & consignment number */}
+                  {(() => {
+                    const isOwnStoreDelivery = Boolean(
+                      courierPartner.toLowerCase().includes('own delivery') ||
+                      courierPartner.toLowerCase().includes('फल्सावदिया') ||
+                      courierPartner.toLowerCase().includes('लोकल') ||
+                      courierPartner.toLowerCase().includes('store delivery') ||
+                      courierPartners.find(p => p.name.toLowerCase() === courierPartner.toLowerCase().trim() && p.isLocal)
+                    );
+
+                    if (isOwnStoreDelivery) {
+                      return (
+                        <div className="bg-emerald-50/90 p-3.5 sm:p-4 rounded-2xl border border-emerald-200/90 text-emerald-950 space-y-1.5 shadow-2xs">
+                          <div className="flex items-center gap-2 font-black text-xs sm:text-[13px] text-emerald-900">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span>सीधी स्टोर डिलीवरी (In-App Direct Tracking)</span>
+                          </div>
+                          <p className="text-[11px] sm:text-xs text-emerald-800 leading-relaxed pl-6">
+                            यह आपके स्टोर की अपनी डायरेक्ट डिलीवरी है। ग्राहक सीधे ऐप में ही ऑर्डर का लाइव स्टेटस देख सकेंगे, इसलिए इसके लिए किसी बाहरी कूरियर ट्रैकिंग लिंक या कंसाइनमेंट नंबर की आवश्यकता नहीं है।
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <>
+                        {/* Attached Official Tracking Website URL */}
+                        <div className="bg-white/95 p-3 sm:p-3.5 rounded-2xl border border-emerald-100 shadow-2xs space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="block text-[10px] uppercase tracking-wider font-extrabold text-gray-600 flex items-center gap-1">
+                              <Globe className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>आधिकारिक ट्रैकिंग वेबसाइट लिंक (Official Tracking URL)</span>
+                            </label>
+                            {courierTrackingUrl && (
+                              <a
+                                href={resolveTrackingUrl(courierPartner, trackingNumber, courierTrackingUrl, courierPartners).url || '#'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100"
+                              >
+                                <ExternalLink className="w-2.5 h-2.5" />
+                                <span>पोर्टल टेस्ट करें</span>
+                              </a>
+                            )}
+                          </div>
+                          <input
+                            type="url"
+                            placeholder="उदाँ: https://www.maruticourier.com/track?awb={trackingNumber}"
+                            value={courierTrackingUrl}
+                            onChange={(e) => setCourierTrackingUrl(e.target.value)}
+                            className="w-full p-2.5 bg-gray-50/50 focus:bg-white border border-gray-200 rounded-xl text-xs font-mono outline-none focus:border-[#2D5A27] transition-all"
+                          />
+                          <p className="text-[10px] text-gray-500 font-medium">
+                            लिंक में <code className="bg-gray-100 px-1 py-0.5 rounded font-bold font-mono">{'{trackingNumber}'}</code> रखने पर ग्राहक का असली ट्रैकिंग नंबर लिंक में अपने-आप जुड़ जाएगा।
+                          </p>
+                        </div>
+
+                        {/* Consignment / Tracking Number Field */}
+                        <div className="bg-white/95 p-3 sm:p-3.5 rounded-2xl border border-emerald-100 shadow-2xs space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="block text-[10px] uppercase tracking-wider font-extrabold text-gray-600 flex items-center gap-1">
+                              <Hash className="w-3.5 h-3.5 text-red-600" />
+                              <span>ट्रैकिंग / कंसाइनमेंट नंबर (Consignment No.)</span>
+                            </label>
+                            {trackingNumber && (
+                              <a
+                                href={resolveTrackingUrl(courierPartner, trackingNumber, courierTrackingUrl, courierPartners).url || '#'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] font-bold text-red-600 hover:text-red-700 flex items-center gap-0.5 bg-red-50 px-2 py-0.5 rounded-lg border border-red-100"
+                              >
+                                <ExternalLink className="w-2.5 h-2.5" />
+                                <span>पोर्टल खोलें</span>
+                              </a>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="उदाँ: EM123456789IN, DL123456789"
+                            value={trackingNumber}
+                            onChange={(e) => setTrackingNumber(e.target.value.toUpperCase())}
+                            className="w-full p-2.5 bg-gray-50/50 focus:bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2D5A27] font-mono font-bold text-xs tracking-wider transition-all"
+                          />
+                          <p className="text-[10px] text-gray-500 font-medium">
+                            कूरियर रसीद का कंसाइनमेंट नंबर डालें। ग्राहक को ऐप में 1-क्लिक ऑटो-कॉपी व आधिकारिक पोर्टल पर जाने का बटन मिलेगा।
+                          </p>
+                        </div>
+                      </>
+                    );
+                  })()}
+
+                  {/* Estimated Delivery Time Field */}
+                  <div className="bg-white/95 p-3 sm:p-3.5 rounded-2xl border border-emerald-100 shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[10px] uppercase tracking-wider font-extrabold text-gray-600 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>अनुमानित डिलीवरी समय (Estimated Delivery Time)</span>
+                      </label>
+                      <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
+                        डिफ़ॉल्ट: 3-7 कार्य दिवस
+                      </span>
+                    </div>
+
+                    <input
+                      type="text"
+                      placeholder="उदाँ: 3-7 कार्य दिवस (3-7 Working Days)"
+                      value={estimatedDeliveryDate}
+                      onChange={(e) => setEstimatedDeliveryDate(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50/50 focus:bg-white border border-gray-200 rounded-xl outline-none focus:border-[#2D5A27] font-bold text-xs text-gray-800 transition-all"
+                    />
+
+                    {/* Quick Selection Chips for Delivery Time */}
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {[
+                        '3-7 कार्य दिवस (3-7 Working Days)',
+                        '1-3 कार्य दिवस (1-3 Working Days)',
+                        '5-10 कार्य दिवस (5-10 Working Days)',
+                        'आज ही डिलीवरी (Same Day Delivery)',
+                      ].map((presetTime) => {
+                        const isPresetSelected = estimatedDeliveryDate === presetTime;
+                        return (
+                          <button
+                            key={presetTime}
+                            type="button"
+                            onClick={() => setEstimatedDeliveryDate(presetTime)}
+                            className={`text-[10px] px-2.5 py-1 rounded-xl border font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                              isPresetSelected
+                                ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-2xs'
+                                : 'bg-gray-50 hover:bg-emerald-50 text-gray-600 border-gray-200'
+                            }`}
+                          >
+                            <span>{presetTime.split(' (')[0]}</span>
+                            {isPresetSelected && <Check className="w-3 h-3 text-white" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -1029,41 +1528,74 @@ const AdminOrdersManager: React.FC = () => {
                         <div
                           key={partner.id}
                           onClick={() => partner.isActive && setSelectedPartnerId(partner.id)}
-                          className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-2 ${
-                            !partner.isActive ? 'opacity-50 bg-gray-50 border-gray-200 cursor-not-allowed' :
-                            isSelected ? 'bg-emerald-50/80 border-[#2D5A27] ring-2 ring-[#2D5A27]/20' :
-                            'bg-white border-gray-200 hover:border-gray-300'
+                          className={`group p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                            !partner.isActive 
+                              ? 'opacity-50 bg-gray-50 border-gray-200 cursor-not-allowed' 
+                              : isSelected 
+                                ? 'bg-gradient-to-r from-emerald-50/90 via-white to-emerald-50/40 border-[#2D5A27] shadow-sm ring-1 ring-[#2D5A27]/30' 
+                                : 'bg-white border-gray-200/90 hover:border-emerald-300 hover:bg-emerald-50/20 shadow-2xs'
                           }`}
                         >
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
-                              isSelected ? 'bg-[#2D5A27] text-white' : 'bg-gray-100 text-gray-700'
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border transition-transform duration-200 group-hover:scale-105 ${
+                              isSelected 
+                                ? 'bg-gradient-to-br from-[#2D5A27] to-[#1e3e1a] text-white border-emerald-800/30 shadow-sm shadow-[#2D5A27]/25' 
+                                : 'bg-emerald-50/90 text-[#2D5A27] border-emerald-100/80 shadow-2xs'
                             }`}>
-                              {getVehicleIcon(partner.vehicleType)}
+                              <VehicleIcon 
+                                emojiOrType={partner.vehicleType} 
+                                className={`w-5 h-5 ${isSelected ? 'text-white' : 'text-[#2D5A27]'}`} 
+                              />
                             </div>
-                            <div>
-                              <p className="text-xs font-bold text-gray-900">{partner.name}</p>
-                              <p className="text-[10px] text-gray-500 font-medium">
-                                +91 {partner.phone} • {getVehicleDisplayLabel(partner.vehicleType, partner.vehicleTypeName)}
-                              </p>
+                            <div className="min-w-0">
+                              <h4 className="text-xs sm:text-sm font-black text-gray-900 tracking-tight leading-snug truncate">
+                                {partner.name}
+                              </h4>
+                              <div className="flex items-center gap-1.5 text-[11px] text-gray-500 font-medium mt-0.5 truncate">
+                                <Phone className="w-3 h-3 text-gray-400 shrink-0" />
+                                <span>+91 {partner.phone}</span>
+                                <span className="text-gray-300">•</span>
+                                <span className="text-gray-600 truncate">{getVehicleDisplayLabel(partner.vehicleType, partner.vehicleTypeName)}</span>
+                              </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
-                              !partner.isActive ? 'bg-gray-200 text-gray-600 border-gray-300' :
-                              isAvailable ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
-                              partner.availabilityStatus === 'on_delivery' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                              'bg-gray-100 text-gray-600 border-gray-200'
+                          {/* Right: Modern Status Badge & Selection Indicator */}
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border shadow-2xs transition-all ${
+                              !partner.isActive 
+                                ? 'bg-gray-100 text-gray-500 border-gray-200' 
+                                : isAvailable 
+                                  ? 'bg-emerald-100/90 text-[#2D5A27] border-emerald-200/80' 
+                                  : partner.availabilityStatus === 'on_delivery' 
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200' 
+                                    : 'bg-gray-100 text-gray-600 border-gray-200'
                             }`}>
-                              {!partner.isActive ? 'निष्क्रिय' : isAvailable ? (
-                                <span className="inline-flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                                  उपलब्ध
+                              {!partner.isActive ? (
+                                'निष्क्रिय'
+                              ) : isAvailable ? (
+                                <span className="inline-flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                                  <span>उपलब्ध</span>
                                 </span>
-                              ) : partner.availabilityStatus === 'on_delivery' ? 'डिलीवरी पर' : 'ऑफ ड्यूटी'}
+                              ) : partner.availabilityStatus === 'on_delivery' ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-blue-600" />
+                                  <span>डिलीवरी पर</span>
+                                </span>
+                              ) : (
+                                'ऑफ ड्यूटी'
+                              )}
                             </span>
-                            {isSelected && <Check className="w-4 h-4 text-[#2D5A27]" />}
+
+                            {/* Modern Checkmark Selector */}
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                              isSelected 
+                                ? 'bg-[#2D5A27] text-white shadow-xs' 
+                                : 'border-2 border-gray-300 group-hover:border-emerald-500'
+                            }`}>
+                              {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                            </div>
                           </div>
                         </div>
                       );
@@ -1107,6 +1639,7 @@ const AdminOrdersManager: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+
     </div>
   );
 };

@@ -97,7 +97,7 @@ export const updateOrderStatus = async (
   orderId: string, 
   newStatus: OrderStatus, 
   note?: string,
-  extraDetails?: { trackingNumber?: string; courierPartner?: string; estimatedDeliveryDate?: string }
+  extraDetails?: { trackingNumber?: string; courierPartner?: string; courierTrackingUrl?: string; estimatedDeliveryDate?: string }
 ): Promise<void> => {
   const statusTitles: Record<OrderStatus, string> = {
     placed: 'ऑर्डर दर्ज हुआ (Order Placed)',
@@ -132,6 +132,7 @@ export const updateOrderStatus = async (
     local.updatedAt = Date.now();
     if (extraDetails?.trackingNumber) local.trackingNumber = extraDetails.trackingNumber;
     if (extraDetails?.courierPartner) local.courierPartner = extraDetails.courierPartner;
+    if (extraDetails?.courierTrackingUrl) local.courierTrackingUrl = extraDetails.courierTrackingUrl;
     if (extraDetails?.estimatedDeliveryDate) local.estimatedDeliveryDate = extraDetails.estimatedDeliveryDate;
     if (note) local.notes = note;
     saveLocalOrder(local);
@@ -179,14 +180,16 @@ export const fetchUserOrders = async (
     if (userId) {
       const q = query(
         collection(db, 'orders'), 
-        where('userId', '==', userId)
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc')
       );
       const snap = await getDocs(q);
       snap.forEach(d => orderDocs.push(d.data() as Order));
     } else if (userEmail) {
       const q = query(
         collection(db, 'orders'), 
-        where('userEmail', '==', userEmail)
+        where('userEmail', '==', userEmail),
+        orderBy('createdAt', 'desc')
       );
       const snap = await getDocs(q);
       snap.forEach(d => orderDocs.push(d.data() as Order));
@@ -195,7 +198,8 @@ export const fetchUserOrders = async (
     if (userPhone) {
       const qPhone = query(
         collection(db, 'orders'), 
-        where('customerDetails.phone', '==', userPhone)
+        where('customerDetails.phone', '==', userPhone),
+        orderBy('createdAt', 'desc')
       );
       const snapPhone = await getDocs(qPhone);
       snapPhone.forEach(d => orderDocs.push(d.data() as Order));
@@ -245,6 +249,33 @@ export const fetchOrderById = async (orderId: string): Promise<Order | null> => 
   }
 
   return local;
+};
+
+// Real-time listener for a single order (Firestore onSnapshot)
+export const subscribeToOrder = (
+  orderId: string, 
+  onUpdate: (order: Order) => void
+): (() => void) => {
+  try {
+    const orderDocRef = doc(db, 'orders', orderId);
+    const unsub = onSnapshot(
+      orderDocRef, 
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data() as Order;
+          saveLocalOrder(data);
+          onUpdate(data);
+        }
+      }, 
+      (err) => {
+        console.warn("[subscribeToOrder] snapshot note:", err);
+      }
+    );
+    return unsub;
+  } catch (e) {
+    console.warn("[subscribeToOrder] listener setup note:", e);
+    return () => {};
+  }
 };
 
 export interface RefundCalculation {

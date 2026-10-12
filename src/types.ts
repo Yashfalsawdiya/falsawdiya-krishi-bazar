@@ -212,6 +212,7 @@ export interface Order {
   status: OrderStatus;
   trackingNumber?: string;
   courierPartner?: string;
+  courierTrackingUrl?: string;
   estimatedDeliveryDate?: string;
   notes?: string;
   timeline: OrderTimelineEvent[];
@@ -240,6 +241,18 @@ export interface Order {
   deliveryOtpInAppCode?: string; // Fallback in-app live code for low-connectivity rural areas
   createdAt: number;
   updatedAt: number;
+}
+
+export interface CourierPartnerConfig {
+  id: string;
+  name: string; // e.g. "फल्सावदिया कृषि बाजार (Own Delivery)", "Speed Post (इंडिया पोस्ट)", "Delhivery", "DTDC", "Blue Dart"
+  trackingUrl: string; // Official tracking URL (can contain {trackingNumber} placeholder)
+  isLocal?: boolean; // If true, local/own delivery (no external redirect portal)
+  isDefault?: boolean;
+  isPermanent?: boolean; // If true, cannot be deleted (store's own delivery system)
+  notes?: string;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 export interface RazorpayPublicConfig {
