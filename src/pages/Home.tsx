@@ -21,6 +21,7 @@ import {
 import { normalizeVideos, resolveVideoThumbnail } from '../utils/youtubeUtils';
 import { DeviceBanner } from '../types';
 import { sortCategoriesByOrder } from '../utils/categoryUtils';
+import { useFeatureToggle } from '../hooks/useFeatureToggle';
 
 const BANNERS = [
   {
@@ -116,6 +117,13 @@ const Home: React.FC = () => {
   const activeDeviceBanners = React.useMemo(() => {
     return getActiveBannersForDevice(deviceBannersMap, deviceType);
   }, [deviceBannersMap, deviceType]);
+
+  const { canAccessFeature, isFeatureEnabled, isAdmin } = useFeatureToggle();
+  const canAccessAiCall = canAccessFeature('ai_call');
+  const canAccessAiKnowledge = canAccessFeature('ai_product_knowledge');
+  const canAccessWeather = canAccessFeature('weather');
+  const canAccessMandi = canAccessFeature('mandi');
+  const canAccessSchemes = canAccessFeature('schemes');
 
   const [emblaRef, emblaApi] = useEmblaCarousel(
     { loop: activeDeviceBanners.length > 1 },
@@ -482,114 +490,139 @@ const Home: React.FC = () => {
       )}
 
       {/* AI Intelligence Cards (Side by side on Tablet & Desktop) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 md:gap-4 xl:gap-6 2xl:gap-8 pt-1">
-        {/* AI Voice Agent Entry Section */}
-        <motion.div 
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="h-full"
-        >
-          <Link to="/ai-call" id="card-ai-agri-call" className="block h-full group focus:outline-none">
-            <div className="relative h-full bg-gradient-to-br from-white via-white to-emerald-50/40 rounded-3xl p-5 sm:p-6 border border-gray-200/90 hover:border-emerald-600/40 shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.99]">
-              {/* Ambient decorative glow */}
-              <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-emerald-500/10 to-teal-500/0 rounded-full blur-2xl group-hover:scale-125 group-hover:opacity-100 opacity-40 transition-all duration-500 pointer-events-none" />
+      {(canAccessAiCall || canAccessAiKnowledge) && (
+        <div className={cn(
+          "grid gap-3.5 md:gap-4 xl:gap-6 2xl:gap-8 pt-1",
+          canAccessAiCall && canAccessAiKnowledge ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"
+        )}>
+          {/* AI Voice Agent Entry Section */}
+          {canAccessAiCall && (
+            <motion.div 
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="h-full relative"
+            >
+              <Link to="/ai-call" id="card-ai-agri-call" className="block h-full group focus:outline-none">
+                <div className="relative h-full bg-gradient-to-br from-white via-white to-emerald-50/40 rounded-3xl p-5 sm:p-6 border border-gray-200/90 hover:border-emerald-600/40 shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.99]">
+                  {/* Ambient decorative glow */}
+                  <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-emerald-500/10 to-teal-500/0 rounded-full blur-2xl group-hover:scale-125 group-hover:opacity-100 opacity-40 transition-all duration-500 pointer-events-none" />
 
-              <div>
-                {/* Header Row: Clean Icon Pod + Live Status Chip */}
-                <div className="flex items-center justify-between gap-2 mb-3.5 relative z-10">
-                  <div className="w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-emerald-50 text-[#183D16] border border-emerald-200/80 flex items-center justify-center shadow-2xs group-hover:scale-105 group-hover:bg-[#2D5A27] group-hover:text-white transition-all duration-300">
-                    <PhoneCall className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
+                  {/* Admin test mode indicator */}
+                  {isAdmin && !isFeatureEnabled('ai_call') && (
+                    <div className="mb-2 bg-amber-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                      <ShieldAlert className="w-3 h-3" />
+                      <span>एडमिन टेस्ट मोड (ग्राहकों के लिए बंद)</span>
+                    </div>
+                  )}
+
+                  <div>
+                    {/* Header Row: Clean Icon Pod + Live Status Chip */}
+                    <div className="flex items-center justify-between gap-2 mb-3.5 relative z-10">
+                      <div className="w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-emerald-50 text-[#183D16] border border-emerald-200/80 flex items-center justify-center shadow-2xs group-hover:scale-105 group-hover:bg-[#2D5A27] group-hover:text-white transition-all duration-300">
+                        <PhoneCall className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
+                      </div>
+
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-[#183D16] border border-emerald-200/80 shadow-2xs">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                        </span>
+                        <span>लाइव वॉयस कॉल</span>
+                      </div>
+                    </div>
+
+                    {/* Title & Description */}
+                    <div className="relative z-10 space-y-1">
+                      <h3 className="text-base sm:text-lg font-black text-gray-900 group-hover:text-[#2D5A27] transition-colors tracking-tight">
+                        AI कृषि विशेषज्ञ कॉल
+                      </h3>
+                      <p className="text-xs sm:text-[13px] text-gray-600 font-medium leading-relaxed">
+                        सीधे बोलकर बात करें और फसल समस्या का तुरंत समाधान पाएं
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-[#183D16] border border-emerald-200/80 shadow-2xs">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                  {/* Bottom Action Footer */}
+                  <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between gap-2 relative z-10">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      इंसानों की तरह बातचीत
                     </span>
-                    <span>लाइव वॉयस कॉल</span>
+                    
+                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-800 group-hover:bg-[#2D5A27] group-hover:text-white group-hover:border-[#2D5A27] font-bold text-xs transition-all duration-300 shadow-2xs">
+                      <span>कॉल करें</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                    </div>
                   </div>
                 </div>
+              </Link>
+            </motion.div>
+          )}
 
-                {/* Title & Description */}
-                <div className="relative z-10 space-y-1">
-                  <h3 className="text-base sm:text-lg font-black text-gray-900 group-hover:text-[#2D5A27] transition-colors tracking-tight">
-                    AI कृषि विशेषज्ञ कॉल
-                  </h3>
-                  <p className="text-xs sm:text-[13px] text-gray-600 font-medium leading-relaxed">
-                    सीधे बोलकर बात करें और फसल समस्या का तुरंत समाधान पाएं
-                  </p>
-                </div>
-              </div>
+          {/* AI Product Knowledge Entry Section */}
+          {canAccessAiKnowledge && (
+            <motion.div 
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.05 }}
+              className="h-full relative"
+            >
+              <Link to="/ai-product-knowledge" id="card-ai-product-knowledge" className="block h-full group focus:outline-none">
+                <div className="relative h-full bg-gradient-to-br from-white via-white to-amber-50/30 rounded-3xl p-5 sm:p-6 border border-gray-200/90 hover:border-emerald-600/40 shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.99]">
+                  {/* Ambient decorative glow */}
+                  <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-amber-500/10 to-emerald-500/0 rounded-full blur-2xl group-hover:scale-125 group-hover:opacity-100 opacity-40 transition-all duration-500 pointer-events-none" />
 
-              {/* Bottom Action Footer */}
-              <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between gap-2 relative z-10">
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  इंसानों की तरह बातचीत
-                </span>
-                
-                <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-800 group-hover:bg-[#2D5A27] group-hover:text-white group-hover:border-[#2D5A27] font-bold text-xs transition-all duration-300 shadow-2xs">
-                  <span>कॉल करें</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </div>
-          </Link>
-        </motion.div>
+                  {/* Admin test mode indicator */}
+                  {isAdmin && !isFeatureEnabled('ai_product_knowledge') && (
+                    <div className="mb-2 bg-amber-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                      <ShieldAlert className="w-3 h-3" />
+                      <span>एडमिन टेस्ट मोड (ग्राहकों के लिए बंद)</span>
+                    </div>
+                  )}
 
-        {/* AI Product Knowledge Entry Section */}
-        <motion.div 
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.05 }}
-          className="h-full"
-        >
-          <Link to="/ai-product-knowledge" id="card-ai-product-knowledge" className="block h-full group focus:outline-none">
-            <div className="relative h-full bg-gradient-to-br from-white via-white to-amber-50/30 rounded-3xl p-5 sm:p-6 border border-gray-200/90 hover:border-emerald-600/40 shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.99]">
-              {/* Ambient decorative glow */}
-              <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-amber-500/10 to-emerald-500/0 rounded-full blur-2xl group-hover:scale-125 group-hover:opacity-100 opacity-40 transition-all duration-500 pointer-events-none" />
+                  <div>
+                    {/* Header Row: Clean Icon Pod + Smart Guide Chip */}
+                    <div className="flex items-center justify-between gap-2 mb-3.5 relative z-10">
+                      <div className="w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-amber-50 text-amber-800 border border-amber-200/80 flex items-center justify-center shadow-2xs group-hover:scale-105 group-hover:bg-[#2D5A27] group-hover:text-white transition-all duration-300">
+                        <Sprout className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
+                      </div>
 
-              <div>
-                {/* Header Row: Clean Icon Pod + Smart Guide Chip */}
-                <div className="flex items-center justify-between gap-2 mb-3.5 relative z-10">
-                  <div className="w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-amber-50 text-amber-800 border border-amber-200/80 flex items-center justify-center shadow-2xs group-hover:scale-105 group-hover:bg-[#2D5A27] group-hover:text-white transition-all duration-300">
-                    <Sprout className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200/80 shadow-2xs">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>स्मार्ट डोज़ गाइड</span>
+                      </div>
+                    </div>
+
+                    {/* Title & Description */}
+                    <div className="relative z-10 space-y-1">
+                      <h3 className="text-base sm:text-lg font-black text-gray-900 group-hover:text-[#2D5A27] transition-colors tracking-tight">
+                        AI उत्पाद जानकारी
+                      </h3>
+                      <p className="text-xs sm:text-[13px] text-gray-600 font-medium leading-relaxed">
+                        दवाई, खाद या टेक्निकल का सही प्रति एकड़ डोज़ और उपयोग विधि जानें
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200/80 shadow-2xs">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                    <span>स्मार्ट डोज़ गाइड</span>
+                  {/* Bottom Action Footer */}
+                  <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between gap-2 relative z-10">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      सटीक डोज़ और उपयोग विधि
+                    </span>
+                    
+                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-800 group-hover:bg-[#2D5A27] group-hover:text-white group-hover:border-[#2D5A27] font-bold text-xs transition-all duration-300 shadow-2xs">
+                      <span>डोज़ जानें</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                    </div>
                   </div>
                 </div>
-
-                {/* Title & Description */}
-                <div className="relative z-10 space-y-1">
-                  <h3 className="text-base sm:text-lg font-black text-gray-900 group-hover:text-[#2D5A27] transition-colors tracking-tight">
-                    AI उत्पाद जानकारी
-                  </h3>
-                  <p className="text-xs sm:text-[13px] text-gray-600 font-medium leading-relaxed">
-                    दवाई, खाद या टेक्निकल का सही प्रति एकड़ डोज़ और उपयोग विधि जानें
-                  </p>
-                </div>
-              </div>
-
-              {/* Bottom Action Footer */}
-              <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between gap-2 relative z-10">
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  सटीक डोज़ और उपयोग विधि
-                </span>
-                
-                <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-800 group-hover:bg-[#2D5A27] group-hover:text-white group-hover:border-[#2D5A27] font-bold text-xs transition-all duration-300 shadow-2xs">
-                  <span>डोज़ जानें</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </div>
-          </Link>
-        </motion.div>
-      </div>
+              </Link>
+            </motion.div>
+          )}
+        </div>
+      )}
 
       {/* Weather, Mandi, & Schemes Dashboard Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 xl:gap-6 2xl:gap-8 pt-1">

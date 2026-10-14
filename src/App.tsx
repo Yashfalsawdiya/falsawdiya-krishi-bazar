@@ -8,6 +8,7 @@ import SplashScreen from './components/SplashScreen';
 import PWAUpdater from './components/PWAUpdater';
 import InstallPwaModal from './components/InstallPwaModal';
 import DesktopTouchSimulator from './components/DesktopTouchSimulator';
+import FeatureGuard from './components/FeatureGuard';
 import { Loader2 } from 'lucide-react';
 
 // Resilient lazy loader to handle network glitches or stale chunk URLs gracefully
@@ -92,18 +93,18 @@ export default function App() {
               <Route path="/" element={<Layout />}>
                 <Route index element={<Home />} />
                 <Route path="products" element={<Products />} />
-                <Route path="mandi" element={<MandiBhav />} />
-                <Route path="disease" element={<DiseaseDetection />} />
-                <Route path="weather" element={<Weather />} />
-                <Route path="schemes" element={<Schemes />} />
-                <Route path="news" element={<AgriNews />} />
-                <Route path="soil-testing" element={<SoilTesting />} />
-                <Route path="calculator" element={<AgriCalculator />} />
-                <Route path="helpline" element={<Helpline />} />
-                <Route path="encyclopedia" element={<Encyclopedia />} />
-                <Route path="encyclopedia/:id" element={<EncyclopediaDetail />} />
-                <Route path="ai-call" element={<AiAgriExpert />} />
-                <Route path="ai-product-knowledge" element={<AiProductKnowledge />} />
+                <Route path="mandi" element={<FeatureGuard featureKey="mandi" featureTitle="मंडी भाव"><MandiBhav /></FeatureGuard>} />
+                <Route path="disease" element={<FeatureGuard featureKey="disease" featureTitle="फसल रोग स्कैन"><DiseaseDetection /></FeatureGuard>} />
+                <Route path="weather" element={<FeatureGuard featureKey="weather" featureTitle="मौसम पूर्वानुमान"><Weather /></FeatureGuard>} />
+                <Route path="schemes" element={<FeatureGuard featureKey="schemes" featureTitle="सरकारी योजनाएं"><Schemes /></FeatureGuard>} />
+                <Route path="news" element={<FeatureGuard featureKey="news" featureTitle="कृषि समाचार"><AgriNews /></FeatureGuard>} />
+                <Route path="soil-testing" element={<FeatureGuard featureKey="soil_testing" featureTitle="मिट्टी परीक्षण मार्गदर्शिका"><SoilTesting /></FeatureGuard>} />
+                <Route path="calculator" element={<FeatureGuard featureKey="calculator" featureTitle="कृषि कैलकुलेटर"><AgriCalculator /></FeatureGuard>} />
+                <Route path="helpline" element={<FeatureGuard featureKey="helpline" featureTitle="हेल्पलाइन डायरेक्टरी"><Helpline /></FeatureGuard>} />
+                <Route path="encyclopedia" element={<FeatureGuard featureKey="encyclopedia" featureTitle="कीट एवं रोग निर्देशिका"><Encyclopedia /></FeatureGuard>} />
+                <Route path="encyclopedia/:id" element={<FeatureGuard featureKey="encyclopedia" featureTitle="कीट एवं रोग निर्देशिका"><EncyclopediaDetail /></FeatureGuard>} />
+                <Route path="ai-call" element={<FeatureGuard featureKey="ai_call" featureTitle="AI कृषि विशेषज्ञ कॉल"><AiAgriExpert /></FeatureGuard>} />
+                <Route path="ai-product-knowledge" element={<FeatureGuard featureKey="ai_product_knowledge" featureTitle="AI उत्पाद जानकारी"><AiProductKnowledge /></FeatureGuard>} />
                 <Route path="admin" element={<Admin />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="cart" element={<CartPage />} />
@@ -123,10 +124,10 @@ export default function App() {
                 <Route path="safety-guidelines" element={<ChemicalSafety />} />
                 <Route path="chemical-safety" element={<ChemicalSafety />} />
                 <Route path="safety" element={<ChemicalSafety />} />
-                <Route path="faq" element={<HelpFaq />} />
-                <Route path="help" element={<HelpFaq />} />
-                <Route path="help-center" element={<HelpFaq />} />
-                <Route path="faqs" element={<HelpFaq />} />
+                <Route path="faq" element={<FeatureGuard featureKey="faq" featureTitle="FAQ सहायता व प्रश्नोत्तरी"><HelpFaq /></FeatureGuard>} />
+                <Route path="help" element={<FeatureGuard featureKey="faq" featureTitle="FAQ सहायता व प्रश्नोत्तरी"><HelpFaq /></FeatureGuard>} />
+                <Route path="help-center" element={<FeatureGuard featureKey="faq" featureTitle="FAQ सहायता व प्रश्नोत्तरी"><HelpFaq /></FeatureGuard>} />
+                <Route path="faqs" element={<FeatureGuard featureKey="faq" featureTitle="FAQ सहायता व प्रश्नोत्तरी"><HelpFaq /></FeatureGuard>} />
                 <Route path="shipping-policy" element={<ShippingDeliveryPolicy />} />
                 <Route path="shipping" element={<ShippingDeliveryPolicy />} />
                 <Route path="delivery-policy" element={<ShippingDeliveryPolicy />} />

@@ -8,7 +8,7 @@ import {
   Youtube as YoutubeIcon, Layout, Phone, Key, Star, ArrowUp, ArrowDown,
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle,
   Truck, FileText, Facebook, Instagram, Package, CreditCard, Layers, MessageSquare,
-  Zap, Radio, Clock, Send, Eye, EyeOff
+  Zap, Radio, Clock, Send, Eye, EyeOff, SlidersHorizontal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
@@ -24,6 +24,7 @@ import AdminDeliveryManager from '../components/AdminDeliveryManager';
 import AdminDeviceBannerManager from '../components/AdminDeviceBannerManager';
 import AdminYouTubeVideoManager from '../components/AdminYouTubeVideoManager';
 import AdminFooterManager from '../components/AdminFooterManager';
+import AdminFeaturesManager from '../components/AdminFeaturesManager';
 import { DEFAULT_VIDEOS } from '../utils/youtubeUtils';
 import { SafeErrorBoundary } from '../components/SafeErrorBoundary';
 import { AccountingDashboard } from '../components/accounting/AccountingDashboard';
@@ -60,7 +61,7 @@ const Admin: React.FC = () => {
     }
   }, [isAdmin]);
   
-  const [activeTab, setActiveTab] = useState<'accounting' | 'orders' | 'delivery' | 'content' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate' | 'footer'>('orders');
+  const [activeTab, setActiveTab] = useState<'accounting' | 'orders' | 'delivery' | 'features' | 'content' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate' | 'footer'>('orders');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
   const [productSearchQuery, setProductSearchQuery] = useState<string>('');
@@ -764,6 +765,15 @@ const Admin: React.FC = () => {
           )}
         >
           <Layout className="w-4 h-4" /> कंटेंट (Content)
+        </button>
+        <button 
+          onClick={() => setActiveTab('features')}
+          className={cn(
+            "flex-1 min-w-[150px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
+            activeTab === 'features' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+          )}
+        >
+          <SlidersHorizontal className="w-4 h-4" /> फ़ीचर्स नियंत्रण (Features)
         </button>
         <button 
           onClick={() => setActiveTab('products')}
@@ -1670,6 +1680,8 @@ const Admin: React.FC = () => {
         <AdminPagesManager />
       ) : activeTab === 'footer' ? (
         <AdminFooterManager />
+      ) : activeTab === 'features' ? (
+        <AdminFeaturesManager />
       ) : (
         <form onSubmit={handleContentSubmit} className="space-y-8">
           {/* Instant Force Push Updates Card */}

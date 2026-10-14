@@ -15,6 +15,7 @@ import {
 import { useAppContext } from '../context/AppContext';
 import SmartImage from './SmartImage';
 import { mergeFooterConfig } from '../utils/footerDefaults';
+import { useFeatureToggle } from '../hooks/useFeatureToggle';
 
 const translateText = (field: any): string => {
   if (!field) return '';
@@ -24,6 +25,7 @@ const translateText = (field: any): string => {
 
 const Footer: React.FC = () => {
   const { appContent, legalPagesContent } = useAppContext();
+  const { canAccessFeature } = useFeatureToggle();
 
   const branding = appContent?.branding || {
     name: 'फल्सावदिया कृषि बाजार',
@@ -229,7 +231,7 @@ const Footer: React.FC = () => {
                   {translateText(col.title)}
                 </h3>
                 <ul className="space-y-2.5 text-xs text-gray-300">
-                  {col.links.map((link, lIdx) => {
+                  {col.links.filter(link => canAccessFeature(link.path)).map((link, lIdx) => {
                     const isExt = link.isExternal || link.path.startsWith('http://') || link.path.startsWith('https://');
                     const translatedLabel = translateText(link.label);
                     if (isExt) {

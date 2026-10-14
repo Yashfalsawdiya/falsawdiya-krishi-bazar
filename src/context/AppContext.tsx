@@ -91,6 +91,7 @@ export interface AppContent {
   isDeliveryChargesEnabled?: boolean;
   deliveryChargesAmount?: number;
   footer?: FooterConfig;
+  featureToggles?: Record<string, boolean>;
 }
 
 export interface UserSettings {

@@ -2,8 +2,11 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Home, ShoppingBag, Camera, CloudSun, Newspaper } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useFeatureToggle } from '../hooks/useFeatureToggle';
 
 const BottomNav: React.FC = () => {
+  const { canAccessFeature } = useFeatureToggle();
+
   const navItems = [
     { to: '/', icon: Home, label: 'होम' },
     { to: '/products', icon: ShoppingBag, label: 'बाजार' },
@@ -12,14 +15,26 @@ const BottomNav: React.FC = () => {
     { to: '/weather', icon: CloudSun, label: 'मौसम' },
   ];
 
+  const visibleNavItems = navItems.filter(item => {
+    if (item.to === '/' || item.to === '/products') return true;
+    return canAccessFeature(item.to);
+  });
+
   return (
     <nav 
       id="mobile-bottom-nav" 
       aria-label="Mobile and Tablet Navigation"
       className="lg:hidden fixed bottom-0 left-0 right-0 w-full bg-[#1E3F1A]/95 backdrop-blur-md border-t border-white/10 shadow-[0_-4px_24px_rgba(0,0,0,0.25)] z-50 px-2 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
     >
-      <div className="max-w-md md:max-w-xl mx-auto grid grid-cols-5 items-center">
-        {navItems.map((item) => (
+      <div className={cn(
+        "max-w-md md:max-w-xl mx-auto grid items-center",
+        visibleNavItems.length === 5 && "grid-cols-5",
+        visibleNavItems.length === 4 && "grid-cols-4",
+        visibleNavItems.length === 3 && "grid-cols-3",
+        visibleNavItems.length === 2 && "grid-cols-2",
+        visibleNavItems.length <= 1 && "grid-cols-1"
+      )}>
+        {visibleNavItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

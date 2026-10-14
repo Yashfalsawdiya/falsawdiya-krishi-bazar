@@ -12,6 +12,7 @@ import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { cn } from '../lib/utils';
 import SmartImage from './SmartImage';
+import { useFeatureToggle } from '../hooks/useFeatureToggle';
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -62,6 +63,9 @@ const Header: React.FC = () => {
     { icon: Calculator, label: 'Calculator', path: '/calculator', color: 'text-orange-600' },
     { icon: PhoneCall, label: 'हेल्पलाइन डायरेक्टरी', path: '/helpline', color: 'text-cyan-600' },
   ];
+
+  const { canAccessFeature } = useFeatureToggle();
+  const visibleMainMenuItems = mainMenuItems.filter(item => canAccessFeature(item.path));
 
   const legalMenuItems: MenuItem[] = [
     { icon: Award, label: 'Statutory Licensing (वैधानिक लाइसेंस व DAESI)', path: '/licensing-disclaimer', color: 'text-emerald-800 font-bold' },
@@ -598,7 +602,7 @@ const Header: React.FC = () => {
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {/* Main Navigation Items */}
                 <div className="space-y-1">
-                  {mainMenuItems.map((item, idx) => (
+                  {visibleMainMenuItems.map((item, idx) => (
                     <button
                       key={idx}
                       onClick={() => {

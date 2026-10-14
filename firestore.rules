@@ -150,7 +150,8 @@ service cloud.firestore {
              (!('showBannerText' in data) || data.showBannerText is bool) &&
              (!('apiKeyGuideVideoUrl' in data) || data.apiKeyGuideVideoUrl is string) &&
              (!('offers' in data) || data.offers is map) &&
-             (!('festivalOffer' in data) || data.festivalOffer is map);
+             (!('festivalOffer' in data) || data.festivalOffer is map) &&
+             (!('featureToggles' in data) || data.featureToggles is map);
     }
     
     // ===============================================================
