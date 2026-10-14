@@ -20,6 +20,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
 import { useLanguage } from '../context/LanguageContext';
+import { openProductWhatsAppEnquiry } from '../utils/whatsappHelper';
 
 export interface DiseaseChatMessage {
   id: string;
@@ -1304,48 +1305,66 @@ const DiseaseDetection: React.FC = () => {
               </div>
 
               <div className="space-y-3">
-                <div className="flex gap-3">
+                {selectedProduct.hidePrice ? (
                   <button 
                     onClick={() => {
                       if (!selectedProduct) return;
-                      const mappedProduct = {
-                        ...selectedProduct,
-                        price: displayPrice,
-                        unit: displayUnit
-                      };
-                      addToCart(mappedProduct, selectedVariant || undefined);
-                      setAddedProductId(selectedProduct.id);
-                      setTimeout(() => setAddedProductId(null), 1200);
+                      openProductWhatsAppEnquiry(
+                        selectedProduct.hindiName || selectedProduct.name,
+                        selectedProduct.brand,
+                        displayUnit,
+                        selectedProduct.customId
+                      );
                     }}
-                    className={`flex-1 ${
-                      addedProductId === selectedProduct.id 
-                        ? "bg-green-600 text-white shadow-lg shadow-green-100" 
-                        : "bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90 shadow-lg shadow-green-50"
-                    } py-4 rounded-2xl font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all text-xs outline-none`}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 active:scale-95 transition-all text-xs outline-none cursor-pointer"
                   >
-                    <ShoppingCart className="w-4 h-4" />
-                    {addedProductId === selectedProduct.id 
-                      ? (isEnglish ? 'Added' : 'जोड़ा गया') 
-                      : (isEnglish ? 'Add to Cart' : 'कार्ट में जोड़ें')}
+                    <MessageSquare className="w-4 h-4" />
+                    {isEnglish ? 'Ask Price on WhatsApp' : 'WhatsApp पर कीमत व जानकारी पूछें'}
                   </button>
-                  <button 
-                    onClick={() => {
-                      if (!selectedProduct) return;
-                      const mappedProduct = {
-                        ...selectedProduct,
-                        price: displayPrice,
-                        unit: displayUnit
-                      };
-                      addToCart(mappedProduct, selectedVariant || undefined);
-                      setSelectedProduct(null);
-                      navigate('/cart');
-                    }}
-                    className="flex-1 bg-[#EAB308] text-[#2D5A27] hover:bg-amber-500 py-4 rounded-2xl font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/10 active:scale-95 transition-all text-xs outline-none"
-                  >
-                    <ArrowRight className="w-4 h-4" />
-                    {isEnglish ? 'Buy Now' : 'अभी खरीदें'}
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => {
+                        if (!selectedProduct) return;
+                        const mappedProduct = {
+                          ...selectedProduct,
+                          price: displayPrice,
+                          unit: displayUnit
+                        };
+                        addToCart(mappedProduct, selectedVariant || undefined);
+                        setAddedProductId(selectedProduct.id);
+                        setTimeout(() => setAddedProductId(null), 1200);
+                      }}
+                      className={`flex-1 ${
+                        addedProductId === selectedProduct.id 
+                          ? "bg-green-600 text-white shadow-lg shadow-green-100" 
+                          : "bg-[#2D5A27] text-white hover:bg-[#2D5A27]/90 shadow-lg shadow-green-50"
+                      } py-4 rounded-2xl font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all text-xs outline-none`}
+                    >
+                      <ShoppingCart className="w-4 h-4" />
+                      {addedProductId === selectedProduct.id 
+                        ? (isEnglish ? 'Added' : 'जोड़ा गया') 
+                        : (isEnglish ? 'Add to Cart' : 'कार्ट में जोड़ें')}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (!selectedProduct) return;
+                        const mappedProduct = {
+                          ...selectedProduct,
+                          price: displayPrice,
+                          unit: displayUnit
+                        };
+                        addToCart(mappedProduct, selectedVariant || undefined);
+                        setSelectedProduct(null);
+                        navigate('/cart');
+                      }}
+                      className="flex-1 bg-[#EAB308] text-[#2D5A27] hover:bg-amber-500 py-4 rounded-2xl font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/10 active:scale-95 transition-all text-xs outline-none"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                      {isEnglish ? 'Buy Now' : 'अभी खरीदें'}
+                    </button>
+                  </div>
+                )}
                 <button 
                   onClick={() => setSelectedProduct(null)}
                   className="w-full bg-gray-100 text-gray-500 py-3 rounded-2xl font-semibold active:scale-95 transition-all text-xs outline-none"

@@ -8,7 +8,7 @@ import {
   Youtube as YoutubeIcon, Layout, Phone, Key, Star, ArrowUp, ArrowDown,
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle,
   Truck, FileText, Facebook, Instagram, Package, CreditCard, Layers, MessageSquare,
-  Zap, Radio, Clock, Send
+  Zap, Radio, Clock, Send, Eye, EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
@@ -97,6 +97,7 @@ const Admin: React.FC = () => {
     category: '',
     brand: '',
     price: undefined,
+    hidePrice: false,
     unit: '',
     inStock: true,
     description: '',
@@ -224,6 +225,7 @@ const Admin: React.FC = () => {
         category: categories[0]?.id || '', 
         brand: '', 
         price: undefined, 
+        hidePrice: false,
         unit: '', 
         inStock: true,
         description: '', 
@@ -1042,6 +1044,15 @@ const Admin: React.FC = () => {
                               {categories.find(c => c.id === product.category)?.name || product.category}
                             </span>
                           )}
+                          {product.hidePrice ? (
+                            <span className="text-[8px] bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-black flex items-center gap-1 border border-red-200">
+                              <EyeOff className="w-2.5 h-2.5" /> कीमत छिपी
+                            </span>
+                          ) : (
+                            <span className="text-[8px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-black flex items-center gap-1 border border-emerald-200">
+                              <Eye className="w-2.5 h-2.5" /> कीमत चालू
+                            </span>
+                          )}
                           {product.isFeatured && (
                             <span className="text-[8px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black flex items-center gap-0.5 shadow-sm shadow-amber-100">
                               <Star className="w-2 h-2 fill-current" /> विशेष
@@ -1056,7 +1067,8 @@ const Admin: React.FC = () => {
                           setEditingProduct(product);
                           setProductForm({
                             ...product,
-                            customId: product.customId || ''
+                            customId: product.customId || '',
+                            hidePrice: !!product.hidePrice
                           });
                         }}
                         className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
@@ -2455,6 +2467,55 @@ const Admin: React.FC = () => {
                       <Ban className="w-3 h-3" /> Out of Stock (खत्म)
                     </button>
                   </div>
+                </div>
+
+                {/* Price Visibility Toggle (SHOW / HIDE) */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between ml-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                      {productForm.hidePrice ? <EyeOff className="w-3 h-3 text-red-500" /> : <Eye className="w-3 h-3 text-emerald-600" />}
+                      कीमत दिखाएं या छिपाएं (Price Visibility)
+                    </label>
+                    <span className={cn(
+                      "text-[9px] font-black px-2 py-0.5 rounded-full border",
+                      productForm.hidePrice 
+                        ? "bg-red-50 text-red-600 border-red-200" 
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    )}>
+                      {productForm.hidePrice ? "कीमत छिपी है (WhatsApp Enquiry)" : "कीमत ग्राहकों को दिखेगी (Normal)"}
+                    </span>
+                  </div>
+                  <div className="flex bg-gray-100 p-1 rounded-2xl gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setProductForm({ ...productForm, hidePrice: false })}
+                      className={cn(
+                        "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                        !productForm.hidePrice 
+                          ? "bg-white text-[#2D5A27] shadow-sm font-black" 
+                          : "text-gray-400 hover:text-gray-600"
+                      )}
+                    >
+                      <Eye className="w-3.5 h-3.5" /> कीमत दिखाएं (SHOW)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProductForm({ ...productForm, hidePrice: true })}
+                      className={cn(
+                        "flex-1 py-3 rounded-xl text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                        productForm.hidePrice 
+                          ? "bg-white text-red-600 shadow-sm font-black" 
+                          : "text-gray-400 hover:text-gray-600"
+                      )}
+                    >
+                      <EyeOff className="w-3.5 h-3.5" /> कीमत छिपाएं (HIDE)
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400 font-medium ml-1 leading-tight">
+                    {productForm.hidePrice 
+                      ? "कीमत छिपने पर ग्राहक को कीमत नहीं दिखेगी और 'WhatsApp पर कीमत पूछें' का बटन दिखाई देगा। Admin को यहाँ कीमत हमेशा दिखेगी।" 
+                      : "कीमत सभी ग्राहकों को सामान्य रूप से दिखेगी और वे कार्ट में जोड़ सकेंगे।"}
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

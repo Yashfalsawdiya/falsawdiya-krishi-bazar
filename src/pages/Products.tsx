@@ -31,6 +31,8 @@ const Products: React.FC = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [inStockOnly, setInStockOnly] = useState<boolean>(false);
 
+  const activeFiltersCount = (sortBy !== 'default' ? 1 : 0) + (selectedBrand !== 'all' ? 1 : 0) + (inStockOnly ? 1 : 0);
+
   useEffect(() => {
     const unsubProducts = loadProducts();
     const unsubCategories = loadCategoryData();
@@ -188,9 +190,6 @@ const Products: React.FC = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-bold text-[#4A3728]">कृषि बाजार (Market)</h2>
-        <span className="text-xs text-gray-500 font-semibold bg-white px-3 py-1 rounded-full border border-gray-200 shadow-2xs">
-          कुल: {filteredProducts.length} उत्पाद
-        </span>
       </div>
       
       {/* Category Filter Horizontal Scroll */}
@@ -218,44 +217,65 @@ const Products: React.FC = () => {
         ))}
       </div>
 
-      {/* Advanced Sort & Brand Filter Bar */}
-      <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-gray-200/80 shadow-xs flex flex-wrap items-center justify-between gap-2.5">
+      {/* Advanced Sort & Brand Filter Toolbar */}
+      <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-gray-200/80 shadow-xs flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
+          {/* Filter Bar Header Tag */}
+          <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 bg-gray-50 border border-gray-200/70 px-2.5 py-2 rounded-xl shrink-0 select-none">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-[#2D5A27]" />
+            <span className="hidden xs:inline">फ़िल्टर</span>
+            {activeFiltersCount > 0 && (
+              <span className="min-w-4 h-4 px-1 rounded-full bg-[#2D5A27] text-white text-[10px] font-extrabold flex items-center justify-center">
+                {activeFiltersCount}
+              </span>
+            )}
+          </div>
+
           {/* Sort By Dropdown */}
-          <div className="relative inline-flex items-center">
-            <span className="absolute left-2.5 pointer-events-none text-gray-500">
-              <ArrowUpDown className="w-3.5 h-3.5 text-[#2D5A27]" />
+          <div className={cn(
+            "relative inline-flex items-center rounded-xl border transition-all duration-150 shadow-2xs group cursor-pointer",
+            sortBy !== 'default'
+              ? "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-bold ring-1 ring-emerald-400/30"
+              : "bg-gray-50/80 hover:bg-white border-gray-200/90 text-gray-800 font-semibold hover:border-gray-300"
+          )}>
+            <span className="absolute left-2.5 pointer-events-none text-gray-500 group-hover:text-[#2D5A27] transition-colors">
+              <ArrowUpDown className={cn("w-3.5 h-3.5", sortBy !== 'default' ? "text-[#2D5A27]" : "text-gray-500")} />
             </span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="appearance-none bg-gray-50 hover:bg-gray-100/80 focus:bg-white text-gray-800 text-xs font-bold pl-8 pr-7 py-2 rounded-xl border border-gray-200 outline-none focus:ring-1 focus:ring-[#2D5A27] transition-all cursor-pointer shadow-2xs"
+              className="appearance-none bg-transparent text-xs font-semibold pl-8 pr-7 py-2 rounded-xl outline-none cursor-pointer focus:outline-none"
             >
-              <option value="default">क्रम: अनुशंसित (Default)</option>
-              <option value="price-asc">कीमत: कम से ज्यादा (₹ Low to High)</option>
-              <option value="price-desc">कीमत: ज्यादा से कम (₹ High to Low)</option>
-              <option value="name-asc">नाम: A से Z</option>
+              <option value="default" className="text-gray-900 font-normal">क्रम: अनुशंसित (Default)</option>
+              <option value="price-asc" className="text-gray-900 font-normal">कीमत: कम से ज्यादा (₹ Low to High)</option>
+              <option value="price-desc" className="text-gray-900 font-normal">कीमत: ज्यादा से कम (₹ High to Low)</option>
+              <option value="name-asc" className="text-gray-900 font-normal">नाम: A से Z</option>
             </select>
-            <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 pointer-events-none" />
+            <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 pointer-events-none group-hover:text-gray-600 transition-colors" />
           </div>
 
           {/* Brand Filter Dropdown */}
           {availableBrands.length > 0 && (
-            <div className="relative inline-flex items-center">
-              <span className="absolute left-2.5 pointer-events-none text-gray-500">
-                <Building2 className="w-3.5 h-3.5 text-emerald-700" />
+            <div className={cn(
+              "relative inline-flex items-center rounded-xl border transition-all duration-150 shadow-2xs group cursor-pointer",
+              selectedBrand !== 'all'
+                ? "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-bold ring-1 ring-emerald-400/30"
+                : "bg-gray-50/80 hover:bg-white border-gray-200/90 text-gray-800 font-semibold hover:border-gray-300"
+            )}>
+              <span className="absolute left-2.5 pointer-events-none text-gray-500 group-hover:text-[#2D5A27] transition-colors">
+                <Building2 className={cn("w-3.5 h-3.5", selectedBrand !== 'all' ? "text-[#2D5A27]" : "text-gray-500")} />
               </span>
               <select
                 value={selectedBrand}
                 onChange={(e) => setSelectedBrand(e.target.value)}
-                className="appearance-none bg-gray-50 hover:bg-gray-100/80 focus:bg-white text-gray-800 text-xs font-bold pl-8 pr-7 py-2 rounded-xl border border-gray-200 outline-none focus:ring-1 focus:ring-[#2D5A27] transition-all cursor-pointer shadow-2xs"
+                className="appearance-none bg-transparent text-xs font-semibold pl-8 pr-7 py-2 rounded-xl outline-none cursor-pointer focus:outline-none"
               >
-                <option value="all">सभी ब्रांड (All Brands)</option>
+                <option value="all" className="text-gray-900 font-normal">सभी ब्रांड (All Brands)</option>
                 {availableBrands.map((brand) => (
-                  <option key={brand} value={brand}>{brand}</option>
+                  <option key={brand} value={brand} className="text-gray-900 font-normal">{brand}</option>
                 ))}
               </select>
-              <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 pointer-events-none" />
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 pointer-events-none group-hover:text-gray-600 transition-colors" />
             </div>
           )}
 
@@ -264,31 +284,46 @@ const Products: React.FC = () => {
             type="button"
             onClick={() => setInStockOnly(!inStockOnly)}
             className={cn(
-              "px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95",
+              "px-3 py-2 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95 select-none",
               inStockOnly 
-                ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-extrabold" 
-                : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                ? "bg-[#2D5A27] text-white border-[#2D5A27] font-bold shadow-xs hover:bg-[#23471f]" 
+                : "bg-gray-50/80 hover:bg-white text-gray-700 border-gray-200/90 hover:border-gray-300"
             )}
           >
-            <Check className={cn("w-3.5 h-3.5", inStockOnly ? "text-emerald-700 stroke-[3]" : "text-gray-400 opacity-0")} />
+            <div className={cn(
+              "w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors",
+              inStockOnly ? "bg-white/25 text-white" : "border border-gray-300 bg-white"
+            )}>
+              {inStockOnly && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+            </div>
             <span>केवल स्टॉक में</span>
           </button>
         </div>
 
-        {/* Clear Filters Button */}
-        {(sortBy !== 'default' || selectedBrand !== 'all' || inStockOnly) && (
-          <button
-            onClick={() => {
-              setSortBy('default');
-              setSelectedBrand('all');
-              setInStockOnly(false);
-            }}
-            className="text-[11px] font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg border border-red-100 flex items-center gap-1 transition-all active:scale-95 cursor-pointer ml-auto"
-          >
-            <RotateCcw className="w-3 h-3" />
-            <span>फ़िल्टर हटाएं</span>
-          </button>
-        )}
+        {/* Right Section: Product Counter & Reset Button */}
+        <div className="flex items-center gap-2 ml-auto">
+          {/* Subtle Live Counter */}
+          <div className="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-gray-500 font-semibold px-2.5 py-1.5 rounded-xl bg-gray-50/80 border border-gray-100 select-none">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#2D5A27]" />
+            <span>{filteredProducts.length} उत्पाद</span>
+          </div>
+
+          {/* Clear Filters Button */}
+          {activeFiltersCount > 0 && (
+            <button
+              onClick={() => {
+                setSortBy('default');
+                setSelectedBrand('all');
+                setInStockOnly(false);
+              }}
+              className="text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100/90 px-3 py-1.5 rounded-xl border border-red-200/70 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-2xs"
+              title="सभी फ़िल्टर रीसेट करें"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>रीसेट करें</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Product List - Premium Responsive Vertical Grid Matching Featured Products */}

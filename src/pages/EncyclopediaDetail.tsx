@@ -2,13 +2,14 @@ import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
-import { ChevronLeft, Bug, Droplet, Sprout, ShoppingBag, ShoppingCart, AlertCircle, Tag, Plus, ArrowRight } from 'lucide-react';
+import { ChevronLeft, Bug, Droplet, Sprout, ShoppingBag, ShoppingCart, AlertCircle, Tag, Plus, ArrowRight, MessageSquare } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { ImageSource, Product } from '../types';
 import { cn } from '../lib/utils';
 import ImageZoomModal from '../components/ImageZoomModal';
 import ProductDetailModal from '../components/ProductDetailModal';
+import { openProductWhatsAppEnquiry } from '../utils/whatsappHelper';
 
 const EncyclopediaDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -257,16 +258,34 @@ const EncyclopediaDetail: React.FC = () => {
                         <AlertCircle className="w-4 h-4" />
                         जानकारी
                       </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDirectBuy(product);
-                        }}
-                        className="flex-[1.5] bg-[#EAB308] text-[#2D5A27] hover:bg-amber-500 py-2.5 rounded-2xl flex items-center justify-center gap-2 text-xs font-black shadow-lg shadow-amber-500/10 active:scale-95 transition-all"
-                      >
-                        <ShoppingCart className="w-4 h-4" />
-                        अभी खरीदें (Buy)
-                      </button>
+                      {product.hidePrice ? (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openProductWhatsAppEnquiry(
+                              product.hindiName || product.name,
+                              product.brand,
+                              product.unit,
+                              product.customId
+                            );
+                          }}
+                          className="flex-[1.5] bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-2xl flex items-center justify-center gap-2 text-xs font-black shadow-lg shadow-emerald-500/10 active:scale-95 transition-all"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          कीमत पूछें
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDirectBuy(product);
+                          }}
+                          className="flex-[1.5] bg-[#EAB308] text-[#2D5A27] hover:bg-amber-500 py-2.5 rounded-2xl flex items-center justify-center gap-2 text-xs font-black shadow-lg shadow-amber-500/10 active:scale-95 transition-all"
+                        >
+                          <ShoppingCart className="w-4 h-4" />
+                          अभी खरीदें (Buy)
+                        </button>
+                      )}
                     </div>
                   </div>
                 </motion.div>

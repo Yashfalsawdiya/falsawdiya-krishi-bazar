@@ -770,9 +770,6 @@ const OrderDetailsPage: React.FC = () => {
                         <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
                           {resolved.displayName || 'फल्सावदिया कृषि बाजार (Own Delivery)'}
                         </span>
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> पार्सल रवाना
-                        </span>
                       </div>
                       <h4 className="text-xs sm:text-sm font-black text-gray-900 mt-0.5">
                         स्टोर स्थानीय डिलीवरी (Direct Store Delivery)

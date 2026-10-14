@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   X, ShoppingBag, Plus, Minus, Check, AlertTriangle, 
-  Tag, Info, Wheat, Droplets, Building2, Maximize2 
+  Tag, Info, Wheat, Droplets, Building2, Maximize2, MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ import { useCart } from '../context/CartContext';
 import SmartImage from './SmartImage';
 import ImageZoomModal from './ImageZoomModal';
 import { cn } from '../lib/utils';
+import { openProductWhatsAppEnquiry } from '../utils/whatsappHelper';
 
 interface ProductDetailModalProps {
   isOpen: boolean;
@@ -319,48 +320,69 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2.5 flex-shrink-0 flex-wrap sm:flex-nowrap">
               <button
                 onClick={onClose}
-                className="flex-1 py-3 bg-white border border-gray-200 text-gray-500 rounded-xl font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-transform text-xs cursor-pointer"
+                className="py-3 px-4 bg-white border border-gray-200 text-gray-500 rounded-xl font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-transform text-xs cursor-pointer"
               >
                 बंद करें
               </button>
-              <button
-                disabled={product.inStock === false}
-                onClick={() => {
-                  addToCart(product, selectedVariant || undefined);
-                  setIsAdded(true);
-                  setTimeout(() => {
-                    setIsAdded(false);
-                  }, 1200);
-                }}
-                className={cn(
-                  "flex-[1.5] py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all text-xs cursor-pointer",
-                  product.inStock !== false 
-                    ? isAdded
-                      ? "bg-green-600 text-white shadow-green-600/10"
-                      : "bg-[#2D5A27] text-white hover:bg-[#2D5A27]/95 shadow-[#2D5A27]/10" 
-                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                )}
-              >
-                {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                {isAdded ? 'जोड़ दिया गया' : 'कार्ट में जोड़ें'}
-              </button>
-              <button
-                disabled={product.inStock === false}
-                onClick={() => {
-                  onClose();
-                  addToCart(product, selectedVariant || undefined);
-                  navigate('/cart');
-                }}
-                className={cn(
-                  "flex-[1.5] py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all text-xs cursor-pointer",
-                  product.inStock !== false 
-                    ? "bg-[#EAB308] text-[#2D5A27] hover:bg-amber-500 shadow-md shadow-amber-500/10" 
-                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                )}
-              >
-                <ShoppingBag className="w-4 h-4" /> 
-                {product.inStock !== false ? 'अभी खरीदें' : 'स्टॉक खत्म'}
-              </button>
+
+              {product.hidePrice ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    openProductWhatsAppEnquiry(
+                      product.hindiName || product.name,
+                      product.brand,
+                      displayUnit,
+                      product.customId
+                    );
+                  }}
+                  className="flex-1 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all text-xs cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>WhatsApp पर कीमत व जानकारी पूछें</span>
+                </button>
+              ) : (
+                <>
+                  <button
+                    disabled={product.inStock === false}
+                    onClick={() => {
+                      addToCart(product, selectedVariant || undefined);
+                      setIsAdded(true);
+                      setTimeout(() => {
+                        setIsAdded(false);
+                      }, 1200);
+                    }}
+                    className={cn(
+                      "flex-[1.5] py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all text-xs cursor-pointer",
+                      product.inStock !== false 
+                        ? isAdded
+                          ? "bg-green-600 text-white shadow-green-600/10"
+                          : "bg-[#2D5A27] text-white hover:bg-[#2D5A27]/95 shadow-[#2D5A27]/10" 
+                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    )}
+                  >
+                    {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                    {isAdded ? 'जोड़ दिया गया' : 'कार्ट में जोड़ें'}
+                  </button>
+                  <button
+                    disabled={product.inStock === false}
+                    onClick={() => {
+                      onClose();
+                      addToCart(product, selectedVariant || undefined);
+                      navigate('/cart');
+                    }}
+                    className={cn(
+                      "flex-[1.5] py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all text-xs cursor-pointer",
+                      product.inStock !== false 
+                        ? "bg-[#EAB308] text-[#2D5A27] hover:bg-amber-500 shadow-md shadow-amber-500/10" 
+                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    )}
+                  >
+                    <ShoppingBag className="w-4 h-4" /> 
+                    {product.inStock !== false ? 'अभी खरीदें' : 'स्टॉक खत्म'}
+                  </button>
+                </>
+              )}
             </div>
 
             <ImageZoomModal 

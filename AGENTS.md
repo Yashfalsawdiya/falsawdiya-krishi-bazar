@@ -87,3 +87,18 @@ To ensure seamless scalability for 1,000,000 (10 Lakh) farmers with zero quota c
 - **Git Baseline Checkpoint & Audit**:
   - The repository maintains the tag `v-baseline-sep26`.
   - Every new change must form a clean incremental commit so that any regression can be instantly diffed and verified against the restored baseline.
+
+## 8. Strict Product Image Presentation & Card Consistency Standard (Permanent Rule)
+To ensure a premium, uniform, and trustworthy visual experience for all farmers, the product image presentation and card visual standards are strictly locked across the entire application:
+
+- **Unified Card Layout Standard**:
+  - Product images across all listing surfaces (**Featured Products** on Home, **Krishi Bazaar** `/products`, Search Results, Category Views, Recommendation sections, and Modals) must strictly share the identical professional aspect ratio, clean white backdrop, and border styling.
+- **Strict Image Container Specifications**:
+  - **Full Square Container**: Image containers must always use `relative aspect-square w-full overflow-hidden border-b border-gray-100 cursor-zoom-in bg-white`.
+  - **Zero Unsolicited Padding (`NO p-3 / p-2 / p-4`)**: Product images must never be placed inside padded boxes or inner margins that squeeze the image or make it look like an unprofessional thumbnail enclosed in an arbitrary box.
+  - **Clean White Backdrop Only (`bg-white`)**: The background behind product images must always be crisp pure white (`bg-white`). Off-white, yellowish, or beige backdrops (such as `bg-[#FAF8F5]`) are strictly forbidden as they degrade visual clarity and make images look dated.
+  - **Image Sizing & Fit**: `SmartImage` must fill the container seamlessly (`w-full h-full`, `objectFit="cover"`), with interactive zoom hover (`transition-transform duration-300 group-hover:scale-105`), subtle quick-zoom trigger (`Maximize2`), and clean out-of-stock overlay badge.
+- **Card Wrapper Uniformity**:
+  - Card containers in both `FeaturedProductCard.tsx` and `KrishiBazaarProductCard.tsx` must maintain matching rounded corners (`rounded-2xl`), border styling (`border border-gray-200/80`), subtle elevations (`shadow-sm hover:shadow-md transition-shadow duration-200`), and uniform grid heights (`h-full`).
+- **Strict Immutability & Admin-Only Modification Authority**:
+  - **LOCKED STANDARD**: Developers and AI agents are strictly forbidden from altering, experimenting with, refactoring, adding extra borders/paddings, or downgrading product image containers or card layouts across `KrishiBazaarProductCard.tsx`, `FeaturedProductCard.tsx`, and any product display components unless EXPLICITLY ordered by the Admin (`yashfalsawdiya36@gmail.com`).

@@ -37,6 +37,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [cartItems]);
 
   const addToCart = (product: Product, variant?: { id: string; quantity: string; price: number }) => {
+    // Safety guard: Products with hidden prices cannot be added to cart
+    if (product.hidePrice) {
+      console.warn('Cannot add product with hidden price to cart:', product.name);
+      return;
+    }
+
     const isVariant = variant !== undefined;
     const variantId = isVariant ? variant.id : 'default';
     const cartItemId = `${product.id}-${variantId}`;

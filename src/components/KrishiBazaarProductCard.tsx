@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { ShoppingBag, Building2, Plus, Check, Maximize2, Package } from 'lucide-react';
+import { ShoppingBag, Building2, Plus, Check, Maximize2, Package, MessageSquare } from 'lucide-react';
 import { Product, ImageSource } from '../types';
 import SmartImage from './SmartImage';
 import { cn } from '../lib/utils';
+import { openProductWhatsAppEnquiry } from '../utils/whatsappHelper';
 
 interface KrishiBazaarProductCardProps {
   product: Product;
@@ -58,11 +59,14 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: Math.min(index * 0.04, 0.4) }}
       onClick={() => onSelect(product)}
-      className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden group cursor-pointer relative"
+      className={cn(
+        "bg-white rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col justify-between overflow-hidden group cursor-pointer relative h-full",
+        !isInStock && "opacity-75 grayscale-[0.3]"
+      )}
     >
-      {/* TOP: Product Image & Badges */}
+      {/* Product Image Section - Exactly matching FeaturedProductCard */}
       <div 
-        className="relative aspect-square w-full bg-[#FAF8F5] overflow-hidden flex items-center justify-center p-3"
+        className="relative aspect-square w-full overflow-hidden border-b border-gray-100 cursor-zoom-in bg-white"
         onClick={(e) => {
           e.stopPropagation();
           onZoom(product.image, product.hindiName || product.name);
@@ -75,7 +79,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
           objectFit="cover"
         />
 
-        {/* Out of Stock Overlay / Badge */}
+        {/* Out of stock badge */}
         {!isInStock ? (
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
             <span className="text-[10px] sm:text-xs font-bold text-white bg-red-600 px-3 py-1 rounded-full shadow-lg border border-white/30 rotate-[-8deg]">
@@ -83,7 +87,6 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
             </span>
           </div>
         ) : (
-          // Subtle Zoom Icon on Hover
           <button
             type="button"
             onClick={(e) => {
@@ -151,7 +154,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
                         ? "bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs scale-105 font-semibold"
                         : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
                     )}
-                    title={`${v.quantity} - ₹${v.price}`}
+                    title={product.hidePrice ? v.quantity : `${v.quantity} - ₹${v.price}`}
                   >
                     {v.quantity}
                   </button>
@@ -163,81 +166,115 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
 
         {/* BOTTOM: Price & Action Buttons */}
         <div className="pt-3 mt-3 border-t border-gray-100">
-          {/* Price Display */}
-          <div className="mb-3 flex items-baseline justify-between">
-            <div>
-              {product.hidePrice || !displayPrice ? (
-                <span className="text-xs text-gray-400 font-medium">मूल्य उपलब्ध नहीं</span>
-              ) : (
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-base sm:text-lg font-bold text-[#2D5A27]">
-                    ₹{displayPrice}
+          {product.hidePrice ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500 font-bold bg-gray-100 px-2.5 py-1 rounded-lg border border-gray-200">
+                  कीमत उपलब्ध नहीं
+                </span>
+                {!isInStock && (
+                  <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+                    स्टॉक खत्म
                   </span>
-                  {displayUnit && (
-                    <span className="text-[11px] text-gray-500 font-medium">
-                      / {displayUnit}
-                    </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openProductWhatsAppEnquiry(
+                    product.hindiName || product.name,
+                    product.brand,
+                    displayUnit,
+                    product.customId
+                  );
+                }}
+                className="w-full h-10 py-2 px-3 rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white"
+                title="कीमत जानने के लिए WhatsApp पर संपर्क करें"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>WhatsApp पर कीमत पूछें</span>
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Price Display */}
+              <div className="mb-3 flex items-baseline justify-between">
+                <div>
+                  {!displayPrice ? (
+                    <span className="text-xs text-gray-400 font-medium">मूल्य उपलब्ध नहीं</span>
+                  ) : (
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-base sm:text-lg font-bold text-[#2D5A27]">
+                        ₹{displayPrice}
+                      </span>
+                      {displayUnit && (
+                        <span className="text-[11px] text-gray-500 font-medium">
+                          / {displayUnit}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-            {!isInStock && (
-              <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
-                स्टॉक खत्म
-              </span>
-            )}
-          </div>
+                {!isInStock && (
+                  <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+                    स्टॉक खत्म
+                  </span>
+                )}
+              </div>
 
-          {/* Action Buttons: Add to Cart & Buy Now */}
-          <div className="flex items-center gap-2">
-            <button
-              disabled={!isInStock}
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddToCart(product, activeVariant);
-                setIsAdded(true);
-                setTimeout(() => setIsAdded(false), 1400);
-              }}
-              className={cn(
-                "flex-1 h-10 py-2 px-2.5 rounded-xl text-xs font-semibold shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer whitespace-nowrap",
-                !isInStock
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
-                  : isAdded
-                    ? "bg-emerald-700 text-white"
-                    : "bg-[#2D5A27] hover:bg-[#23471f] text-white"
-              )}
-              title={isInStock ? 'कार्ट में जोड़ें' : 'स्टॉक खत्म'}
-            >
-              {isAdded ? (
-                <>
-                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>जोड़ दिया गया</span>
-                </>
-              ) : (
-                <>
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>कार्ट में जोड़ें</span>
-                </>
-              )}
-            </button>
+              {/* Action Buttons: Add to Cart & Buy Now */}
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={!isInStock}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddToCart(product, activeVariant);
+                    setIsAdded(true);
+                    setTimeout(() => setIsAdded(false), 1400);
+                  }}
+                  className={cn(
+                    "flex-1 h-10 py-2 px-2.5 rounded-xl text-xs font-semibold shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer whitespace-nowrap",
+                    !isInStock
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                      : isAdded
+                        ? "bg-emerald-700 text-white"
+                        : "bg-[#2D5A27] hover:bg-[#23471f] text-white"
+                  )}
+                  title={isInStock ? 'कार्ट में जोड़ें' : 'स्टॉक खत्म'}
+                >
+                  {isAdded ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>जोड़ दिया गया</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>कार्ट में जोड़ें</span>
+                    </>
+                  )}
+                </button>
 
-            <button
-              disabled={!isInStock}
-              onClick={(e) => {
-                e.stopPropagation();
-                onBuy(product, activeVariant);
-              }}
-              className={cn(
-                "w-10 h-10 shrink-0 rounded-xl shadow-xs flex items-center justify-center transition-all active:scale-95 cursor-pointer",
-                isInStock
-                  ? "bg-[#EAB308] hover:bg-[#d4a007] text-[#2D5A27]"
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
-              )}
-              title={isInStock ? 'तुरंत खरीदें' : 'स्टॉक खत्म'}
-            >
-              <ShoppingBag className="w-4 h-4" />
-            </button>
-          </div>
+                <button
+                  disabled={!isInStock}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onBuy(product, activeVariant);
+                  }}
+                  className={cn(
+                    "w-10 h-10 shrink-0 rounded-xl shadow-xs flex items-center justify-center transition-all active:scale-95 cursor-pointer",
+                    isInStock
+                      ? "bg-[#EAB308] hover:bg-[#d4a007] text-[#2D5A27]"
+                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  )}
+                  title={isInStock ? 'तुरंत खरीदें' : 'स्टॉक खत्म'}
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </motion.div>
