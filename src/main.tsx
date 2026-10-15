@@ -21,8 +21,28 @@ checkAppVersion().catch(err => {
 try {
   registerSW({ 
     immediate: true,
+    onRegistered(r) {
+      if (r) {
+        // Check for new service worker / bundle updates every 30 minutes
+        setInterval(() => {
+          r.update().catch(() => {});
+        }, 30 * 60 * 1000);
+
+        // Also check whenever the user returns to the app
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            r.update().catch(() => {});
+          }
+        });
+
+        // Check on internet reconnect
+        window.addEventListener('online', () => {
+          r.update().catch(() => {});
+        });
+      }
+    },
     onNeedRefresh() {
-      console.log('New content available, refreshing...');
+      console.log('New app code available, updating...');
       window.location.reload();
     },
     onOfflineReady() {

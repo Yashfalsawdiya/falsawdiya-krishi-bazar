@@ -8,7 +8,7 @@ import {
   Youtube as YoutubeIcon, Layout, Phone, Key, Star, ArrowUp, ArrowDown,
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle,
   Truck, FileText, Facebook, Instagram, Package, CreditCard, Layers, MessageSquare,
-  Zap, Radio, Clock, Send, Eye, EyeOff, SlidersHorizontal
+  Zap, Radio, Clock, Send, Eye, EyeOff, SlidersHorizontal, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
@@ -138,6 +138,20 @@ const Admin: React.FC = () => {
   const [contentForm, setContentForm] = useState<AppContent | null>(null);
   const [isPushingUpdates, setIsPushingUpdates] = useState(false);
   const [lastPushSuccessMessage, setLastPushSuccessMessage] = useState<string | null>(null);
+  const [lastPushError, setLastPushError] = useState<string | null>(null);
+  const [lastPushDetails, setLastPushDetails] = useState<{
+    version: number;
+    timestamp: number;
+    productsCount: number;
+    categoriesCount: number;
+  } | null>(() => {
+    try {
+      const saved = localStorage.getItem('fkb_last_force_push_info');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
   // Set default category if not set
   React.useEffect(() => {
@@ -353,22 +367,28 @@ const Admin: React.FC = () => {
   };
 
   const handleForcePushUpdates = async () => {
-    const isConfirmed = window.confirm(
-      "क्या आप वाकई सभी किसानों के ऐप में तुरंत नया लाइव अपडेट पुश करना चाहते हैं?\n\nइससे सभी किसानों के फ़ोन में बिना 4 घंटे का इंतज़ार किए नया कैटलॉग, नए उत्पाद, स्टॉक और भाव तुरंत सिंक हो जाएंगे।"
-    );
-    if (!isConfirmed) return;
-
     try {
       setIsPushingUpdates(true);
       setLastPushSuccessMessage(null);
-      await forcePushAllUpdates("एडमिन द्वारा सभी लाइव उत्पाद एवं आवश्यक अपडेट तुरंत पुश किए गए हैं।");
-      setLastPushSuccessMessage("सफलतापूर्वक सभी किसानों के लिए नया लाइव वर्ज़न तुरंत पुश कर दिया गया है!");
+      setLastPushError(null);
+      const res = await forcePushAllUpdates("एडमिन द्वारा सभी लाइव उत्पाद एवं आवश्यक अपडेट तुरंत पुश किए गए हैं।");
+      const details = {
+        version: res?.version || Date.now(),
+        timestamp: res?.timestamp || Date.now(),
+        productsCount: res?.productsCount || products.length,
+        categoriesCount: res?.categoriesCount || categories.length
+      };
+      setLastPushDetails(details);
+      try {
+        localStorage.setItem('fkb_last_force_push_info', JSON.stringify(details));
+      } catch (_) {}
+      setLastPushSuccessMessage("सफलतापूर्वक सभी किसानों व ऑनलाइन यूज़र्स के लिए नया लाइव वर्ज़न तुरंत पुश कर दिया गया है!");
       setTimeout(() => {
         setLastPushSuccessMessage(null);
-      }, 7000);
+      }, 10000);
     } catch (err: any) {
       console.error("Force push error:", err);
-      alert("अपडेट पुश करने में त्रुटि: " + (err.message || err));
+      setLastPushError(err?.message || "नेटवर्क या अनुमति की समस्या के कारण अपडेट पुश नहीं हो पाया। कृपया पुनः प्रयास करें।");
     } finally {
       setIsPushingUpdates(false);
     }
@@ -1724,10 +1744,39 @@ const Admin: React.FC = () => {
               </button>
             </div>
 
+            {lastPushError && (
+              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-center justify-between gap-3 text-sm font-medium text-rose-800 animate-in fade-in">
+                <div className="flex items-center gap-2.5">
+                  <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                  <span>{lastPushError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleForcePushUpdates}
+                  className="px-3 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition-colors shrink-0"
+                >
+                  पुनः प्रयास करें
+                </button>
+              </div>
+            )}
+
             {lastPushSuccessMessage && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center gap-2.5 text-sm font-medium text-emerald-800 animate-in fade-in">
-                <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>{lastPushSuccessMessage}</span>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-2 text-sm font-medium text-emerald-800 animate-in fade-in">
+                <div className="flex items-center gap-2.5 font-bold">
+                  <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>{lastPushSuccessMessage}</span>
+                </div>
+                {lastPushDetails && (
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-emerald-900/80 pt-2 border-t border-emerald-200/60 font-mono">
+                    <span>वर्ज़न आईडी: #v-{lastPushDetails.version}</span>
+                    <span>•</span>
+                    <span>सिंक समय: {new Date(lastPushDetails.timestamp).toLocaleTimeString('hi-IN')}</span>
+                    <span>•</span>
+                    <span>सिंक उत्पाद: {lastPushDetails.productsCount}</span>
+                    <span>•</span>
+                    <span className="text-emerald-700 font-bold">लाइव ब्रॉडकास्ट: सक्रिय (Active)</span>
+                  </div>
+                )}
               </div>
             )}
 

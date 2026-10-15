@@ -199,7 +199,13 @@ service cloud.firestore {
     // Settings Collection
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if (settingId in ['smtp_config', 'razorpay_config', 'delivery_config', 'courier_partners']) || (isAdmin() && (settingId != 'content' || isValidAppContent(request.resource.data)));
+      allow write: if (settingId in ['smtp_config', 'razorpay_config', 'delivery_config', 'courier_partners', 'metadata_version']) || (isAdmin() && (settingId != 'content' || isValidAppContent(request.resource.data)));
+    }
+
+    // Metadata Versioning (Zero-quota farmer sync beacon)
+    match /_metadata/{docId} {
+      allow read: if true;
+      allow write: if true;
     }
 
     // Delivery OTP tokens collection (For reliable cross-instance/serverless verification)

@@ -4,7 +4,7 @@ import {
   RotateCcw, Sparkles, Shield, Info, Check, Search,
   ExternalLink, Layers, TrendingUp, ArrowUpRight,
   ShieldCheck, CheckCircle, Activity, Lock, Unlock,
-  Sliders, Radio
+  Sliders, Radio, Loader2, AlertCircle, RefreshCw
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { APP_FEATURES, AppFeature } from '../config/features';
@@ -33,6 +33,9 @@ export const AdminFeaturesManager: React.FC = () => {
   });
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isPushing, setIsPushing] = useState(false);
+  const [pushSuccessMsg, setPushSuccessMsg] = useState<string | null>(null);
+  const [pushErrorMsg, setPushErrorMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'ai' | 'service' | 'utility'>('all');
 
@@ -113,6 +116,23 @@ export const AdminFeaturesManager: React.FC = () => {
   const enabledCount = APP_FEATURES.filter(f => isFeatureEnabled(f.id)).length;
   const disabledCount = APP_FEATURES.length - enabledCount;
 
+  const handleForcePush = async () => {
+    try {
+      setIsPushing(true);
+      setPushSuccessMsg(null);
+      setPushErrorMsg(null);
+      const res = await forcePushAllUpdates("एडमिन द्वारा सभी लाइव फ़ीचर्स व आवश्यक अपडेट तुरंत पुश किए गए हैं।");
+      const timeStr = res?.version ? new Date(res.version).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'अभी';
+      setPushSuccessMsg(`सफलतापूर्वक सभी किसानों व ऑनलाइन यूज़र्स के लिए नया लाइव वर्ज़न (${timeStr}) तुरंत पुश कर दिया गया है!`);
+      setTimeout(() => setPushSuccessMsg(null), 10000);
+    } catch (err: any) {
+      console.error('Failed to force push in features manager:', err);
+      setPushErrorMsg(err?.message || 'अपडेट पुश करने में समस्या आई। कृपया पुनः प्रयास करें।');
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Modern Dashboard Header Info Card */}
@@ -146,15 +166,49 @@ export const AdminFeaturesManager: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => forcePushAllUpdates()}
-              className="px-4 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-xs flex items-center gap-2 shadow-md shadow-amber-500/20 transition-all cursor-pointer active:scale-95 border border-amber-400/40"
+              onClick={handleForcePush}
+              disabled={isPushing}
+              className="px-4 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-xs flex items-center gap-2 shadow-md shadow-amber-500/20 transition-all cursor-pointer active:scale-95 border border-amber-400/40 disabled:opacity-60"
               title="सभी किसान भाइयों के ऐप में तुरंत नया फ़ीचर स्टेटस सिंक करें"
             >
-              <Zap className="w-4 h-4 fill-white text-white" />
-              <span>तुरंत अपडेट पुश करें (Force Push)</span>
+              {isPushing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>पुश हो रहा है...</span>
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 fill-white text-white" />
+                  <span>तुरंत अपडेट पुश करें (Force Push)</span>
+                </>
+              )}
             </button>
           </div>
         </div>
+
+        {/* Live Push Notifications */}
+        {pushSuccessMsg && (
+          <div className="mt-4 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold py-3 px-4 rounded-2xl flex items-center gap-2.5 shadow-xs animate-in fade-in">
+            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{pushSuccessMsg}</span>
+          </div>
+        )}
+
+        {pushErrorMsg && (
+          <div className="mt-4 bg-rose-50 border border-rose-200 text-rose-900 text-xs font-bold py-3 px-4 rounded-2xl flex items-center justify-between gap-2 shadow-xs animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{pushErrorMsg}</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleForcePush}
+              className="px-2.5 py-1 rounded-lg bg-rose-600 text-white text-[11px] font-bold hover:bg-rose-700 transition-colors"
+            >
+              पुनः प्रयास करें
+            </button>
+          </div>
+        )}
 
         {/* Status Metrics Bar */}
         <div className="relative mt-6 pt-5 border-t border-gray-100 flex flex-wrap items-center justify-between gap-4">

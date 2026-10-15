@@ -41,6 +41,11 @@ export const IDB_KEYS = {
   LAST_CHECK_TIMESTAMP: 'fkb_last_version_check_ts'
 };
 
+// Cross-tab broadcast channel for instant sub-second sync across open tabs
+export const syncBroadcastChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window 
+  ? new BroadcastChannel('fkb_sync_channel') 
+  : null;
+
 // Check version throttle interval for non-admin users (12 Hours)
 // This saves up to 99.8% of Firestore reads while keeping catalog integrity,
 // enabling up to 10 Lakh (1,000,000) active farmers with minimal or ZERO Firebase quota cost!
@@ -274,14 +279,25 @@ export async function bumpMetadataVersion(
   changedCollection?: string
 ): Promise<void> {
   try {
+    const now = Date.now();
     const versionRef = doc(db, 'settings', 'metadata_version');
     const newVersion: MetadataVersionRecord = {
-      version: Date.now(),
+      version: now,
       updatedAt: new Date().toISOString(),
-      ...(changedCollection ? { collections: { [changedCollection]: Date.now() } } : {})
+      ...(changedCollection ? { collections: { [changedCollection]: now } } : {})
     };
     await setDoc(versionRef, newVersion, { merge: true });
     await idbSet(IDB_KEYS.METADATA_VERSION, newVersion);
+
+    // Cross-tab and in-window broadcast
+    if (syncBroadcastChannel) {
+      try {
+        syncBroadcastChannel.postMessage({ type: 'VERSION_BUMP', version: now, collection: changedCollection });
+      } catch (_) {}
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('fkb:version_bump', { detail: { version: now, collection: changedCollection } }));
+    }
   } catch (err) {
     console.warn('[SyncManager] Failed to bump metadata version:', err);
   }
@@ -290,7 +306,7 @@ export async function bumpMetadataVersion(
 /**
  * Instant Force Push by Admin:
  * Marks a critical metadata bump so all client devices immediately purge their stale cache
- * and pull fresh catalog data without waiting for the 4-hour throttle window!
+ * and pull fresh catalog data without waiting for the 12-hour throttle window!
  */
 export async function forcePushMetadataVersion(
   db: Firestore,
@@ -316,8 +332,24 @@ export async function forcePushMetadataVersion(
     };
     await setDoc(versionRef, newVersion, { merge: true });
     await idbSet(IDB_KEYS.METADATA_VERSION, newVersion);
-    // Also clear the admin's local check timestamp so admin syncs immediately
+    // Also clear the local check timestamp so local sync runs immediately
     localStorage.setItem(IDB_KEYS.LAST_CHECK_TIMESTAMP, '0');
+
+    // Cross-tab broadcast for instant multi-tab sync
+    if (syncBroadcastChannel) {
+      try {
+        syncBroadcastChannel.postMessage({
+          type: 'FORCE_PUSH',
+          version: now,
+          timestamp: now,
+          message: newVersion.criticalMessage
+        });
+      } catch (_) {}
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('fkb:force_push', { detail: newVersion }));
+    }
+
     return { success: true, version: now, timestamp: now };
   } catch (err) {
     console.error('[SyncManager] Failed to force push metadata version:', err);

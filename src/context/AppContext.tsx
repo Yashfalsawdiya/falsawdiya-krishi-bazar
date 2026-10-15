@@ -36,8 +36,16 @@ import {
 } from 'firebase/auth';
 import { validateLoginEmail } from '../utils/security';
 import { safeLocalStorageSet, sanitizeProductForStorage, cleanupStorageQuota } from '../utils/cacheManager';
-import { loadAllCachedData, syncDataIfVersionChanged, bumpMetadataVersion, forcePushMetadataVersion, IDB_KEYS } from '../utils/dataSyncManager';
-import { idbSet } from '../utils/idbStorage';
+import { 
+  loadAllCachedData, 
+  syncDataIfVersionChanged, 
+  bumpMetadataVersion, 
+  forcePushMetadataVersion, 
+  syncBroadcastChannel, 
+  MetadataVersionRecord, 
+  IDB_KEYS 
+} from '../utils/dataSyncManager';
+import { idbSet, idbGet } from '../utils/idbStorage';
 import { sortCategoriesByOrder } from '../utils/categoryUtils';
 
 export interface AppContent {
@@ -142,7 +150,14 @@ interface AppContextType {
   resetDeliveryEmailTemplate: () => Promise<void>;
   updateDeliveryConfig: (config: DynamicDeliveryConfig) => Promise<void>;
   resetDeliveryConfig: () => Promise<void>;
-  forcePushAllUpdates: (message?: string) => Promise<void>;
+  forcePushAllUpdates: (message?: string) => Promise<{
+    success: boolean;
+    version: number;
+    timestamp: number;
+    productsCount: number;
+    categoriesCount: number;
+    message: string;
+  }>;
   forceSyncCatalog: () => Promise<void>;
   updateUserSettings: (settings: UserSettings) => Promise<void>;
   updateUserStatus: (uid: string, isBlocked: boolean) => Promise<void>;
@@ -390,12 +405,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  // Global data loading effect: Offline-First IndexedDB + Single Metadata Version Check
+  // Global data loading effect: Offline-First IndexedDB + Real-Time Metadata Versioning Beacon
   useEffect(() => {
     let isMounted = true;
 
+    // Helper to apply fresh data into React state
+    const applySyncData = (newData: any) => {
+      if (!isMounted || !newData) return;
+      if (newData.products) setProducts(newData.products);
+      if (newData.categories) setCategories(sortCategoriesByOrder(newData.categories));
+      if (newData.agriIssues) setAgriIssues(newData.agriIssues);
+      if (newData.helplines) setHelplines(newData.helplines);
+      if (newData.appContent) {
+        setAppContent(newData.appContent);
+        prefetchContentImages(newData.appContent);
+      }
+      if (newData.legalPages) setLegalPagesContent(mergeLegalPages(newData.legalPages));
+      if (newData.deliveryConfig) setDeliveryConfig(mergeDeliveryConfig(newData.deliveryConfig));
+      if (newData.invoiceTemplate) setInvoiceTemplate(mergeInvoiceTemplate(newData.invoiceTemplate));
+      if (newData.deliveryEmailTemplate) setDeliveryEmailTemplate(mergeDeliveryEmailTemplate(newData.deliveryEmailTemplate));
+    };
+
     async function initData() {
-      // 1. Instant 0ms load from IndexedDB
+      // 1. Instant 0ms load from IndexedDB (Offline-First)
       const cached = await loadAllCachedData();
       if (!isMounted) return;
 
@@ -412,23 +444,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (cached.invoiceTemplate) setInvoiceTemplate(mergeInvoiceTemplate(cached.invoiceTemplate));
       if (cached.deliveryEmailTemplate) setDeliveryEmailTemplate(mergeDeliveryEmailTemplate(cached.deliveryEmailTemplate));
 
-      // 2. Intelligent single version check (consumes at most 1 Read, 0 reads if not updated)
+      // 2. Intelligent single version check on launch
       try {
         const syncRes = await syncDataIfVersionChanged(db, { isAdmin });
-        if (!isMounted) return;
         if (syncRes.updated && syncRes.newData) {
-          if (syncRes.newData.products) setProducts(syncRes.newData.products);
-          if (syncRes.newData.categories) setCategories(sortCategoriesByOrder(syncRes.newData.categories));
-          if (syncRes.newData.agriIssues) setAgriIssues(syncRes.newData.agriIssues);
-          if (syncRes.newData.helplines) setHelplines(syncRes.newData.helplines);
-          if (syncRes.newData.appContent) {
-            setAppContent(syncRes.newData.appContent);
-            prefetchContentImages(syncRes.newData.appContent);
-          }
-          if (syncRes.newData.legalPages) setLegalPagesContent(mergeLegalPages(syncRes.newData.legalPages));
-          if (syncRes.newData.deliveryConfig) setDeliveryConfig(mergeDeliveryConfig(syncRes.newData.deliveryConfig));
-          if (syncRes.newData.invoiceTemplate) setInvoiceTemplate(mergeInvoiceTemplate(syncRes.newData.invoiceTemplate));
-          if (syncRes.newData.deliveryEmailTemplate) setDeliveryEmailTemplate(mergeDeliveryEmailTemplate(syncRes.newData.deliveryEmailTemplate));
+          applySyncData(syncRes.newData);
         }
       } catch (err) {
         console.warn('Background sync check warning:', err);
@@ -437,7 +457,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     initData();
 
-    // 3. Admin-only live listeners (only when logged in as admin to observe live admin panel changes)
+    // 3. Real-Time Metadata Version Listener for ALL Active Online Users
+    // (Consumes 0 incremental reads after connection until an admin bumps or force-pushes updates!)
+    const unsubMetadataVersion = onSnapshot(doc(db, 'settings', 'metadata_version'), async (snapshot) => {
+      if (!isMounted || !snapshot.exists()) return;
+      const remoteData = snapshot.data() as MetadataVersionRecord;
+      const localVersion = await idbGet<MetadataVersionRecord>(IDB_KEYS.METADATA_VERSION);
+
+      const isNewer = !localVersion || remoteData.version > (localVersion.version || 0);
+      const isCritical = Boolean(remoteData.criticalUpdate && remoteData.criticalTimestamp && (!localVersion || remoteData.criticalTimestamp > (localVersion.criticalTimestamp || 0)));
+
+      if (isNewer || isCritical) {
+        console.log('[SyncManager] Live metadata version update detected:', remoteData.version, 'Syncing fresh catalog...');
+        try {
+          const syncRes = await syncDataIfVersionChanged(db, { forceSync: true, isAdmin });
+          if (syncRes.updated && syncRes.newData) {
+            applySyncData(syncRes.newData);
+          }
+        } catch (err) {
+          console.warn('[SyncManager] Live update sync error:', err);
+        }
+      }
+    }, (err) => {
+      console.warn('[SyncManager] Metadata version listener warning:', err);
+    });
+
+    // 4. Offline Reconnection Sync (When device reconnects to Wi-Fi/4G/5G)
+    const handleOnline = async () => {
+      console.log('[SyncManager] Device reconnected to internet. Verifying latest catalog...');
+      try {
+        const syncRes = await syncDataIfVersionChanged(db, { forceSync: true, isAdmin });
+        if (syncRes.updated && syncRes.newData) {
+          applySyncData(syncRes.newData);
+        }
+      } catch (err) {
+        console.warn('[SyncManager] Reconnection sync error:', err);
+      }
+    };
+
+    // 5. App Focus / Tab Resume Sync (When user switches back from another app/tab)
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        try {
+          const syncRes = await syncDataIfVersionChanged(db, { isAdmin });
+          if (syncRes.updated && syncRes.newData) {
+            applySyncData(syncRes.newData);
+          }
+        } catch (_) {}
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 6. Cross-Tab Instant Sync via BroadcastChannel (0ms multi-tab sync)
+    const handleBroadcastMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'FORCE_PUSH' || event.data?.type === 'VERSION_BUMP') {
+        console.log('[SyncManager] Cross-tab broadcast received:', event.data);
+        try {
+          const syncRes = await syncDataIfVersionChanged(db, { forceSync: true, isAdmin });
+          if (syncRes.updated && syncRes.newData) {
+            applySyncData(syncRes.newData);
+          }
+        } catch (_) {}
+      }
+    };
+
+    if (syncBroadcastChannel) {
+      syncBroadcastChannel.addEventListener('message', handleBroadcastMessage);
+    }
+
+    // 7. Admin-only live listeners (for real-time previewing of admin panel drafts)
     let unsubAdminProducts: Unsubscribe | undefined;
     let unsubAdminContent: Unsubscribe | undefined;
     let unsubAdminLegal: Unsubscribe | undefined;
@@ -493,6 +583,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return () => {
       isMounted = false;
+      if (unsubMetadataVersion) unsubMetadataVersion();
+      window.removeEventListener('online', handleOnline);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (syncBroadcastChannel) {
+        syncBroadcastChannel.removeEventListener('message', handleBroadcastMessage);
+      }
       if (unsubAdminProducts) unsubAdminProducts();
       if (unsubAdminContent) unsubAdminContent();
       if (unsubAdminLegal) unsubAdminLegal();
@@ -1168,7 +1264,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const forcePushAllUpdates = async (message?: string) => {
     try {
-      await forcePushMetadataVersion(db, message);
+      const pushRes = await forcePushMetadataVersion(db, message);
       const syncRes = await syncDataIfVersionChanged(db, { forceSync: true, isAdmin: true });
       if (syncRes.updated && syncRes.newData) {
         if (syncRes.newData.products) setProducts(syncRes.newData.products);
@@ -1178,6 +1274,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (syncRes.newData.appContent) setAppContent(syncRes.newData.appContent);
         if (syncRes.newData.deliveryConfig) setDeliveryConfig(mergeDeliveryConfig(syncRes.newData.deliveryConfig));
       }
+      return {
+        success: true,
+        version: pushRes.version,
+        timestamp: pushRes.timestamp,
+        productsCount: syncRes.newData?.products?.length ?? products.length,
+        categoriesCount: syncRes.newData?.categories?.length ?? categories.length,
+        message: 'सफलतापूर्वक नया लाइव वर्ज़न तुरंत पुश कर दिया गया है!'
+      };
     } catch (error) {
       console.error("Force push all updates error:", error);
       throw error;
