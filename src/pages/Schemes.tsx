@@ -161,8 +161,8 @@ const Schemes: React.FC = () => {
           </button>
         </div>
       ) : (
-        /* Schemes Grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        /* Schemes Grid - Horizontally Centered Responsive Cards */
+        <div className="flex flex-wrap justify-center gap-3.5 sm:gap-4">
           {filteredSchemes.map((scheme, idx) => {
             const isCentral = scheme.governmentLevel?.toLowerCase().includes('central');
             return (
@@ -172,7 +172,7 @@ const Schemes: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: Math.min(idx * 0.03, 0.3) }}
                 onClick={() => setSelectedScheme(scheme)}
-                className="bg-white rounded-2xl p-4 sm:p-5 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_24px_-6px_rgba(45,90,39,0.12)] border border-gray-100 hover:border-[#2D5A27]/30 flex flex-col justify-between cursor-pointer transition-all duration-200 active:scale-[0.99] group relative overflow-hidden"
+                className="w-full md:w-[calc(50%-8px)] lg:w-[calc(33.333%-11px)] max-w-md lg:max-w-none bg-white rounded-2xl p-4 sm:p-5 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_24px_-6px_rgba(45,90,39,0.12)] border border-gray-100 hover:border-[#2D5A27]/30 flex flex-col justify-between cursor-pointer transition-all duration-200 active:scale-[0.99] group relative overflow-hidden"
               >
                 {/* Top Subtle Accent Bar on hover */}
                 <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#2D5A27]/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />

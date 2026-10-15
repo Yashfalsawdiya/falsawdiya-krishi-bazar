@@ -358,8 +358,8 @@ export const AdminFeaturesManager: React.FC = () => {
         </div>
       )}
 
-      {/* Modern Features Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+      {/* Modern Features Grid - Horizontally Centered Responsive Cards */}
+      <div className="flex flex-wrap justify-center gap-5">
         {filteredFeatures.map((feature) => {
           const isEnabled = isFeatureEnabled(feature.id);
           const Icon = feature.icon;
@@ -373,7 +373,7 @@ export const AdminFeaturesManager: React.FC = () => {
             <div
               key={feature.id}
               className={cn(
-                "relative bg-white rounded-3xl border transition-all duration-300 overflow-hidden flex flex-col justify-between group shadow-sm hover:shadow-xl hover:-translate-y-1",
+                "w-full md:w-[calc(50%-10px)] xl:w-[calc(33.333%-14px)] max-w-lg xl:max-w-none relative bg-white rounded-3xl border transition-all duration-300 overflow-hidden flex flex-col justify-between group shadow-sm hover:shadow-xl hover:-translate-y-1",
                 isEnabled
                   ? "border-gray-200/90 hover:border-[#2D5A27]/60"
                   : "border-rose-200/90 bg-gradient-to-b from-white via-rose-50/10 to-rose-50/20"

@@ -326,27 +326,31 @@ const Products: React.FC = () => {
         </div>
       </div>
 
-      {/* Product List - Premium Responsive Vertical Grid Matching Featured Products */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 md:gap-4 lg:gap-5 2xl:gap-6">
+      {/* Product List - Symmetrical Centered Cards Layout */}
+      <div className="flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-4 lg:gap-5 2xl:gap-6">
         {filteredProducts.length > 0 ? (
           filteredProducts.map((product, idx) => (
-            <KrishiBazaarProductCard
+            <div
               key={`${product.id}-${idx}`}
-              product={product}
-              index={idx}
-              onSelect={(p) => {
-                setSelectedProduct(p);
-                setShowDetail(true);
-              }}
-              onZoom={(src, alt) => {
-                setZoomImage({ src, alt });
-              }}
-              onAddToCart={handleAddToCart}
-              onBuy={handleDirectBuy}
-            />
+              className="w-[calc(50%-6px)] sm:w-[calc(50%-8px)] md:w-[calc(33.333%-11px)] lg:w-[calc(25%-15px)] xl:w-[calc(20%-16px)] 2xl:w-[calc(16.666%-20px)] max-w-[260px] flex-shrink-0 flex flex-col"
+            >
+              <KrishiBazaarProductCard
+                product={product}
+                index={idx}
+                onSelect={(p) => {
+                  setSelectedProduct(p);
+                  setShowDetail(true);
+                }}
+                onZoom={(src, alt) => {
+                  setZoomImage({ src, alt });
+                }}
+                onAddToCart={handleAddToCart}
+                onBuy={handleDirectBuy}
+              />
+            </div>
           ))
         ) : (
-          <div className="col-span-full text-center py-12 bg-white rounded-2xl border border-dashed border-gray-200">
+          <div className="w-full text-center py-12 bg-white rounded-2xl border border-dashed border-gray-200">
             <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-2" />
             <p className="text-gray-600 font-bold">कोई उत्पाद नहीं मिला</p>
             <p className="text-xs text-gray-400">कृपया कुछ और खोजें या अन्य श्रेणी चुनें</p>
