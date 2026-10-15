@@ -610,7 +610,7 @@ const MandiBhav: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-wrap justify-center gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {filteredItems.map((item, idx) => {
                     const isExpanded = expandedCardIndex === idx;
                     const histData = getHistoricalPoints(item.avgPrice, idx);
@@ -646,7 +646,7 @@ const MandiBhav: React.FC = () => {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.2 }}
-                        className={`w-full md:w-[calc(50%-6px)] max-w-2xl md:max-w-none flex flex-col bg-white rounded-2xl border transition-all overflow-hidden ${
+                        className={`bg-white rounded-2xl border transition-all overflow-hidden ${
                           isExpanded 
                             ? "border-[#2D5A27] shadow-md shadow-[#2D5A27]/5 ring-1 ring-[#2D5A27]/10" 
                             : "border-gray-100 hover:border-[#2D5A27]/20 shadow-sm"
