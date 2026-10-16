@@ -79,9 +79,9 @@ const Encyclopedia: React.FC = () => {
         </div>
       </div>
 
-      <div className="px-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="px-5 flex flex-wrap justify-center gap-4">
         {filteredIssues.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-[32px] border-2 border-dashed border-gray-200">
+          <div className="w-full text-center py-20 bg-white rounded-[32px] border-2 border-dashed border-gray-200">
             <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="w-8 h-8 text-gray-300" />
             </div>
@@ -95,7 +95,7 @@ const Encyclopedia: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}
               onClick={() => navigate(`/encyclopedia/${issue.id}`)}
-              className="bg-white rounded-[24px] p-4 flex items-center gap-4 shadow-sm border border-gray-100 active:scale-98 transition-all"
+              className="w-full md:w-[calc(50%-8px)] lg:w-[calc(33.333%-11px)] max-w-md lg:max-w-none bg-white rounded-[24px] p-4 flex items-center gap-4 shadow-sm border border-gray-100 active:scale-98 transition-all cursor-pointer"
             >
               <div className="relative">
                 <SmartImage 

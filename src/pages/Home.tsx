@@ -493,7 +493,9 @@ const Home: React.FC = () => {
       {(canAccessAiCall || canAccessAiKnowledge) && (
         <div className={cn(
           "grid gap-3.5 md:gap-4 xl:gap-6 2xl:gap-8 pt-1",
-          canAccessAiCall && canAccessAiKnowledge ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"
+          canAccessAiCall && canAccessAiKnowledge 
+            ? "grid-cols-1 md:grid-cols-2" 
+            : "grid-cols-1 max-w-2xl mx-auto"
         )}>
           {/* AI Voice Agent Entry Section */}
           {canAccessAiCall && (
@@ -722,7 +724,7 @@ const Home: React.FC = () => {
           </Link>
         </div>
 
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 2xl:grid-cols-10 gap-2.5 sm:gap-3.5 xl:gap-4 2xl:gap-5">
+        <div className="flex flex-wrap justify-center gap-2.5 sm:gap-3.5 xl:gap-4 2xl:gap-5">
           {sortedCategories.map((cat, index) => {
             const nameMatch = (cat.name || '').match(/^(.*?)(?:\s*\((.*?)\))?$/);
             const rawMain = nameMatch && nameMatch[1] ? nameMatch[1].trim() : cat.name;
@@ -738,7 +740,7 @@ const Home: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.03, duration: 0.2 }}
                 onClick={() => navigate(`/products?category=${cat.id}`)}
-                className="group relative bg-white hover:bg-gradient-to-b hover:from-white hover:to-emerald-50/30 p-2.5 sm:p-3 rounded-2xl sm:rounded-3xl border border-gray-200/80 hover:border-[#2D5A27]/30 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col items-center text-center justify-between gap-2 cursor-pointer active:scale-95 select-none overflow-hidden"
+                className="group relative bg-white hover:bg-gradient-to-b hover:from-white hover:to-emerald-50/30 p-2.5 sm:p-3 rounded-2xl sm:rounded-3xl border border-gray-200/80 hover:border-[#2D5A27]/30 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col items-center text-center justify-between gap-2 cursor-pointer active:scale-95 select-none overflow-hidden w-[calc(33.333%-7px)] sm:w-[calc(25%-11px)] md:w-[calc(16.666%-12px)] lg:w-[calc(12.5%-14px)] 2xl:w-[calc(12.5%-18px)] max-w-[140px]"
               >
                 {/* Subtle top hover line indicator */}
                 <div className="absolute top-0 left-3 right-3 h-[2px] bg-gradient-to-r from-transparent via-[#2D5A27]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -789,29 +791,33 @@ const Home: React.FC = () => {
             सभी देखें <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
-        <div className="flex md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 xl:gap-5 2xl:gap-6 overflow-x-auto md:overflow-x-visible pb-3 -mx-1 px-1 snap-x">
+        <div className="flex md:flex-wrap justify-start md:justify-center gap-4 xl:gap-5 2xl:gap-6 overflow-x-auto md:overflow-x-visible pb-3 -mx-1 px-1 snap-x">
           {featuredProducts.length === 0 ? (
-            <div className="w-full col-span-full py-8 text-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-100 flex flex-col items-center gap-2">
+            <div className="w-full text-center py-8 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-100 flex flex-col items-center gap-2">
               <ShoppingBag className="w-8 h-8 text-gray-200" />
               <p className="text-xs text-gray-400 font-bold">आज के विशेष उत्पाद जल्द ही आएंगे!</p>
             </div>
           ) : (
             featuredProducts.map((product, idx) => (
-              <FeaturedProductCard
+              <div
                 key={`${product.id}-${idx}`}
-                product={product}
-                index={idx}
-                onSelect={(p) => {
-                  setSelectedProduct(p);
-                  setShowDetail(true);
-                }}
-                onZoom={(src, alt) => {
-                  setZoomImage({ src, alt });
-                }}
-                onBuy={(p, variant) => {
-                  handleBuyClick(p, variant);
-                }}
-              />
+                className="w-[210px] sm:w-[220px] md:w-[calc(33.333%-11px)] lg:w-[calc(25%-15px)] xl:w-[calc(20%-16px)] 2xl:w-[calc(16.666%-20px)] max-w-[260px] flex-shrink-0 flex flex-col snap-start"
+              >
+                <FeaturedProductCard
+                  product={product}
+                  index={idx}
+                  onSelect={(p) => {
+                    setSelectedProduct(p);
+                    setShowDetail(true);
+                  }}
+                  onZoom={(src, alt) => {
+                    setZoomImage({ src, alt });
+                  }}
+                  onBuy={(p, variant) => {
+                    handleBuyClick(p, variant);
+                  }}
+                />
+              </div>
             ))
           )}
         </div>
@@ -873,7 +879,7 @@ const Home: React.FC = () => {
           </div>
           
           <div className="overflow-hidden -mx-4 px-4" ref={emblaVideoRef}>
-            <div className="flex gap-4">
+            <div className={cn("flex gap-4", videos.length <= 3 && "md:justify-center")}>
               {videos.map((video, idx) => (
                 <div key={`${video.id}-${idx}`} className="flex-[0_0_85%] sm:flex-[0_0_45%] md:flex-[0_0_31%] lg:flex-[0_0_23%] min-w-0">
                   <a 
@@ -913,8 +919,8 @@ const Home: React.FC = () => {
         </section>
       )}
 
-      {/* WhatsApp, Social Media & Address Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 md:gap-4 xl:gap-6 2xl:gap-8">
+      {/* WhatsApp, Social Media & Address Section - Horizontally Centered Responsive Cards */}
+      <div className="flex flex-wrap justify-center gap-3.5 md:gap-4 xl:gap-6 2xl:gap-8">
         {/* Modern WhatsApp Card */}
         <div 
           onClick={() => {
@@ -925,12 +931,11 @@ const Home: React.FC = () => {
               window.open(`https://wa.me/${contactInfo.whatsapp}?text=${message}`, '_blank');
             }
           }}
-          className="bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 border border-emerald-200/80 hover:border-emerald-400 rounded-3xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 text-left cursor-pointer active:scale-[0.99] group relative overflow-hidden"
+          className="w-full md:w-[calc(50%-8px)] lg:w-[calc(33.333%-11px)] xl:w-[calc(33.333%-16px)] 2xl:w-[calc(33.333%-22px)] max-w-xl lg:max-w-none bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 border border-emerald-200/80 hover:border-emerald-400 rounded-3xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 text-left cursor-pointer active:scale-[0.99] group relative overflow-hidden"
         >
           {/* Subtle Ambient Glow */}
           <div className="absolute -right-8 -bottom-8 w-28 h-28 bg-[#25D366]/10 rounded-full blur-2xl pointer-events-none group-hover:bg-[#25D366]/20 transition-colors" />
 
-          {/* Top Header */}
           {/* Top Header */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3">
@@ -977,8 +982,8 @@ const Home: React.FC = () => {
         {/* Social Media Cards (Side by Side) */}
         {(facebookSection.enabled || instagramSection.enabled) && (
           <div className={cn(
-            "grid gap-3",
-            facebookSection.enabled && instagramSection.enabled ? "grid-cols-2" : "grid-cols-1"
+            "w-full md:w-[calc(50%-8px)] lg:w-[calc(33.333%-11px)] xl:w-[calc(33.333%-16px)] 2xl:w-[calc(33.333%-22px)] max-w-xl lg:max-w-none flex flex-col justify-between gap-3",
+            facebookSection.enabled && instagramSection.enabled ? "grid grid-cols-2" : "flex flex-col"
           )}>
             {/* Modern Facebook Card */}
             {facebookSection.enabled && (
@@ -987,7 +992,7 @@ const Home: React.FC = () => {
                   const url = facebookSection.pageUrl.trim() || 'https://www.facebook.com';
                   window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
                 }}
-                className="bg-gradient-to-br from-blue-50/70 via-white to-blue-50/30 border border-blue-200/80 hover:border-blue-400 rounded-3xl p-3.5 sm:p-4 flex flex-col justify-between gap-3 active:scale-[0.99] transition-all text-left cursor-pointer shadow-xs hover:shadow-md group relative overflow-hidden"
+                className="h-full bg-gradient-to-br from-blue-50/70 via-white to-blue-50/30 border border-blue-200/80 hover:border-blue-400 rounded-3xl p-3.5 sm:p-4 flex flex-col justify-between gap-3 active:scale-[0.99] transition-all text-left cursor-pointer shadow-xs hover:shadow-md group relative overflow-hidden"
               >
                 <div className="flex items-center justify-between w-full">
                   <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-[#1877F2] to-[#0D65D9] text-white flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform shrink-0">
@@ -1023,7 +1028,7 @@ const Home: React.FC = () => {
                   const url = instagramSection.profileUrl.trim() || 'https://www.instagram.com';
                   window.open(url.startsWith('http') ? url : `https://${url}`, '_blank');
                 }}
-                className="bg-gradient-to-br from-pink-50/70 via-white to-purple-50/30 border border-pink-200/80 hover:border-pink-400 rounded-3xl p-3.5 sm:p-4 flex flex-col justify-between gap-3 active:scale-[0.99] transition-all text-left cursor-pointer shadow-xs hover:shadow-md group relative overflow-hidden"
+                className="h-full bg-gradient-to-br from-pink-50/70 via-white to-purple-50/30 border border-pink-200/80 hover:border-pink-400 rounded-3xl p-3.5 sm:p-4 flex flex-col justify-between gap-3 active:scale-[0.99] transition-all text-left cursor-pointer shadow-xs hover:shadow-md group relative overflow-hidden"
               >
                 <div className="flex items-center justify-between w-full">
                   <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] text-white flex items-center justify-center shadow-md shadow-pink-500/20 group-hover:scale-105 transition-transform shrink-0">
@@ -1060,7 +1065,7 @@ const Home: React.FC = () => {
             const mapQuery = encodeURIComponent("डिंपल चौराहा क्षत्रिय खाती मांगलिक भवन शामगढ़ मंदसौर 458883");
             window.open(`https://www.google.com/maps/search/?api=1&query=${mapQuery}`, '_blank');
           }}
-          className="bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 border border-emerald-200/80 hover:border-[#2D5A27]/60 rounded-3xl p-4 sm:p-5 flex flex-col justify-between gap-3.5 active:scale-[0.99] transition-all text-left cursor-pointer shadow-xs hover:shadow-md group relative overflow-hidden"
+          className="w-full md:w-[calc(50%-8px)] lg:w-[calc(33.333%-11px)] xl:w-[calc(33.333%-16px)] 2xl:w-[calc(33.333%-22px)] max-w-xl lg:max-w-none bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 border border-emerald-200/80 hover:border-[#2D5A27]/60 rounded-3xl p-4 sm:p-5 flex flex-col justify-between gap-3.5 active:scale-[0.99] transition-all text-left cursor-pointer shadow-xs hover:shadow-md group relative overflow-hidden"
         >
           {/* Header Row */}
           <div className="flex items-center justify-between w-full">
