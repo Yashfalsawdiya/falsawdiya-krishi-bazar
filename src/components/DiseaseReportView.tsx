@@ -230,7 +230,7 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 space-y-3.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-xs">
+              <div className="w-7 h-7 rounded-xl bg-[#ECFDF5] text-[#183D16] border border-[#2D5A27]/20 flex items-center justify-center font-bold text-xs">
                 2
               </div>
               <h4 className="font-extrabold text-[#4A3728] text-sm tracking-wide">
@@ -303,7 +303,7 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
         {report.chemicalControl.length > 0 && (
           <div className="space-y-3 pt-1">
             <div className="flex items-center gap-2 px-1">
-              <Droplets className="w-4 h-4 text-blue-600" />
+              <Droplets className="w-4 h-4 text-[#2D5A27]" />
               <h5 className="font-bold text-gray-900 text-xs uppercase tracking-wider">
                 रासायनिक नियंत्रण (Chemical Control)
               </h5>
@@ -313,11 +313,11 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
               {report.chemicalControl.map((item, idx) => (
                 <div
                   key={idx}
-                  className="bg-white p-3.5 rounded-2xl border-2 border-blue-100/80 hover:border-blue-300 transition-all shadow-xs space-y-2"
+                  className="bg-white p-3.5 rounded-2xl border-2 border-[#2D5A27]/20 hover:border-[#2D5A27]/40 transition-all shadow-xs space-y-2"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2.5">
-                      <span className="w-5 h-5 rounded-lg bg-blue-50 text-blue-700 font-extrabold text-[10px] flex items-center justify-center shrink-0 mt-0.5 border border-blue-200">
+                      <span className="w-5 h-5 rounded-lg bg-[#ECFDF5] text-[#183D16] font-extrabold text-[10px] flex items-center justify-center shrink-0 mt-0.5 border border-[#2D5A27]/25">
                         {idx + 1}
                       </span>
                       <h6 className="font-black text-gray-900 text-xs sm:text-sm leading-tight">
@@ -329,8 +329,8 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
                   {/* Dosage Badges Row */}
                   <div className="flex flex-wrap items-center gap-2 pl-7">
                     {item.dosagePump && (
-                      <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-800 text-[11px] font-extrabold px-2.5 py-1 rounded-xl border border-blue-200">
-                        <Droplets className="w-3 h-3 text-blue-600" />
+                      <span className="inline-flex items-center gap-1.5 bg-[#ECFDF5] text-[#183D16] text-[11px] font-extrabold px-2.5 py-1 rounded-xl border border-[#2D5A27]/20">
+                        <Droplets className="w-3 h-3 text-[#2D5A27]" />
                         <span>पंप डोज़: {item.dosagePump}</span>
                       </span>
                     )}

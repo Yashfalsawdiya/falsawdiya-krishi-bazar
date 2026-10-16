@@ -215,17 +215,17 @@ const AboutUs: React.FC = () => {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.22 }}
-              className="bg-blue-50/80 rounded-3xl p-5 border border-blue-200 shadow-xs relative overflow-hidden"
+              className="bg-[#F2F8F0] rounded-3xl p-5 border border-[#2D5A27]/25 shadow-xs relative overflow-hidden"
             >
               <div className="flex items-center gap-2 mb-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-700 text-white flex items-center justify-center shadow-sm">
+                <div className="w-8 h-8 rounded-xl bg-[#2D5A27] text-white flex items-center justify-center shadow-xs">
                   <Compass className="w-4 h-4" />
                 </div>
-                <h2 className="text-sm font-black text-blue-900">
+                <h2 className="text-sm font-black text-[#183D16]">
                   {aboutData.visionTitle || (isEnglish ? 'Our Vision' : 'हमारी दृष्टि')}
                 </h2>
               </div>
-              <p className="text-xs font-medium text-[#4A3728] leading-relaxed bg-white/90 p-3.5 rounded-2xl border border-blue-100">
+              <p className="text-xs font-medium text-[#4A3728] leading-relaxed bg-white/95 p-3.5 rounded-2xl border border-[#2D5A27]/15">
                 {aboutData.visionText}
               </p>
             </motion.div>
@@ -400,9 +400,9 @@ const AboutUs: React.FC = () => {
           </Link>
           <Link 
             to="/grievance"
-            className="bg-white border border-gray-200 hover:border-blue-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
+            className="bg-white border border-gray-200 hover:border-[#2D5A27] text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <Scale className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Grievance Officer' : 'शिकायत अधिकारी'}</span>
+            <Scale className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">{isEnglish ? 'Grievance Officer' : 'शिकायत अधिकारी'}</span>
           </Link>
           <Link 
             to="/faq"
@@ -418,9 +418,9 @@ const AboutUs: React.FC = () => {
           </Link>
           <Link 
             to="/privacy"
-            className="bg-white border border-gray-200 hover:border-blue-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
+            className="bg-white border border-gray-200 hover:border-[#2D5A27] text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Privacy Policy' : 'गोपनीयता नीति'}</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" /> <span className="truncate">{isEnglish ? 'Privacy Policy' : 'गोपनीयता नीति'}</span>
           </Link>
           <Link 
             to="/terms"
@@ -430,9 +430,9 @@ const AboutUs: React.FC = () => {
           </Link>
           <Link 
             to="/refund-policy"
-            className="bg-white border border-gray-200 hover:border-rose-300 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
+            className="bg-white border border-gray-200 hover:border-[#973C00]/40 text-gray-700 py-2.5 px-2 rounded-2xl text-[11px] font-bold flex items-center justify-center gap-1 transition-colors text-center shadow-xs"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-rose-600 shrink-0" /> <span className="truncate">{isEnglish ? 'Return & Refund Policy' : 'वापसी नीति'}</span>
+            <RotateCcw className="w-3.5 h-3.5 text-[#973C00] shrink-0" /> <span className="truncate">{isEnglish ? 'Return & Refund Policy' : 'वापसी नीति'}</span>
           </Link>
           <Link 
             to="/safety-guidelines"

@@ -124,12 +124,12 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, message }) =
                   href="https://aistudio.google.com/app/apikey" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="w-full flex items-center justify-between p-3 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold border border-blue-100 active:scale-95 transition-transform"
+                  className="w-full flex items-center justify-between p-3 bg-[#ECFDF5] text-[#183D16] rounded-xl text-xs font-bold border border-[#2D5A27]/25 hover:bg-[#dff7ea] active:scale-95 transition-transform"
                 >
                   <span className="flex items-center gap-2">
-                    <ExternalLink className="w-3.5 h-3.5" /> फ्री Key यहाँ से जनरेट करें
+                    <ExternalLink className="w-3.5 h-3.5 text-[#2D5A27]" /> फ्री Key यहाँ से जनरेट करें
                   </span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className="w-3.5 h-3.5 text-[#2D5A27]" />
                 </a>
                 <a 
                   href={appContent?.apiKeyGuideVideoUrl || "https://www.youtube.com/results?search_query=how+to+get+gemini+api+key"} 

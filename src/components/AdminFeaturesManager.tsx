@@ -280,15 +280,15 @@ export const AdminFeaturesManager: React.FC = () => {
             className={cn(
               "px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5",
               selectedCategory === 'ai'
-                ? "bg-purple-700 text-white shadow-xs"
-                : "bg-purple-50/60 text-purple-800 hover:bg-purple-100/60 border border-purple-200/60"
+                ? "bg-[#2D5A27] text-white shadow-xs"
+                : "bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100/70 border border-emerald-200/60"
             )}
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>AI टूल्स</span>
             <span className={cn(
               "px-1.5 py-0.2 rounded-md text-[10px]",
-              selectedCategory === 'ai' ? "bg-white/20 text-white" : "bg-purple-100 text-purple-800"
+              selectedCategory === 'ai' ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
             )}>
               3
             </span>
@@ -300,8 +300,8 @@ export const AdminFeaturesManager: React.FC = () => {
             className={cn(
               "px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5",
               selectedCategory === 'service'
-                ? "bg-emerald-700 text-white shadow-xs"
-                : "bg-emerald-50/60 text-emerald-800 hover:bg-emerald-100/60 border border-emerald-200/60"
+                ? "bg-[#2D5A27] text-white shadow-xs"
+                : "bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100/70 border border-emerald-200/60"
             )}
           >
             <TrendingUp className="w-3.5 h-3.5" />
@@ -320,15 +320,15 @@ export const AdminFeaturesManager: React.FC = () => {
             className={cn(
               "px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5",
               selectedCategory === 'utility'
-                ? "bg-blue-700 text-white shadow-xs"
-                : "bg-blue-50/60 text-blue-800 hover:bg-blue-100/60 border border-blue-200/60"
+                ? "bg-[#2D5A27] text-white shadow-xs"
+                : "bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100/70 border border-emerald-200/60"
             )}
           >
             <Layers className="w-3.5 h-3.5" />
             <span>टूल्स व सहायता</span>
             <span className={cn(
               "px-1.5 py-0.2 rounded-md text-[10px]",
-              selectedCategory === 'utility' ? "bg-white/20 text-white" : "bg-blue-100 text-blue-800"
+              selectedCategory === 'utility' ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
             )}>
               5
             </span>
@@ -384,11 +384,7 @@ export const AdminFeaturesManager: React.FC = () => {
                 className={cn(
                   "h-1.5 w-full transition-all duration-300",
                   isEnabled
-                    ? isAi 
-                      ? "bg-gradient-to-r from-purple-500 via-indigo-500 to-amber-500"
-                      : isService
-                      ? "bg-gradient-to-r from-[#2D5A27] via-emerald-500 to-teal-400"
-                      : "bg-gradient-to-r from-blue-500 via-indigo-500 to-sky-400"
+                    ? "bg-gradient-to-r from-[#2D5A27] via-emerald-500 to-teal-400"
                     : "bg-gradient-to-r from-rose-500 via-red-500 to-amber-500"
                 )} 
               />
@@ -409,11 +405,7 @@ export const AdminFeaturesManager: React.FC = () => {
                     <div className={cn(
                       "w-13 h-13 rounded-2xl flex items-center justify-center shrink-0 border transition-transform duration-300 group-hover:scale-105 shadow-sm",
                       isEnabled
-                        ? isAi
-                          ? "bg-gradient-to-br from-purple-50 to-indigo-50 text-purple-700 border-purple-200/80 shadow-purple-500/10"
-                          : isService
-                          ? "bg-gradient-to-br from-emerald-50 to-teal-50 text-[#2D5A27] border-emerald-200/80 shadow-emerald-500/10"
-                          : "bg-gradient-to-br from-blue-50 to-sky-50 text-blue-700 border-blue-200/80 shadow-blue-500/10"
+                        ? "bg-gradient-to-br from-emerald-50 to-teal-50 text-[#2D5A27] border-emerald-200/80 shadow-emerald-500/10"
                         : "bg-rose-50 text-rose-600 border-rose-200 shadow-rose-500/10"
                     )}>
                       <Icon className="w-6 h-6 stroke-[2.2]" />
@@ -421,15 +413,8 @@ export const AdminFeaturesManager: React.FC = () => {
 
                     <div>
                       {/* Category Badge */}
-                      <span className={cn(
-                        "text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1 shadow-2xs",
-                        isAi 
-                          ? "bg-purple-50 text-purple-800 border-purple-200"
-                          : isService
-                          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                          : "bg-blue-50 text-blue-800 border-blue-200"
-                      )}>
-                        {isAi ? <Sparkles className="w-2.5 h-2.5" /> : isService ? <TrendingUp className="w-2.5 h-2.5" /> : <Layers className="w-2.5 h-2.5" />}
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1 shadow-2xs bg-emerald-50 text-emerald-800 border-emerald-200">
+                        {isAi ? <Sparkles className="w-2.5 h-2.5 text-emerald-700" /> : isService ? <TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> : <Layers className="w-2.5 h-2.5 text-emerald-700" />}
                         {isAi ? 'AI पावर्ड टूल' : isService ? 'कृषि लाइव सेवा' : 'यूटिलिटी टूल'}
                       </span>
 

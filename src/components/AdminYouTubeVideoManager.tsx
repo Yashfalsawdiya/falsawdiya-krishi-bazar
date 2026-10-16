@@ -620,7 +620,7 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
                       type="button"
                       onClick={() => openEditModal(video)}
                       title="संपादित करें (Edit)"
-                      className="p-2.5 rounded-xl border border-blue-200 text-blue-600 hover:bg-blue-50 transition-all flex items-center gap-1 text-xs font-semibold"
+                      className="p-2.5 rounded-xl border border-[#2D5A27]/25 text-[#183D16] bg-[#ECFDF5] hover:bg-emerald-100 transition-all flex items-center gap-1 text-xs font-semibold"
                     >
                       <Edit3 className="w-4 h-4" />
                       <span className="hidden sm:inline">एडिट</span>
@@ -869,7 +869,7 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
             >
               <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600">
+                  <div className="w-10 h-10 rounded-2xl bg-[#ECFDF5] border border-[#2D5A27]/20 flex items-center justify-center text-[#2D5A27]">
                     <Edit3 className="w-5 h-5" />
                   </div>
                   <div>

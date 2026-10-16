@@ -1701,7 +1701,7 @@ ${result.safetyInstructions}
           {/* Target crops, Pests, & Symptoms */}
           <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
             <h3 className="text-base font-black text-[#4A3728] uppercase tracking-wider flex items-center gap-2 border-b pb-2">
-              <Info className="w-5 h-5 text-blue-500" />
+              <Info className="w-5 h-5 text-[#2D5A27]" />
               लक्षित फसलें एवं रोग / कीट (Target Crops & Pests)
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1781,11 +1781,11 @@ ${result.safetyInstructions}
               </div>
 
               <div className="flex gap-3">
-                <div className="bg-blue-50 p-1.5 rounded-lg text-blue-600 shrink-0">
-                  <Layers className="w-4 h-4" />
+                <div className="bg-[#ECFDF5] p-1.5 rounded-lg text-[#183D16] border border-[#2D5A27]/20 shrink-0">
+                  <Layers className="w-4 h-4 text-[#2D5A27]" />
                 </div>
                 <div className="space-y-0.5">
-                  <p className="text-[10px] font-black text-blue-800 uppercase tracking-wider">मिक्सिंग ऑर्डर (Mixing Order)</p>
+                  <p className="text-[10px] font-black text-[#183D16] uppercase tracking-wider">मिक्सिंग ऑर्डर (Mixing Order)</p>
                   <p className="text-xs text-gray-700 font-bold leading-relaxed">{result.mixingOrder}</p>
                 </div>
               </div>

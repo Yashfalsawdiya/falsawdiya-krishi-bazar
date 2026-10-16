@@ -46,12 +46,12 @@ const Helpline: React.FC = () => {
 
   const getCategoryColor = (category: string) => {
     const cat = category.toLowerCase();
-    if (cat.includes('दुकान')) return "bg-purple-100 text-purple-600";
-    if (cat.includes('कृषि')) return "bg-green-100 text-green-600";
-    if (cat.includes('बिजली')) return "bg-yellow-100 text-yellow-600";
-    if (cat.includes('बीमा')) return "bg-orange-100 text-orange-600";
-    if (cat.includes('सिंचाई')) return "bg-blue-100 text-blue-600";
-    return "bg-gray-100 text-gray-600";
+    if (cat.includes('दुकान')) return "bg-[#F2F8F0] text-[#183D16] border border-[#2D5A27]/20";
+    if (cat.includes('कृषि')) return "bg-[#ECFDF5] text-[#2D5A27] border border-[#2D5A27]/20";
+    if (cat.includes('बिजली')) return "bg-[#FFFBEB] text-[#973C00] border border-[#973C00]/20";
+    if (cat.includes('बीमा')) return "bg-[#FFF5CD] text-[#E17100] border border-[#E17100]/20";
+    if (cat.includes('सिंचाई')) return "bg-[#ECFDF5] text-[#2D5A27] border border-[#2D5A27]/20";
+    return "bg-[#F2F8F0] text-[#183D16] border border-[#2D5A27]/15";
   };
 
   return (

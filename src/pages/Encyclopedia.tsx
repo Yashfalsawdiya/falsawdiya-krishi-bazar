@@ -25,10 +25,10 @@ const Encyclopedia: React.FC = () => {
   const navigate = useNavigate();
 
   const types = [
-    { id: 'all', label: 'सभी', icon: Sprout, color: 'bg-green-500' },
-    { id: 'pest', label: 'कीट (Pests)', icon: Bug, color: 'bg-orange-500' },
-    { id: 'disease', label: 'रोग (Diseases)', icon: Droplet, color: 'bg-blue-500' },
-    { id: 'deficiency', label: 'पोषक तत्व की कमी', icon: Sprout, color: 'bg-purple-500' },
+    { id: 'all', label: 'सभी', icon: Sprout, color: 'bg-[#2D5A27]' },
+    { id: 'pest', label: 'कीट (Pests)', icon: Bug, color: 'bg-[#E37A0F]' },
+    { id: 'disease', label: 'रोग (Diseases)', icon: Droplet, color: 'bg-[#973C00]' },
+    { id: 'deficiency', label: 'पोषक तत्व की कमी', icon: Sprout, color: 'bg-[#61691D]' },
   ];
 
   const filteredIssues = agriIssues.filter(issue => {
@@ -106,7 +106,7 @@ const Encyclopedia: React.FC = () => {
                 />
                 <div className={cn(
                   "absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center shadow-md",
-                  issue.type === 'pest' ? 'bg-orange-500' : issue.type === 'disease' ? 'bg-blue-500' : 'bg-purple-500'
+                  issue.type === 'pest' ? 'bg-[#E37A0F]' : issue.type === 'disease' ? 'bg-[#973C00]' : 'bg-[#61691D]'
                 )}>
                   {issue.type === 'pest' ? <Bug className="w-3 h-3 text-white" /> : 
                    issue.type === 'disease' ? <Droplet className="w-3 h-3 text-white" /> : 

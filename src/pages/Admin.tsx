@@ -1101,7 +1101,7 @@ const Admin: React.FC = () => {
                             hidePrice: !!product.hidePrice
                           });
                         }}
-                        className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+                        className="p-2.5 text-[#183D16] bg-[#ECFDF5] border border-[#2D5A27]/20 rounded-xl hover:bg-emerald-100 transition-colors"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -1168,7 +1168,7 @@ const Admin: React.FC = () => {
                         setCategoryForm({ name: cat.name, icon: cat.icon, order: cat.order, importantInfo: cat.importantInfo || '', isInfoEnabled: cat.isInfoEnabled || false });
                         setIsAddingCategory(true);
                       }}
-                      className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+                      className="p-2.5 text-[#183D16] bg-[#ECFDF5] border border-[#2D5A27]/20 rounded-xl hover:bg-emerald-100 transition-colors"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
@@ -1299,7 +1299,7 @@ const Admin: React.FC = () => {
                             setCategoryInfoText(cat.importantInfo || '');
                             setCategoryInfoEnabled(cat.isInfoEnabled || false);
                           }}
-                          className="flex items-center gap-1 py-1.5 px-3 text-xs bg-blue-50 text-blue-700 font-extrabold rounded-full border border-blue-100 hover:bg-blue-100 transition-all active:scale-95"
+                          className="flex items-center gap-1 py-1.5 px-3 text-xs bg-[#ECFDF5] text-[#183D16] font-extrabold rounded-full border border-[#2D5A27]/25 hover:bg-emerald-100 transition-all active:scale-95"
                         >
                           <Edit2 className="w-3.5 h-3.5" /> सुधारें (Edit)
                         </button>
@@ -1391,7 +1391,7 @@ const Admin: React.FC = () => {
                         setAgriIssueForm(issue);
                         setIsAddingAgriIssue(true);
                       }}
-                      className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+                      className="p-2.5 text-[#183D16] bg-[#ECFDF5] border border-[#2D5A27]/20 rounded-xl hover:bg-emerald-100 transition-colors"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
@@ -1417,7 +1417,7 @@ const Admin: React.FC = () => {
               {helplines.length === 0 && (
                 <button 
                   onClick={seedInitialHelplines}
-                  className="bg-blue-600 text-white py-2 px-4 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold active:scale-95 transition-transform"
+                  className="bg-[#2D5A27] hover:bg-[#183D16] text-white py-2 px-4 rounded-xl shadow-xs flex items-center gap-2 text-sm font-bold active:scale-95 transition-transform"
                 >
                   <Plus className="w-4 h-4" /> शुरूआती नंबर जोड़ें
                 </button>
@@ -1467,7 +1467,7 @@ const Admin: React.FC = () => {
                         setHelplineForm(hp);
                         setIsAddingHelpline(true);
                       }}
-                      className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+                      className="p-2.5 text-[#183D16] bg-[#ECFDF5] border border-[#2D5A27]/20 rounded-xl hover:bg-emerald-100 transition-colors"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>

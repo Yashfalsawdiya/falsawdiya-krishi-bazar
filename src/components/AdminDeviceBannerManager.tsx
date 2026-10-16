@@ -610,7 +610,7 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                     type="button"
                     onClick={() => setEditingBanner({ ...banner })}
                     title="बैनर संपादित करें (Edit Banner)"
-                    className="p-2 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 active:scale-95 transition-all cursor-pointer"
+                    className="p-2 text-[#183D16] bg-[#ECFDF5] border border-[#2D5A27]/20 rounded-xl hover:bg-emerald-100 active:scale-95 transition-all cursor-pointer"
                   >
                     <Edit3 className="w-4 h-4" />
                   </button>
@@ -725,7 +725,7 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                   </div>
 
                   {banner.link && (
-                    <div className="flex items-center gap-1.5 text-xs text-blue-600 font-medium">
+                    <div className="flex items-center gap-1.5 text-xs text-[#2D5A27] font-medium">
                       <ExternalLink className="w-3.5 h-3.5" />
                       <span>लिंक: {banner.link}</span>
                     </div>
@@ -957,7 +957,7 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
             >
               <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center text-sm font-bold">
+                  <div className="w-8 h-8 rounded-xl bg-[#ECFDF5] text-[#183D16] border border-[#2D5A27]/20 flex items-center justify-center text-sm font-bold">
                     <Edit3 className="w-4 h-4" />
                   </div>
                   <div>
@@ -1088,7 +1088,7 @@ const AdminDeviceBannerManager: React.FC<AdminDeviceBannerManagerProps> = ({
                 <button
                   type="button"
                   onClick={handleUpdateEditingBanner}
-                  className="px-6 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 active:scale-95 transition-all shadow-xs cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl bg-[#2D5A27] hover:bg-[#183D16] text-white font-bold text-xs active:scale-95 transition-all shadow-xs cursor-pointer"
                 >
                   बदलाव सुरक्षित करें (Save Changes)
                 </button>

@@ -183,8 +183,8 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
         {/* Fallback Option: URL */}
         <div className="space-y-2">
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center">
-              <LinkIcon className="w-3 h-3 text-blue-500" />
+            <div className="w-5 h-5 rounded-full bg-[#ECFDF5] border border-[#2D5A27]/20 flex items-center justify-center">
+              <LinkIcon className="w-3 h-3 text-[#2D5A27]" />
             </div>
             <span className="text-[10px] font-bold text-[#4A3728] uppercase tracking-wide">फुल स्क्रीन - (HIGH-QUALITY URL)</span>
           </div>
@@ -218,7 +218,7 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
                     <X className="w-3.5 h-3.5 font-bold" />
                   </button>
                 )}
-                {urlStatus === 'checking' && <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />}
+                {urlStatus === 'checking' && <Loader2 className="w-4 h-4 text-[#2D5A27] animate-spin" />}
                 {urlStatus === 'valid' && <CheckCircle2 className="w-4 h-4 text-green-500" />}
                 {urlStatus === 'invalid' && <AlertCircle className="w-4 h-4 text-red-500" />}
               </div>
@@ -285,8 +285,8 @@ const DualImageInput: React.FC<DualImageInputProps> = ({ label, value, onChange,
                 <div className={cn("w-1.5 h-1.5 rounded-full", primary ? "bg-green-500" : "bg-gray-300")} />
                 Primary Source: {primary ? "Available (Firebase/B64)" : "Not Set"}
               </div>
-              <div className={cn("flex items-center gap-2", fallback ? "text-blue-600" : "text-gray-400")}>
-                <div className={cn("w-1.5 h-1.5 rounded-full", fallback ? "bg-blue-500" : "bg-gray-300")} />
+              <div className={cn("flex items-center gap-2", fallback ? "text-[#2D5A27]" : "text-gray-400")}>
+                <div className={cn("w-1.5 h-1.5 rounded-full", fallback ? "bg-[#2D5A27]" : "bg-gray-300")} />
                 Backup Source: {fallback ? (urlStatus === 'valid' ? "Active (Tested)" : "Set (Testing...)") : "Not Set"}
               </div>
             </div>

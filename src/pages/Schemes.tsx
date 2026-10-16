@@ -183,7 +183,7 @@ const Schemes: React.FC = () => {
                     {scheme.governmentLevel && (
                       <span className={`text-[11px] font-bold px-3 py-0.5 rounded-full border inline-flex items-center ${
                         isCentral 
-                          ? 'bg-blue-50/80 text-blue-600 border-blue-200' 
+                          ? 'bg-[#F2F8F0] text-[#183D16] border-[#2D5A27]/25' 
                           : 'bg-orange-50/80 text-orange-700 border-orange-200'
                       }`}>
                         {isCentral ? 'भारत सरकार (Central)' : 'मध्य प्रदेश (State)'}
@@ -256,7 +256,7 @@ const Schemes: React.FC = () => {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
                       selectedScheme.governmentLevel?.toLowerCase().includes('central') 
-                        ? 'bg-blue-50 text-blue-700 border-blue-200' 
+                        ? 'bg-[#F2F8F0] text-[#183D16] border-[#2D5A27]/25' 
                         : 'bg-orange-50 text-orange-700 border-orange-200'
                     }`}>
                       {selectedScheme.governmentLevel?.toLowerCase().includes('central') ? 'भारत सरकार (Central)' : 'मध्य प्रदेश (State)'}
@@ -287,18 +287,18 @@ const Schemes: React.FC = () => {
                 {/* Benefits & Subsidies */}
                 <section className="space-y-1">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-3.5 bg-blue-500 rounded-full" />
+                    <div className="w-1.5 h-3.5 bg-[#2D5A27] rounded-full" />
                     <h4 className="font-bold text-gray-800">लाभ एवं सहायता (Benefits & Subsidy)</h4>
                   </div>
-                  <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100 space-y-2">
-                    <p className="font-bold text-blue-700 text-xs">
+                  <div className="bg-[#F2F8F0] p-3 rounded-xl border border-[#2D5A27]/20 space-y-2">
+                    <p className="font-bold text-[#183D16] text-xs">
                       {selectedScheme.subsidyDetails}
                     </p>
                     {Array.isArray(selectedScheme.benefits) && selectedScheme.benefits.length > 0 && (
                       <ul className="space-y-1.5 pt-1">
                         {selectedScheme.benefits.map((benefit, i) => (
                           <li key={i} className="text-gray-700 flex items-start gap-1.5">
-                            <span className="text-blue-500 font-bold shrink-0">•</span>
+                            <span className="text-[#2D5A27] font-bold shrink-0">•</span>
                             <span>{benefit}</span>
                           </li>
                         ))}

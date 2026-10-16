@@ -52,32 +52,32 @@ const Header: React.FC = () => {
   }
 
   const mainMenuItems: MenuItem[] = [
-    { icon: User, label: 'मेरा प्रोफाइल (Profile)', path: '/profile', color: 'text-purple-600' },
-    { icon: Info, label: 'हमारे बारे में (About Us)', path: '/about', color: 'text-emerald-700' },
+    { icon: User, label: 'मेरा प्रोफाइल (Profile)', path: '/profile', color: 'text-[#2D5A27]' },
+    { icon: Info, label: 'हमारे बारे में (About Us)', path: '/about', color: 'text-[#183D16]' },
     { icon: Phone, label: 'AI कृषि विशेषज्ञ कॉल', path: '/ai-call', color: 'text-[#2D5A27]' },
-    { icon: Sparkles, label: 'AI उत्पाद जानकारी (Knowledge)', path: '/ai-product-knowledge', color: 'text-amber-500' },
-    { icon: TrendingUp, label: 'मंडी भाव (Mandi Bhav)', path: '/mandi', color: 'text-green-600' },
-    { icon: Bug, label: 'कीट एवं रोग निर्देशिका', path: '/encyclopedia', color: 'text-rose-600' },
-    { icon: Landmark, label: 'सरकारी योजनाएं', path: '/schemes', color: 'text-blue-600' },
-    { icon: TestTube2, label: 'मिट्टी परीक्षण (Soil Testing)', path: '/soil-testing', color: 'text-emerald-700' },
-    { icon: Calculator, label: 'Calculator', path: '/calculator', color: 'text-orange-600' },
-    { icon: PhoneCall, label: 'हेल्पलाइन डायरेक्टरी', path: '/helpline', color: 'text-cyan-600' },
+    { icon: Sparkles, label: 'AI उत्पाद जानकारी (Knowledge)', path: '/ai-product-knowledge', color: 'text-[#366B2F]' },
+    { icon: TrendingUp, label: 'मंडी भाव (Mandi Bhav)', path: '/mandi', color: 'text-[#2D5A27]' },
+    { icon: Bug, label: 'कीट एवं रोग निर्देशिका', path: '/encyclopedia', color: 'text-[#1F4525]' },
+    { icon: Landmark, label: 'सरकारी योजनाएं', path: '/schemes', color: 'text-[#2D5A27]' },
+    { icon: TestTube2, label: 'मिट्टी परीक्षण (Soil Testing)', path: '/soil-testing', color: 'text-[#183D16]' },
+    { icon: Calculator, label: 'Calculator', path: '/calculator', color: 'text-[#366B2F]' },
+    { icon: PhoneCall, label: 'हेल्पलाइन डायरेक्टरी', path: '/helpline', color: 'text-[#2D5A27]' },
   ];
 
   const { canAccessFeature } = useFeatureToggle();
   const visibleMainMenuItems = mainMenuItems.filter(item => canAccessFeature(item.path));
 
   const legalMenuItems: MenuItem[] = [
-    { icon: Award, label: 'Statutory Licensing (वैधानिक लाइसेंस व DAESI)', path: '/licensing-disclaimer', color: 'text-emerald-800 font-bold' },
-    { icon: HelpCircle, label: 'FAQ (सहायता व प्रश्नोत्तरी)', path: '/faq', color: 'text-emerald-600' },
-    { icon: Truck, label: 'Shipping & Delivery (डिलीवरी नीति)', path: '/shipping-policy', color: 'text-emerald-700' },
-    { icon: ShieldCheck, label: 'Privacy Policy (गोपनीयता नीति)', path: '/privacy', color: 'text-blue-600' },
-    { icon: FileText, label: 'Terms (नियम एवं शर्तें)', path: '/terms', color: 'text-amber-600' },
-    { icon: RotateCcw, label: 'Refund Policy (वापसी व रिफंड)', path: '/refund-policy', color: 'text-rose-600' },
-    { icon: AlertTriangle, label: 'AI Disclaimer (कृषि एवं AI अस्वीकरण)', path: '/disclaimer', color: 'text-yellow-600' },
-    { icon: ShieldAlert, label: 'Chemical Safety (रासायनिक सुरक्षा)', path: '/safety-guidelines', color: 'text-red-600' },
-    { icon: Scale, label: 'Grievance Officer (शिकायत अधिकारी)', path: '/grievance', color: 'text-blue-700' },
-    { icon: PhoneCall, label: 'Contact Us (संपर्क करें)', path: '/contact', color: 'text-teal-600' },
+    { icon: Award, label: 'Statutory Licensing (वैधानिक लाइसेंस व DAESI)', path: '/licensing-disclaimer', color: 'text-[#183D16] font-bold' },
+    { icon: HelpCircle, label: 'FAQ (सहायता व प्रश्नोत्तरी)', path: '/faq', color: 'text-[#2D5A27]' },
+    { icon: Truck, label: 'Shipping & Delivery (डिलीवरी नीति)', path: '/shipping-policy', color: 'text-[#366B2F]' },
+    { icon: ShieldCheck, label: 'Privacy Policy (गोपनीयता नीति)', path: '/privacy', color: 'text-[#2D5A27]' },
+    { icon: FileText, label: 'Terms (नियम एवं शर्तें)', path: '/terms', color: 'text-[#183D16]' },
+    { icon: RotateCcw, label: 'Refund Policy (वापसी व रिफंड)', path: '/refund-policy', color: 'text-[#2D5A27]' },
+    { icon: AlertTriangle, label: 'AI Disclaimer (कृषि एवं AI अस्वीकरण)', path: '/disclaimer', color: 'text-[#366B2F]' },
+    { icon: ShieldAlert, label: 'Chemical Safety (रासायनिक सुरक्षा)', path: '/safety-guidelines', color: 'text-[#183D16]' },
+    { icon: Scale, label: 'Grievance Officer (शिकायत अधिकारी)', path: '/grievance', color: 'text-[#2D5A27]' },
+    { icon: PhoneCall, label: 'Contact Us (संपर्क करें)', path: '/contact', color: 'text-[#1F4525]' },
   ];
 
   return (
