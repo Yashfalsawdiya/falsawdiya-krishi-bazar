@@ -144,10 +144,6 @@ const InstallPwaModal: React.FC = () => {
                   className="w-full h-full object-contain relative z-10" 
                   priority
                 />
-                {/* Floating Download Indicator Badge */}
-                <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#2D5A27] text-white flex items-center justify-center shadow-md border-2 border-white z-20">
-                  <Download className="w-3.5 h-3.5 stroke-[2.5]" />
-                </div>
               </div>
               <div className="absolute -inset-1.5 bg-emerald-500/15 rounded-3xl blur-md -z-10" />
             </div>
@@ -167,45 +163,45 @@ const InstallPwaModal: React.FC = () => {
                   <Smartphone className="w-4 h-4 text-[#2D5A27]" />
                   iPhone / iPad पर इंस्टॉल करने का तरीका:
                 </p>
-                <div className="flex items-start gap-2.5 text-xs text-gray-700">
-                  <div className="p-1.5 bg-white rounded-xl shadow-xs text-[#2D5A27] mt-0.5 border border-emerald-100 shrink-0">
+                <div className="flex items-center gap-2.5 text-xs text-gray-700">
+                  <div className="p-1.5 bg-white rounded-xl shadow-xs text-[#2D5A27] border border-emerald-100 shrink-0">
                     <Share className="w-3.5 h-3.5" />
                   </div>
                   <p className="leading-snug">1. Safari ब्राउज़र में नीचे <strong>Share (शेयर)</strong> बटन दबाएं</p>
                 </div>
-                <div className="flex items-start gap-2.5 text-xs text-gray-700">
-                  <div className="p-1.5 bg-white rounded-xl shadow-xs text-[#2D5A27] mt-0.5 border border-emerald-100 shrink-0">
+                <div className="flex items-center gap-2.5 text-xs text-gray-700">
+                  <div className="p-1.5 bg-white rounded-xl shadow-xs text-[#2D5A27] border border-emerald-100 shrink-0">
                     <PlusSquare className="w-3.5 h-3.5" />
                   </div>
                   <p className="leading-snug">2. नीचे स्क्रॉल करके <strong>'Add to Home Screen'</strong> (होम स्क्रीन में जोड़ें) चुनें</p>
                 </div>
               </div>
             ) : (
-              // Android / Chrome / Desktop features highlight
-              <div className="bg-gradient-to-br from-emerald-50/90 via-teal-50/30 to-white border border-emerald-100/90 rounded-2xl p-4 sm:p-4.5 mb-5 text-left shadow-2xs space-y-2.5">
-                <div className="flex items-start gap-2.5">
-                  <div className="w-5 h-5 rounded-md bg-emerald-600/10 border border-emerald-600/20 flex items-center justify-center text-emerald-800 shrink-0 mt-0.5">
+              // Android / Chrome / Desktop features highlight - Perfectly vertically centered
+              <div className="bg-gradient-to-br from-emerald-50/90 via-teal-50/30 to-white border border-emerald-100/90 rounded-2xl p-4 sm:p-4.5 mb-5 text-left shadow-2xs space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-lg bg-emerald-600/10 border border-emerald-600/20 flex items-center justify-center text-emerald-800 shrink-0">
                     <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.2]" />
                   </div>
-                  <p className="text-xs font-semibold text-gray-700 leading-snug">
+                  <p className="text-xs font-semibold text-gray-700 leading-normal flex-1">
                     बिना ब्राउज़र के 1-क्लिक में सीधा उपयोग करें
                   </p>
                 </div>
 
-                <div className="flex items-start gap-2.5">
-                  <div className="w-5 h-5 rounded-md bg-emerald-600/10 border border-emerald-600/20 flex items-center justify-center text-emerald-800 shrink-0 mt-0.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-lg bg-emerald-600/10 border border-emerald-600/20 flex items-center justify-center text-emerald-800 shrink-0">
                     <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.2]" />
                   </div>
-                  <p className="text-xs font-semibold text-gray-700 leading-snug">
+                  <p className="text-xs font-semibold text-gray-700 leading-normal flex-1">
                     AI कृषि डॉक्टर व मंडी भाव तुरंत देखें
                   </p>
                 </div>
 
-                <div className="flex items-start gap-2.5">
-                  <div className="w-5 h-5 rounded-md bg-emerald-600/10 border border-emerald-600/20 flex items-center justify-center text-emerald-800 shrink-0 mt-0.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-lg bg-emerald-600/10 border border-emerald-600/20 flex items-center justify-center text-emerald-800 shrink-0">
                     <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.2]" />
                   </div>
-                  <p className="text-xs font-semibold text-gray-700 leading-snug">
+                  <p className="text-xs font-semibold text-gray-700 leading-normal flex-1">
                     ऑफ़लाइन होने पर भी आवश्यक जानकारी उपलब्ध
                   </p>
                 </div>
