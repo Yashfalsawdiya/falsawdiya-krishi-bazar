@@ -23,7 +23,9 @@ import {
   Share2, 
   ChevronDown, 
   ChevronUp,
-  Key
+  Key,
+  Scale,
+  Truck
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import ApiKeyModal from '../components/ApiKeyModal';
@@ -639,6 +641,12 @@ const MandiBhav: React.FC = () => {
                       ? `${pathD} L ${pointsCoords[pointsCoords.length - 1].x} ${chartHeight} L ${pointsCoords[0].x} ${chartHeight} Z`
                       : "";
 
+                    const minP = parseFloat(String(item.minPrice).replace(/[^0-9.]/g, '')) || 0;
+                    const maxP = parseFloat(String(item.maxPrice).replace(/[^0-9.]/g, '')) || 0;
+                    const avgP = parseFloat(String(item.avgPrice).replace(/[^0-9.]/g, '')) || 0;
+                    const spread = maxP - minP;
+                    const modalPercent = spread > 0 ? Math.min(94, Math.max(6, ((avgP - minP) / spread) * 100)) : 50;
+
                     return (
                       <motion.div
                         key={idx}
@@ -646,58 +654,81 @@ const MandiBhav: React.FC = () => {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.2 }}
-                        className={`w-full md:w-[calc(50%-6px)] max-w-2xl md:max-w-none flex flex-col bg-white rounded-2xl border transition-all overflow-hidden ${
+                        className={`w-full md:w-[calc(50%-6px)] max-w-2xl md:max-w-none flex flex-col bg-white rounded-3xl border transition-all duration-300 overflow-hidden group ${
                           isExpanded 
-                            ? "border-[#2D5A27] shadow-md shadow-[#2D5A27]/5 ring-1 ring-[#2D5A27]/10" 
-                            : "border-gray-100 hover:border-[#2D5A27]/20 shadow-sm"
+                            ? "border-[#2D5A27] shadow-[0_12px_32px_-6px_rgba(45,90,39,0.15)] ring-1 ring-[#2D5A27]/20" 
+                            : "border-gray-200/80 hover:border-[#2D5A27]/40 shadow-xs hover:shadow-md hover:-translate-y-0.5"
                         }`}
                       >
+                        {/* Top Subtle Accent Strip for Expanded State */}
+                        {isExpanded && (
+                          <div className="h-1 w-full bg-gradient-to-r from-[#2D5A27] via-emerald-500 to-teal-400" />
+                        )}
+
                         {/* Card Summary Header */}
                         <div 
                           onClick={() => setExpandedCardIndex(isExpanded ? null : idx)}
-                          className="p-4 flex items-center justify-between cursor-pointer active:bg-gray-50/50"
+                          className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none transition-colors hover:bg-gray-50/60"
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-emerald-50 text-[#2D5A27] rounded-xl flex items-center justify-center font-bold text-sm">
+                          {/* Left: Avatar + Title & Meta Chips */}
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            {/* Modern Dual-Tone Squircle Pod */}
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50/40 to-emerald-100/70 border border-emerald-200/80 text-[#2D5A27] flex items-center justify-center font-black text-lg shrink-0 shadow-xs group-hover:scale-105 transition-transform">
                               {item.commodity.charAt(0)}
                             </div>
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <h4 className="font-black text-gray-800 text-sm">{translateText(item.commodity)}</h4>
-                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-400 uppercase tracking-tight">
-                                  {translateText(item.unit)}
+
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="font-black text-gray-900 text-base sm:text-lg tracking-tight truncate group-hover:text-[#2D5A27] transition-colors">
+                                  {translateText(item.commodity)}
+                                </h4>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-mono tracking-wide shrink-0">
+                                  {translateText(item.unit) || (isHindi ? 'क्विंटल' : 'Quintal')}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2 mt-1">
+
+                              {/* Semantic Meta Badges */}
+                              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                                 {item.quality && (
-                                  <span className="text-[9px] bg-[#2D5A27]/5 text-[#2D5A27] font-semibold px-1.5 py-0.5 rounded">
-                                    {isHindi ? `गुणवत्ता: ${item.quality}` : `Quality: ${translateText(item.quality)}`}
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded-lg shadow-2xs">
+                                    <Scale className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                                    <span>{isHindi ? `गुणवत्ता: ${item.quality}` : `Quality: ${translateText(item.quality)}`}</span>
                                   </span>
                                 )}
                                 {item.arrival && (
-                                  <span className="text-[9px] bg-amber-500/5 text-amber-700 font-semibold px-1.5 py-0.5 rounded">
-                                    {isHindi ? `आवक: ${item.arrival}` : `Arrival: ${translateText(item.arrival)}`}
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 border border-amber-200/70 px-2 py-0.5 rounded-lg shadow-2xs">
+                                    <Truck className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                                    <span>{isHindi ? `आवक: ${item.arrival}` : `Arrival: ${translateText(item.arrival)}`}</span>
                                   </span>
                                 )}
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3">
+                          {/* Right: Price & Chevron Button */}
+                          <div className="flex items-center gap-3 shrink-0">
                             <div className="text-right">
-                              <span className="text-[9px] font-bold text-gray-400 block uppercase">
+                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center justify-end gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
                                 {isHindi ? 'मॉडल भाव' : 'Modal Price'}
                               </span>
-                              <div className="text-base font-black text-[#2D5A27]">₹{item.avgPrice}</div>
-                              <div className="text-[10px] font-bold text-gray-400 mt-0.5 bg-gray-55 px-1 rounded">
+                              <div className="text-lg sm:text-2xl font-black text-[#1B4318] tracking-tight">
+                                ₹{item.avgPrice}
+                              </div>
+                              <div className="text-[10px] font-mono font-bold text-gray-500 mt-0.5 bg-gray-50 border border-gray-200/80 px-1.5 py-0.5 rounded-md inline-block">
                                 ₹{item.minPrice} - ₹{item.maxPrice}
                               </div>
                             </div>
-                            <div>
+
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 shrink-0 ${
+                              isExpanded 
+                                ? "bg-[#2D5A27] text-white shadow-xs" 
+                                : "bg-gray-100 text-gray-400 group-hover:bg-[#2D5A27]/10 group-hover:text-[#2D5A27]"
+                            }`}>
                               {isExpanded ? (
-                                <ChevronUp className="w-4 h-4 text-[#2D5A27]" />
+                                <ChevronUp className="w-4 h-4 stroke-[2.5]" />
                               ) : (
-                                <ChevronDown className="w-4 h-4 text-gray-400" />
+                                <ChevronDown className="w-4 h-4 stroke-[2.5]" />
                               )}
                             </div>
                           </div>
@@ -711,46 +742,88 @@ const MandiBhav: React.FC = () => {
                               animate={{ height: "auto", opacity: 1 }}
                               exit={{ height: 0, opacity: 0 }}
                               transition={{ duration: 0.2 }}
-                              className="border-t border-gray-100 bg-[#FBFBF9] px-4 py-4 space-y-4"
+                              className="border-t border-gray-100 bg-gradient-to-b from-gray-50/70 to-white px-4 sm:px-5 py-4 space-y-4"
                             >
                               {/* Price Bar & Spread Gauge */}
-                              <div className="space-y-1.5">
-                                <div className="flex justify-between text-[10px] font-bold text-gray-500">
-                                  <span>{isHindi ? `न्यूनतम: ₹${item.minPrice}` : `Min: ₹${item.minPrice}`}</span>
-                                  <span className="text-[#2D5A27]">{isHindi ? `मॉडल: ₹${item.avgPrice}` : `Modal: ₹${item.avgPrice}`}</span>
-                                  <span>{isHindi ? `अधिकतम: ₹${item.maxPrice}` : `Max: ₹${item.maxPrice}`}</span>
+                              <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-2xs space-y-3">
+                                <div className="text-[11px] font-bold text-gray-500 flex items-center justify-between">
+                                  <span>दैनिक मंडी भाव विस्तार (Price Spread)</span>
+                                  <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60 font-mono text-[10px]">
+                                    अंतर: ₹{spread > 0 ? spread : 0}
+                                  </span>
                                 </div>
-                                <div className="h-2 w-full bg-gray-200 rounded-full relative overflow-hidden flex">
-                                  {/* Visual representation of range */}
-                                  <div className="h-full bg-emerald-500 rounded-full" style={{
-                                    marginLeft: '15%',
-                                    width: '70%'
-                                  }} />
-                                  {/* Pointer for modal price */}
-                                  <div className="absolute top-0 bottom-0 w-1.5 bg-white border border-[#2D5A27] rounded-full shadow-sm" style={{
-                                    left: '50%',
-                                    transform: 'translateX(-50%)'
-                                  }} />
+
+                                {/* 3 Metric Cards */}
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div className="bg-slate-50 border border-slate-200/80 p-2 sm:p-2.5 rounded-xl text-center">
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">
+                                      {isHindi ? 'न्यूनतम भाव' : 'Min Price'}
+                                    </span>
+                                    <span className="text-xs sm:text-sm font-black text-slate-700 font-mono mt-0.5 block">
+                                      ₹{item.minPrice}
+                                    </span>
+                                  </div>
+
+                                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-300/80 p-2 sm:p-2.5 rounded-xl text-center shadow-xs">
+                                    <span className="text-[9px] font-black text-emerald-800 uppercase tracking-wider block">
+                                      {isHindi ? 'औसत मॉडल भाव' : 'Modal Price'}
+                                    </span>
+                                    <span className="text-sm sm:text-base font-black text-[#1B4318] font-mono mt-0.5 block">
+                                      ₹{item.avgPrice}
+                                    </span>
+                                  </div>
+
+                                  <div className="bg-amber-50/80 border border-amber-200/80 p-2 sm:p-2.5 rounded-xl text-center">
+                                    <span className="text-[9px] font-bold text-amber-700 uppercase tracking-wider block">
+                                      {isHindi ? 'अधिकतम भाव' : 'Max Price'}
+                                    </span>
+                                    <span className="text-xs sm:text-sm font-black text-amber-900 font-mono mt-0.5 block">
+                                      ₹{item.maxPrice}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Dynamic Gauge Bar */}
+                                <div className="space-y-1.5 pt-1">
+                                  <div className="h-2.5 w-full bg-gray-100 rounded-full relative overflow-visible border border-gray-200/60">
+                                    <div 
+                                      className="h-full bg-gradient-to-r from-slate-400 via-emerald-500 to-amber-500 rounded-full"
+                                      style={{ width: '100%' }}
+                                    />
+                                    {/* Precise Dynamic Pointer */}
+                                    <div 
+                                      className="absolute -top-1 w-4 h-4 bg-white border-2 border-[#2D5A27] rounded-full shadow-md -translate-x-1/2 flex items-center justify-center transition-all duration-300"
+                                      style={{ left: `${modalPercent}%` }}
+                                      title={`मॉडल भाव: ₹${item.avgPrice}`}
+                                    >
+                                      <div className="w-1.5 h-1.5 rounded-full bg-[#2D5A27]" />
+                                    </div>
+                                  </div>
+                                  <div className="flex justify-between text-[9px] text-gray-400 font-semibold px-0.5 pt-1">
+                                    <span>न्यूनतम (₹{item.minPrice})</span>
+                                    <span className="text-[#2D5A27] font-bold">मॉडल पॉइंट (₹{item.avgPrice})</span>
+                                    <span>अधिकतम (₹{item.maxPrice})</span>
+                                  </div>
                                 </div>
                               </div>
 
                               {/* Historical Chart Section */}
-                              <div className="bg-white rounded-xl p-3 border border-gray-100 space-y-2">
+                              <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-2xs space-y-2.5">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-[10px] font-black text-gray-600 flex items-center gap-1">
-                                    <ChartIcon className="w-3.5 h-3.5 text-[#2D5A27]" />
+                                  <span className="text-xs font-black text-gray-800 flex items-center gap-1.5">
+                                    <ChartIcon className="w-4 h-4 text-[#2D5A27]" />
                                     {isHindi ? 'कीमत इतिहास रुझान (15 दिन)' : 'Price History Trend (15 Days)'}
                                   </span>
-                                  <span className="text-[9px] text-gray-400 font-bold">
+                                  <span className="text-[10px] text-gray-500 font-bold bg-gray-50 border border-gray-200/70 px-2 py-0.5 rounded-md">
                                     {isHindi ? 'मंडी पल्स रिकॉर्ड' : 'MandiPulse Record'}
                                   </span>
                                 </div>
                                 
                                 <div className="relative py-2 flex justify-center">
-                                  <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-20 overflow-visible">
+                                  <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-22 overflow-visible">
                                     <defs>
-                                      <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#2D5A27" stopOpacity="0.15" />
+                                      <linearGradient id={`chartGradient-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#2D5A27" stopOpacity="0.25" />
                                         <stop offset="100%" stopColor="#2D5A27" stopOpacity="0.0" />
                                       </linearGradient>
                                     </defs>
@@ -761,7 +834,7 @@ const MandiBhav: React.FC = () => {
                                     <line x1="10" y1="70" x2="290" y2="70" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
 
                                     {/* Shaded Area under path */}
-                                    <path d={areaD} fill="url(#chartGradient)" />
+                                    <path d={areaD} fill={`url(#chartGradient-${idx})`} />
                                     
                                     {/* Line Path */}
                                     <path d={pathD} fill="none" stroke="#2D5A27" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -769,10 +842,17 @@ const MandiBhav: React.FC = () => {
                                     {/* Coordinate Dots */}
                                     {pointsCoords.map((pt, i) => (
                                       <g key={i}>
-                                        <circle cx={pt.x} cy={pt.y} r={i === pointsCoords.length - 1 ? "4" : "3"} fill={i === pointsCoords.length - 1 ? "#2D5A27" : "#fff"} stroke="#2D5A27" strokeWidth="2" />
+                                        <circle 
+                                          cx={pt.x} 
+                                          cy={pt.y} 
+                                          r={i === pointsCoords.length - 1 ? "4.5" : "3"} 
+                                          fill={i === pointsCoords.length - 1 ? "#2D5A27" : "#fff"} 
+                                          stroke="#2D5A27" 
+                                          strokeWidth="2" 
+                                        />
                                         {/* Label first and last points */}
                                         {(i === 0 || i === pointsCoords.length - 1) && (
-                                          <text x={pt.x} y={pt.y - 8} textAnchor="middle" className="text-[8px] font-black fill-gray-500 font-mono">
+                                          <text x={pt.x} y={pt.y - 8} textAnchor="middle" className="text-[9px] font-black fill-gray-700 font-mono">
                                             ₹{pt.val}
                                           </text>
                                         )}
@@ -780,28 +860,29 @@ const MandiBhav: React.FC = () => {
                                     ))}
                                   </svg>
                                 </div>
-                                <div className="flex justify-between text-[8px] text-gray-400 font-bold px-1 uppercase tracking-wider">
+                                <div className="flex justify-between text-[9px] text-gray-400 font-bold px-1 uppercase tracking-wider">
                                   <span>{isHindi ? '15 दिन पहले' : '15 days ago'}</span>
                                   <span>{isHindi ? '10 दिन पहले' : '10 days ago'}</span>
                                   <span>{isHindi ? '5 दिन पहले' : '5 days ago'}</span>
-                                  <span>{isHindi ? 'आज' : 'Today'}</span>
+                                  <span className="text-[#2D5A27] font-black">{isHindi ? 'आज (ताज़ा)' : 'Today'}</span>
                                 </div>
                               </div>
 
                               {/* Detailed Info Chips & WhatsApp Share button */}
                               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                                <div className="text-[9px] text-gray-400 font-bold">
-                                  {isHindi ? 'अपडेट:' : 'Updated:'} {item.lastUpdated}
+                                <div className="flex items-center gap-1.5 text-[11px] text-gray-500 font-semibold">
+                                  <Clock className="w-3.5 h-3.5 text-gray-400" />
+                                  <span>{isHindi ? 'अपडेट:' : 'Updated:'} {item.lastUpdated}</span>
                                 </div>
                                 
                                 <a 
                                   href={getWhatsAppShareLink(data.mandiName, item)}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="bg-[#25D366] text-white text-[10px] font-black px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-all hover:bg-[#20ba5a]"
+                                  className="bg-[#25D366] hover:bg-[#20ba5a] active:scale-95 text-white text-xs font-black px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm shadow-[#25D366]/20 transition-all cursor-pointer"
                                 >
                                   <Share2 className="w-3.5 h-3.5" />
-                                  {isHindi ? 'व्हाट्सएप पर शेयर करें' : 'Share on WhatsApp'}
+                                  <span>{isHindi ? 'व्हाट्सएप पर शेयर करें' : 'Share on WhatsApp'}</span>
                                 </a>
                               </div>
                             </motion.div>
@@ -822,7 +903,7 @@ const MandiBhav: React.FC = () => {
                   </p>
                   <p className="text-[10px] text-gray-600 font-medium leading-relaxed">
                     {isHindi 
-                      ? 'दिखाए गए मंडी भाव इंटरनेट स्रोतों (Mandi Bhaav, Agmarknet) एवं विश्वसनीय स्थानीय रिपोर्टर्स से संकलित हैं। बाजार उतार-चढ़ाव के कारण कीमतें हर मिनट बदल सकती हैं। मंडी में फसल बेचने से पहले स्थानीय रूप से भावों की पुष्टि ज़रूर करें। हम किसी भी वित्तीय नुकसान के लिए उत्तरदायी नहीं हैं।' 
+                      ? 'दिखाए गए मंडी भाव इंटरनेट स्रोतों (Agmarknet, Mandi Pulse) एवं विश्वसनीय स्थानीय रिपोर्टर्स से संकलित हैं। बाजार उतार-चढ़ाव के कारण कीमतें हर मिनट बदल सकती हैं। मंडी में फसल बेचने से पहले स्थानीय रूप से भावों की पुष्टि ज़रूर करें। हम किसी भी वित्तीय नुकसान के लिए उत्तरदायी नहीं हैं।' 
                       : 'Market rates are compiled from official sources (Agmarknet, MandiPulse) and verified local market reporters. Market prices fluctuate depending on arrival quality and auction dynamics. Please verify locally before transacting.'}
                   </p>
                 </div>

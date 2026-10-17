@@ -77,13 +77,6 @@ const SplashScreen: React.FC = () => {
               </p>
             </motion.div>
           </div>
-
-          {/* Subtle Rolling Farm Landscape Contours at Bottom */}
-          <div className="absolute bottom-0 left-0 right-0 h-24 overflow-hidden pointer-events-none opacity-20">
-            <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="w-full h-full text-emerald-600 fill-current">
-              <path d="M0,0 C150,90 350,-40 500,40 C650,120 900,10 1200,50 L1200,120 L0,120 Z" />
-            </svg>
-          </div>
         </motion.div>
       )}
     </AnimatePresence>
