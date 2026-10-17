@@ -153,7 +153,7 @@ const Footer: React.FC = () => {
                     <Phone className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="text-[10px] text-emerald-200 font-medium">{translateText(footerConfig.helplineTitle)}</p>
+                    <p className="text-[10px] text-[#EAB308] font-semibold">{translateText(footerConfig.helplineTitle)}</p>
                     <a 
                       href={`tel:${cleanPhone}`} 
                       className="text-sm font-bold text-white hover:text-[#EAB308] transition-colors"
@@ -172,7 +172,7 @@ const Footer: React.FC = () => {
 
               {/* Physical Address */}
               <div className="flex items-start gap-2.5 text-xs text-gray-300 pt-1">
-                <MapPin className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <MapPin className="w-4 h-4 text-[#EAB308] shrink-0 mt-0.5" />
                 <span className="leading-relaxed">{translateText(footerConfig.address)}</span>
               </div>
             </div>
