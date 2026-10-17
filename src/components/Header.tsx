@@ -316,7 +316,7 @@ const Header: React.FC = () => {
                   <Phone className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <p className="text-[10px] text-emerald-200 font-medium">हेल्पलाइन</p>
+                  <p className="text-[10px] text-amber-300 font-medium">हेल्पलाइन</p>
                   <p className="text-xs font-bold text-white">{phoneNumber}</p>
                 </div>
               </a>
@@ -332,7 +332,7 @@ const Header: React.FC = () => {
                 )}
                 title="मेरे ऑर्डर"
               >
-                <Package className="w-4 h-4 text-emerald-300" />
+                <Package className="w-4 h-4 text-amber-300" />
                 <span>मेरे ऑर्डर</span>
               </NavLink>
 

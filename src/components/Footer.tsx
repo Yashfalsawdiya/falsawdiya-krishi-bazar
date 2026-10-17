@@ -78,13 +78,13 @@ const Footer: React.FC = () => {
     }
     if (icon === 'truck' || index === 2) {
       return {
-        boxClass: 'bg-blue-500/15 border-blue-400/30',
-        icon: <Truck className="w-6 h-6 text-blue-400" />
+        boxClass: 'bg-[#EAB308]/15 border-[#EAB308]/30',
+        icon: <Truck className="w-6 h-6 text-[#EAB308]" />
       };
     }
     return {
-      boxClass: 'bg-amber-500/15 border-amber-400/30',
-      icon: <Headphones className="w-6 h-6 text-amber-300" />
+      boxClass: 'bg-emerald-500/15 border-emerald-400/30',
+      icon: <Headphones className="w-6 h-6 text-emerald-400" />
     };
   };
 
