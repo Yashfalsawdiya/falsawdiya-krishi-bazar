@@ -69,6 +69,14 @@ const getCachedResult = (query: string): ProductKnowledgeResult | null => {
       return null;
     }
 
+    // Strict Hindi Language Guard:
+    // If the cached entry was previously generated in English (e.g. usage/benefits lack Devanagari Hindi characters),
+    // invalidate it immediately so the user always gets a fresh, 100% simple Hindi response!
+    const sampleText = `${entry.data.usage || ''} ${entry.data.benefits || ''} ${entry.data.modeOfAction || ''}`;
+    if (sampleText.trim() && !/[\u0900-\u097F]/.test(sampleText)) {
+      return null;
+    }
+
     return entry.data;
   } catch (e) {
     console.error("Error reading cache", e);

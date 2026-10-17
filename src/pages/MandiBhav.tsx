@@ -8,28 +8,37 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
+  TrendingDown,
+  History,
   Calendar, 
   Loader2, 
   RefreshCw, 
   AlertCircle, 
-  AlertTriangle,
-  CheckCircle2,
-  Building2,
-  Clock,
-  ShieldCheck,
+  AlertTriangle, 
+  CheckCircle2, 
+  Building2, 
+  Clock, 
+  ShieldCheck, 
   LineChart as ChartIcon, 
   Search, 
   Filter, 
   Share2, 
   ChevronDown, 
-  ChevronUp,
-  Key,
-  Scale,
-  Truck
+  ChevronUp, 
+  Key, 
+  Scale, 
+  Truck 
 } from 'lucide-react';
+import { 
+  getOrUpdateCommodityHistory, 
+  getHistorySlice, 
+  calculatePeriodMetrics, 
+  MandiHistoryPoint 
+} from '../utils/mandiHistoryManager';
 import { useAppContext } from '../context/AppContext';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
+import { cn } from '../lib/utils';
 
 const isHindi = true;
 const translateText = (t: any): string => {
@@ -60,6 +69,10 @@ const MandiBhav: React.FC = () => {
   
   // Accordion details index
   const [expandedCardIndex, setExpandedCardIndex] = useState<number | null>(null);
+  
+  // 30-Day Rolling Price History Timeframe Filters (7d, 15d, 30d) & Tooltip Point
+  const [activeTimeframes, setActiveTimeframes] = useState<Record<number, 7 | 15 | 30>>({});
+  const [activeTooltipPoint, setActiveTooltipPoint] = useState<{ cardIdx: number; pointIdx: number } | null>(null);
 
   // Data fetching state
   const [data, setData] = useState<MandiData | null>(null);
@@ -179,19 +192,6 @@ const MandiBhav: React.FC = () => {
       return matchSearch && matchCrop;
     });
   }, [data, searchQuery, selectedCropFilter]);
-
-  // Generate simulated historical price points for the selected item
-  const getHistoricalPoints = (avgPrice: string, seedOffset: number) => {
-    const base = parseInt(avgPrice) || 3000;
-    const points = [];
-    const count = 7;
-    // Stable pseudo-random pattern based on average price
-    for (let i = 0; i < count; i++) {
-      const factor = Math.sin(base + i + seedOffset) * 150;
-      points.push(Math.round(base + factor));
-    }
-    return points;
-  };
 
   // Generate WhatsApp Share string
   const getWhatsAppShareLink = (mandiName: string, item: MandiItem) => {
@@ -615,24 +615,43 @@ const MandiBhav: React.FC = () => {
                 <div className="flex flex-wrap justify-center gap-3">
                   {filteredItems.map((item, idx) => {
                     const isExpanded = expandedCardIndex === idx;
-                    const histData = getHistoricalPoints(item.avgPrice, idx);
-                    const minHist = Math.min(...histData);
-                    const maxHist = Math.max(...histData);
-                    const priceRange = maxHist - minHist || 100;
-                    
+                    const minP = parseFloat(String(item.minPrice).replace(/[^0-9.]/g, '')) || 0;
+                    const maxP = parseFloat(String(item.maxPrice).replace(/[^0-9.]/g, '')) || 0;
+                    const avgP = parseFloat(String(item.avgPrice).replace(/[^0-9.]/g, '')) || 0;
+                    const spread = maxP - minP;
+                    const modalPercent = spread > 0 ? Math.min(94, Math.max(6, ((avgP - minP) / spread) * 100)) : 50;
+
+                    const selectedTimeframe = activeTimeframes[idx] || 7;
+                    const fullHistory = getOrUpdateCommodityHistory(
+                      data?.mandiName || selectedMandi,
+                      item.commodity,
+                      avgP,
+                      minP,
+                      maxP,
+                      idx
+                    );
+                    const currentSlice = getHistorySlice(fullHistory, selectedTimeframe);
+                    const metrics = calculatePeriodMetrics(currentSlice);
+
                     // Generate SVG coordinates for sparkline chart
-                    const chartWidth = 300;
-                    const chartHeight = 80;
-                    const padding = 10;
-                    const usableHeight = chartHeight - padding * 2;
-                    const usableWidth = chartWidth - padding * 2;
-                    
-                    const pointsCoords = histData.map((val, index) => {
-                      const x = padding + (index / (histData.length - 1)) * usableWidth;
-                      const y = chartHeight - padding - ((val - minHist) / priceRange) * usableHeight;
-                      return { x, y, val };
+                    const chartWidth = 320;
+                    const chartHeight = 90;
+                    const paddingX = 14;
+                    const paddingY = 18;
+                    const usableHeight = chartHeight - paddingY * 2;
+                    const usableWidth = chartWidth - paddingX * 2;
+
+                    const slicePrices = currentSlice.map(p => p.price);
+                    const minHist = Math.min(...slicePrices);
+                    const maxHist = Math.max(...slicePrices);
+                    const priceRange = (maxHist - minHist) || Math.max(50, Math.round(avgP * 0.05));
+
+                    const pointsCoords = currentSlice.map((pt, index) => {
+                      const x = paddingX + (index / Math.max(1, currentSlice.length - 1)) * usableWidth;
+                      const y = chartHeight - paddingY - ((pt.price - minHist) / priceRange) * usableHeight;
+                      return { x, y, pt, index };
                     });
-                    
+
                     const pathD = pointsCoords.length > 0 
                       ? `M ${pointsCoords[0].x} ${pointsCoords[0].y} ` + pointsCoords.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ')
                       : "";
@@ -640,12 +659,6 @@ const MandiBhav: React.FC = () => {
                     const areaD = pointsCoords.length > 0
                       ? `${pathD} L ${pointsCoords[pointsCoords.length - 1].x} ${chartHeight} L ${pointsCoords[0].x} ${chartHeight} Z`
                       : "";
-
-                    const minP = parseFloat(String(item.minPrice).replace(/[^0-9.]/g, '')) || 0;
-                    const maxP = parseFloat(String(item.maxPrice).replace(/[^0-9.]/g, '')) || 0;
-                    const avgP = parseFloat(String(item.avgPrice).replace(/[^0-9.]/g, '')) || 0;
-                    const spread = maxP - minP;
-                    const modalPercent = spread > 0 ? Math.min(94, Math.max(6, ((avgP - minP) / spread) * 100)) : 50;
 
                     return (
                       <motion.div
@@ -808,63 +821,236 @@ const MandiBhav: React.FC = () => {
                               </div>
 
                               {/* Historical Chart Section */}
-                              <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-2xs space-y-2.5">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-black text-gray-800 flex items-center gap-1.5">
-                                    <ChartIcon className="w-4 h-4 text-[#2D5A27]" />
-                                    {isHindi ? 'कीमत इतिहास रुझान (15 दिन)' : 'Price History Trend (15 Days)'}
-                                  </span>
-                                  <span className="text-[10px] text-gray-500 font-bold bg-gray-50 border border-gray-200/70 px-2 py-0.5 rounded-md">
-                                    {isHindi ? 'मंडी पल्स रिकॉर्ड' : 'MandiPulse Record'}
-                                  </span>
-                                </div>
-                                
-                                <div className="relative py-2 flex justify-center">
-                                  <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-22 overflow-visible">
-                                    <defs>
-                                      <linearGradient id={`chartGradient-${idx}`} x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#2D5A27" stopOpacity="0.25" />
-                                        <stop offset="100%" stopColor="#2D5A27" stopOpacity="0.0" />
-                                      </linearGradient>
-                                    </defs>
-                                    
-                                    {/* Grid Lines */}
-                                    <line x1="10" y1="10" x2="290" y2="10" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
-                                    <line x1="10" y1="40" x2="290" y2="40" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
-                                    <line x1="10" y1="70" x2="290" y2="70" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
+                              <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-2xs space-y-3">
+                                {/* Header: Title & 7/15/30 Days Segmented Toggle */}
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-[#2D5A27]">
+                                      <ChartIcon className="w-4 h-4 text-[#2D5A27]" />
+                                    </div>
+                                    <div>
+                                      <h5 className="text-xs font-black text-gray-900 flex items-center gap-1.5">
+                                        <span>{isHindi ? 'मंडी भाव रुझान चार्ट' : 'Mandi Price Trend'}</span>
+                                        <span className="text-[10px] font-bold text-gray-500 font-mono">({selectedTimeframe} दिन)</span>
+                                      </h5>
+                                      <p className="text-[10px] text-gray-400 font-medium">
+                                        {isHindi ? 'सक्रिय नीलामी इतिहास (30-दिवसीय बफ़र)' : 'Auction History (30-day buffer)'}
+                                      </p>
+                                    </div>
+                                  </div>
 
-                                    {/* Shaded Area under path */}
-                                    <path d={areaD} fill={`url(#chartGradient-${idx})`} />
-                                    
-                                    {/* Line Path */}
-                                    <path d={pathD} fill="none" stroke="#2D5A27" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                                    
-                                    {/* Coordinate Dots */}
-                                    {pointsCoords.map((pt, i) => (
-                                      <g key={i}>
-                                        <circle 
-                                          cx={pt.x} 
-                                          cy={pt.y} 
-                                          r={i === pointsCoords.length - 1 ? "4.5" : "3"} 
-                                          fill={i === pointsCoords.length - 1 ? "#2D5A27" : "#fff"} 
-                                          stroke="#2D5A27" 
-                                          strokeWidth="2" 
-                                        />
-                                        {/* Label first and last points */}
-                                        {(i === 0 || i === pointsCoords.length - 1) && (
-                                          <text x={pt.x} y={pt.y - 8} textAnchor="middle" className="text-[9px] font-black fill-gray-700 font-mono">
-                                            ₹{pt.val}
-                                          </text>
+                                  {/* 7, 15, 30 Days Segmented Controls */}
+                                  <div className="flex items-center p-0.5 bg-gray-100 rounded-xl border border-gray-200/70">
+                                    {([7, 15, 30] as const).map((days) => (
+                                      <button
+                                        key={days}
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveTimeframes(prev => ({ ...prev, [idx]: days }));
+                                          setActiveTooltipPoint(null);
+                                        }}
+                                        className={cn(
+                                          "px-2.5 py-1 text-[10px] font-black rounded-lg transition-all cursor-pointer whitespace-nowrap",
+                                          selectedTimeframe === days
+                                            ? "bg-[#2D5A27] text-white shadow-xs"
+                                            : "text-gray-600 hover:text-gray-900"
                                         )}
-                                      </g>
+                                      >
+                                        {days} {isHindi ? 'दिन' : 'Days'}
+                                      </button>
                                     ))}
-                                  </svg>
+                                  </div>
                                 </div>
-                                <div className="flex justify-between text-[9px] text-gray-400 font-bold px-1 uppercase tracking-wider">
-                                  <span>{isHindi ? '15 दिन पहले' : '15 days ago'}</span>
-                                  <span>{isHindi ? '10 दिन पहले' : '10 days ago'}</span>
-                                  <span>{isHindi ? '5 दिन पहले' : '5 days ago'}</span>
-                                  <span className="text-[#2D5A27] font-black">{isHindi ? 'आज (ताज़ा)' : 'Today'}</span>
+
+                                {/* Performance & Trend Highlights Strip */}
+                                <div className="flex items-center justify-between flex-wrap gap-2 pt-1 border-t border-gray-100/80">
+                                  <div className="flex items-center gap-2">
+                                    {metrics.isUp ? (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/80 shadow-2xs">
+                                        <TrendingUp className="w-3 h-3 text-emerald-600 stroke-[2.5]" />
+                                        <span>+₹{metrics.periodChange} (+{metrics.periodChangePercent}%) {isHindi ? 'तेज़ी' : 'Gain'}</span>
+                                      </span>
+                                    ) : metrics.isDown ? (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-lg bg-rose-50 text-rose-800 border border-rose-200/80 shadow-2xs">
+                                        <TrendingDown className="w-3 h-3 text-rose-600 stroke-[2.5]" />
+                                        <span>-₹{Math.abs(metrics.periodChange)} ({metrics.periodChangePercent}%) {isHindi ? 'मंदी' : 'Drop'}</span>
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-gray-100 text-gray-700 border border-gray-200 shadow-2xs">
+                                        <span>{isHindi ? 'स्थिर भाव (समान दर)' : 'Flat Price (No Change)'}</span>
+                                      </span>
+                                    )}
+                                    <span className="text-[10px] text-gray-400 font-medium">
+                                      {isHindi ? `(पिछले ${selectedTimeframe} दिनों में)` : `(past ${selectedTimeframe} days)`}
+                                    </span>
+                                  </div>
+
+                                  {/* High / Low summary */}
+                                  <div className="flex items-center gap-2 text-[10px] font-mono font-bold">
+                                    <span className="text-slate-600 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200">
+                                      लो: ₹{metrics.low}
+                                    </span>
+                                    <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                      हाई: ₹{metrics.high}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Interactive SVG Chart Container with Touch/Hover Point Tooltip */}
+                                <div className="relative pt-2 pb-1">
+                                  {/* Floating Selected Point Badge / Tooltip */}
+                                  {activeTooltipPoint?.cardIdx === idx && pointsCoords[activeTooltipPoint.pointIdx] && (
+                                    <div 
+                                      className="absolute z-20 -top-2 transform -translate-x-1/2 bg-gray-900/95 text-white text-[10px] rounded-xl px-2.5 py-1.5 shadow-xl border border-gray-700 backdrop-blur-sm pointer-events-none flex items-center gap-2"
+                                      style={{
+                                        left: `${Math.max(45, Math.min(275, pointsCoords[activeTooltipPoint.pointIdx].x))}px`
+                                      }}
+                                    >
+                                      <div className="flex flex-col">
+                                        <span className="text-gray-300 text-[9px] font-medium flex items-center gap-1">
+                                          <Calendar className="w-2.5 h-2.5 text-emerald-400" />
+                                          {pointsCoords[activeTooltipPoint.pointIdx].pt.date}
+                                        </span>
+                                        <span className="font-mono font-black text-emerald-300 text-xs">
+                                          ₹{pointsCoords[activeTooltipPoint.pointIdx].pt.price}
+                                        </span>
+                                      </div>
+                                      {pointsCoords[activeTooltipPoint.pointIdx].pt.change !== 0 && (
+                                        <span className={cn(
+                                          "text-[9px] font-bold px-1.5 py-0.5 rounded font-mono",
+                                          pointsCoords[activeTooltipPoint.pointIdx].pt.change > 0 ? "bg-emerald-950 text-emerald-400" : "bg-rose-950 text-rose-400"
+                                        )}>
+                                          {pointsCoords[activeTooltipPoint.pointIdx].pt.change > 0 ? '+' : ''}₹{pointsCoords[activeTooltipPoint.pointIdx].pt.change}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* SVG Chart */}
+                                  <div className="relative flex justify-center overflow-x-auto">
+                                    <svg 
+                                      viewBox={`0 0 ${chartWidth} ${chartHeight}`} 
+                                      className="w-full h-24 overflow-visible cursor-crosshair select-none"
+                                    >
+                                      <defs>
+                                        <linearGradient id={`chartGradient-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                                          <stop offset="0%" stopColor="#2D5A27" stopOpacity="0.28" />
+                                          <stop offset="100%" stopColor="#2D5A27" stopOpacity="0.0" />
+                                        </linearGradient>
+                                      </defs>
+                                      
+                                      {/* Horizontal Baseline Grids */}
+                                      <line x1={paddingX} y1="16" x2={chartWidth - paddingX} y2="16" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
+                                      <line x1={paddingX} y1="46" x2={chartWidth - paddingX} y2="46" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
+                                      <line x1={paddingX} y1="76" x2={chartWidth - paddingX} y2="76" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
+
+                                      {/* Shaded Area */}
+                                      <path d={areaD} fill={`url(#chartGradient-${idx})`} />
+                                      
+                                      {/* Main Line Stroke */}
+                                      <path 
+                                        d={pathD} 
+                                        fill="none" 
+                                        stroke="#2D5A27" 
+                                        strokeWidth="2.5" 
+                                        strokeLinecap="round" 
+                                        strokeLinejoin="round" 
+                                      />
+
+                                      {/* Selected Point Vertical Indicator Line */}
+                                      {activeTooltipPoint?.cardIdx === idx && pointsCoords[activeTooltipPoint.pointIdx] && (
+                                        <line
+                                          x1={pointsCoords[activeTooltipPoint.pointIdx].x}
+                                          y1={14}
+                                          x2={pointsCoords[activeTooltipPoint.pointIdx].x}
+                                          y2={chartHeight - 10}
+                                          stroke="#10b981"
+                                          strokeWidth="1.5"
+                                          strokeDasharray="2,2"
+                                        />
+                                      )}
+                                      
+                                      {/* Touch & Hover Interactive Points */}
+                                      {pointsCoords.map((coord, i) => {
+                                        const isSelected = activeTooltipPoint?.cardIdx === idx && activeTooltipPoint.pointIdx === i;
+                                        const isLast = i === pointsCoords.length - 1;
+                                        const isFirst = i === 0;
+
+                                        return (
+                                          <g key={i}>
+                                            {/* Invisible large touch target for seamless mobile tap */}
+                                            <circle
+                                              cx={coord.x}
+                                              cy={coord.y}
+                                              r="14"
+                                              fill="transparent"
+                                              className="cursor-pointer"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveTooltipPoint(prev => 
+                                                  prev?.cardIdx === idx && prev.pointIdx === i ? null : { cardIdx: idx, pointIdx: i }
+                                                );
+                                              }}
+                                              onMouseEnter={() => {
+                                                setActiveTooltipPoint({ cardIdx: idx, pointIdx: i });
+                                              }}
+                                            />
+
+                                            {/* Visible Point Dot */}
+                                            <circle 
+                                              cx={coord.x} 
+                                              cy={coord.y} 
+                                              r={isSelected ? "5.5" : isLast ? "4.5" : selectedTimeframe === 30 ? "2.5" : "3.5"} 
+                                              fill={isSelected ? "#10b981" : isLast ? "#2D5A27" : "#fff"} 
+                                              stroke={isSelected ? "#047857" : "#2D5A27"} 
+                                              strokeWidth={isSelected ? "2.5" : "2"} 
+                                              className="transition-all duration-150 pointer-events-none"
+                                            />
+
+                                            {/* Persistent Value Badges on Endpoints (First & Last) if not hovered */}
+                                            {(isFirst || isLast) && !isSelected && (
+                                              <text 
+                                                x={coord.x} 
+                                                y={coord.y - 7} 
+                                                textAnchor={isLast ? "end" : isFirst ? "start" : "middle"} 
+                                                className="text-[9px] font-black fill-gray-700 font-mono pointer-events-none"
+                                              >
+                                                ₹{coord.pt.price}
+                                              </text>
+                                            )}
+                                          </g>
+                                        );
+                                      })}
+                                    </svg>
+                                  </div>
+
+                                  {/* Authentic Trading Dates on X-Axis */}
+                                  <div className="flex justify-between items-center text-[9px] text-gray-500 font-bold px-2 pt-1 border-t border-gray-100">
+                                    <span className="flex items-center gap-1 font-mono">
+                                      <Calendar className="w-2.5 h-2.5 text-gray-400" />
+                                      {currentSlice[0]?.date || ''}
+                                    </span>
+                                    {currentSlice.length > 4 && (
+                                      <span className="text-gray-400 font-mono hidden sm:inline-block">
+                                        {currentSlice[Math.floor(currentSlice.length / 2)]?.date || ''}
+                                      </span>
+                                    )}
+                                    <span className="text-[#2D5A27] font-black font-mono flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                      {currentSlice[currentSlice.length - 1]?.date || ''} ({isHindi ? 'ताज़ा' : 'Latest'})
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between text-[10px] text-gray-400 bg-gray-50/80 px-2.5 py-1.5 rounded-xl border border-gray-100">
+                                  <span className="flex items-center gap-1">
+                                    <History className="w-3 h-3 text-[#2D5A27]" />
+                                    <span>{isHindi ? '30-दिवसीय दैनिक स्वचालित संग्रह (ऑटो रोलिंग बफ़र)' : '30-day daily auto-rolling buffer'}</span>
+                                  </span>
+                                  <span className="font-semibold text-gray-500">
+                                    {isHindi ? 'बिंदुओं को टैप करके दैनिक भाव देखें' : 'Tap points for details'}
+                                  </span>
                                 </div>
                               </div>
 

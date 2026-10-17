@@ -874,85 +874,88 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
 
-    const prompt = `You are a world-class Indian agricultural product expert. Your task is to provide exhaustive, accurate, and completely verified information for the agricultural product/technical queried by the user.
+    const prompt = `You are a world-class Indian agricultural product expert representing 'फल्सावदिया कृषि बाजार'.
+    Your task is to provide exhaustive, accurate, and completely verified information for the agricultural product/technical queried by the user.
     
     User Query: "${query}"
 
     Search Google and official agricultural resources (CIB&RC, ICAR, IFFCO, Krishi Vigyan Kendra, etc.) to get details on this product/technical/formulation.
     
-    Instructions:
-    1. If the product is not found or not official, write detailed alternative helpful info or mark 'hasExactMatch' as false and provide a helpful description in productName/usage.
-    2. Respond strictly in clear, simple HINDI that farmers can easily understand. Translate technical terms where appropriate or provide Hindi descriptions.
-    3. Ensure that the DOSAGE section is fully filled. Even if generic guidelines are available, calculate them for 1L, 15L, 16L, 20L, 25L, 200L, 500L, and 1 Bigha (बीघा) based on standard recommendations for this product class (Liquid / Powder / Fertilizer).
-    4. Provide crop-specific dosages for common crops (like Soybean, Wheat, Maize, Chickpea, Cotton, etc.) if applicable.
-    5. Return the result strictly as a valid JSON object matching the defined schema. Do not include markdown wraps or anything except the JSON string in response.`;
+    CRITICAL LANGUAGE MANDATE (अति-महत्वपूर्ण नियम: 100% केवल सरल हिंदी):
+    1. STRICTLY 100% SIMPLE HINDI (केवल सरल हिंदी भाषा): The user is a rural Indian farmer who only understands Hindi. Every single sentence, paragraph, bullet point, explanation, usage instruction, benefit, precaution, symptom, dosage guideline, crop name, and pest name MUST be written in natural, easy-to-understand HINDI (शुद्ध व सरल हिंदी).
+    2. ABSOLUTELY NO ENGLISH SENTENCES: Under NO circumstance should you return English explanations or paragraphs in any JSON field. Even if Google Search results are in English, you MUST translate and explain everything clearly in Hindi.
+    3. Technical/Chemical Names: For technical active ingredients, provide the Hindi transcription first, with optional English chemical name in parentheses for scientific accuracy (e.g. 'क्लोरेंट्रानिलिप्रोल (Chlorantraniliprole 18.5% SC)' or 'इमिडाक्लोप्रिड (Imidacloprid 17.8% SL)'). But ALL descriptions of usage, mode of action, benefits, symptoms, targets, and directions MUST be entirely in simple Hindi!
+    4. If the product is not found or not official, write detailed alternative helpful info or mark 'hasExactMatch' as false and provide a helpful description in productName/usage entirely in Hindi.
+    5. Ensure that the DOSAGE section is fully filled in Hindi. Calculate dosages for 1L, 15L, 16L, 20L, 25L, 200L, 500L, and 1 Bigha (बीघा) based on standard recommendations for this product class (Liquid / Powder / Fertilizer).
+    6. Provide crop-specific dosages for common Indian crops (जैसे: सोयाबीन, गेहूं, मक्का, चना, कपास, प्याज, लहसुन, टमाटर, मिर्च आदि) strictly in Hindi.
+    7. Return the result strictly as a valid JSON object matching the defined schema. Do not include markdown wraps or anything except the JSON string in response.`;
 
     const responseSchema = {
       type: "OBJECT" as any,
       properties: {
-        productName: { type: "STRING" },
-        companyName: { type: "STRING" },
-        technicalName: { type: "STRING" },
-        category: { type: "STRING" },
-        formulation: { type: "STRING" },
-        activeIngredient: { type: "STRING" },
-        modeOfAction: { type: "STRING" },
-        fracIracHracGroup: { type: "STRING" },
-        targetCrops: { type: "STRING" },
-        targetPests: { type: "STRING" },
-        symptoms: { type: "STRING" },
-        usage: { type: "STRING" },
-        benefits: { type: "STRING" },
-        features: { type: "STRING" },
-        compatibleProducts: { type: "STRING" },
-        incompatibleProducts: { type: "STRING" },
-        waitingPeriod: { type: "STRING" },
-        phi: { type: "STRING" },
-        rei: { type: "STRING" },
-        toxicity: { type: "STRING" },
-        safetyInstructions: { type: "STRING" },
-        mixingOrder: { type: "STRING" },
-        sprayTiming: { type: "STRING" },
-        rainfastPeriod: { type: "STRING" },
-        storage: { type: "STRING" },
+        productName: { type: "STRING", description: "उत्पाद का नाम हिंदी में (जैसे: कोराजन कीटनाशक)" },
+        companyName: { type: "STRING", description: "कंपनी या निर्माता का नाम हिंदी में (जैसे: एफएमसी / बायर)" },
+        technicalName: { type: "STRING", description: "तकनीकी नाम हिंदी में व कोष्ठक में अंग्रेजी" },
+        category: { type: "STRING", description: "कीटनाशक, फफूंदनाशक, खरपतवारनाशक, टॉनिक या खाद (सरल हिंदी में)" },
+        formulation: { type: "STRING", description: "फार्मूलेशन का प्रकार सरल हिंदी में (जैसे: तरल / दानेदार)" },
+        activeIngredient: { type: "STRING", description: "सक्रिय घटक हिंदी में" },
+        modeOfAction: { type: "STRING", description: "असर का तरीका व कार्यप्रणाली 100% सरल हिंदी में" },
+        fracIracHracGroup: { type: "STRING", description: "रासायनिक ग्रुप कोड (जैसे: Group 28)" },
+        targetCrops: { type: "STRING", description: "उपयुक्त फसलें सरल हिंदी में (जैसे: सोयाबीन, चना, गेहूं, कपास)" },
+        targetPests: { type: "STRING", description: "नियंत्रित कीट, खरपतवार या रोग सरल हिंदी में (जैसे: तना छेदक, इल्ली, माहू)" },
+        symptoms: { type: "STRING", description: "रोग व कीट के लक्षण पहचान सरल हिंदी में" },
+        usage: { type: "STRING", description: "विस्तृत उपयोग विधि एवं छिड़काव का तरीका 100% सरल हिंदी में" },
+        benefits: { type: "STRING", description: "मुख्य फायदे और लाभ 100% सरल हिंदी में" },
+        features: { type: "STRING", description: "उत्पाद की विशेषताएं 100% सरल हिंदी में" },
+        compatibleProducts: { type: "STRING", description: "किन दवाओं के साथ मिला सकते हैं (सरल हिंदी में)" },
+        incompatibleProducts: { type: "STRING", description: "किन दवाओं के साथ भूलकर भी न मिलाएं (सरल हिंदी में)" },
+        waitingPeriod: { type: "STRING", description: "प्रतीक्षा अवधि (PHI) सरल हिंदी में" },
+        phi: { type: "STRING", description: "तुड़ाई पूर्व अंतर सरल हिंदी में" },
+        rei: { type: "STRING", description: "खेत में पुनः प्रवेश का समय सरल हिंदी में" },
+        toxicity: { type: "STRING", description: "विषाक्तता का स्तर व रंगीन त्रिकोण सरल हिंदी में" },
+        safetyInstructions: { type: "STRING", description: "किसान सुरक्षा सावधानियां 100% सरल हिंदी में" },
+        mixingOrder: { type: "STRING", description: "दवा घोलने का सही क्रम सरल हिंदी में" },
+        sprayTiming: { type: "STRING", description: "छिड़काव का सबसे उत्तम समय सरल हिंदी में (जैसे: सुबह या शाम)" },
+        rainfastPeriod: { type: "STRING", description: "बारिश से बचाव की अवधि सरल हिंदी में (जैसे: 2 घंटे बाद बारिश से सुरक्षित)" },
+        storage: { type: "STRING", description: "दवा भंडारण व रखने के निर्देश सरल हिंदी में" },
         dosageLiquid: {
           type: "OBJECT" as any,
           properties: {
-            perLiter: { type: "STRING" },
-            per15L: { type: "STRING" },
-            per16L: { type: "STRING" },
-            per20L: { type: "STRING" },
-            per25L: { type: "STRING" },
-            per200L: { type: "STRING" },
-            per500L: { type: "STRING" },
-            perBigha: { type: "STRING" }
+            perLiter: { type: "STRING", description: "प्रति 1 लीटर पानी में मात्रा हिंदी में" },
+            per15L: { type: "STRING", description: "15 लीटर पंप में मात्रा हिंदी में" },
+            per16L: { type: "STRING", description: "16 लीटर पंप में मात्रा हिंदी में" },
+            per20L: { type: "STRING", description: "20 लीटर पंप में मात्रा हिंदी में" },
+            per25L: { type: "STRING", description: "25 लीटर पंप में मात्रा हिंदी में" },
+            per200L: { type: "STRING", description: "200 लीटर ड्रम में मात्रा हिंदी में" },
+            per500L: { type: "STRING", description: "500 लीटर टैंकर में मात्रा हिंदी में" },
+            perBigha: { type: "STRING", description: "प्रति 1 बीघा में मात्रा हिंदी में" }
           },
           required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
         },
         dosagePowder: {
           type: "OBJECT" as any,
           properties: {
-            perLiter: { type: "STRING" },
-            per15L: { type: "STRING" },
-            per16L: { type: "STRING" },
-            per20L: { type: "STRING" },
-            per25L: { type: "STRING" },
-            per200L: { type: "STRING" },
-            per500L: { type: "STRING" },
-            perBigha: { type: "STRING" }
+            perLiter: { type: "STRING", description: "प्रति 1 लीटर पानी में ग्राम हिंदी में" },
+            per15L: { type: "STRING", description: "15 लीटर पंप में ग्राम हिंदी में" },
+            per16L: { type: "STRING", description: "16 लीटर पंप में ग्राम हिंदी में" },
+            per20L: { type: "STRING", description: "20 लीटर पंप में ग्राम हिंदी में" },
+            per25L: { type: "STRING", description: "25 लीटर पंप में ग्राम हिंदी में" },
+            per200L: { type: "STRING", description: "200 लीटर ड्रम में ग्राम हिंदी में" },
+            per500L: { type: "STRING", description: "500 लीटर टैंकर में ग्राम हिंदी में" },
+            perBigha: { type: "STRING", description: "प्रति 1 बीघा में ग्राम हिंदी में" }
           },
           required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
         },
         dosageFertilizer: {
           type: "OBJECT" as any,
           properties: {
-            perPlant: { type: "STRING" },
-            perPot: { type: "STRING" },
-            perBigha: { type: "STRING" },
-            perIrrigation: { type: "STRING" },
-            perSpray: { type: "STRING" },
-            perDrenching: { type: "STRING" },
-            totalAmount: { type: "STRING" }
+            perPlant: { type: "STRING", description: "प्रति पौधा मात्रा हिंदी में" },
+            perPot: { type: "STRING", description: "प्रति गमला मात्रा हिंदी में" },
+            perBigha: { type: "STRING", description: "प्रति 1 बीघा मात्रा हिंदी में" },
+            perIrrigation: { type: "STRING", description: "प्रति सिंचाई मात्रा हिंदी में" },
+            perSpray: { type: "STRING", description: "प्रति स्प्रे मात्रा हिंदी में" },
+            perDrenching: { type: "STRING", description: "ड्रेंचिंग मात्रा हिंदी में" },
+            totalAmount: { type: "STRING", description: "कुल मात्रा हिंदी में" }
           },
           required: ["perPlant", "perPot", "perBigha", "perIrrigation", "perSpray", "perDrenching", "totalAmount"]
         },
@@ -961,10 +964,10 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
           items: {
             type: "OBJECT" as any,
             properties: {
-              cropName: { type: "STRING" },
-              dosage: { type: "STRING" },
-              usage: { type: "STRING" },
-              sprayTime: { type: "STRING" }
+              cropName: { type: "STRING", description: "फसल का नाम हिंदी में (जैसे: सोयाबीन, गेहूं)" },
+              dosage: { type: "STRING", description: "डोज़ की मात्रा हिंदी में" },
+              usage: { type: "STRING", description: "उपयोग विधि सरल हिंदी में" },
+              sprayTime: { type: "STRING", description: "स्प्रे का समय सरल हिंदी में" }
             },
             required: ["cropName", "dosage", "usage", "sprayTime"]
           }
@@ -981,7 +984,7 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
       ]
     };
 
-    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Always analyze the query with high precision, search Google for real-time validation, and provide complete details in Hindi as requested. Ensure the output is valid JSON strictly following the schema. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
+    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY LANGUAGE REQUIREMENT: Your audience is exclusively Hindi-speaking Indian farmers. You MUST respond 100% in simple, clear, respectful HINDI (सरल हिंदी भाषा). NEVER provide descriptions, benefits, usages, or symptoms in English. Ensure the output is valid JSON strictly following the schema. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
 
     let response;
     try {
@@ -1063,7 +1066,7 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
 
-    const prompt = `You are a world-class Indian agricultural product expert and advanced image recognition AI.
+    const prompt = `You are a world-class Indian agricultural product expert and advanced image recognition AI representing 'फल्सावदिया कृषि बाजार'.
     Your task is to analyze the attached photo of an agricultural product (fertilizer, insecticide, fungicide, herbicide, PGR, micronutrient, biostimulant, seed, animal nutrition, etc.).
     
     CRITICAL ANALYSIS STEPS:
@@ -1072,79 +1075,81 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
     3. **Product Recognition**: Identify the Product Name, Company Name, Technical Name, Category, and Formulation.
     4. **Knowledge Retrieval**: Once the product is identified, retrieve exhaustive, accurate, and completely verified agricultural details for this product (its active ingredients, mode of action, group, recommended dosage, safety instructions, target crops, target pests, etc.).
     
-    Instructions:
-    - Respond strictly in clear, simple HINDI so farmers can easily understand. Translate technical terms or provide Hindi descriptions.
-    - Ensure that the DOSAGE section is fully filled. Even if generic guidelines are available, calculate them for 1L, 15L, 16L, 20L, 25L, 200L, 500L, and 1 Bigha (बीघा) based on standard recommendations for this product class (Liquid / Powder / Fertilizer).
-    - Provide crop-specific dosages for common crops (like Soybean, Wheat, Maize, Chickpea, Cotton, etc.) if applicable.
-    - If the image does not show an agricultural product, or if the product is not recognized at all, provide a helpful general response, set 'hasExactMatch' to false, and explain in productName/usage what was visible in the image.
+    CRITICAL LANGUAGE MANDATE (अति-महत्वपूर्ण नियम: 100% केवल सरल हिंदी):
+    - STRICTLY 100% SIMPLE HINDI (केवल सरल हिंदी भाषा): Indian farmers will read this. Every single sentence, paragraph, bullet point, explanation, usage instruction, benefit, precaution, symptom, dosage guideline, crop name, and pest name MUST be written in natural, easy-to-understand HINDI (शुद्ध व सरल हिंदी).
+    - ABSOLUTELY NO ENGLISH SENTENCES: Even if the product label or chemical text in the photo is in English, you MUST translate and provide all descriptions, uses, dosages, and benefits in simple Hindi.
+    - Technical/Chemical Names: For chemical active ingredients, provide the Hindi transcription first, with optional English chemical name in parentheses for accuracy (e.g. 'क्लोरेंट्रानिलिप्रोल (Chlorantraniliprole)'). All explanations MUST be in Hindi.
+    - Ensure that the DOSAGE section is fully filled in Hindi for 1L, 15L, 16L, 20L, 25L, 200L, 500L, and 1 Bigha (बीघा).
+    - Provide crop-specific dosages for common crops (जैसे: सोयाबीन, गेहूं, मक्का, चना, कपास आदि) strictly in Hindi.
+    - If the image does not show an agricultural product, or if the product is not recognized at all, provide a helpful general response, set 'hasExactMatch' to false, and explain in productName/usage what was visible in the image in Hindi.
     - Return the result strictly as a valid JSON object matching the defined schema. Do not include markdown wraps or anything except the JSON string in response.`;
 
     const responseSchema = {
       type: "OBJECT" as any,
       properties: {
-        productName: { type: "STRING" },
-        companyName: { type: "STRING" },
-        technicalName: { type: "STRING" },
-        category: { type: "STRING" },
-        formulation: { type: "STRING" },
-        activeIngredient: { type: "STRING" },
-        modeOfAction: { type: "STRING" },
-        fracIracHracGroup: { type: "STRING" },
-        targetCrops: { type: "STRING" },
-        targetPests: { type: "STRING" },
-        symptoms: { type: "STRING" },
-        usage: { type: "STRING" },
-        benefits: { type: "STRING" },
-        features: { type: "STRING" },
-        compatibleProducts: { type: "STRING" },
-        incompatibleProducts: { type: "STRING" },
-        waitingPeriod: { type: "STRING" },
-        phi: { type: "STRING" },
-        rei: { type: "STRING" },
-        toxicity: { type: "STRING" },
-        safetyInstructions: { type: "STRING" },
-        mixingOrder: { type: "STRING" },
-        sprayTiming: { type: "STRING" },
-        rainfastPeriod: { type: "STRING" },
-        storage: { type: "STRING" },
+        productName: { type: "STRING", description: "उत्पाद का नाम हिंदी में (जैसे: कोराजन कीटनाशक)" },
+        companyName: { type: "STRING", description: "कंपनी या निर्माता का नाम हिंदी में" },
+        technicalName: { type: "STRING", description: "तकनीकी नाम हिंदी में व कोष्ठक में अंग्रेजी" },
+        category: { type: "STRING", description: "कीटनाशक, फफूंदनाशक, खरपतवारनाशक, टॉनिक या खाद (सरल हिंदी में)" },
+        formulation: { type: "STRING", description: "फार्मूलेशन का प्रकार सरल हिंदी में" },
+        activeIngredient: { type: "STRING", description: "सक्रिय घटक हिंदी में" },
+        modeOfAction: { type: "STRING", description: "असर का तरीका व कार्यप्रणाली 100% सरल हिंदी में" },
+        fracIracHracGroup: { type: "STRING", description: "रासायनिक ग्रुप कोड" },
+        targetCrops: { type: "STRING", description: "उपयुक्त फसलें सरल हिंदी में" },
+        targetPests: { type: "STRING", description: "नियंत्रित कीट, खरपतवार या रोग सरल हिंदी में" },
+        symptoms: { type: "STRING", description: "रोग व कीट के लक्षण पहचान सरल हिंदी में" },
+        usage: { type: "STRING", description: "विस्तृत उपयोग विधि 100% सरल हिंदी में" },
+        benefits: { type: "STRING", description: "मुख्य फायदे और लाभ 100% सरल हिंदी में" },
+        features: { type: "STRING", description: "उत्पाद की विशेषताएं 100% सरल हिंदी में" },
+        compatibleProducts: { type: "STRING", description: "किन दवाओं के साथ मिला सकते हैं (सरल हिंदी में)" },
+        incompatibleProducts: { type: "STRING", description: "किन दवाओं के साथ न मिलाएं (सरल हिंदी में)" },
+        waitingPeriod: { type: "STRING", description: "प्रतीक्षा अवधि (PHI) सरल हिंदी में" },
+        phi: { type: "STRING", description: "तुड़ाई पूर्व अंतर सरल हिंदी में" },
+        rei: { type: "STRING", description: "खेत में पुनः प्रवेश का समय सरल हिंदी में" },
+        toxicity: { type: "STRING", description: "विषाक्तता का स्तर व रंगीन त्रिकोण सरल हिंदी में" },
+        safetyInstructions: { type: "STRING", description: "किसान सुरक्षा सावधानियां 100% सरल हिंदी में" },
+        mixingOrder: { type: "STRING", description: "दवा घोलने का सही क्रम सरल हिंदी में" },
+        sprayTiming: { type: "STRING", description: "छिड़काव का सही समय सरल हिंदी में" },
+        rainfastPeriod: { type: "STRING", description: "बारिश से बचाव की अवधि सरल हिंदी में" },
+        storage: { type: "STRING", description: "दवा भंडारण व रखने के निर्देश सरल हिंदी में" },
         dosageLiquid: {
           type: "OBJECT" as any,
           properties: {
-            perLiter: { type: "STRING" },
-            per15L: { type: "STRING" },
-            per16L: { type: "STRING" },
-            per20L: { type: "STRING" },
-            per25L: { type: "STRING" },
-            per200L: { type: "STRING" },
-            per500L: { type: "STRING" },
-            perBigha: { type: "STRING" }
+            perLiter: { type: "STRING", description: "प्रति 1 लीटर पानी में मात्रा हिंदी में" },
+            per15L: { type: "STRING", description: "15 लीटर पंप में मात्रा हिंदी में" },
+            per16L: { type: "STRING", description: "16 लीटर पंप में मात्रा हिंदी में" },
+            per20L: { type: "STRING", description: "20 लीटर पंप में मात्रा हिंदी में" },
+            per25L: { type: "STRING", description: "25 लीटर पंप में मात्रा हिंदी में" },
+            per200L: { type: "STRING", description: "200 लीटर ड्रम में मात्रा हिंदी में" },
+            per500L: { type: "STRING", description: "500 लीटर टैंकर में मात्रा हिंदी में" },
+            perBigha: { type: "STRING", description: "प्रति 1 बीघा में मात्रा हिंदी में" }
           },
           required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
         },
         dosagePowder: {
           type: "OBJECT" as any,
           properties: {
-            perLiter: { type: "STRING" },
-            per15L: { type: "STRING" },
-            per16L: { type: "STRING" },
-            per20L: { type: "STRING" },
-            per25L: { type: "STRING" },
-            per200L: { type: "STRING" },
-            per500L: { type: "STRING" },
-            perBigha: { type: "STRING" }
+            perLiter: { type: "STRING", description: "प्रति 1 लीटर पानी में ग्राम हिंदी में" },
+            per15L: { type: "STRING", description: "15 लीटर पंप में ग्राम हिंदी में" },
+            per16L: { type: "STRING", description: "16 लीटर पंप में ग्राम हिंदी में" },
+            per20L: { type: "STRING", description: "20 लीटर पंप में ग्राम हिंदी में" },
+            per25L: { type: "STRING", description: "25 लीटर पंप में ग्राम हिंदी में" },
+            per200L: { type: "STRING", description: "200 लीटर ड्रम में ग्राम हिंदी में" },
+            per500L: { type: "STRING", description: "500 लीटर टैंकर में ग्राम हिंदी में" },
+            perBigha: { type: "STRING", description: "प्रति 1 बीघा में ग्राम हिंदी में" }
           },
           required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
         },
         dosageFertilizer: {
           type: "OBJECT" as any,
           properties: {
-            perPlant: { type: "STRING" },
-            perPot: { type: "STRING" },
-            perBigha: { type: "STRING" },
-            perIrrigation: { type: "STRING" },
-            perSpray: { type: "STRING" },
-            perDrenching: { type: "STRING" },
-            totalAmount: { type: "STRING" }
+            perPlant: { type: "STRING", description: "प्रति पौधा मात्रा हिंदी में" },
+            perPot: { type: "STRING", description: "प्रति गमला मात्रा हिंदी में" },
+            perBigha: { type: "STRING", description: "प्रति 1 बीघा मात्रा हिंदी में" },
+            perIrrigation: { type: "STRING", description: "प्रति सिंचाई मात्रा हिंदी में" },
+            perSpray: { type: "STRING", description: "प्रति स्प्रे मात्रा हिंदी में" },
+            perDrenching: { type: "STRING", description: "ड्रेंचिंग मात्रा हिंदी में" },
+            totalAmount: { type: "STRING", description: "कुल मात्रा हिंदी में" }
           },
           required: ["perPlant", "perPot", "perBigha", "perIrrigation", "perSpray", "perDrenching", "totalAmount"]
         },
@@ -1153,10 +1158,10 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
           items: {
             type: "OBJECT" as any,
             properties: {
-              cropName: { type: "STRING" },
-              dosage: { type: "STRING" },
-              usage: { type: "STRING" },
-              sprayTime: { type: "STRING" }
+              cropName: { type: "STRING", description: "फसल का नाम हिंदी में" },
+              dosage: { type: "STRING", description: "डोज़ की मात्रा हिंदी में" },
+              usage: { type: "STRING", description: "उपयोग विधि सरल हिंदी में" },
+              sprayTime: { type: "STRING", description: "स्प्रे का समय सरल हिंदी में" }
             },
             required: ["cropName", "dosage", "usage", "sprayTime"]
           }
@@ -1173,7 +1178,7 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
       ]
     };
 
-    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Always analyze the query with high precision, search Google for real-time validation, and provide complete details in Hindi as requested. Ensure the output is valid JSON strictly following the schema. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
+    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY LANGUAGE REQUIREMENT: Your audience is exclusively Hindi-speaking Indian farmers. You MUST respond 100% in simple, clear, respectful HINDI (सरल हिंदी भाषा). NEVER provide descriptions, benefits, usages, or symptoms in English. Ensure the output is valid JSON strictly following the schema. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
 
     const parts = [
       { text: prompt },
