@@ -122,9 +122,6 @@ const InstallPwaModal: React.FC = () => {
             transition={{ type: "spring", damping: 25, stiffness: 320 }}
             className="relative bg-white/95 backdrop-blur-xl w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl p-6 sm:p-8 text-center border border-gray-100/90"
           >
-            {/* Top Subtle Emerald Gradient Accent Line */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-emerald-500 via-[#2D5A27] to-teal-500 rounded-full" />
-
             {/* Tactile Close Button */}
             <button 
               onClick={handleDismiss}

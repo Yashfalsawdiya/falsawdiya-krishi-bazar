@@ -469,20 +469,20 @@ const Home: React.FC = () => {
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-[#F2F8F0] border border-[#2D5A27]/25 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-xs"
+          className="bg-purple-50 border border-purple-100 rounded-2xl p-4 flex items-center justify-between gap-3"
         >
           <div className="flex items-center gap-3">
-            <div className="bg-[#ECFDF5] p-2 rounded-xl border border-[#2D5A27]/20 text-[#183D16]">
-              <Key className="w-5 h-5 text-[#2D5A27]" />
+            <div className="bg-purple-100 p-2 rounded-xl">
+              <Key className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-[#183D16]">अपनी API Key सेट करें</h4>
-              <p className="text-[10px] text-gray-600">फसल रोग पहचान, AI वॉइस कॉल, ताज़ा मंडी भाव और कृषि सलाह के लिए अपनी Key जोड़ें।</p>
+              <h4 className="text-xs font-bold text-purple-900">अपनी API Key सेट करें</h4>
+              <p className="text-[10px] text-purple-700">फसल रोग पहचान, AI वॉइस कॉल, ताज़ा मंडी भाव और कृषि सलाह के लिए अपनी Key जोड़ें।</p>
             </div>
           </div>
           <button 
             onClick={() => openApiKeyModal()}
-            className="bg-[#2D5A27] hover:bg-[#183D16] text-white text-[10px] font-bold px-3 py-2 rounded-lg whitespace-nowrap active:scale-95 transition-transform cursor-pointer shadow-xs"
+            className="bg-purple-600 text-white text-[10px] font-bold px-3 py-2 rounded-lg whitespace-nowrap active:scale-95 transition-transform cursor-pointer"
           >
             अभी सेट करें
           </button>
@@ -571,9 +571,9 @@ const Home: React.FC = () => {
               className="h-full relative"
             >
               <Link to="/ai-product-knowledge" id="card-ai-product-knowledge" className="block h-full group focus:outline-none">
-                <div className="relative h-full bg-gradient-to-br from-white via-white to-emerald-50/40 rounded-3xl p-5 sm:p-6 border border-gray-200/90 hover:border-emerald-600/40 shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.99]">
+                <div className="relative h-full bg-gradient-to-br from-white via-white to-amber-50/30 rounded-3xl p-5 sm:p-6 border border-gray-200/90 hover:border-emerald-600/40 shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer active:scale-[0.99]">
                   {/* Ambient decorative glow */}
-                  <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-emerald-500/10 to-teal-500/0 rounded-full blur-2xl group-hover:scale-125 group-hover:opacity-100 opacity-40 transition-all duration-500 pointer-events-none" />
+                  <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-amber-500/10 to-emerald-500/0 rounded-full blur-2xl group-hover:scale-125 group-hover:opacity-100 opacity-40 transition-all duration-500 pointer-events-none" />
 
                   {/* Admin test mode indicator */}
                   {isAdmin && !isFeatureEnabled('ai_product_knowledge') && (
@@ -586,12 +586,12 @@ const Home: React.FC = () => {
                   <div>
                     {/* Header Row: Clean Icon Pod + Smart Guide Chip */}
                     <div className="flex items-center justify-between gap-2 mb-3.5 relative z-10">
-                      <div className="w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-[#F2F8F0] text-[#183D16] border border-[#2D5A27]/20 flex items-center justify-center shadow-2xs group-hover:scale-105 group-hover:bg-[#2D5A27] group-hover:text-white transition-all duration-300">
+                      <div className="w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-amber-50 text-amber-800 border border-amber-200/80 flex items-center justify-center shadow-2xs group-hover:scale-105 group-hover:bg-[#2D5A27] group-hover:text-white transition-all duration-300">
                         <Sprout className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
                       </div>
 
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#ECFDF5] text-[#183D16] border border-[#2D5A27]/20 shadow-2xs">
-                        <Sparkles className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200/80 shadow-2xs">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                         <span>स्मार्ट डोज़ गाइड</span>
                       </div>
                     </div>
@@ -609,8 +609,8 @@ const Home: React.FC = () => {
 
                   {/* Bottom Action Footer */}
                   <div className="mt-4 pt-3.5 border-t border-gray-100 flex items-center justify-between gap-2 relative z-10">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#183D16]">
-                      <Sparkles className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       सटीक डोज़ और उपयोग विधि
                     </span>
                     
@@ -1228,10 +1228,6 @@ const Home: React.FC = () => {
                     AI उत्तर तैयार कर रहा है...
                   </div>
                 )}
-
-                <AnimatePresence>
-                  {/* Mic error removed */}
-                </AnimatePresence>
               </div>
 
               <div className="p-5 bg-gray-50 border-t border-gray-100">

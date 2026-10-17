@@ -102,3 +102,19 @@ To ensure a premium, uniform, and trustworthy visual experience for all farmers,
   - Card containers in both `FeaturedProductCard.tsx` and `KrishiBazaarProductCard.tsx` must maintain matching rounded corners (`rounded-2xl`), border styling (`border border-gray-200/80`), subtle elevations (`shadow-sm hover:shadow-md transition-shadow duration-200`), and uniform grid heights (`h-full`).
 - **Strict Immutability & Admin-Only Modification Authority**:
   - **LOCKED STANDARD**: Developers and AI agents are strictly forbidden from altering, experimenting with, refactoring, adding extra borders/paddings, or downgrading product image containers or card layouts across `KrishiBazaarProductCard.tsx`, `FeaturedProductCard.tsx`, and any product display components unless EXPLICITLY ordered by the Admin (`yashfalsawdiya36@gmail.com`).
+
+## 9. Complete Deep Deletion Protocol & Zero-Zombie Code Standard (Permanent Strict Rule)
+To prevent dead code accumulation, code bloat, and accidental reactivation of previously removed features:
+
+- **No Surface-Only / Soft Hiding**:
+  - Whenever the Admin (`yashfalsawdiya36@gmail.com`) requests the removal or deletion of a feature, section, modal, or component, it must **NEVER** simply be hidden using CSS (`display: none`, `hidden`), unlinked from the navigation bar, or left as an empty dummy stub (`return null;`).
+- **Mandatory 4-Level Deep Deletion**:
+  1. **Source File Removal**: The unused `.tsx` / `.ts` component file must be deleted from the repository.
+  2. **Routing & Import Cleanup**: The route (`<Route>`), import statement, and any lazy-loader definitions in `App.tsx` and all parent components must be completely eliminated.
+  3. **State, Context & Background Listeners**: Any associated context state, background intervals, Firestore listeners, or effect hooks in `AppContext.tsx` or related services must be completely removed.
+  4. **Cache & Local Storage Cleanse**: Any obsolete `localStorage` or `IndexedDB` keys must be pruned so stale data never persists on client devices.
+- **Strict Prohibition on Unsolicited Reinstatement**:
+  - Once a feature, button, or design has been removed per admin request, AI agents and developers are **STRICTLY FORBIDDEN** from reinstating or reintroducing it unless explicitly ordered by the Admin.
+- **Version Restoration Delta Audit**:
+  - If a previous version or Git baseline snapshot is ever restored due to debugging or technical necessity, the developer/agent **MUST** immediately conduct a Delta Audit: any zombie codes, obsolete files, or previously removed features that get restored by the old snapshot must be immediately purged before compiling or handing over the code, keeping the codebase permanently lightweight, clean, and bug-free.
+

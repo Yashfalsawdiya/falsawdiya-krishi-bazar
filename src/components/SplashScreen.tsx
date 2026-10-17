@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
 import SmartImage from './SmartImage';
-import { ShieldCheck, TrendingUp, Sparkles } from 'lucide-react';
 
 const SplashScreen: React.FC = () => {
   const { appContent } = useAppContext();
@@ -76,22 +75,6 @@ const SplashScreen: React.FC = () => {
               <p className="text-xs sm:text-sm md:text-base font-bold text-[#5c4028] mt-1.5 tracking-wide">
                 {branding.tagline}
               </p>
-
-              {/* Agricultural Feature Pillars */}
-              <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 mt-5">
-                <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/90 backdrop-blur-sm border border-emerald-200/80 text-[11px] sm:text-xs font-bold text-emerald-900 shadow-2xs">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>प्रमाणित खाद-बीज</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/90 backdrop-blur-sm border border-emerald-200/80 text-[11px] sm:text-xs font-bold text-emerald-900 shadow-2xs">
-                  <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>दैनिक ताज़ा मंडी भाव</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/90 backdrop-blur-sm border border-emerald-200/80 text-[11px] sm:text-xs font-bold text-emerald-900 shadow-2xs">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>AI फसल डॉक्टर</span>
-                </div>
-              </div>
             </motion.div>
           </div>
 
