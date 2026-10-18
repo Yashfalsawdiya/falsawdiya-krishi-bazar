@@ -340,46 +340,97 @@ const Weather: React.FC = () => {
 
       {/* Hourly Forecast */}
       {weather.hourly && weather.hourly.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="font-bold text-[#4A3728] px-1 flex items-center justify-between">
-            प्रति घंटा पूर्वानुमान
-            <span className="text-[10px] text-[#2D5A27] font-bold bg-[#2D5A27]/10 px-2 py-0.5 rounded-full">
+        <div className="space-y-3.5">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#2D5A27]" />
+              <h3 className="font-black text-gray-900 text-sm tracking-tight">
+                प्रति घंटा पूर्वानुमान
+              </h3>
+            </div>
+            <span className="text-[10px] font-bold text-[#2D5A27] bg-[#2D5A27]/10 px-2 py-0.5 rounded-md font-mono">
               अगले 24 घंटे
             </span>
-          </h3>
-          <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 hide-scrollbar snap-x">
+          </div>
+
+          <div className="flex gap-2.5 overflow-x-auto pb-3 pt-1 -mx-4 px-4 hide-scrollbar snap-x scroll-smooth">
             {weather.hourly.map((hour, idx) => {
               const sanitized = getSanitizedHourlyInfo(hour);
               const Icon = getIcon(sanitized.condition, sanitized.isNight);
               const isBadWeather = sanitized.isBad;
               const formattedTime = hour.timeIso ? formatWeatherTime(hour.timeIso, language) : hour.time;
+              const isCurrentHour = idx === 0;
+
+              // Weather-aware icon pod styles
+              const cond = sanitized.condition.toLowerCase();
+              const isRain = cond.includes('बारिश') || cond.includes('बूंदाबांदी') || cond.includes('बौछार') || cond.includes('गरज') || cond.includes('ओले') || sanitized.rainProb >= 40;
+              const isSunny = !sanitized.isNight && (cond.includes('साफ') || cond.includes('धूप') || cond.includes('sunny'));
+              const isNight = sanitized.isNight;
+
+              const iconPodStyle = isRain
+                ? "bg-gradient-to-br from-sky-50 to-blue-100/70 text-sky-600 border-sky-200/80 shadow-sky-500/5"
+                : isSunny
+                ? "bg-gradient-to-br from-amber-50 to-orange-100/70 text-amber-500 border-amber-200/80 shadow-amber-500/5"
+                : isNight
+                ? "bg-gradient-to-br from-indigo-50/80 to-slate-100 text-indigo-500 border-indigo-200/70 shadow-indigo-500/5"
+                : "bg-gradient-to-br from-emerald-50 to-teal-100/70 text-[#2D5A27] border-emerald-200/80 shadow-emerald-500/5";
+
+              const cardStyle = isBadWeather
+                ? "bg-gradient-to-b from-sky-50/80 via-white to-blue-50/40 border-sky-300 shadow-sky-500/5"
+                : "bg-white border-gray-200/80 hover:border-[#2D5A27]/40 shadow-2xs hover:shadow-sm";
 
               return (
                 <motion.div 
                   key={idx}
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  initial={{ opacity: 0, scale: 0.92 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: Math.min(idx * 0.03, 1) }}
-                  className={`flex-[0_0_85px] snap-start min-w-0 rounded-2xl p-3 flex flex-col items-center gap-1 border transition-all ${
-                    isBadWeather 
-                    ? 'bg-blue-50 border-blue-200' 
-                    : 'bg-white border-gray-100'
-                  }`}
+                  transition={{ delay: Math.min(idx * 0.02, 0.25) }}
+                  className={cn(
+                    "flex-[0_0_92px] sm:flex-[0_0_98px] snap-start min-w-0 h-[152px] rounded-2xl p-2.5 flex flex-col items-center justify-between border transition-all duration-200 select-none group relative overflow-hidden",
+                    cardStyle
+                  )}
                 >
-                  <p className="text-[10px] font-bold text-gray-500">{formattedTime}</p>
-                  <Icon className={`w-7 h-7 my-1 ${isBadWeather ? 'text-blue-500' : 'text-[#2D5A27]'}`} />
-                  <p className="font-black text-gray-800">{hour.temp}°</p>
-                  {sanitized.showProb && (
-                    <div className="flex items-center gap-0.5 mt-0.5">
-                      <Droplets className="w-2.5 h-2.5 text-blue-400" />
-                      <span className="text-[9px] font-bold text-blue-600">{sanitized.rainProb}%</span>
-                    </div>
-                  )}
-                  {isBadWeather && (
-                    <span className="text-[8px] font-black text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded-full mt-1">
-                      सावधान
+                  {/* Top: Time Label (Exact same styling for 'अभी' as other hours) */}
+                  <div className="flex flex-col items-center justify-center w-full min-h-[22px]">
+                    <span className="text-[11px] font-bold text-gray-500 font-mono tracking-tight whitespace-nowrap">
+                      {isCurrentHour ? 'अभी' : formattedTime}
                     </span>
-                  )}
+                  </div>
+
+                  {/* Center: Modern Squircle Pod + Bold Temperature */}
+                  <div className="flex flex-col items-center gap-1.5 my-auto">
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center border transition-transform duration-200 group-hover:scale-105 shadow-2xs",
+                      iconPodStyle
+                    )}>
+                      <Icon className="w-5 h-5 stroke-[2.2]" />
+                    </div>
+
+                    <div className="flex items-baseline justify-center">
+                      <span className="text-base sm:text-lg font-black text-gray-900 font-mono tracking-tight">
+                        {hour.temp}
+                      </span>
+                      <span className="text-xs font-bold text-[#2D5A27] ml-0.5">°C</span>
+                    </div>
+                  </div>
+
+                  {/* Bottom: Rain Probability, Caution Pill, or Condition */}
+                  <div className="w-full flex items-center justify-center min-h-[20px]">
+                    {sanitized.showProb ? (
+                      <div className="flex items-center gap-1 text-[10px] font-bold text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded-md border border-sky-200/80 shadow-2xs font-mono">
+                        <Droplets className="w-2.5 h-2.5 text-sky-500 shrink-0" />
+                        <span>{sanitized.rainProb}%</span>
+                      </div>
+                    ) : isBadWeather ? (
+                      <span className="text-[9px] font-black text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full shadow-2xs">
+                        सावधान
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-gray-400 truncate max-w-full px-1">
+                        {sanitized.condition}
+                      </span>
+                    )}
+                  </div>
                 </motion.div>
               );
             })}
