@@ -10,12 +10,10 @@ import {
   Droplets, 
   Landmark, 
   ShoppingBag, 
-  Sparkles,
   Search,
   Copy,
   Check,
   Clock,
-  MapPin,
   AlertCircle,
   MessageCircle,
   ShieldAlert,
@@ -325,111 +323,6 @@ const Helpline: React.FC = () => {
         </div>
       </div>
 
-      {/* Featured Modern Hero Card */}
-      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#183D16] via-[#224A1E] to-[#2D5A27] text-white p-5 sm:p-7 shadow-lg">
-        {/* Subtle decorative background watermarks */}
-        <div className="absolute top-0 right-0 -mr-8 -mt-8 w-56 h-56 rounded-full bg-white/5 pointer-events-none blur-2xl" />
-        <PhoneCall className="absolute -right-6 -bottom-6 w-44 h-44 text-white/5 pointer-events-none" />
-
-        <div className="relative z-10 space-y-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-white text-xs font-bold tracking-wide border border-white/20">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            24×7 किसान सुविधा केंद्र
-          </div>
-
-          <div className="max-w-2xl">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white leading-tight">
-              फल्सावदिया कृषि बाजार एवं मुख्य किसान हेल्पलाइन
-            </h2>
-            <p className="text-xs sm:text-sm text-white/80 mt-1.5 leading-relaxed font-normal">
-              हमारी दुकान से सीधे संपर्क करें अथवा सरकारी कृषि परामर्श, बिजली आपूर्ति, फसल बीमा या आपातकालीन सहायता के लिए एक क्लिक में कॉल करें।
-            </p>
-          </div>
-
-          {/* Direct Dial Quick Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            {/* Store Direct Dial */}
-            <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex flex-col justify-between hover:bg-white/15 transition-colors">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-1.5 text-emerald-300 text-xs font-bold">
-                    <ShoppingBag className="w-3.5 h-3.5" />
-                    हमारी दुकान (मुख्य शाखा)
-                  </div>
-                  <h3 className="font-bold text-white text-base mt-1">
-                    फल्सावदिया कृषि बाजार
-                  </h3>
-                  <p className="text-[11px] text-white/70 flex items-center gap-1 mt-0.5">
-                    <MapPin className="w-3 h-3 shrink-0" />
-                    डिंपल चौराहा, शामगढ़ (म.प्र.)
-                  </p>
-                  <p className="text-[11px] text-white/70 flex items-center gap-1 mt-0.5">
-                    <Clock className="w-3 h-3 shrink-0" />
-                    सुबह 8:00 AM – रात 8:00 PM
-                  </p>
-                </div>
-                <span className="font-mono font-black text-white text-lg tracking-tight bg-white/10 px-2 py-1 rounded-lg">
-                  8982338046
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 mt-3 pt-2 border-t border-white/10">
-                <button
-                  onClick={() => handleCall('8982338046')}
-                  className="flex-1 bg-white hover:bg-gray-100 text-[#183D16] font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-sm"
-                >
-                  <PhoneCall className="w-3.5 h-3.5 text-[#183D16]" />
-                  सीधे कॉल करें
-                </button>
-                <a
-                  href="https://wa.me/918982338046"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-[#25D366] hover:bg-[#20ba59] text-white font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm"
-                  title="व्हाट्सएप पर संदेश भेजें"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  व्हाट्सएप
-                </a>
-              </div>
-            </div>
-
-            {/* Kisan Call Center Direct Dial */}
-            <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex flex-col justify-between hover:bg-white/15 transition-colors">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-1.5 text-amber-300 text-xs font-bold">
-                    <Headphones className="w-3.5 h-3.5" />
-                    सरकारी निःशुल्क सहायता
-                  </div>
-                  <h3 className="font-bold text-white text-base mt-1">
-                    किसान कॉल सेंटर (KCC)
-                  </h3>
-                  <p className="text-[11px] text-white/70 mt-0.5">
-                    कृषि, खाद, बीज व फसल रोग निवारण हेतु सरकारी कृषि वैज्ञानिक सलाह
-                  </p>
-                  <p className="text-[11px] text-emerald-300 font-medium mt-1">
-                    टोल-फ्री · सभी फोन से पूर्णतः निःशुल्क
-                  </p>
-                </div>
-                <span className="font-mono font-black text-amber-300 text-sm sm:text-base tracking-tight bg-white/10 px-2 py-1 rounded-lg">
-                  1800-180-1551
-                </span>
-              </div>
-
-              <div className="mt-3 pt-2 border-t border-white/10">
-                <button
-                  onClick={() => handleCall('18001801551')}
-                  className="w-full bg-white hover:bg-gray-100 text-[#183D16] font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-sm"
-                >
-                  <PhoneCall className="w-3.5 h-3.5 text-[#183D16]" />
-                  टोल-फ्री डायल करें
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Search & Category Filter Bar */}
       <div className="bg-white rounded-2xl p-3 sm:p-4 border border-gray-200/80 shadow-xs space-y-3">

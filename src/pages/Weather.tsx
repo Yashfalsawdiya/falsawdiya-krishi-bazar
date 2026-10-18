@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CloudSun, Wind, Droplets, Sun, CloudRain, Thermometer, Loader2, Cloud, CloudLightning, RefreshCw, Navigation, Moon, CloudMoon, ArrowUp, ArrowDown } from 'lucide-react';
+import { CloudSun, Wind, Droplets, Sun, CloudRain, Thermometer, Loader2, Cloud, CloudLightning, RefreshCw, Navigation, Moon, CloudMoon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { fetchWeather, WeatherData } from '../services/weatherService';
 import { 
@@ -252,172 +252,59 @@ const Weather: React.FC = () => {
         const isNowNight = weather.hourly && weather.hourly.length > 0 ? weather.hourly[0].isNight : (new Date().getHours() < 6 || new Date().getHours() >= 19);
         const MainIcon = getIcon(weather.condition, isNowNight);
 
-        const cond = weather.condition.toLowerCase();
-        const isRain = cond.includes('बारिश') || cond.includes('बूंदाबांदी') || cond.includes('बौछार') || cond.includes('गरज') || cond.includes('ओले');
-        const isSunny = !isNowNight && (cond.includes('साफ') || cond.includes('धूप') || cond.includes('sunny'));
-
-        // Ambient atmospheric glow behind the weather pod
-        const ambientGlowColor = isRain
-          ? "from-sky-400/20 via-blue-400/10 to-transparent"
-          : isSunny
-          ? "from-amber-400/25 via-orange-400/15 to-transparent"
-          : isNowNight
-          ? "from-indigo-500/20 via-purple-500/10 to-transparent"
-          : "from-emerald-400/20 via-teal-400/10 to-transparent";
-
-        // Modern Hero Weather Pod
-        const heroPodStyle = isRain
-          ? "bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50/80 text-sky-600 border-sky-200/90 shadow-sky-500/10"
-          : isSunny
-          ? "bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 text-amber-500 border-amber-200/90 shadow-amber-500/10"
-          : isNowNight
-          ? "bg-gradient-to-br from-indigo-50 via-slate-50 to-purple-50 text-indigo-500 border-indigo-200/90 shadow-indigo-500/10"
-          : "bg-gradient-to-br from-emerald-50 via-teal-50 to-green-50 text-[#2D5A27] border-emerald-200/90 shadow-emerald-500/10";
-
-        const todayDate = weather.dateStr ? parseLocalDate(weather.dateStr) : new Date();
-        const todayDayLabel = formatWeekday(todayDate, language);
-        const todayFullDate = formatFullDate(todayDate, language);
-
         return (
           <motion.div 
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="group relative bg-white rounded-3xl p-5 sm:p-7 shadow-sm hover:shadow-md border border-gray-200/90 transition-all duration-300 overflow-hidden"
+            className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100"
           >
-            {/* Ambient Atmospheric Glow */}
-            <div 
-              className={cn(
-                "absolute -top-16 -right-16 w-64 h-64 rounded-full bg-radial blur-3xl pointer-events-none transition-all duration-700",
-                ambientGlowColor
-              )} 
-            />
-
-            <div className="relative z-10 flex flex-col justify-between">
-              {/* Top Bar: Location + Today Date Badge + Refresh Action */}
-              <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="flex items-center gap-1.5 text-[#2D5A27] bg-[#2D5A27]/5 px-3 py-1 rounded-full border border-[#2D5A27]/10">
-                    <Navigation className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
-                    <span className="text-xs sm:text-sm font-bold tracking-tight">
-                      {getLocalizedCity(locationName, language)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <span className="font-black text-white bg-[#2D5A27] px-2.5 py-0.5 rounded-md shadow-2xs">
-                      आज
-                    </span>
-                    <span className="font-bold text-gray-800">
-                      {todayDayLabel}
-                    </span>
-                    {todayFullDate && (
-                      <span className="font-semibold text-gray-500 font-mono">
-                        {todayFullDate}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <button 
-                  onClick={handleRefresh}
-                  title="ताज़ा मौसम लोड करें"
-                  className="flex items-center gap-1.5 text-xs font-bold text-[#2D5A27] bg-[#2D5A27]/5 hover:bg-[#2D5A27]/10 px-3 py-1.5 rounded-xl border border-[#2D5A27]/15 transition-all active:scale-95 shadow-2xs"
-                >
-                  <RefreshCw className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">ताज़ा करें</span>
-                </button>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-[#2D5A27]">
+                <Navigation className="w-4 h-4" />
+                <span className="text-sm font-bold">
+                  {getLocalizedCity(locationName, language)}
+                </span>
               </div>
+              <button 
+                onClick={handleRefresh}
+                className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors cursor-pointer"
+                title="ताज़ा करें"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
 
-              {/* Hero Weather Section: Left = Temperature & Conditions | Right = Eye-catching Weather Pod */}
-              <div className="flex items-center justify-between gap-4 py-1">
-                {/* Left Side */}
-                <div className="min-w-0">
-                  <div className="flex items-baseline">
-                    <span className="text-6xl sm:text-7xl font-black text-gray-900 tracking-tight font-mono leading-none">
-                      {weather.temp}
-                    </span>
-                    <span className="text-2xl sm:text-3xl font-black text-[#2D5A27] font-mono ml-1">
-                      °C
-                    </span>
-                  </div>
-
-                  <div className="mt-2.5">
-                    <p className="text-lg sm:text-xl font-black text-gray-900 tracking-tight">
-                      {getConditionLabel(weather.condition, weather.weatherCode)}
-                    </p>
-                  </div>
-
-                  {/* High / Low Pills */}
-                  <div className="mt-3 flex items-center gap-2 flex-wrap">
-                    <div className="inline-flex items-center gap-1 text-xs font-bold text-amber-900 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/80 font-mono shadow-2xs">
-                      <ArrowUp className="w-3 h-3 text-amber-600 shrink-0" />
-                      <span>हाई {weather.maxTemp}°</span>
-                    </div>
-                    <div className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/80 font-mono shadow-2xs">
-                      <ArrowDown className="w-3 h-3 text-slate-500 shrink-0" />
-                      <span>लो {weather.minTemp}°</span>
-                    </div>
-                  </div>
+            <div className="flex items-center justify-between my-2">
+              <div>
+                <div className="text-5xl sm:text-6xl font-bold text-gray-800">
+                  {weather.temp}°C
                 </div>
-
-                {/* Right Side: Hero Weather Pod */}
-                <div className="shrink-0 pl-2">
-                  <div className={cn(
-                    "w-24 h-24 sm:w-28 sm:h-28 rounded-3xl flex items-center justify-center border shadow-sm transition-transform duration-300 hover:scale-105",
-                    heroPodStyle
-                  )}>
-                    <MainIcon className="w-12 h-12 sm:w-14 sm:h-14 stroke-[1.9]" />
-                  </div>
+                <p className="text-gray-500 font-medium mt-1">
+                  {getConditionLabel(weather.condition, weather.weatherCode)}
+                </p>
+                <div className="flex gap-4 mt-2 text-xs text-gray-400">
+                  <span>अधिकतम: {weather.maxTemp}°C</span>
+                  <span>न्यूनतम: {weather.minTemp}°C</span>
                 </div>
               </div>
+              <MainIcon className="w-20 h-20 text-[#2D5A27]" />
+            </div>
 
-              {/* Bottom Micro-Cards Grid */}
-              <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5 pt-5 mt-5 border-t border-gray-100">
-                {/* Humidity */}
-                <div className="bg-sky-50/50 hover:bg-sky-50/80 rounded-2xl p-3 border border-sky-100/80 transition-colors flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                      नमी
-                    </span>
-                    <div className="w-6 h-6 rounded-lg bg-sky-100 flex items-center justify-center text-sky-600">
-                      <Droplets className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                  <p className="text-base sm:text-lg font-black text-gray-900 font-mono">
-                    {weather.humidity}%
-                  </p>
-                </div>
-
-                {/* Wind */}
-                <div className="bg-emerald-50/40 hover:bg-emerald-50/70 rounded-2xl p-3 border border-emerald-100/80 transition-colors flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                      हवा
-                    </span>
-                    <div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center text-[#2D5A27]">
-                      <Wind className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                  <p className="text-base sm:text-lg font-black text-gray-900 font-mono truncate">
-                    {weather.windSpeed} <span className="text-xs font-semibold text-gray-500">km/h</span>
-                  </p>
-                </div>
-
-                {/* Rain */}
-                <div className="bg-blue-50/40 hover:bg-blue-50/70 rounded-2xl p-3 border border-blue-100/80 transition-colors flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                      बारिश
-                    </span>
-                    <div className="w-6 h-6 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
-                      <CloudRain className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                  <p className="text-base sm:text-lg font-black text-gray-900 font-mono">
-                    {weather.rain} <span className="text-xs font-semibold text-gray-500">mm</span>
-                  </p>
-                </div>
+            <div className="grid grid-cols-3 gap-2 border-t border-gray-100 pt-4 mt-4 text-center">
+              <div className="flex flex-col items-center">
+                <Droplets className="w-5 h-5 text-blue-500 mb-1" />
+                <span className="text-xs text-gray-400">नमी</span>
+                <span className="text-sm font-bold text-gray-700">{weather.humidity}%</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <Wind className="w-5 h-5 text-gray-500 mb-1" />
+                <span className="text-xs text-gray-400">हवा</span>
+                <span className="text-sm font-bold text-gray-700">{weather.windSpeed} km/h</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <CloudRain className="w-5 h-5 text-blue-400 mb-1" />
+                <span className="text-xs text-gray-400">बारिश</span>
+                <span className="text-sm font-bold text-gray-700">{weather.rain} mm</span>
               </div>
             </div>
           </motion.div>
