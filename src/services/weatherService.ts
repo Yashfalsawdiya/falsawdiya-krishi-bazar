@@ -8,11 +8,14 @@ export interface WeatherData {
   maxTemp: number;
   minTemp: number;
   location?: string;
+  dateStr?: string;
   forecast: {
     day: string;
     dateStr?: string;
     weatherCode?: number;
     temp: string;
+    maxTemp?: string;
+    minTemp?: string;
     condition: string;
     rainProb?: number;
   }[];
@@ -63,19 +66,47 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
   const cachedData = localStorage.getItem(CACHE_KEY);
   const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
 
+  const HINDI_DAYS = ['रविवार', 'सोमवार', 'मंगलवार', 'बुधवार', 'गुरुवार', 'शुक्रवार', 'शनिवार'];
+  const todayY = now.getFullYear();
+  const todayM = String(now.getMonth() + 1).padStart(2, '0');
+  const todayD = String(now.getDate()).padStart(2, '0');
+  const todayDateStr = `${todayY}-${todayM}-${todayD}`;
+
   // Check Cache (unless forced)
   if (!force && cachedData && cachedTime) {
     const age = now.getTime() - parseInt(cachedTime);
     if (age < CACHE_DURATION) {
       try {
-        return JSON.parse(cachedData);
+        const parsed = JSON.parse(cachedData);
+        // Verify cache is valid and not from a previous calendar day
+        if (!parsed.dateStr || parsed.dateStr === todayDateStr) {
+          return parsed;
+        }
       } catch (e) {
         console.warn("Error parsing cached weather data:", e);
       }
     }
   }
 
-  // Fallback Data updated to 7 days
+  // Dynamic 7-day fallback data strictly calculated from current calendar dates
+  const dynamicFallbackForecast = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (i + 1), 12, 0, 0);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dayNum = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${dayNum}`;
+    const dayName = HINDI_DAYS[d.getDay()];
+    return {
+      day: dayName,
+      dateStr,
+      temp: `${32 + (i % 3)}°C`,
+      maxTemp: `${34 + (i % 2)}°C`,
+      minTemp: `${24 + (i % 2)}°C`,
+      condition: 'साफ',
+      rainProb: 10 + (i * 2)
+    };
+  });
+
   const fallbackData: WeatherData = {
     temp: 30,
     condition: 'साफ आसमान',
@@ -84,15 +115,8 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
     rain: 0,
     maxTemp: 35,
     minTemp: 25,
-    forecast: [
-      { day: 'कल (Tomorrow)', temp: '32°C', condition: 'साफ', rainProb: 10 },
-      { day: 'सोमवार', temp: '33°C', condition: 'साफ', rainProb: 15 },
-      { day: 'मंगलवार', temp: '34°C', condition: 'साफ', rainProb: 10 },
-      { day: 'बुधवार', temp: '35°C', condition: 'साफ', rainProb: 5 },
-      { day: 'गुरुवार', temp: '34°C', condition: 'साफ', rainProb: 20 },
-      { day: 'शुक्रवार', temp: '33°C', condition: 'साफ', rainProb: 15 },
-      { day: 'शनिवार', temp: '32°C', condition: 'साफ', rainProb: 25 },
-    ],
+    dateStr: todayDateStr,
+    forecast: dynamicFallbackForecast,
     hourly: []
   };
 
@@ -110,14 +134,19 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
     
     // Slice 1 to 8 to get exactly 7 days of forecast starting from tomorrow
     const forecast = data.daily.time.slice(1, 8).map((time: string, index: number) => {
-      const date = new Date(time);
-      const dayName = index === 0 ? 'कल (Tomorrow)' : days[date.getDay()];
+      const parts = time.split('-');
+      const date = parts.length === 3 
+        ? new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0)
+        : new Date(time);
+      const dayName = days[date.getDay()];
       const wCode = data.daily.weather_code[index + 1];
       return {
         day: dayName,
         dateStr: time,
         weatherCode: wCode,
         temp: `${Math.round(data.daily.temperature_2m_max[index + 1])}°C`,
+        maxTemp: `${Math.round(data.daily.temperature_2m_max[index + 1])}°C`,
+        minTemp: `${Math.round(data.daily.temperature_2m_min[index + 1])}°C`,
         condition: CONDITION_MAP[wCode] || 'साफ',
         rainProb: data.daily.precipitation_probability_max ? data.daily.precipitation_probability_max[index + 1] : undefined
       };
@@ -177,6 +206,7 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
       rain: data.current.precipitation,
       maxTemp: Math.round(data.daily.temperature_2m_max[0]),
       minTemp: Math.round(data.daily.temperature_2m_min[0]),
+      dateStr: data.daily?.time?.[0] || todayDateStr,
       forecast,
       hourly
     };
@@ -205,11 +235,19 @@ export const fetchWeather = async (lat: number, lon: number, force: boolean = fa
           rain: parseFloat(current.precipMM),
           maxTemp: parseInt(d.weather[0].maxtempC),
           minTemp: parseInt(d.weather[0].mintempC),
-          forecast: d.weather.slice(1, 8).map((w: any) => ({
-            day: new Date(w.date).toLocaleDateString('hi-IN', { weekday: 'long' }),
-            temp: `${w.maxtempC}°C`,
-            condition: w.hourly?.[4]?.lang_hi?.[0]?.value || w.hourly?.[4]?.weatherDesc?.[0]?.value || 'साफ'
-          })),
+          dateStr: d.weather?.[0]?.date || todayDateStr,
+          forecast: d.weather.slice(1, 8).map((w: any) => {
+            const dateObj = new Date(w.date + 'T12:00:00');
+            const dayName = HINDI_DAYS[dateObj.getDay()] || 'सोमवार';
+            return {
+              day: dayName,
+              dateStr: w.date,
+              temp: `${w.maxtempC}°C`,
+              maxTemp: `${w.maxtempC}°C`,
+              minTemp: `${w.mintempC}°C`,
+              condition: w.hourly?.[4]?.lang_hi?.[0]?.value || w.hourly?.[4]?.weatherDesc?.[0]?.value || 'साफ'
+            };
+          }),
           hourly: []
         };
         return wttrWeather;

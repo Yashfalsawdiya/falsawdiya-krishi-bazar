@@ -5,9 +5,13 @@ import { fetchWeather, WeatherData } from '../services/weatherService';
 import { 
   getHindiCondition,
   formatWeekday, 
+  formatFullDate,
+  formatShortDate,
   formatWeatherTime, 
+  parseLocalDate,
   getLocalizedCity 
 } from '../utils/weatherLocalization';
+import { cn } from '../lib/utils';
 
 const language = 'hi';
 
@@ -258,7 +262,7 @@ const Weather: React.FC = () => {
         </div>
         
         <div className="relative z-10">
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 text-[#2D5A27]">
               <Navigation className="w-3.5 h-3.5" />
               <span className="text-sm font-bold">
@@ -268,11 +272,34 @@ const Weather: React.FC = () => {
             <button 
               onClick={handleRefresh}
               title="मौसम अपडेट करें"
-              className="p-2 text-[#2D5A27] bg-[#2D5A27]/5 rounded-xl active:rotate-180 transition-all"
+              className="p-2 text-[#2D5A27] bg-[#2D5A27]/5 rounded-xl active:rotate-180 transition-all hover:bg-[#2D5A27]/10"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
           </div>
+
+          {/* Today Date & Weekday - 100% consistent format with forecast cards */}
+          {(() => {
+            const todayDate = weather.dateStr ? parseLocalDate(weather.dateStr) : new Date();
+            const todayDayLabel = formatWeekday(todayDate, language);
+            const todayFullDate = formatFullDate(todayDate, language);
+            return (
+              <div className="flex items-baseline gap-2 mb-4 flex-wrap">
+                <span className="text-xs font-black text-white bg-[#2D5A27] px-2 py-0.5 rounded-md shadow-2xs">
+                  आज
+                </span>
+                <span className="font-black text-gray-900 text-sm sm:text-base tracking-tight whitespace-nowrap">
+                  {todayDayLabel}
+                </span>
+                {todayFullDate && (
+                  <span className="text-xs font-bold text-gray-500 font-mono tracking-tight whitespace-nowrap">
+                    {todayFullDate}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+
           <div className="flex items-end gap-4 mb-6">
             <h1 className="text-6xl font-bold text-[#4A3728]">{weather.temp}°</h1>
             <div className="pb-2">
@@ -361,43 +388,119 @@ const Weather: React.FC = () => {
       )}
 
       {/* 7-Day Forecast */}
-      <div className="space-y-3">
-        <h3 className="font-bold text-[#4A3728] px-1">
-          अगले 7 दिन का पूर्वानुमान
-        </h3>
+      <div className="space-y-3.5">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-[#2D5A27]" />
+            <h3 className="font-black text-gray-900 text-sm tracking-tight">
+              अगले 7 दिन का पूर्वानुमान
+            </h3>
+          </div>
+          <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md font-mono">
+            दैनिक अपडेट
+          </span>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {weather.forecast.map((item, idx) => {
           const sanitized = getSanitizedDailyInfo(item);
           const Icon = getIcon(sanitized.condition);
-          const dayLabel = idx === 0 
-            ? 'कल' 
-            : (item.dateStr ? formatWeekday(item.dateStr, language) : item.day);
+          
+          // Dynamically calculate actual Hindi weekday and full date strictly from date
+          const parsedDate = item.dateStr 
+            ? parseLocalDate(item.dateStr) 
+            : new Date(Date.now() + (idx + 1) * 86400000);
+          const dayLabel = formatWeekday(parsedDate, language);
+          const fullFormattedDate = formatFullDate(parsedDate, language);
           const conditionLabel = getConditionLabel(sanitized.condition, item.weatherCode);
+
+          // Weather-aware icon pod styles
+          const cond = sanitized.condition.toLowerCase();
+          const isRain = cond.includes('बारिश') || cond.includes('बूंदाबांदी') || cond.includes('बौछार') || cond.includes('गरज') || cond.includes('ओले') || sanitized.rainProb >= 40;
+          const isSunny = cond.includes('साफ') || cond.includes('धूप') || cond.includes('sunny');
+
+          const iconPodStyle = isRain
+            ? "bg-gradient-to-br from-sky-50 to-blue-50/80 text-sky-600 border-sky-200/80 shadow-sky-500/5"
+            : isSunny
+            ? "bg-gradient-to-br from-amber-50 to-orange-50/80 text-amber-500 border-amber-200/80 shadow-amber-500/5"
+            : "bg-gradient-to-br from-emerald-50 to-teal-50/80 text-[#2D5A27] border-emerald-200/80 shadow-emerald-500/5";
+
+          // Extract pure numeric temperatures for clean display
+          const maxTempClean = (item.maxTemp || item.temp || '').replace(/[^0-9.-]/g, '');
+          const minTempClean = (item.minTemp || '').replace(/[^0-9.-]/g, '');
 
           return (
             <motion.div 
               key={idx}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              className="bg-white rounded-2xl p-4 flex items-center justify-between shadow-sm border border-gray-50"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: Math.min(idx * 0.04, 0.3) }}
+              className="group relative bg-white rounded-2xl p-4 flex items-center justify-between border border-gray-200/80 hover:border-[#2D5A27]/40 shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 select-none overflow-hidden"
             >
-              <div className="flex items-center gap-4">
-                <div className="bg-[#F5F2ED] p-2 rounded-xl">
-                  <Icon className="w-6 h-6 text-[#2D5A27]" />
+              {/* Left Side: Modern Dual-tone Squircle Icon + Day/Date/Condition Info */}
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className={cn(
+                  "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border transition-transform duration-200 group-hover:scale-105",
+                  iconPodStyle
+                )}>
+                  <Icon className="w-6 h-6 stroke-[2]" />
                 </div>
-                <div>
-                  <p className="font-bold text-gray-800">{dayLabel}</p>
-                  <p className="text-xs text-gray-500">{conditionLabel}</p>
-                  {sanitized.showProb && (
-                    <p className="text-[11px] font-black text-sky-700 mt-1.5 flex items-center gap-1 bg-sky-50/80 px-2.5 py-1 rounded-full border border-sky-100/80 w-fit">
-                      <Droplets className="w-3 h-3 text-sky-500 shrink-0" />
-                      वर्षा संभावना: {sanitized.rainProb}%
+
+                <div className="min-w-0">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <p className="font-black text-gray-900 text-sm sm:text-base tracking-tight whitespace-nowrap group-hover:text-[#2D5A27] transition-colors">
+                      {dayLabel}
                     </p>
+                    {fullFormattedDate && (
+                      <span className="text-xs font-bold text-gray-500 font-mono tracking-tight whitespace-nowrap">
+                        {fullFormattedDate}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-gray-500 font-semibold mt-0.5 truncate">
+                    {conditionLabel}
+                  </p>
+
+                  {/* Rain Probability / Weather Indicator */}
+                  {sanitized.showProb ? (
+                    <div className="mt-1.5 flex items-center gap-1 text-[11px] font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200/70 w-fit shadow-2xs">
+                      <Droplets className="w-3 h-3 text-sky-500 shrink-0" />
+                      <span>वर्षा संभावना: <strong className="font-black font-mono">{sanitized.rainProb}%</strong></span>
+                    </div>
+                  ) : (
+                    <div className="mt-1 flex items-center gap-1 text-[10px] font-medium text-gray-400">
+                      <Droplets className="w-2.5 h-2.5 text-gray-300 shrink-0" />
+                      <span>वर्षा: {sanitized.rainProb}%</span>
+                    </div>
                   )}
                 </div>
               </div>
-              <p className="text-lg font-black text-[#2D5A27]">{item.temp}</p>
+
+              {/* Right Side: Temperature High/Low Display */}
+              <div className="text-right shrink-0 pl-3">
+                <div className="flex items-baseline justify-end gap-0.5">
+                  <span className="text-2xl sm:text-3xl font-black text-[#1B4318] tracking-tight font-mono">
+                    {maxTempClean || '30'}
+                  </span>
+                  <span className="text-xs font-bold text-[#2D5A27]">°C</span>
+                </div>
+
+                {minTempClean ? (
+                  <div className="text-[10px] font-mono font-bold text-gray-400 mt-0.5 flex items-center justify-end gap-1">
+                    <span className="text-slate-500 bg-slate-50 px-1 py-0.2 rounded border border-slate-200/80">
+                      लो {minTempClean}°
+                    </span>
+                    <span className="text-amber-800 bg-amber-50 px-1 py-0.2 rounded border border-amber-200/80">
+                      हाई {maxTempClean}°
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-[10px] font-bold text-gray-400 block mt-0.5">
+                    अधिकतम
+                  </span>
+                )}
+              </div>
             </motion.div>
           );
         })}

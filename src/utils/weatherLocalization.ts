@@ -72,17 +72,76 @@ export function getHindiCondition(condition: string, weatherCode?: number): stri
   return condition || 'साफ मौसम';
 }
 
+const HINDI_WEEKDAYS = ['रविवार', 'सोमवार', 'मंगलवार', 'बुधवार', 'गुरुवार', 'शुक्रवार', 'शनिवार'];
+const HINDI_FULL_MONTHS = [
+  'जनवरी', 'फ़रवरी', 'मार्च', 'अप्रैल', 'मई', 'जून',
+  'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'
+];
+
 /**
- * Formats day name using Intl.DateTimeFormat according to selected locale
+ * Parses YYYY-MM-DD or date object into local midday Date to eliminate any timezone / UTC shift bugs
  */
-export function formatWeekday(dateInput: Date | string | number, lang: string): string {
+export function parseLocalDate(input: Date | string | number): Date {
+  if (input instanceof Date) {
+    return new Date(input.getFullYear(), input.getMonth(), input.getDate(), 12, 0, 0);
+  }
+  if (typeof input === 'string') {
+    const cleanStr = input.trim();
+    const parts = cleanStr.split(/[-T ]/);
+    if (parts.length >= 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        return new Date(year, month, day, 12, 0, 0);
+      }
+    }
+  }
+  const d = new Date(input);
+  if (!isNaN(d.getTime())) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+  }
+  return d;
+}
+
+/**
+ * Formats day name using Hindi weekday array or Intl
+ */
+export function formatWeekday(dateInput: Date | string | number, lang: string = 'hi'): string {
   try {
-    const date = new Date(dateInput);
-    const locale = lang === 'hi' ? 'hi-IN' : 'en-IN';
-    return new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(date);
+    const date = parseLocalDate(dateInput);
+    if (isNaN(date.getTime())) return '';
+    if (lang === 'hi') {
+      return HINDI_WEEKDAYS[date.getDay()];
+    }
+    return new Intl.DateTimeFormat('en-IN', { weekday: 'long' }).format(date);
   } catch {
     return String(dateInput);
   }
+}
+
+/**
+ * Formats full date with complete month name (e.g., "19 अक्टूबर" or "19 October")
+ */
+export function formatFullDate(dateInput: Date | string | number, lang: string = 'hi'): string {
+  try {
+    const date = parseLocalDate(dateInput);
+    if (isNaN(date.getTime())) return '';
+    const day = date.getDate();
+    if (lang === 'hi') {
+      return `${day} ${HINDI_FULL_MONTHS[date.getMonth()]}`;
+    }
+    return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'long' }).format(date);
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Formats short date (e.g., "19 अक्टू" or "19 Oct")
+ */
+export function formatShortDate(dateInput: Date | string | number, lang: string): string {
+  return formatFullDate(dateInput, lang);
 }
 
 /**
