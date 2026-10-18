@@ -18,7 +18,9 @@ import {
   Copy,
   Check,
   Share2,
-  Key
+  Key,
+  CheckCircle2,
+  ExternalLink
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { cn } from '../lib/utils';
@@ -431,69 +433,86 @@ ${translateText(item.source || "Krishi Jagran")}
             <div className="grid grid-cols-1 gap-4">
               {filteredAndSortedNews.map((item, idx) => {
                 const isToday = item.date.trim() === todayDateStr;
+                const cleanSummary = translateText(item.summary).replace(/\s*\((?:स्रोत|Source):?[^)]*\)/gi, '').trim();
+
                 return (
                   <motion.div
                     key={idx}
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(idx * 0.05, 0.4) }}
-                    className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col gap-3.5 group hover:shadow-md hover:border-[#2D5A27]/25 transition-all duration-300 relative overflow-hidden"
+                    transition={{ delay: Math.min(idx * 0.04, 0.3) }}
+                    className="group relative bg-white rounded-3xl p-5 sm:p-6 border border-gray-200/85 hover:border-[#2D5A27]/40 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between gap-4 overflow-hidden"
                   >
-                    <div className="flex justify-between items-center">
+                    {/* Top Row: Category Pill + Date Badge */}
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className={cn(
-                        "px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border",
+                        "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-2xs inline-flex items-center gap-1.5",
                         getCategoryColor(item.category)
                       )}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
                         {translateText(getCategoryName(item.category))}
                       </span>
                       
-                      <div className="flex items-center gap-1.5 text-[10px] text-gray-600 font-bold bg-gray-50 px-2.5 py-1 rounded-full border border-gray-200/50">
+                      <div className="flex items-center gap-1.5 text-xs text-gray-600 font-bold bg-gray-50/90 px-2.5 py-1 rounded-full border border-gray-200/70 shadow-2xs">
                         <Calendar className="w-3.5 h-3.5 text-[#2D5A27]" />
                         {isToday && (
-                          <span className="bg-emerald-100 text-emerald-800 text-[8.5px] font-black px-1.5 py-0.5 rounded leading-none">
+                          <span className="bg-[#2D5A27] text-white text-[9px] font-black px-1.5 py-0.5 rounded leading-none shadow-2xs">
                             {isHindi ? 'आज' : 'Today'}
                           </span>
                         )}
-                        <span>{formatNewsDate(item.date, !isHindi)}</span>
+                        <span className="font-mono text-gray-700 tracking-tight">
+                          {formatNewsDate(item.date, !isHindi)}
+                        </span>
                       </div>
                     </div>
                     
-                    <div className="space-y-2">
-                      <h3 className="text-xs sm:text-sm font-black text-gray-800 leading-snug group-hover:text-[#2D5A27] transition-colors">
+                    {/* Content Section: Headline + Editorial Summary */}
+                    <div className="space-y-2.5">
+                      <h3 className="text-sm sm:text-base font-extrabold text-gray-900 leading-snug tracking-tight group-hover:text-[#2D5A27] transition-colors">
                         {translateText(item.title)}
                       </h3>
-                      <p className="text-[11px] text-gray-600 leading-relaxed font-bold">
-                        {translateText(item.summary).replace(/\s*\((?:स्रोत|Source):?[^)]*\)/gi, '').trim()}
+                      <p className="text-xs sm:text-[13px] text-gray-600 leading-relaxed font-normal">
+                        {cleanSummary}
                       </p>
                     </div>
                     
+                    {/* Bottom Action & Source Row */}
                     <div className="pt-3.5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 bg-emerald-50 border border-[#2D5A27]/10 rounded-full flex items-center justify-center font-black text-[10px] text-[#2D5A27]">
+                      {/* Left: Verified News Source Info */}
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center font-black text-xs text-[#2D5A27] shadow-2xs shrink-0 group-hover:scale-105 transition-transform">
                           {item.source ? item.source.charAt(0) : 'K'}
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">स्रोत</span>
-                          <span className="text-[10px] font-black text-gray-700">{item.source || "कृषि जागरण"}</span>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs font-black text-gray-800 tracking-tight truncate max-w-[150px] sm:max-w-[200px]">
+                              {item.source || "कृषि जागरण"}
+                            </span>
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                          </div>
+                          <span className="text-[10px] text-gray-400 font-semibold leading-tight">
+                            सत्यापित समाचार स्रोत
+                          </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      {/* Right: Modern Action Buttons */}
+                      <div className="flex items-center gap-2 flex-wrap">
                         {/* Copy Button */}
                         <button
                           onClick={(e) => handleCopy(item, idx, e)}
                           className={cn(
-                            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10.5px] font-black transition-all border cursor-pointer",
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-2xs active:scale-95 cursor-pointer",
                             copiedIdx === idx 
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
-                              : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
+                              : "bg-gray-50 text-gray-700 border-gray-200/90 hover:bg-gray-100 hover:border-gray-300"
                           )}
                           title={isHindi ? "समाचार कॉपी करें" : "Copy news"}
                         >
                           {copiedIdx === idx ? (
                             <>
                               <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>{isHindi ? 'कॉपी हो गया!' : 'Copied!'}</span>
+                              <span>{isHindi ? 'कॉपी हो गया' : 'Copied'}</span>
                             </>
                           ) : (
                             <>
@@ -503,28 +522,28 @@ ${translateText(item.source || "Krishi Jagran")}
                           )}
                         </button>
 
-                        {/* Share Button */}
+                        {/* WhatsApp Share Button */}
                         <a
                           href={`https://api.whatsapp.com/send?text=${encodeURIComponent(getFormattedNewsText(item))}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10.5px] font-black bg-[#2D5A27] text-white hover:bg-[#1E3F1A] transition-all border border-transparent shadow-sm cursor-pointer"
-                          title="WhatsApp"
+                          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#2D5A27] text-white hover:bg-[#1E3F1A] transition-all border border-transparent shadow-2xs active:scale-95 cursor-pointer"
+                          title="WhatsApp पर शेयर करें"
                         >
                           <Share2 className="w-3.5 h-3.5 text-white" />
                           <span>{isHindi ? 'शेयर' : 'Share'}</span>
                         </a>
 
-                        {/* विस्तार देखें Link */}
+                        {/* Read Full Story Button */}
                         {item.url && item.url.startsWith("http") && (
                           <a 
                             href={item.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-0.5 px-2 py-1.5 text-[10.5px] font-black text-[#2D5A27] hover:underline cursor-pointer"
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-[#2D5A27] bg-[#2D5A27]/5 hover:bg-[#2D5A27]/10 border border-[#2D5A27]/15 transition-all shadow-2xs active:scale-95 group/link cursor-pointer"
                           >
-                            <span>{isHindi ? 'विस्तार देखें' : 'Read Full Story'}</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
+                            <span>{isHindi ? 'विस्तार देखें' : 'Read Full'}</span>
+                            <ExternalLink className="w-3 h-3 text-[#2D5A27] transition-transform group-hover/link:translate-x-0.5" />
                           </a>
                         )}
                       </div>
