@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
-import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Sparkles, AlertCircle, ChevronLeft, Loader2, User, Camera, CameraOff } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Sparkles, AlertCircle, Loader2, User, Camera, CameraOff } from 'lucide-react';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
 import { useAppContext } from '../context/AppContext';
@@ -15,7 +14,6 @@ const CHUNK_SIZE = 4096;
 
 const AiAgriExpert: React.FC = () => {
   const { appContent, loading: appLoading } = useAppContext();
-  const navigate = useNavigate();
   
   const { 
     apiKey: effectiveApiKey, 
@@ -30,7 +28,7 @@ const AiAgriExpert: React.FC = () => {
   const isMutedRef = useRef(false);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
-  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+  const isSpeakerOn = true;
   const [isCameraOn, setIsCameraOn] = useState(false);
   const isCameraOnRef = useRef(false);
 
@@ -571,50 +569,6 @@ STRICT RULE ON NAME:
         onClose={closeApiKeyModal} 
         message={apiKeyModalMessage}
       />
-
-      {/* Header */}
-      <div className="w-full max-w-lg flex items-center justify-between z-20 mb-4 sm:mb-6">
-        <button 
-          onClick={() => navigate(-1)}
-          className="p-2.5 sm:p-3 bg-white/90 backdrop-blur-md rounded-2xl shadow-2xs border border-gray-200/80 active:scale-95 transition-transform cursor-pointer text-gray-700 hover:text-gray-900"
-          title="वापस जाएँ (Back)"
-        >
-          <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-        </button>
-
-        <div className="flex flex-col items-center">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/95 backdrop-blur-md border border-emerald-200/80 shadow-2xs">
-            <span className="relative flex h-2 w-2">
-              <span className={cn(
-                "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
-                status === 'connected' ? 'bg-emerald-400' : status === 'connecting' ? 'bg-amber-400' : 'bg-emerald-500'
-              )} />
-              <span className={cn(
-                "relative inline-flex rounded-full h-2 w-2",
-                status === 'connected' ? 'bg-emerald-500' : status === 'connecting' ? 'bg-amber-500' : 'bg-emerald-600'
-              )} />
-            </span>
-            <span className="text-xs font-black text-[#1B4318]">
-              {status === 'connected' ? 'लाइव बातचीत' : status === 'connecting' ? 'कनेक्ट हो रहा है...' : 'AI कृषि साथी'}
-            </span>
-            <span className="text-[10px] font-bold text-gray-400 border-l border-gray-200 pl-2">24×7</span>
-          </div>
-        </div>
-
-        {/* Speaker Volume Toggle */}
-        <button
-          onClick={() => setIsSpeakerOn(!isSpeakerOn)}
-          className={cn(
-            "p-2.5 sm:p-3 rounded-2xl shadow-2xs border transition-all active:scale-95 cursor-pointer",
-            isSpeakerOn 
-              ? "bg-white/90 backdrop-blur-md text-[#1B4318] border-gray-200/80 hover:bg-emerald-50" 
-              : "bg-red-50 text-red-600 border-red-200"
-          )}
-          title={isSpeakerOn ? "स्पीकर चालू" : "स्पीकर बंद"}
-        >
-          {isSpeakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-        </button>
-      </div>
 
       {/* Main Experience */}
       <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md z-10 space-y-6 sm:space-y-8 my-auto">
