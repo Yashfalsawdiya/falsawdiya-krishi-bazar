@@ -10,7 +10,6 @@ import {
   Droplets, 
   Landmark, 
   ShoppingBag, 
-  Search,
   Copy,
   Check,
   Clock,
@@ -20,7 +19,6 @@ import {
   Info,
   Stethoscope,
   CloudSun,
-  X,
   Share2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -139,8 +137,7 @@ const Helpline: React.FC = () => {
   const navigate = useNavigate();
   const { helplines, loadHelplines } = useAppContext();
 
-  // Search & Filter state
-  const [searchQuery, setSearchQuery] = useState('');
+  // Filter state
   const [selectedCategory, setSelectedCategory] = useState<string>('सभी');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -168,25 +165,12 @@ const Helpline: React.FC = () => {
     return ['सभी', ...Array.from(cats)];
   }, [activeHelplines]);
 
-  // Filtered helplines based on search and category
+  // Filtered helplines based on category
   const filteredHelplines = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
     return activeHelplines.filter(hp => {
-      const matchesCategory = selectedCategory === 'सभी' || hp.category === selectedCategory;
-      if (!matchesCategory) return false;
-
-      if (!query) return true;
-      const cleanNum = hp.number.replace(/[^0-9]/g, '');
-      const cleanQuery = query.replace(/[^0-9]/g, '');
-
-      const matchName = hp.name.toLowerCase().includes(query);
-      const matchCategory = hp.category.toLowerCase().includes(query);
-      const matchDesc = hp.description ? hp.description.toLowerCase().includes(query) : false;
-      const matchNum = hp.number.toLowerCase().includes(query) || (cleanQuery.length > 0 && cleanNum.includes(cleanQuery));
-
-      return matchName || matchCategory || matchDesc || matchNum;
+      return selectedCategory === 'सभी' || hp.category === selectedCategory;
     });
-  }, [activeHelplines, searchQuery, selectedCategory]);
+  }, [activeHelplines, selectedCategory]);
 
   // Copy phone number to clipboard with feedback
   const handleCopyNumber = (hp: HelplineType, e: React.MouseEvent) => {
@@ -324,31 +308,10 @@ const Helpline: React.FC = () => {
       </div>
 
 
-      {/* Search & Category Filter Bar */}
-      <div className="bg-white rounded-2xl p-3 sm:p-4 border border-gray-200/80 shadow-xs space-y-3">
-        {/* Search Input */}
-        <div className="relative">
-          <Search className="w-5 h-5 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="नाम, विभाग, सेवा या नंबर सर्च करें (उदा. बिजली, KCC, बीमा, 1912, शामगढ़)..."
-            className="w-full pl-11 pr-10 py-2.5 text-sm bg-gray-50 hover:bg-gray-100/80 focus:bg-white text-gray-900 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] transition-all"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-full cursor-pointer"
-              title="सर्च साफ़ करें"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
+      {/* Category Filter Bar */}
+      <div className="bg-white rounded-2xl p-3 sm:p-4 border border-gray-200/80 shadow-xs">
         {/* Category Pills Bar */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
           {categoriesList.map((cat) => {
             const isSelected = selectedCategory === cat;
             return (
@@ -386,12 +349,9 @@ const Helpline: React.FC = () => {
             </span>
           </div>
 
-          {(searchQuery || selectedCategory !== 'सभी') && (
+          {selectedCategory !== 'सभी' && (
             <button
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('सभी');
-              }}
+              onClick={() => setSelectedCategory('सभी')}
               className="text-xs font-bold text-[#2D5A27] hover:underline flex items-center gap-1 cursor-pointer"
             >
               रीसेट करें
@@ -402,17 +362,14 @@ const Helpline: React.FC = () => {
         {filteredHelplines.length === 0 ? (
           <div className="text-center py-16 px-4 bg-white rounded-3xl border border-dashed border-gray-200">
             <div className="w-14 h-14 mx-auto rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 mb-3">
-              <Search className="w-6 h-6" />
+              <AlertCircle className="w-6 h-6" />
             </div>
             <h4 className="font-bold text-gray-800 text-base">कोई हेल्पलाइन नंबर नहीं मिला</h4>
             <p className="text-xs text-gray-500 max-w-sm mx-auto mt-1">
-              आपके द्वारा खोजे गए शब्द &quot;{searchQuery}&quot; से मेल खाता कोई नंबर उपलब्ध नहीं है। कृपया कोई अन्य शब्द खोजें।
+              इस श्रेणी में वर्तमान में कोई हेल्पलाइन नंबर उपलब्ध नहीं है।
             </p>
             <button
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('सभी');
-              }}
+              onClick={() => setSelectedCategory('सभी')}
               className="mt-4 px-4 py-2 bg-[#2D5A27] text-white text-xs font-bold rounded-xl active:scale-95 transition-transform cursor-pointer"
             >
               सभी नंबर देखें

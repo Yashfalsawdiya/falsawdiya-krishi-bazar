@@ -49,8 +49,18 @@ const normalizeText = (text: string): string => {
     .replace(/\s+/g, " "); // collapse spacing
 };
 
+const CACHE_VERSION = 'pk_cache_v_60d_exhaustive';
+
 const getCachedResult = (query: string): ProductKnowledgeResult | null => {
   try {
+    // Purge old shallow cache if version mismatch
+    const storedVersion = localStorage.getItem('pk_cache_version');
+    if (storedVersion !== CACHE_VERSION) {
+      localStorage.removeItem('pk_smart_cache');
+      localStorage.setItem('pk_cache_version', CACHE_VERSION);
+      return null;
+    }
+
     const rawCache = localStorage.getItem('pk_smart_cache');
     if (!rawCache) return null;
     const cache: SmartCache = JSON.parse(rawCache);
@@ -66,6 +76,24 @@ const getCachedResult = (query: string): ProductKnowledgeResult | null => {
     // Check expiration
     const isExpired = Date.now() - entry.timestamp > CACHE_EXPIRY_MS;
     if (isExpired) {
+      return null;
+    }
+
+    // Invalidate dummy, empty, failed, or shallow unverified results
+    if (
+      !entry.data || 
+      !entry.data.productName || 
+      entry.data.productName === "जानकारी उपलब्ध नहीं है" || 
+      entry.data.productName.includes("पहचान नहीं") ||
+      !entry.data.sources ||
+      entry.data.sources.length < 2 ||
+      !entry.data.cropSpecificDosage ||
+      entry.data.cropSpecificDosage.length < 2 ||
+      !entry.data.modeOfAction ||
+      entry.data.modeOfAction.length < 25 ||
+      !entry.data.benefits ||
+      entry.data.benefits.length < 35
+    ) {
       return null;
     }
 
@@ -85,6 +113,20 @@ const getCachedResult = (query: string): ProductKnowledgeResult | null => {
 };
 
 const saveToCache = (query: string, data: ProductKnowledgeResult) => {
+  // Only cache high-quality, verified, deep results
+  if (
+    !data || 
+    !data.productName || 
+    data.productName === "जानकारी उपलब्ध नहीं है" || 
+    data.productName.includes("पहचान नहीं") ||
+    !data.sources ||
+    data.sources.length < 2 ||
+    !data.cropSpecificDosage ||
+    data.cropSpecificDosage.length < 2
+  ) {
+    return;
+  }
+
   try {
     const rawCache = localStorage.getItem('pk_smart_cache');
     let cache: SmartCache = { entries: {}, index: {} };
@@ -280,11 +322,12 @@ export default function AiProductKnowledge() {
           unsyncedLocal.forEach((lp) => {
             const docId = getSafeDocId(lp.productName);
             const ref = doc(db, 'users', user.uid, 'savedProducts', docId);
-            batch.set(ref, {
+            const sanitized = JSON.parse(JSON.stringify({
               ...lp,
               order: startOrder++,
               createdAt: lp.createdAt || Date.now()
-            });
+            }));
+            batch.set(ref, sanitized, { merge: true });
           });
           await batch.commit();
           return;
@@ -356,6 +399,11 @@ export default function AiProductKnowledge() {
 
     try {
       const data = await getProductKnowledge(term, effectiveApiKey);
+      if (!data || !data.productName || data.productName === "जानकारी उपलब्ध नहीं है" || data.productName.includes("पहचान नहीं")) {
+        setError("इस उत्पाद की जानकारी नहीं मिल सकी। कृपया सही नाम या स्पेलिंग (उदा. कोराजन, यूरिया, इमिडाक्लोप्रिड) लिखकर पुनः प्रयास करें।");
+        setResult(null);
+        return;
+      }
       saveToCache(term, data);
       setResult(data);
       autoSaveProduct(data);
@@ -365,7 +413,7 @@ export default function AiProductKnowledge() {
       if (friendly.type === 'key_missing' || friendly.type === 'key_invalid') {
         openApiKeyModal(friendly.message);
       } else {
-        setError(friendly.message);
+        setError(err?.message || friendly.message);
       }
     } finally {
       setIsLoading(false);
@@ -389,12 +437,12 @@ export default function AiProductKnowledge() {
           const base64 = reader.result as string;
           setSelectedImage(base64);
           
-          // Downscale and compress captured photo using HTML Canvas to keep memory low and prevent timeouts/errors
+          // Downscale and compress captured photo using HTML Canvas (800px max, 0.8 quality) for ultra-fast upload
           const img = new Image();
           img.onload = () => {
             try {
-              const maxWidth = 1024;
-              const maxHeight = 1024;
+              const maxWidth = 800;
+              const maxHeight = 800;
               let width = img.width;
               let height = img.height;
               
@@ -416,7 +464,7 @@ export default function AiProductKnowledge() {
               const ctx = canvas.getContext('2d');
               if (ctx) {
                 ctx.drawImage(img, 0, 0, width, height);
-                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
                 handleImageSearch(compressedBase64);
               } else {
                 handleImageSearch(base64);
@@ -471,8 +519,8 @@ export default function AiProductKnowledge() {
     try {
       const data = await analyzeProductImage(base64Img, effectiveApiKey);
       
-      // If product is not recognized or hasExactMatch is false, show a clear warning as requested
-      if (!data || !data.hasExactMatch || !data.productName || data.productName.includes("पहचान नहीं") || data.productName === "जानकारी उपलब्ध नहीं है") {
+      // If product is not recognized or dummy response returned, show a clear warning
+      if (!data || !data.productName || data.productName.includes("पहचान नहीं") || data.productName === "जानकारी उपलब्ध नहीं है") {
         setError("उत्पाद स्पष्ट रूप से पहचान में नहीं आया। कृपया साफ़ फोटो लें या Gallery से पुनः प्रयास करें।");
         setSelectedImage(base64Img); // Keep image preview visible
         setResult(null);
@@ -482,7 +530,7 @@ export default function AiProductKnowledge() {
       saveToCache(data.productName || "scanned_image", data);
       setResult(data);
       autoSaveProduct(data);
-      if (data.productName && data.hasExactMatch) {
+      if (data.productName) {
         setQuery(data.productName);
       }
     } catch (err: any) {
@@ -491,7 +539,7 @@ export default function AiProductKnowledge() {
       if (friendly.type === 'key_missing' || friendly.type === 'key_invalid') {
         openApiKeyModal(friendly.message);
       } else {
-        setError(friendly.message);
+        setError(err?.message || friendly.message);
       }
     } finally {
       setIsLoading(false);
@@ -500,7 +548,7 @@ export default function AiProductKnowledge() {
 
   // Intelligent Cloud Sync Auto Save, Delete, Order Actions
   const autoSaveProduct = async (data: ProductKnowledgeResult) => {
-    if (!data || !data.productName || data.productName === "जानकारी उपलब्ध नहीं है") return;
+    if (!data || !data.productName || data.productName === "जानकारी उपलब्ध नहीं है" || data.productName.includes("पहचान नहीं")) return;
     
     const cleanName = data.productName.toLowerCase().trim();
     const docId = getSafeDocId(data.productName);
@@ -513,11 +561,14 @@ export default function AiProductKnowledge() {
       if (alreadyExists) return prevList;
 
       const newOrder = prevList.length;
-      const savedProductData = {
+      const rawProductData = {
         ...data,
         order: newOrder,
         createdAt: Date.now()
       };
+
+      // Strip any undefined fields before saving to avoid Firestore serialization errors
+      const savedProductData = JSON.parse(JSON.stringify(rawProductData));
 
       const updatedList = [...prevList, savedProductData].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       localStorage.setItem('product_knowledge_bookmarks', JSON.stringify(updatedList));
@@ -545,14 +596,21 @@ export default function AiProductKnowledge() {
 
       if (user) {
         const userSavedProductRef = doc(db, 'users', user.uid, 'savedProducts', docId);
-        deleteDoc(userSavedProductRef).then(() => {
-          const batch = writeBatch(db);
-          updatedList.forEach((item) => {
-            const itemDocId = getSafeDocId(item.productName);
-            const itemRef = doc(db, 'users', user.uid, 'savedProducts', itemDocId);
-            batch.update(itemRef, { order: item.order });
-          });
-          return batch.commit();
+        deleteDoc(userSavedProductRef).then(async () => {
+          if (updatedList.length > 0) {
+            const batch = writeBatch(db);
+            updatedList.forEach((item) => {
+              const itemDocId = getSafeDocId(item.productName);
+              const itemRef = doc(db, 'users', user.uid, 'savedProducts', itemDocId);
+              const sanitizedItem = JSON.parse(JSON.stringify({
+                ...item,
+                order: item.order,
+                createdAt: item.createdAt || Date.now()
+              }));
+              batch.set(itemRef, sanitizedItem, { merge: true });
+            });
+            await batch.commit();
+          }
         }).catch(err => {
           console.error("Error deleting from Firestore:", err);
         });
@@ -581,7 +639,8 @@ export default function AiProductKnowledge() {
         orderedList.forEach((item) => {
           const itemDocId = getSafeDocId(item.productName);
           const itemRef = doc(db, 'users', user.uid, 'savedProducts', itemDocId);
-          batch.set(itemRef, item, { merge: true });
+          const sanitizedItem = JSON.parse(JSON.stringify(item));
+          batch.set(itemRef, sanitizedItem, { merge: true });
         });
         await batch.commit();
       } catch (err) {
@@ -924,19 +983,19 @@ export default function AiProductKnowledge() {
 
 *फॉर्मूलेशन (Formulation):* ${result.formulation}
 
-*📋 विवरण और फायदे:*
+*विवरण और फायदे:*
 ${result.benefits}
 
-*⭐ प्रमुख मात्रा (Dosage & Usage):*
+*प्रमुख मात्रा (Dosage & Usage):*
 ${dosageText}
 
-*⚠️ सावधानियां:*
+*सावधानियां:*
 ${result.safetyInstructions}
 
 ----------------------------------------
-📌 अधिक जानकारी के लिए फल्सावदिया कृषि बाजार दुकान पर विजिट करें।
-📍 पता: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश – 458883
-🕒 समय: सुबह 8:00 बजे से रात 8:00 बजे तक`;
+अधिक जानकारी के लिए फल्सावदिया कृषि बाजार दुकान पर विजिट करें।
+पता: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश – 458883
+समय: सुबह 8:00 बजे से रात 8:00 बजे तक`;
 
     navigator.clipboard.writeText(shareText);
     setIsCopied(true);
@@ -1385,8 +1444,8 @@ ${result.safetyInstructions}
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          {/* Back to main list button */}
-          <div className="print:hidden">
+          {/* Navigation and Refresh Actions */}
+          <div className="flex items-center justify-between gap-3 print:hidden">
             <button
               onClick={() => {
                 setResult(null);
@@ -1395,7 +1454,15 @@ ${result.safetyInstructions}
               className="flex items-center gap-2 text-xs font-black text-[#2D5A27] bg-[#2D5A27]/5 hover:bg-[#2D5A27]/10 px-4.5 py-2.5 rounded-2xl transition-all active:scale-95 border border-[#2D5A27]/10 w-fit cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>← मुख्य सूची / खोज पर वापस जाएँ (Go Back)</span>
+              <span>← मुख्य सूची / खोज पर वापस जाएँ</span>
+            </button>
+            <button
+              onClick={() => handleSearch(query || result.productName, true)}
+              className="flex items-center gap-1.5 text-xs font-black text-amber-800 bg-amber-50 hover:bg-amber-100 px-4 py-2.5 rounded-2xl transition-all active:scale-95 border border-amber-200/80 cursor-pointer shadow-xs"
+              title="सरकारी स्रोतों से लाइव पुनः खोजें"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-amber-700 ${isLoading ? 'animate-spin' : ''}`} />
+              <span>सत्यापित लाइव खोज</span>
             </button>
           </div>
           {isFromCache && (

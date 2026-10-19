@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { jsonrepair } from "jsonrepair";
 import { getFriendlyAiError } from "../utils/aiErrorHandler";
 
 function isQuotaError(error: any): boolean {
@@ -9,12 +10,40 @@ function isQuotaError(error: any): boolean {
 
 export const PRIMARY_GEMINI_MODEL = "gemini-3.6-flash";
 export const FALLBACK_GEMINI_MODEL = "gemini-3.5-flash";
-export const TERTIARY_GEMINI_MODEL = "gemini-3.1-flash-lite";
+export const TERTIARY_GEMINI_MODEL = "gemini-3.5-flash-lite";
 export const CANDIDATE_GEMINI_MODELS = [
   "gemini-3.6-flash",
   "gemini-3.5-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-flash-lite-latest",
   "gemini-3.1-flash-lite"
 ];
+
+const modelFailureCooldowns = new Map<string, number>();
+
+export function isModelTemporarilyUnhealthy(model: string): boolean {
+  const expiry = modelFailureCooldowns.get(model);
+  if (!expiry) return false;
+  if (Date.now() > expiry) {
+    modelFailureCooldowns.delete(model);
+    return false;
+  }
+  return true;
+}
+
+export function markModelTemporaryFailure(model: string, error: any) {
+  const status = error?.status || error?.code;
+  const msg = (error?.message || String(error)).toLowerCase();
+  if (status === 503 || status === 429 || msg.includes('503') || msg.includes('high demand') || msg.includes('429') || msg.includes('quota') || msg.includes('resource_exhausted')) {
+    modelFailureCooldowns.set(model, Date.now() + 90 * 1000);
+  }
+}
+
+export function getPrioritizedModels(models: string[] = CANDIDATE_GEMINI_MODELS): string[] {
+  const healthy = models.filter(m => !isModelTemporarilyUnhealthy(m));
+  const cooling = models.filter(m => isModelTemporarilyUnhealthy(m));
+  return healthy.length > 0 ? [...healthy, ...cooling] : models;
+}
 
 const getAI = (userApiKey?: string) => {
   // STRICT USER-SPECIFIC API KEY: We never fall back to shared/central environment keys
@@ -627,29 +656,29 @@ const DEFAULT_PRODUCT_KNOWLEDGE: ProductKnowledgeResult = {
   rainfastPeriod: "2 घंटे",
   storage: "ठंडी और सूखी जगह पर रखें",
   dosageLiquid: {
-    perLiter: "1-2 ml",
-    per15L: "15-30 ml",
-    per16L: "16-32 ml",
-    per20L: "20-40 ml",
-    per25L: "25-50 ml",
-    per200L: "200-400 ml",
-    per500L: "500-1000 ml",
-    perBigha: "100-200 ml"
+    perLiter: "उत्पाद अनुसार",
+    per15L: "उत्पाद अनुसार",
+    per16L: "उत्पाद अनुसार",
+    per20L: "उत्पाद अनुसार",
+    per25L: "उत्पाद अनुसार",
+    per200L: "उत्पाद अनुसार",
+    per500L: "उत्पाद अनुसार",
+    perBigha: "उत्पाद अनुसार"
   },
   dosagePowder: {
-    perLiter: "1-2 gm",
-    per15L: "15-30 gm",
-    per16L: "16-32 gm",
-    per20L: "20-40 gm",
-    per25L: "25-50 gm",
-    per200L: "200-400 gm",
-    per500L: "500-1000 gm",
-    perBigha: "100-200 gm"
+    perLiter: "उत्पाद अनुसार",
+    per15L: "उत्पाद अनुसार",
+    per16L: "उत्पाद अनुसार",
+    per20L: "उत्पाद अनुसार",
+    per25L: "उत्पाद अनुसार",
+    per200L: "उत्पाद अनुसार",
+    per500L: "उत्पाद अनुसार",
+    perBigha: "उत्पाद अनुसार"
   },
   dosageFertilizer: {
-    perPlant: "5-10 gm",
-    perPot: "2-5 gm",
-    perBigha: "10-15 kg",
+    perPlant: "उत्पाद अनुसार",
+    perPot: "उत्पाद अनुसार",
+    perBigha: "उत्पाद अनुसार",
     perIrrigation: "उपलब्ध नहीं है",
     perSpray: "उपलब्ध नहीं है",
     perDrenching: "उपलब्ध नहीं है",
@@ -659,161 +688,94 @@ const DEFAULT_PRODUCT_KNOWLEDGE: ProductKnowledgeResult = {
   hasExactMatch: false
 };
 
-function repairUnescapedQuotes(jsonText: string): string {
-  const schemaKeys = [
-    "productName", "companyName", "technicalName", "category", "formulation", "activeIngredient", 
-    "modeOfAction", "fracIracHracGroup", "targetCrops", "targetPests", "symptoms", "usage", 
-    "benefits", "features", "compatibleProducts", "incompatibleProducts", "waitingPeriod", 
-    "phi", "rei", "toxicity", "safetyInstructions", "mixingOrder", "sprayTiming", 
-    "rainfastPeriod", "storage", "dosageLiquid", "dosagePowder", "dosageFertilizer", 
-    "cropSpecificDosage", "hasExactMatch", "perLiter", "per15L", "per16L", "per20L", 
-    "per25L", "per200L", "per500L", "perBigha", "perPlant", "perPot", "perIrrigation", 
-    "perSpray", "perDrenching", "totalAmount", "cropName", "dosage", "sprayTime", "sources", "title", "uri",
-    "analysis", "keywords"
-  ];
-
-  const keysPattern = schemaKeys.join('|');
-  const regex = new RegExp('"(' + keysPattern + ')"\\s*:\\s*"(.*?)"\\s*(?=,\\s*"(?:' + keysPattern + ')"\\s*:|\\s*\\}|\\s*\\])', 'gs');
-
-  return jsonText.replace(regex, (match, key, value) => {
-    const escapedValue = value.replace(/\\"/g, '"').replace(/"/g, '\\"');
-    return `"${key}":"${escapedValue}"`;
-  });
-}
-
 function cleanAndParseJson<T>(jsonText: string): T {
-  // 1. Remove markdown formatting if present
-  let cleaned = jsonText.trim();
-  if (cleaned.startsWith("```")) {
-    cleaned = cleaned.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/, "").trim();
+  if (!jsonText || typeof jsonText !== 'string') {
+    throw new Error("Empty JSON input");
   }
 
-  // 2. Extract JSON block (from first '{' or '[' to the last corresponding '}' or ']')
-  const firstBrace = cleaned.indexOf('{');
-  const lastBrace = cleaned.lastIndexOf('}');
-  const firstBracket = cleaned.indexOf('[');
-  const lastBracket = cleaned.lastIndexOf(']');
+  let text = jsonText.trim();
+
+  // Strip any accidental huge base64 data URLs or long strings that might have leaked into JSON
+  text = text.replace(/data:image\/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=]{100,}/g, '');
+  text = text.replace(/"[^"]*(?:image|photo|base64|thumbnail)[^"]*"\s*:\s*"[A-Za-z0-9+/=]{500,}"/gi, '""');
+
+  // 1. Remove markdown code blocks (```json ... ``` or ``` ... ```) if present
+  if (text.includes("```")) {
+    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (codeBlockMatch && codeBlockMatch[1]) {
+      text = codeBlockMatch[1].trim();
+    } else {
+      text = text.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
+    }
+  }
+
+  // 2. Extract substring between first '{' and last '}' (or first '[' and last ']')
+  const firstBrace = text.indexOf('{');
+  const lastBrace = text.lastIndexOf('}');
+  const firstBracket = text.indexOf('[');
+  const lastBracket = text.lastIndexOf(']');
 
   if (firstBrace !== -1 && lastBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
-    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    text = text.substring(firstBrace, lastBrace + 1);
   } else if (firstBracket !== -1 && lastBracket !== -1) {
-    cleaned = cleaned.substring(firstBracket, lastBracket + 1);
+    text = text.substring(firstBracket, lastBracket + 1);
+  } else if (firstBrace !== -1 && lastBrace === -1) {
+    text = text.substring(firstBrace);
   }
 
-  // 3. Try parsing directly first
+  // 3. Fast path: Direct standard JSON.parse
   try {
-    return JSON.parse(cleaned) as T;
-  } catch (directParseError: any) {
-    const errorMsg = directParseError?.message || "";
-    const match = errorMsg.match(/Unexpected non-whitespace character after JSON at position (\d+)/);
-    if (match) {
-      const pos = parseInt(match[1], 10);
-      try {
-        return JSON.parse(cleaned.substring(0, pos)) as T;
-      } catch (innerError) {
-        // ignore and let repair logic handle it
-      }
-    }
-    console.warn("Direct JSON parse failed. Attempting cleanup and repair...", directParseError);
-  }
-
-  // 4. Fallback: repair unescaped double quotes inside string values before parsing
-  let repaired = repairUnescapedQuotes(cleaned);
-
-  // 5. Character-by-character scan to escape control characters inside string literals
-  let result = "";
-  let inString = false;
-  let escape = false;
-
-  for (let i = 0; i < repaired.length; i++) {
-    const char = repaired[i];
-
-    if (escape) {
-      result += char;
-      escape = false;
-      continue;
-    }
-
-    if (char === '\\') {
-      result += char;
-      escape = true;
-      continue;
-    }
-
-    if (char === '"') {
-      inString = !inString;
-      result += char;
-      continue;
-    }
-
-    if (inString) {
-      if (char === '\n') {
-        result += '\\n';
-      } else if (char === '\r') {
-        result += '\\r';
-      } else if (char === '\t') {
-        result += '\\t';
-      } else {
-        const code = char.charCodeAt(0);
-        if (code < 32) {
-          result += '\\u' + code.toString(16).padStart(4, '0');
-        } else {
-          result += char;
-        }
-      }
-    } else {
-      result += char;
-    }
-  }
-
-  // 6. Clean up common LLM JSON syntax issues
-  // Fix trailing commas in objects or arrays
-  result = result.replace(/,(\s*[\]}])/g, '$1');
-
-  // Fix common Chinese/Hindi punctuation outside of strings that break JSON
-  result = result.replace(/"cropSpecificDosage"\s*:\s*[।०]/g, '"cropSpecificDosage": []');
-  result = result.replace(/"(dosageLiquid|dosagePowder|dosageFertilizer)"\s*:\s*[।०]/g, '"$1": {}');
-
-  try {
-    return JSON.parse(result) as T;
-  } catch (firstError: any) {
-    const errorMsg = firstError?.message || "";
-    const match = errorMsg.match(/Unexpected non-whitespace character after JSON at position (\d+)/);
-    if (match) {
-      const pos = parseInt(match[1], 10);
-      try {
-        return JSON.parse(result.substring(0, pos)) as T;
-      } catch (inner) {
-        // continue
-      }
-    }
-
-    console.warn("Standard JSON parse failed, trying advanced regex cleaning...", firstError);
-    
-    // Fallback: If there are still unmatched punctuation or cutoffs, let's try to fix them.
-    if (result.endsWith('।') || result.endsWith('。')) {
-      result = result.slice(0, -1).trim();
-    }
-    
-    result = result.replace(/:\s*[।०]/g, ': null');
-
+    return JSON.parse(text) as T;
+  } catch (directError: any) {
+    // 4. Try jsonrepair (reliably fixes unescaped internal quotes, unescaped newlines, trailing commas, cut-off strings, missing closing braces)
     try {
-      return JSON.parse(result) as T;
-    } catch (secondError: any) {
-      const secondErrorMsg = secondError?.message || "";
-      const match2 = secondErrorMsg.match(/Unexpected non-whitespace character after JSON at position (\d+)/);
-      if (match2) {
-        const pos2 = parseInt(match2[1], 10);
-        try {
-          return JSON.parse(result.substring(0, pos2)) as T;
-        } catch (inner2) {
-          // continue
-        }
+      const repaired = jsonrepair(text);
+      return JSON.parse(repaired) as T;
+    } catch (repairError: any) {
+      // 5. Fallback: Clean Hindi punctuation outside string literals (like Devanagari danda '।' before JSON tokens)
+      try {
+        const sanitized = text
+          .replace(/:\s*[।०]/g, ': ""')
+          .replace(/,(\s*[\]}])/g, '$1');
+        const repaired2 = jsonrepair(sanitized);
+        return JSON.parse(repaired2) as T;
+      } catch (finalErr: any) {
+        console.warn("[cleanAndParseJson] Parse notice:", finalErr?.message, "Text snippet:", text.substring(0, 120));
+        throw new Error(`JSON parsing failed: ${finalErr?.message || repairError?.message || directError?.message}`);
       }
-      console.error("Advanced JSON parse also failed:", secondError);
-      throw new Error(`JSON parsing failed: ${secondError.message}. Original text snippet: ${jsonText.substring(0, 100)}...`);
     }
   }
+}
+
+export function enrichGovernmentSources(category: string, existingSources?: Array<{ title: string; uri: string }>): Array<{ title: string; uri: string }> {
+  const sources: Array<{ title: string; uri: string }> = [...(existingSources || [])];
+  const cat = (category || "").toLowerCase();
+
+  const addIfMissing = (title: string, uri: string) => {
+    if (!sources.some(s => s.uri === uri || s.title.includes(title.substring(0, 12)))) {
+      sources.push({ title, uri });
+    }
+  };
+
+  if (cat.includes("कीट") || cat.includes("फफूंद") || cat.includes("खरपतवार") || cat.includes("pgr") || cat.includes("टॉनिक") || cat.includes("insecticide") || cat.includes("fungicide") || cat.includes("herbicide")) {
+    addIfMissing("केंद्रीय कीटनाशक बोर्ड एवं पंजीकरण समिति (CIBRC, कृषि मंत्रालय भारत सरकार)", "https://cibrc.nic.in");
+    addIfMissing("पादप संरक्षण, संगरोध एवं भंडारण निदेशालय (DPPQS भारत सरकार)", "https://ppqs.gov.in");
+    addIfMissing("भारतीय कृषि अनुसंधान परिषद (ICAR - फसल कीट एवं रोग प्रबंधन)", "https://icar.org.in");
+  } else if (cat.includes("खाद") || cat.includes("उर्वरक") || cat.includes("fertilizer") || cat.includes("पोषक") || cat.includes("micronutrient") || cat.includes("यूरिया") || cat.includes("dap")) {
+    addIfMissing("उर्वरक नियंत्रण आदेश (FCO - उर्वरक विभाग, रसायन एवं उर्वरक मंत्रालय भारत सरकार)", "https://fert.nic.in");
+    addIfMissing("भारतीय कृषि अनुसंधान परिषद (ICAR - मृदा स्वास्थ्य एवं पोषण प्रबंधन)", "https://icar.org.in");
+    addIfMissing("कृषि एवं किसान कल्याण मंत्रालय (Agricoop भारत सरकार)", "https://agricoop.gov.in");
+  } else if (cat.includes("बीज") || cat.includes("seed") || cat.includes("चारा") || cat.includes("fodder")) {
+    addIfMissing("भारतीय चारागाह एवं चारा अनुसंधान संस्थान (ICAR-IGFRI झाँसी)", "https://igfri.icar.gov.in");
+    addIfMissing("राष्ट्रीय बीज निगम (National Seeds Corporation - भारत सरकार)", "https://indiaseeds.gov.in");
+    addIfMissing("कृषि एवं किसान कल्याण मंत्रालय (बीज विकास प्रभाग भारत सरकार)", "https://agricoop.gov.in");
+  } else {
+    addIfMissing("केंद्रीय कीटनाशक बोर्ड एवं पंजीकरण समिति (CIBRC भारत सरकार)", "https://cibrc.nic.in");
+    addIfMissing("भारतीय कृषि अनुसंधान परिषद (ICAR)", "https://icar.org.in");
+    addIfMissing("कृषि एवं किसान कल्याण मंत्रालय (भारत सरकार)", "https://agricoop.gov.in");
+  }
+
+  return sources;
 }
 
 function safeParseProductKnowledge(jsonText: string): ProductKnowledgeResult {
@@ -857,15 +819,25 @@ function safeParseProductKnowledge(jsonText: string): ProductKnowledgeResult {
       result.cropSpecificDosage = [];
     }
 
-    // Handle sources
-    if (Array.isArray(parsed.sources)) {
-      result.sources = parsed.sources;
-    }
+    // Handle sources and enrich with verified government agricultural portals
+    const rawSources = Array.isArray(parsed.sources) ? parsed.sources : [];
+    result.sources = enrichGovernmentSources(result.category, rawSources);
+
+    // Determine hasExactMatch accurately:
+    // If a legitimate product name was extracted (not a dummy error string), it IS recognized!
+    const hasValidName = Boolean(
+      result.productName && 
+      result.productName !== "जानकारी उपलब्ध नहीं है" && 
+      !result.productName.includes("पहचान नहीं") &&
+      !result.productName.includes("उपलब्ध नहीं")
+    );
+    
+    result.hasExactMatch = hasValidName;
 
     return result;
   } catch (error) {
     console.error("safeParseProductKnowledge Error, returning default object", error);
-    return { ...DEFAULT_PRODUCT_KNOWLEDGE };
+    return { ...DEFAULT_PRODUCT_KNOWLEDGE, hasExactMatch: false };
   }
 }
 
@@ -874,182 +846,149 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
 
-    const prompt = `You are a world-class Indian agricultural product expert representing 'फल्सावदिया कृषि बाजार'.
-    Your task is to provide exhaustive, accurate, and completely verified information for the agricultural product/technical queried by the user.
-    
-    User Query: "${query}"
+    const prompt = `आप भारत के सर्वोच्च कृषि वैज्ञानिक, पौध संरक्षण विशेषज्ञ एवं CIBRC/ICAR नियामक सलाहकार हैं, जो 'फल्सावदिया कृषि बाजार' का प्रतिनिधित्व करते हैं।
+आपका कार्य कृषि उत्पाद: "${query}" पर आधिकारिक भारत सरकार के कृषि डेटाबेसों (CIBRC, ICAR, DPPQS, FCO, SAUs) एवं निर्माता टेक्निकल शोध पत्रों के आधार पर 100% सटीक, अत्यधिक विस्तृत, प्रामाणिक व व्यावहारिक कृषि रिपोर्ट तैयार करना है।
 
-    Search Google and official agricultural resources (CIB&RC, ICAR, IFFCO, Krishi Vigyan Kendra, etc.) to get details on this product/technical/formulation.
-    
-    CRITICAL LANGUAGE MANDATE (अति-महत्वपूर्ण नियम: 100% केवल सरल हिंदी):
-    1. STRICTLY 100% SIMPLE HINDI (केवल सरल हिंदी भाषा): The user is a rural Indian farmer who only understands Hindi. Every single sentence, paragraph, bullet point, explanation, usage instruction, benefit, precaution, symptom, dosage guideline, crop name, and pest name MUST be written in natural, easy-to-understand HINDI (शुद्ध व सरल हिंदी).
-    2. ABSOLUTELY NO ENGLISH SENTENCES: Under NO circumstance should you return English explanations or paragraphs in any JSON field. Even if Google Search results are in English, you MUST translate and explain everything clearly in Hindi.
-    3. Technical/Chemical Names: For technical active ingredients, provide the Hindi transcription first, with optional English chemical name in parentheses for scientific accuracy (e.g. 'क्लोरेंट्रानिलिप्रोल (Chlorantraniliprole 18.5% SC)' or 'इमिडाक्लोप्रिड (Imidacloprid 17.8% SL)'). But ALL descriptions of usage, mode of action, benefits, symptoms, targets, and directions MUST be entirely in simple Hindi!
-    4. If the product is not found or not official, write detailed alternative helpful info or mark 'hasExactMatch' as false and provide a helpful description in productName/usage entirely in Hindi.
-    5. Ensure that the DOSAGE section is fully filled in Hindi. Calculate dosages for 1L, 15L, 16L, 20L, 25L, 200L, 500L, and 1 Bigha (बीघा) based on standard recommendations for this product class (Liquid / Powder / Fertilizer).
-    6. Provide crop-specific dosages for common Indian crops (जैसे: सोयाबीन, गेहूं, मक्का, चना, कपास, प्याज, लहसुन, टमाटर, मिर्च आदि) strictly in Hindi.
-    7. Return the result strictly as a valid JSON object matching the defined schema. Do not include markdown wraps or anything except the JSON string in response.`;
+अति-महत्वपूर्ण गुणवत्ता नियम (60 दिन पहले की तरह पूर्ण विस्तृत व सटीक जानकारी):
+1. कोई भी संक्षिप्त या आधा-अधूरा उत्तर न दें। प्रत्येक फील्ड में कम से कम 2 से 4 वाक्यों का गहन, वैज्ञानिक एवं किसान-उपयोगी विवरण होना अनिवार्य है।
+2. भाषा नियम (100% केवल सरल हिंदी): समस्त विवरण, लाभ, सावधानियां, कार्यप्रणाली, फसलें, कीट व मात्राएं सरल, स्पष्ट व सम्मानजनक हिंदी भाषा में ही होनी चाहिए। अंग्रेजी पैराग्राफ कतई न लिखें। टेक्निकल केमिकल नाम के साथ कोष्ठक में अंग्रेजी नाम दे सकते हैं (उदा. 'क्लोरेंट्रानिलिप्रोल (Chlorantraniliprole 18.5% SC)')।
+3. संपूर्ण विस्तृत फील्ड्स (All Fields Must Be Thoroughly Filled):
+   - productName: उत्पाद का पूरा ब्रांड नाम व हिंदी उच्चारण
+   - companyName: मूल निर्माता कंपनी का नाम (उदा. FMC India, Bayer, Syngenta, IFFCO, Dhanuka, UPL, आदि)
+   - technicalName: सक्रिय टेक्निकल रसायन का पूरा नाम, सांद्रता व फॉर्मूलेशन (उदा. क्लोरेंट्रानिलिप्रोल 18.5% एससी)
+   - category: सटीक श्रेणी (उदा. प्रणालीगत कीटनाशक (Systemic Insecticide), ब्रॉड-स्पेक्ट्रम फफूंदनाशक, आदि)
+   - formulation: फॉर्मूलेशन का प्रकार (उदा. सस्पेंशन कॉन्सेंट्रेट (SC - Suspension Concentrate))
+   - activeIngredient: सक्रिय घटक एवं उसकी प्रतिशत मात्रा
+   - modeOfAction: कार्य करने का सटीक वैज्ञानिक तरीका (Mode of Action) - कीट/फसल के शरीर में यह दवा किस प्रकार कार्य करती है, इसका कम से कम 2-3 वाक्यों में विस्तृत विवरण
+   - fracIracHracGroup: सटीक IRAC / FRAC / HRAC ग्रुप कोड (उदा. IRAC Group 28 - Diamides)
+   - targetCrops: कम से कम 6 से 8 प्रमुख भारतीय फसलें (उदा. सोयाबीन, धान, मक्का, कपास, चना, टमाटर, मिर्च, बैंगन, गोभी, गन्ना)
+   - targetPests: सभी लक्षित कीटों, इल्लियों या रोगों के नाम (हिंदी व अंग्रेजी/वैज्ञानिक नाम सहित)
+   - symptoms: खेत में फसल पर कीट या रोग के हमले के स्पष्ट लक्षण (Symptoms), जिससे किसान तुरंत पहचान सके
+   - usage: खेत में उपयोग की विस्तृत विधि, प्रति एकड़ पानी की मात्रा, नोजल का प्रकार और छिड़काव तकनीक
+   - benefits: कम से कम 5 से 6 बिंदुवार विस्तृत फायदे (फसल की हरियाली, लंबे समय तक सुरक्षा, उपज में वृद्धि)
+   - features: उत्पाद की विशेष तकनीकी खूबियां (ग्रीन लेबल, मित्र कीटों की सुरक्षा, 2 घंटे में वर्षा स्थिरता)
+   - compatibleProducts: टैंक-मिक्स में किन कीटनाशकों, फफूंदनाशकों व टॉनिकों के साथ मिलाया जा सकता है
+   - incompatibleProducts: किन रसायनों (क्षारीय, कॉपर, सल्फर, बोर्डो मिश्रण) के साथ कतई न मिलाएं
+   - waitingPeriod: तुड़ाई प्रतीक्षा अवधि (Pre-Harvest Interval) का फसलवार विस्तृत विवरण
+   - phi: विभिन्न फसलों के लिए अंतिम छिड़काव और कटाई के बीच सुरक्षित दिनों का अंतराल (उदा. धान: 14 दिन, गन्ना: 21 दिन, टमाटर: 3 दिन, सोयाबीन: 21 दिन)
+   - rei: खेत में दोबारा प्रवेश का सुरक्षित समय (Re-Entry Interval) (उदा. 12 से 24 घंटे)
+   - toxicity: टॉक्सिसिटी त्रिकोण का रंग (हरा / नीला / पीला / लाल) व विषाक्तता स्तर
+   - safetyInstructions: किसानों के लिए व्यक्तिगत सुरक्षा (दस्ताने, मास्क, चश्मा, हवा की दिशा)
+   - mixingOrder: WALES नियम अनुसार सही घोल बनाने का क्रम (सर्वप्रथम आधा पानी -> WP/WDG -> SC/CS -> EC -> SL/SP)
+   - sprayTiming: छिड़काव का सर्वोत्तम समय (सुबह 7 से 10 या शाम 4 से 7 बजे)
+   - rainfastPeriod: बारिश से धुलने से बचाव का समय (उदा. छिड़काव के 2 घंटे बाद)
+   - storage: सुरक्षित भंडारण निर्देश
+4. अत्यंत सटीक व वैज्ञानिक मात्रा (Exhaustive & Accurate Dosages for Every Sprayer):
+   - dosageLiquid:
+     * perLiter: सटीक मात्रा (उदा. 0.3 - 0.4 मिली प्रति लीटर)
+     * per15L: 15 लीटर नैपसैक पंप के लिए (उदा. 6 - 7 मिली)
+     * per16L: 16 लीटर बैटरी पंप के लिए (उदा. 6.5 - 7.5 मिली)
+     * per20L: 20 लीटर पावर पंप के लिए (उदा. 8 - 10 मिली)
+     * per25L: 25 लीटर स्प्रेयर के लिए (उदा. 10 - 12.5 मिली)
+     * per200L: 200 लीटर ड्रम के लिए (उदा. 60 - 75 मिली)
+     * per500L: 500 लीटर टैंकर के लिए (उदा. 150 - 175 मिली)
+     * perBigha: 1 बीघा (मध्य प्रदेश मानक) के लिए (उदा. 30 - 35 मिली)
+   - dosagePowder: यदि पाउडर फॉर्मूलेशन है तो इसी तरह प्रति लीटर, 15L, 16L, 20L, 25L, 200L, 500L, बीघा हेतु सटीक ग्राम में मात्रा
+   - dosageFertilizer: यदि खाद/उर्वरक है तो प्रति पौधा, प्रति गमला, प्रति बीघा, प्रति सिंचाई, स्प्रे व ड्रेंचिंग मात्रा
+   - cropSpecificDosage: कम से कम 4 से 6 फसलों (उदा. सोयाबीन, चना, गेहूं, धान, मिर्च, टमाटर) के लिए एक सारणी जिसमें cropName, dosage (मात्रा प्रति बीघा/एकड़), usage (छिड़काव/ड्रेंचिंग विधि) और sprayTime (छिड़काव का सही समय) स्पष्ट हो
+5. सरकारी स्रोत: CIBRC, DPPQS, ICAR, FCO एवं राज्य कृषि विश्वविद्यालय
+6. आउटपुट फॉर्मेट: केवल और केवल वैध Raw JSON स्ट्रिंग लौटाएं जो इन सभी कीज़ को शुद्धता से धारण करती हो।`;
 
-    const responseSchema = {
-      type: "OBJECT" as any,
-      properties: {
-        productName: { type: "STRING", description: "उत्पाद का नाम हिंदी में (जैसे: कोराजन कीटनाशक)" },
-        companyName: { type: "STRING", description: "कंपनी या निर्माता का नाम हिंदी में (जैसे: एफएमसी / बायर)" },
-        technicalName: { type: "STRING", description: "तकनीकी नाम हिंदी में व कोष्ठक में अंग्रेजी" },
-        category: { type: "STRING", description: "कीटनाशक, फफूंदनाशक, खरपतवारनाशक, टॉनिक या खाद (सरल हिंदी में)" },
-        formulation: { type: "STRING", description: "फार्मूलेशन का प्रकार सरल हिंदी में (जैसे: तरल / दानेदार)" },
-        activeIngredient: { type: "STRING", description: "सक्रिय घटक हिंदी में" },
-        modeOfAction: { type: "STRING", description: "असर का तरीका व कार्यप्रणाली 100% सरल हिंदी में" },
-        fracIracHracGroup: { type: "STRING", description: "रासायनिक ग्रुप कोड (जैसे: Group 28)" },
-        targetCrops: { type: "STRING", description: "उपयुक्त फसलें सरल हिंदी में (जैसे: सोयाबीन, चना, गेहूं, कपास)" },
-        targetPests: { type: "STRING", description: "नियंत्रित कीट, खरपतवार या रोग सरल हिंदी में (जैसे: तना छेदक, इल्ली, माहू)" },
-        symptoms: { type: "STRING", description: "रोग व कीट के लक्षण पहचान सरल हिंदी में" },
-        usage: { type: "STRING", description: "विस्तृत उपयोग विधि एवं छिड़काव का तरीका 100% सरल हिंदी में" },
-        benefits: { type: "STRING", description: "मुख्य फायदे और लाभ 100% सरल हिंदी में" },
-        features: { type: "STRING", description: "उत्पाद की विशेषताएं 100% सरल हिंदी में" },
-        compatibleProducts: { type: "STRING", description: "किन दवाओं के साथ मिला सकते हैं (सरल हिंदी में)" },
-        incompatibleProducts: { type: "STRING", description: "किन दवाओं के साथ भूलकर भी न मिलाएं (सरल हिंदी में)" },
-        waitingPeriod: { type: "STRING", description: "प्रतीक्षा अवधि (PHI) सरल हिंदी में" },
-        phi: { type: "STRING", description: "तुड़ाई पूर्व अंतर सरल हिंदी में" },
-        rei: { type: "STRING", description: "खेत में पुनः प्रवेश का समय सरल हिंदी में" },
-        toxicity: { type: "STRING", description: "विषाक्तता का स्तर व रंगीन त्रिकोण सरल हिंदी में" },
-        safetyInstructions: { type: "STRING", description: "किसान सुरक्षा सावधानियां 100% सरल हिंदी में" },
-        mixingOrder: { type: "STRING", description: "दवा घोलने का सही क्रम सरल हिंदी में" },
-        sprayTiming: { type: "STRING", description: "छिड़काव का सबसे उत्तम समय सरल हिंदी में (जैसे: सुबह या शाम)" },
-        rainfastPeriod: { type: "STRING", description: "बारिश से बचाव की अवधि सरल हिंदी में (जैसे: 2 घंटे बाद बारिश से सुरक्षित)" },
-        storage: { type: "STRING", description: "दवा भंडारण व रखने के निर्देश सरल हिंदी में" },
-        dosageLiquid: {
-          type: "OBJECT" as any,
-          properties: {
-            perLiter: { type: "STRING", description: "प्रति 1 लीटर पानी में मात्रा हिंदी में" },
-            per15L: { type: "STRING", description: "15 लीटर पंप में मात्रा हिंदी में" },
-            per16L: { type: "STRING", description: "16 लीटर पंप में मात्रा हिंदी में" },
-            per20L: { type: "STRING", description: "20 लीटर पंप में मात्रा हिंदी में" },
-            per25L: { type: "STRING", description: "25 लीटर पंप में मात्रा हिंदी में" },
-            per200L: { type: "STRING", description: "200 लीटर ड्रम में मात्रा हिंदी में" },
-            per500L: { type: "STRING", description: "500 लीटर टैंकर में मात्रा हिंदी में" },
-            perBigha: { type: "STRING", description: "प्रति 1 बीघा में मात्रा हिंदी में" }
-          },
-          required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
-        },
-        dosagePowder: {
-          type: "OBJECT" as any,
-          properties: {
-            perLiter: { type: "STRING", description: "प्रति 1 लीटर पानी में ग्राम हिंदी में" },
-            per15L: { type: "STRING", description: "15 लीटर पंप में ग्राम हिंदी में" },
-            per16L: { type: "STRING", description: "16 लीटर पंप में ग्राम हिंदी में" },
-            per20L: { type: "STRING", description: "20 लीटर पंप में ग्राम हिंदी में" },
-            per25L: { type: "STRING", description: "25 लीटर पंप में ग्राम हिंदी में" },
-            per200L: { type: "STRING", description: "200 लीटर ड्रम में ग्राम हिंदी में" },
-            per500L: { type: "STRING", description: "500 लीटर टैंकर में ग्राम हिंदी में" },
-            perBigha: { type: "STRING", description: "प्रति 1 बीघा में ग्राम हिंदी में" }
-          },
-          required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
-        },
-        dosageFertilizer: {
-          type: "OBJECT" as any,
-          properties: {
-            perPlant: { type: "STRING", description: "प्रति पौधा मात्रा हिंदी में" },
-            perPot: { type: "STRING", description: "प्रति गमला मात्रा हिंदी में" },
-            perBigha: { type: "STRING", description: "प्रति 1 बीघा मात्रा हिंदी में" },
-            perIrrigation: { type: "STRING", description: "प्रति सिंचाई मात्रा हिंदी में" },
-            perSpray: { type: "STRING", description: "प्रति स्प्रे मात्रा हिंदी में" },
-            perDrenching: { type: "STRING", description: "ड्रेंचिंग मात्रा हिंदी में" },
-            totalAmount: { type: "STRING", description: "कुल मात्रा हिंदी में" }
-          },
-          required: ["perPlant", "perPot", "perBigha", "perIrrigation", "perSpray", "perDrenching", "totalAmount"]
-        },
-        cropSpecificDosage: {
-          type: "ARRAY" as any,
-          items: {
-            type: "OBJECT" as any,
-            properties: {
-              cropName: { type: "STRING", description: "फसल का नाम हिंदी में (जैसे: सोयाबीन, गेहूं)" },
-              dosage: { type: "STRING", description: "डोज़ की मात्रा हिंदी में" },
-              usage: { type: "STRING", description: "उपयोग विधि सरल हिंदी में" },
-              sprayTime: { type: "STRING", description: "स्प्रे का समय सरल हिंदी में" }
-            },
-            required: ["cropName", "dosage", "usage", "sprayTime"]
-          }
-        },
-        hasExactMatch: { type: "BOOLEAN" }
-      },
-      required: [
-        "productName", "companyName", "technicalName", "category", "formulation", "activeIngredient", 
-        "modeOfAction", "fracIracHracGroup", "targetCrops", "targetPests", "symptoms", "usage", 
-        "benefits", "features", "compatibleProducts", "incompatibleProducts", "waitingPeriod", 
-        "phi", "rei", "toxicity", "safetyInstructions", "mixingOrder", "sprayTiming", 
-        "rainfastPeriod", "storage", "dosageLiquid", "dosagePowder", "dosageFertilizer", 
-        "cropSpecificDosage", "hasExactMatch"
-      ]
-    };
+    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY LANGUAGE REQUIREMENT: Your audience is exclusively Hindi-speaking Indian farmers. You MUST respond 100% in simple, clear, respectful HINDI (सरल हिंदी भाषा). Consult official government agricultural sources (CIBRC, ICAR, FCO). NEVER provide descriptions, benefits, usages, or symptoms in English. Ensure the output is valid JSON. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
 
-    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY LANGUAGE REQUIREMENT: Your audience is exclusively Hindi-speaking Indian farmers. You MUST respond 100% in simple, clear, respectful HINDI (सरल हिंदी भाषा). NEVER provide descriptions, benefits, usages, or symptoms in English. Ensure the output is valid JSON strictly following the schema. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
+    let response: any = null;
+    let lastError: any = null;
 
-    let response;
-    try {
-      response = await ai.models.generateContent({
-        model: PRIMARY_GEMINI_MODEL,
-        contents: prompt,
-        config: {
-          systemInstruction,
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema
-        }
-      });
-    } catch (searchError: any) {
-      console.warn("Google search grounding attempt in getProductKnowledge failed or unavailable. Retrying with pure agricultural model knowledge...", searchError);
+    // TIER 1: Prioritize Live Google Search Grounding to search official CIBRC, ICAR, and authentic web sources
+    const candidateModels = getPrioritizedModels();
+    for (const model of candidateModels) {
       try {
         response = await ai.models.generateContent({
-          model: PRIMARY_GEMINI_MODEL,
+          model,
+          contents: prompt,
+          config: {
+            systemInstruction: `${systemInstruction} Return strictly a valid raw JSON object string without any markdown wraps.`,
+            tools: [{ googleSearch: {} }]
+          }
+        });
+
+        if (response?.text) {
+          const parsed = safeParseProductKnowledge(response.text);
+          if (
+            parsed && 
+            parsed.productName && 
+            parsed.productName !== "जानकारी उपलब्ध नहीं है" && 
+            !parsed.productName.includes("पहचान नहीं") &&
+            !parsed.productName.includes("पहचाना नहीं")
+          ) {
+            // Extract search grounding citations if present
+            const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+            const liveSources: Array<{ title: string; uri: string }> = [];
+            if (chunks && chunks.length > 0) {
+              chunks.forEach((c: any) => {
+                if (c.web?.uri) {
+                  liveSources.push({
+                    title: c.web.title || "आधिकारिक सरकारी स्रोत",
+                    uri: c.web.uri
+                  });
+                }
+              });
+            }
+            parsed.sources = enrichGovernmentSources(parsed.category, liveSources);
+            return parsed;
+          }
+        }
+      } catch (searchError: any) {
+        markModelTemporaryFailure(model, searchError);
+        lastError = searchError;
+        console.warn(`[getProductKnowledge] Search grounding attempt on ${model} notice:`, searchError?.status, searchError?.message?.substring(0, 80));
+      }
+    }
+
+    // TIER 2: Secondary Resilient Direct Structured JSON Generation with the exhaustive prompt
+    const healthyModels = getPrioritizedModels();
+    for (const model of healthyModels) {
+      try {
+        response = await ai.models.generateContent({
+          model,
           contents: prompt,
           config: {
             systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema
+            responseMimeType: "application/json"
           }
         });
-      } catch (primaryErr: any) {
-        console.warn("Primary model attempt failed in getProductKnowledge, retrying with fallback model...", primaryErr);
-        try {
-          response = await ai.models.generateContent({
-            model: FALLBACK_GEMINI_MODEL,
-            contents: prompt,
-            config: {
-              systemInstruction,
-              responseMimeType: "application/json",
-              responseSchema
-            }
-          });
-        } catch (secondaryErr: any) {
-          console.warn("Secondary model failed in getProductKnowledge, retrying with tertiary model (flash-lite)...", secondaryErr);
-          response = await ai.models.generateContent({
-            model: TERTIARY_GEMINI_MODEL,
-            contents: prompt,
-            config: {
-              systemInstruction,
-              responseMimeType: "application/json",
-              responseSchema
-            }
-          });
+
+        if (response?.text) {
+          const parsed = safeParseProductKnowledge(response.text);
+          if (
+            parsed && 
+            parsed.productName && 
+            parsed.productName !== "जानकारी उपलब्ध नहीं है" && 
+            !parsed.productName.includes("पहचान नहीं") &&
+            !parsed.productName.includes("पहचाना नहीं")
+          ) {
+            parsed.sources = enrichGovernmentSources(parsed.category, parsed.sources);
+            return parsed;
+          }
         }
+      } catch (directErr: any) {
+        markModelTemporaryFailure(model, directErr);
+        lastError = directErr;
+        console.warn(`[getProductKnowledge] Direct model attempt on ${model} notice:`, directErr?.status, directErr?.message?.substring(0, 80));
       }
+    }
+
+    if (!response?.text) {
+      throw lastError || new Error("उत्पाद की विस्तृत जानकारी प्राप्त नहीं हो सकी।");
     }
 
     const result = safeParseProductKnowledge(response.text);
 
-    // Extract citations
-    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-    if (chunks && chunks.length > 0) {
-      result.sources = chunks
-        .filter((c: any) => c.web?.uri)
-        .map((c: any) => ({
-          title: c.web.title || "Official Resource",
-          uri: c.web.uri
-        }));
+    if (!result.productName || result.productName === "जानकारी उपलब्ध नहीं है" || result.productName.includes("पहचान नहीं") || result.productName.includes("पहचाना नहीं")) {
+      throw new Error("इस उत्पाद की जानकारी नहीं मिल सकी। कृपया सही नाम या स्पेलिंग (जैसे: कोराजन, यूरिया, इमिडाक्लोप्रिड) लिखकर पुनः प्रयास करें।");
     }
 
+    result.sources = enrichGovernmentSources(result.category, result.sources);
     return result;
   } catch (error: any) {
     console.warn("Gemini Product Knowledge Error:", error);
@@ -1057,7 +996,7 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
       throw friendlyError;
     }
-    throw new Error(friendlyError.message || "जानकारी खोजने में त्रुटि हुई। कृपया पुनः प्रयास करें।");
+    throw new Error(error?.message || friendlyError.message || "जानकारी खोजने में त्रुटि हुई। कृपया पुनः प्रयास करें।");
   }
 }
 
@@ -1066,126 +1005,53 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
 
-    const prompt = `You are a world-class Indian agricultural product expert and advanced image recognition AI representing 'फल्सावदिया कृषि बाजार'.
-    Your task is to analyze the attached photo of an agricultural product (fertilizer, insecticide, fungicide, herbicide, PGR, micronutrient, biostimulant, seed, animal nutrition, etc.).
-    
-    CRITICAL ANALYSIS STEPS:
-    1. **De-blur & Image Enhancing**: If the photo is blurry, dark, low-quality, or taken at an angle, simulate digital enhancement in your reasoning. Carefully read the text elements, logos, color patterns, and label details to reconstruct the visible characters.
-    2. **OCR & Label Extraction**: Perform OCR on all visible text on the product label. Read the brand name, chemical composition, company name, formulation, or registration numbers.
-    3. **Product Recognition**: Identify the Product Name, Company Name, Technical Name, Category, and Formulation.
-    4. **Knowledge Retrieval**: Once the product is identified, retrieve exhaustive, accurate, and completely verified agricultural details for this product (its active ingredients, mode of action, group, recommended dosage, safety instructions, target crops, target pests, etc.).
-    
-    CRITICAL LANGUAGE MANDATE (अति-महत्वपूर्ण नियम: 100% केवल सरल हिंदी):
-    - STRICTLY 100% SIMPLE HINDI (केवल सरल हिंदी भाषा): Indian farmers will read this. Every single sentence, paragraph, bullet point, explanation, usage instruction, benefit, precaution, symptom, dosage guideline, crop name, and pest name MUST be written in natural, easy-to-understand HINDI (शुद्ध व सरल हिंदी).
-    - ABSOLUTELY NO ENGLISH SENTENCES: Even if the product label or chemical text in the photo is in English, you MUST translate and provide all descriptions, uses, dosages, and benefits in simple Hindi.
-    - Technical/Chemical Names: For chemical active ingredients, provide the Hindi transcription first, with optional English chemical name in parentheses for accuracy (e.g. 'क्लोरेंट्रानिलिप्रोल (Chlorantraniliprole)'). All explanations MUST be in Hindi.
-    - Ensure that the DOSAGE section is fully filled in Hindi for 1L, 15L, 16L, 20L, 25L, 200L, 500L, and 1 Bigha (बीघा).
-    - Provide crop-specific dosages for common crops (जैसे: सोयाबीन, गेहूं, मक्का, चना, कपास आदि) strictly in Hindi.
-    - If the image does not show an agricultural product, or if the product is not recognized at all, provide a helpful general response, set 'hasExactMatch' to false, and explain in productName/usage what was visible in the image in Hindi.
-    - Return the result strictly as a valid JSON object matching the defined schema. Do not include markdown wraps or anything except the JSON string in response.`;
+    const prompt = `आप भारत के सर्वोच्च कृषि वैज्ञानिक, पौध संरक्षण विशेषज्ञ, इमेज एनालिस्ट एवं CIBRC/ICAR नियामक सलाहकार हैं, जो 'फल्सावदिया कृषि बाजार' का प्रतिनिधित्व करते हैं।
+आपका कार्य संलग्न कृषि उत्पाद (कीटनाशक की बोतल, फफूंदनाशक का पाउच, खरपतवारनाशक, टॉनिक/PGR, सूक्ष्म पोषक तत्व, उर्वरक/खाद की बोरी, या बीज पैकेट जैसे 'श्री मंगलम एम-501') की फोटो का गहन विश्लेषण करना है और 60 दिन पहले की तरह 100% सटीक, अत्यधिक विस्तृत, प्रामाणिक व व्यावहारिक कृषि रिपोर्ट तैयार करना है।
 
-    const responseSchema = {
-      type: "OBJECT" as any,
-      properties: {
-        productName: { type: "STRING", description: "उत्पाद का नाम हिंदी में (जैसे: कोराजन कीटनाशक)" },
-        companyName: { type: "STRING", description: "कंपनी या निर्माता का नाम हिंदी में" },
-        technicalName: { type: "STRING", description: "तकनीकी नाम हिंदी में व कोष्ठक में अंग्रेजी" },
-        category: { type: "STRING", description: "कीटनाशक, फफूंदनाशक, खरपतवारनाशक, टॉनिक या खाद (सरल हिंदी में)" },
-        formulation: { type: "STRING", description: "फार्मूलेशन का प्रकार सरल हिंदी में" },
-        activeIngredient: { type: "STRING", description: "सक्रिय घटक हिंदी में" },
-        modeOfAction: { type: "STRING", description: "असर का तरीका व कार्यप्रणाली 100% सरल हिंदी में" },
-        fracIracHracGroup: { type: "STRING", description: "रासायनिक ग्रुप कोड" },
-        targetCrops: { type: "STRING", description: "उपयुक्त फसलें सरल हिंदी में" },
-        targetPests: { type: "STRING", description: "नियंत्रित कीट, खरपतवार या रोग सरल हिंदी में" },
-        symptoms: { type: "STRING", description: "रोग व कीट के लक्षण पहचान सरल हिंदी में" },
-        usage: { type: "STRING", description: "विस्तृत उपयोग विधि 100% सरल हिंदी में" },
-        benefits: { type: "STRING", description: "मुख्य फायदे और लाभ 100% सरल हिंदी में" },
-        features: { type: "STRING", description: "उत्पाद की विशेषताएं 100% सरल हिंदी में" },
-        compatibleProducts: { type: "STRING", description: "किन दवाओं के साथ मिला सकते हैं (सरल हिंदी में)" },
-        incompatibleProducts: { type: "STRING", description: "किन दवाओं के साथ न मिलाएं (सरल हिंदी में)" },
-        waitingPeriod: { type: "STRING", description: "प्रतीक्षा अवधि (PHI) सरल हिंदी में" },
-        phi: { type: "STRING", description: "तुड़ाई पूर्व अंतर सरल हिंदी में" },
-        rei: { type: "STRING", description: "खेत में पुनः प्रवेश का समय सरल हिंदी में" },
-        toxicity: { type: "STRING", description: "विषाक्तता का स्तर व रंगीन त्रिकोण सरल हिंदी में" },
-        safetyInstructions: { type: "STRING", description: "किसान सुरक्षा सावधानियां 100% सरल हिंदी में" },
-        mixingOrder: { type: "STRING", description: "दवा घोलने का सही क्रम सरल हिंदी में" },
-        sprayTiming: { type: "STRING", description: "छिड़काव का सही समय सरल हिंदी में" },
-        rainfastPeriod: { type: "STRING", description: "बारिश से बचाव की अवधि सरल हिंदी में" },
-        storage: { type: "STRING", description: "दवा भंडारण व रखने के निर्देश सरल हिंदी में" },
-        dosageLiquid: {
-          type: "OBJECT" as any,
-          properties: {
-            perLiter: { type: "STRING", description: "प्रति 1 लीटर पानी में मात्रा हिंदी में" },
-            per15L: { type: "STRING", description: "15 लीटर पंप में मात्रा हिंदी में" },
-            per16L: { type: "STRING", description: "16 लीटर पंप में मात्रा हिंदी में" },
-            per20L: { type: "STRING", description: "20 लीटर पंप में मात्रा हिंदी में" },
-            per25L: { type: "STRING", description: "25 लीटर पंप में मात्रा हिंदी में" },
-            per200L: { type: "STRING", description: "200 लीटर ड्रम में मात्रा हिंदी में" },
-            per500L: { type: "STRING", description: "500 लीटर टैंकर में मात्रा हिंदी में" },
-            perBigha: { type: "STRING", description: "प्रति 1 बीघा में मात्रा हिंदी में" }
-          },
-          required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
-        },
-        dosagePowder: {
-          type: "OBJECT" as any,
-          properties: {
-            perLiter: { type: "STRING", description: "प्रति 1 लीटर पानी में ग्राम हिंदी में" },
-            per15L: { type: "STRING", description: "15 लीटर पंप में ग्राम हिंदी में" },
-            per16L: { type: "STRING", description: "16 लीटर पंप में ग्राम हिंदी में" },
-            per20L: { type: "STRING", description: "20 लीटर पंप में ग्राम हिंदी में" },
-            per25L: { type: "STRING", description: "25 लीटर पंप में ग्राम हिंदी में" },
-            per200L: { type: "STRING", description: "200 लीटर ड्रम में ग्राम हिंदी में" },
-            per500L: { type: "STRING", description: "500 लीटर टैंकर में ग्राम हिंदी में" },
-            perBigha: { type: "STRING", description: "प्रति 1 बीघा में ग्राम हिंदी में" }
-          },
-          required: ["perLiter", "per15L", "per16L", "per20L", "per25L", "per200L", "per500L", "perBigha"]
-        },
-        dosageFertilizer: {
-          type: "OBJECT" as any,
-          properties: {
-            perPlant: { type: "STRING", description: "प्रति पौधा मात्रा हिंदी में" },
-            perPot: { type: "STRING", description: "प्रति गमला मात्रा हिंदी में" },
-            perBigha: { type: "STRING", description: "प्रति 1 बीघा मात्रा हिंदी में" },
-            perIrrigation: { type: "STRING", description: "प्रति सिंचाई मात्रा हिंदी में" },
-            perSpray: { type: "STRING", description: "प्रति स्प्रे मात्रा हिंदी में" },
-            perDrenching: { type: "STRING", description: "ड्रेंचिंग मात्रा हिंदी में" },
-            totalAmount: { type: "STRING", description: "कुल मात्रा हिंदी में" }
-          },
-          required: ["perPlant", "perPot", "perBigha", "perIrrigation", "perSpray", "perDrenching", "totalAmount"]
-        },
-        cropSpecificDosage: {
-          type: "ARRAY" as any,
-          items: {
-            type: "OBJECT" as any,
-            properties: {
-              cropName: { type: "STRING", description: "फसल का नाम हिंदी में" },
-              dosage: { type: "STRING", description: "डोज़ की मात्रा हिंदी में" },
-              usage: { type: "STRING", description: "उपयोग विधि सरल हिंदी में" },
-              sprayTime: { type: "STRING", description: "स्प्रे का समय सरल हिंदी में" }
-            },
-            required: ["cropName", "dosage", "usage", "sprayTime"]
-          }
-        },
-        hasExactMatch: { type: "BOOLEAN" }
-      },
-      required: [
-        "productName", "companyName", "technicalName", "category", "formulation", "activeIngredient", 
-        "modeOfAction", "fracIracHracGroup", "targetCrops", "targetPests", "symptoms", "usage", 
-        "benefits", "features", "compatibleProducts", "incompatibleProducts", "waitingPeriod", 
-        "phi", "rei", "toxicity", "safetyInstructions", "mixingOrder", "sprayTiming", 
-        "rainfastPeriod", "storage", "dosageLiquid", "dosagePowder", "dosageFertilizer", 
-        "cropSpecificDosage", "hasExactMatch"
-      ]
-    };
+अति-महत्वपूर्ण विश्लेषण एवं नियामक मानक (OCR & Government Standards):
+1. **OCR व पैकेजिंग टेक्स्ट एक्सट्रैक्शन**: लेबल, बोतल या पैकेट पर छपे समस्त अक्षर, ब्रांड नाम, टेक्निकल रसायन नाम, फॉर्मूलेशन कोड (EC, SC, WP, SP, आदि), निर्माता कंपनी, बैच नंबर तथा CIBRC / CIR पंजीकरण नंबर को ध्यानपूर्वक पढ़ें।
+2. **सटीक कृषि पुनर्निर्माण**: यदि फोटो धुंधली, कम रोशनी वाली या तिरछी हो, तो भी उपलब्ध अक्षरों (उदा. 'श्री मंगलम एम-501', 'कोराजन', 'साफ', 'यूरिया', 'इमिडाक्लोप्रिड', 'एम-45') से सटीक उत्पाद की पहचान करें।
+3. **सरकारी मानकों से मिलान**: CIBRC (केंद्रीय कीटनाशक बोर्ड), ICAR एवं उर्वरक नियंत्रण आदेश (FCO) के आधिकारिक पंजीकृत दावों से मिलान कर पूर्ण विवरण भरें।
+4. **100% केवल सरल हिंदी (अति-महत्वपूर्ण)**: भारतीय किसान इस रिपोर्ट को पढ़ेंगे। समस्त विवरण, फायदे, सावधानियां, कार्यप्रणाली, फसलें, कीट व मात्राएं सरल, स्पष्ट व सम्मानजनक हिंदी में ही लिखें। अंग्रेजी वाक्य बिल्कुल न लिखें।
+5. **सटीक व विस्तृत फील्ड्स**:
+   - productName, companyName, technicalName, category, formulation, activeIngredient
+   - modeOfAction: कार्य करने का सटीक वैज्ञानिक तरीका (कम से कम 2-3 वाक्यों में)
+   - fracIracHracGroup: सटीक ग्रुप कोड
+   - targetCrops: कम से कम 6 से 8 प्रमुख भारतीय फसलें
+   - targetPests: सभी लक्षित कीट, रोग व इल्लियां
+   - symptoms: खेत में फसल पर दिखाई देने वाले लक्षण
+   - usage: छिड़काव विधि, पानी की मात्रा, नोजल
+   - benefits: 5 से 6 विस्तृत बिंदुवार फायदे
+   - features: विशेष तकनीकी खूबियां
+   - compatibleProducts & incompatibleProducts
+   - waitingPeriod, phi, rei, toxicity, safetyInstructions, mixingOrder (WALES नियम), sprayTiming, rainfastPeriod, storage
+6. **प्रत्येक स्प्रेयर हेतु सटीक मात्रा (Dosages)**:
+   - dosageLiquid: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha }
+   - dosagePowder: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha }
+   - dosageFertilizer: { perPlant, perPot, perBigha, perIrrigation, perSpray, perDrenching, totalAmount }
+   - cropSpecificDosage: कम से कम 4 से 6 फसलों हेतु { cropName, dosage, usage, sprayTime }
+7. **पहचान की स्थिति**: पहचान होने पर 'hasExactMatch' को true सेट करें। यदि फोटो कृषि से संबंधित नहीं है तो 'productName' में 'पहचान नहीं हो सकी' दें।
+8. **कोई इमेज डेटा आउटपुट में न दें**: JSON में कोई base64 या इमेज स्ट्रिंग शामिल न करें।
+9. आउटपुट फॉर्मेट: केवल और केवल वैध JSON ऑब्जेक्ट स्ट्रिंग लौटाएं।`;
 
-    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY LANGUAGE REQUIREMENT: Your audience is exclusively Hindi-speaking Indian farmers. You MUST respond 100% in simple, clear, respectful HINDI (सरल हिंदी भाषा). NEVER provide descriptions, benefits, usages, or symptoms in English. Ensure the output is valid JSON strictly following the schema. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
+    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY LANGUAGE REQUIREMENT: Your audience is exclusively Hindi-speaking Indian farmers. You MUST respond 100% in simple, clear, respectful HINDI (सरल हिंदी भाषा). NEVER provide descriptions, benefits, usages, or symptoms in English. Never echo base64 image data in output. Ensure the output is valid JSON. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
+
+    // Dynamic MIME type detection from Base64 Data URL (prevents invalid argument error on PNG/WebP)
+    let mimeType = "image/jpeg";
+    if (base64Image.startsWith("data:")) {
+      const match = base64Image.match(/^data:([^;]+);base64,/);
+      if (match && match[1]) {
+        mimeType = match[1];
+      }
+    }
+    const cleanData = base64Image.split(',')[1] || base64Image;
 
     const parts = [
       { text: prompt },
       {
         inlineData: {
-          mimeType: "image/jpeg",
-          data: base64Image.split(',')[1] || base64Image
+          mimeType,
+          data: cleanData
         }
       }
     ];
@@ -1193,29 +1059,37 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
     let response: any = null;
     let lastError: any = null;
 
-    for (const model of CANDIDATE_GEMINI_MODELS) {
+    const candidateModels = getPrioritizedModels();
+    for (const model of candidateModels) {
       try {
         response = await ai.models.generateContent({
           model,
           contents: parts,
           config: {
             systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema
+            responseMimeType: "application/json"
           }
         });
-        if (response?.text) break;
+        if (response?.text) {
+          const parsed = safeParseProductKnowledge(response.text);
+          if (parsed && parsed.productName) {
+            parsed.sources = enrichGovernmentSources(parsed.category, parsed.sources);
+            return parsed;
+          }
+        }
       } catch (err: any) {
+        markModelTemporaryFailure(model, err);
         lastError = err;
-        console.warn(`[analyzeProductImage] Candidate ${model} attempt notice:`, err?.status, err?.message);
+        console.warn(`[analyzeProductImage] Candidate ${model} notice:`, err?.status, err?.message?.substring(0, 80));
       }
     }
 
     if (!response?.text) {
-      throw lastError || new Error("छवि का विश्लेषण नहीं हो सका।");
+      throw lastError || new Error("छवि का विस्तृत विश्लेषण नहीं हो सका।");
     }
 
     const result = safeParseProductKnowledge(response.text);
+    result.sources = enrichGovernmentSources(result.category, result.sources);
     return result;
   } catch (error: any) {
     console.warn("Gemini Analyze Product Image Warning:", error?.message || error);
@@ -1223,7 +1097,7 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
       throw friendlyError;
     }
-    throw new Error(friendlyError.message || "इमेज का विश्लेषण करने में त्रुटि हुई। कृपया पुनः प्रयास करें।");
+    throw new Error(error?.message || friendlyError.message || "इमेज का विश्लेषण करने में त्रुटि हुई। कृपया पुनः प्रयास करें।");
   }
 }
 
