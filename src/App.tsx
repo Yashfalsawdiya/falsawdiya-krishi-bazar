@@ -8,6 +8,7 @@ import SplashScreen from './components/SplashScreen';
 import PWAUpdater from './components/PWAUpdater';
 import InstallPwaModal from './components/InstallPwaModal';
 import FeatureGuard from './components/FeatureGuard';
+import SafeErrorBoundary from './components/SafeErrorBoundary';
 import { Loader2 } from 'lucide-react';
 
 // Resilient lazy loader to handle network glitches or stale chunk URLs gracefully
@@ -102,7 +103,7 @@ export default function App() {
                 <Route path="encyclopedia" element={<FeatureGuard featureKey="encyclopedia" featureTitle="कीट एवं रोग निर्देशिका"><Encyclopedia /></FeatureGuard>} />
                 <Route path="encyclopedia/:id" element={<FeatureGuard featureKey="encyclopedia" featureTitle="कीट एवं रोग निर्देशिका"><EncyclopediaDetail /></FeatureGuard>} />
                 <Route path="ai-call" element={<FeatureGuard featureKey="ai_call" featureTitle="AI कृषि विशेषज्ञ कॉल"><AiAgriExpert /></FeatureGuard>} />
-                <Route path="ai-product-knowledge" element={<FeatureGuard featureKey="ai_product_knowledge" featureTitle="AI उत्पाद जानकारी"><AiProductKnowledge /></FeatureGuard>} />
+                <Route path="ai-product-knowledge" element={<FeatureGuard featureKey="ai_product_knowledge" featureTitle="AI उत्पाद जानकारी"><SafeErrorBoundary fallbackTitle="AI उत्पाद जानकारी लोड करने में समस्या आई"><AiProductKnowledge /></SafeErrorBoundary></FeatureGuard>} />
                 <Route path="admin" element={<Admin />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="cart" element={<CartPage />} />

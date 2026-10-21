@@ -26,6 +26,7 @@ import {
   writeBatch 
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import SafeErrorBoundary from '../components/SafeErrorBoundary';
 
 const CACHE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
@@ -47,6 +48,156 @@ const normalizeText = (text: string): string => {
     .trim()
     .replace(/[।०.,\/#!$%\^&\*;:{}=\-_`~()]/g, "") // remove punctuation
     .replace(/\s+/g, " "); // collapse spacing
+};
+
+export const normalizeProductResult = (raw: any): ProductKnowledgeResult => {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      productName: "जानकारी उपलब्ध नहीं है",
+      companyName: "उपलब्ध नहीं है",
+      technicalName: "उपलब्ध नहीं है",
+      category: "सामान्य",
+      formulation: "उपलब्ध नहीं है",
+      activeIngredient: "उपलब्ध नहीं है",
+      modeOfAction: "उपलब्ध नहीं है",
+      fracIracHracGroup: "",
+      targetCrops: "सभी प्रमुख फसलें",
+      targetPests: "उत्पाद अनुसार",
+      symptoms: "उपलब्ध नहीं है",
+      usage: "उपलब्ध नहीं है",
+      benefits: "विवरण उपलब्ध नहीं है",
+      features: "विशेषताएं उपलब्ध नहीं हैं",
+      compatibleProducts: "सामान्यतः अधिकांश कीटनाशकों और कवकनाशकों के साथ मिला सकते हैं।",
+      incompatibleProducts: "क्षारीय (Alkaline) या बोर्डो मिश्रण के साथ मिश्रण न करें।",
+      waitingPeriod: "N/A",
+      phi: "N/A",
+      rei: "N/A",
+      toxicity: "सामान्य",
+      safetyInstructions: "सावधानीपूर्वक छिड़काव करें। मास्क और दस्तानों का प्रयोग करें। बच्चों की पहुँच से दूर रखें।",
+      mixingOrder: "WALES नियम अनुसार सही क्रम में घोलें।",
+      sprayTiming: "सुबह या शाम",
+      rainfastPeriod: "2 घंटे",
+      storage: "ठंडी और सूखी जगह पर रखें",
+      dosageLiquid: {
+        perLiter: "उत्पाद अनुसार",
+        per15L: "उत्पाद अनुसार",
+        per16L: "उत्पाद अनुसार",
+        per20L: "उत्पाद अनुसार",
+        per25L: "उत्पाद अनुसार",
+        per200L: "उत्पाद अनुसार",
+        per500L: "उत्पाद अनुसार",
+        perBigha: "उत्पाद अनुसार",
+      },
+      dosagePowder: {
+        perLiter: "उत्पाद अनुसार",
+        per15L: "उत्पाद अनुसार",
+        per16L: "उत्पाद अनुसार",
+        per20L: "उत्पाद अनुसार",
+        per25L: "उत्पाद अनुसार",
+        per200L: "उत्पाद अनुसार",
+        per500L: "उत्पाद अनुसार",
+        perBigha: "उत्पाद अनुसार",
+      },
+      dosageFertilizer: {
+        perPlant: "उत्पाद अनुसार",
+        perPot: "उत्पाद अनुसार",
+        perBigha: "उत्पाद अनुसार",
+        perIrrigation: "उपलब्ध नहीं है",
+        perSpray: "उपलब्ध नहीं है",
+        perDrenching: "उपलब्ध नहीं है",
+        totalAmount: "उपलब्ध नहीं है",
+      },
+      cropSpecificDosage: [],
+      sources: [],
+      hasExactMatch: false,
+    };
+  }
+
+  const rawDL = raw.dosageLiquid && typeof raw.dosageLiquid === 'object' ? raw.dosageLiquid : {};
+  const rawDP = raw.dosagePowder && typeof raw.dosagePowder === 'object' ? raw.dosagePowder : {};
+  const rawDF = raw.dosageFertilizer && typeof raw.dosageFertilizer === 'object' ? raw.dosageFertilizer : {};
+
+  let safeCropDosage: Array<{ cropName: string; dosage: string; usage: string; sprayTime: string }> = [];
+  if (Array.isArray(raw.cropSpecificDosage)) {
+    safeCropDosage = raw.cropSpecificDosage.map((item: any) => ({
+      cropName: String(item?.cropName || "अज्ञात फसल"),
+      dosage: String(item?.dosage || "उत्पाद अनुसार"),
+      usage: String(item?.usage || "स्प्रे / छिड़काव"),
+      sprayTime: String(item?.sprayTime || "सुबह / शाम")
+    }));
+  }
+
+  let safeSources: Array<{ title: string; uri: string }> = [];
+  if (Array.isArray(raw.sources)) {
+    safeSources = raw.sources
+      .filter((s: any) => s && typeof s === 'object')
+      .map((s: any) => ({
+        title: String(s.title || "आधिकारिक स्रोत"),
+        uri: String(s.uri || "https://cibrc.nic.in")
+      }));
+  }
+
+  return {
+    productName: String(raw.productName || "जानकारी उपलब्ध नहीं है"),
+    companyName: String(raw.companyName || "उपलब्ध नहीं है"),
+    technicalName: String(raw.technicalName || "उपलब्ध नहीं है"),
+    category: String(raw.category || "सामान्य"),
+    formulation: String(raw.formulation || "उपलब्ध नहीं है"),
+    activeIngredient: String(raw.activeIngredient || "उपलब्ध नहीं है"),
+    modeOfAction: String(raw.modeOfAction || "उपलब्ध नहीं है"),
+    fracIracHracGroup: String(raw.fracIracHracGroup || ""),
+    targetCrops: String(raw.targetCrops || "सभी प्रमुख फसलें"),
+    targetPests: String(raw.targetPests || "उत्पाद अनुसार"),
+    symptoms: String(raw.symptoms || "उपलब्ध नहीं है"),
+    usage: String(raw.usage || "उपलब्ध नहीं है"),
+    benefits: String(raw.benefits || raw.usage || "विवरण उपलब्ध नहीं है"),
+    features: String(raw.features || "विशेषताएं उपलब्ध नहीं हैं"),
+    compatibleProducts: String(raw.compatibleProducts || "सामान्यतः अधिकांश कीटनाशकों और कवकनाशकों के साथ मिला सकते हैं।"),
+    incompatibleProducts: String(raw.incompatibleProducts || "क्षारीय (Alkaline) या बोर्डो मिश्रण के साथ मिश्रण न करें।"),
+    waitingPeriod: String(raw.waitingPeriod || "N/A"),
+    phi: String(raw.phi || "N/A"),
+    rei: String(raw.rei || "N/A"),
+    toxicity: String(raw.toxicity || "सामान्य"),
+    safetyInstructions: String(raw.safetyInstructions || "सावधानीपूर्वक छिड़काव करें। मास्क और दस्तानों का प्रयोग करें। बच्चों की पहुँच से दूर रखें।"),
+    mixingOrder: String(raw.mixingOrder || "WALES नियम अनुसार सही क्रम में घोलें।"),
+    sprayTiming: String(raw.sprayTiming || "सुबह या शाम"),
+    rainfastPeriod: String(raw.rainfastPeriod || "2 घंटे"),
+    storage: String(raw.storage || "ठंडी और सूखी जगह पर रखें"),
+    dosageLiquid: {
+      perLiter: String(rawDL.perLiter || "उत्पाद अनुसार"),
+      per15L: String(rawDL.per15L || "उत्पाद अनुसार"),
+      per16L: String(rawDL.per16L || "उत्पाद अनुसार"),
+      per20L: String(rawDL.per20L || "उत्पाद अनुसार"),
+      per25L: String(rawDL.per25L || "उत्पाद अनुसार"),
+      per200L: String(rawDL.per200L || "उत्पाद अनुसार"),
+      per500L: String(rawDL.per500L || "उत्पाद अनुसार"),
+      perBigha: String(rawDL.perBigha || "उत्पाद अनुसार"),
+    },
+    dosagePowder: {
+      perLiter: String(rawDP.perLiter || "उत्पाद अनुसार"),
+      per15L: String(rawDP.per15L || "उत्पाद अनुसार"),
+      per16L: String(rawDP.per16L || "उत्पाद अनुसार"),
+      per20L: String(rawDP.per20L || "उत्पाद अनुसार"),
+      per25L: String(rawDP.per25L || "उत्पाद अनुसार"),
+      per200L: String(rawDP.per200L || "उत्पाद अनुसार"),
+      per500L: String(rawDP.per500L || "उत्पाद अनुसार"),
+      perBigha: String(rawDP.perBigha || "उत्पाद अनुसार"),
+    },
+    dosageFertilizer: {
+      perPlant: String(rawDF.perPlant || "उत्पाद अनुसार"),
+      perPot: String(rawDF.perPot || "उत्पाद अनुसार"),
+      perBigha: String(rawDF.perBigha || "उत्पाद अनुसार"),
+      perIrrigation: String(rawDF.perIrrigation || "उपलब्ध नहीं है"),
+      perSpray: String(rawDF.perSpray || "उपलब्ध नहीं है"),
+      perDrenching: String(rawDF.perDrenching || "उपलब्ध नहीं है"),
+      totalAmount: String(rawDF.totalAmount || "उपलब्ध नहीं है"),
+    },
+    cropSpecificDosage: safeCropDosage,
+    sources: safeSources,
+    hasExactMatch: Boolean(raw.hasExactMatch ?? true),
+    order: raw.order,
+    createdAt: raw.createdAt
+  };
 };
 
 const CACHE_VERSION = 'pk_cache_v_60d_exhaustive';
@@ -105,7 +256,7 @@ const getCachedResult = (query: string): ProductKnowledgeResult | null => {
       return null;
     }
 
-    return entry.data;
+    return normalizeProductResult(entry.data);
   } catch (e) {
     console.error("Error reading cache", e);
     return null;
@@ -113,16 +264,17 @@ const getCachedResult = (query: string): ProductKnowledgeResult | null => {
 };
 
 const saveToCache = (query: string, data: ProductKnowledgeResult) => {
+  const normalized = normalizeProductResult(data);
   // Only cache high-quality, verified, deep results
   if (
-    !data || 
-    !data.productName || 
-    data.productName === "जानकारी उपलब्ध नहीं है" || 
-    data.productName.includes("पहचान नहीं") ||
-    !data.sources ||
-    data.sources.length < 2 ||
-    !data.cropSpecificDosage ||
-    data.cropSpecificDosage.length < 2
+    !normalized || 
+    !normalized.productName || 
+    normalized.productName === "जानकारी उपलब्ध नहीं है" || 
+    normalized.productName.includes("पहचान नहीं") ||
+    !normalized.sources ||
+    normalized.sources.length < 2 ||
+    !normalized.cropSpecificDosage ||
+    normalized.cropSpecificDosage.length < 2
   ) {
     return;
   }
@@ -140,14 +292,14 @@ const saveToCache = (query: string, data: ProductKnowledgeResult) => {
       }
     }
 
-    const productId = normalizeText(data.productName);
+    const productId = normalizeText(normalized.productName);
     const normQuery = normalizeText(query);
 
     // Save/update the main entry
     cache.entries[productId] = {
       productId,
       timestamp: Date.now(),
-      data,
+      data: normalized,
       searchQuery: query
     };
 
@@ -282,8 +434,9 @@ export default function AiProductKnowledge() {
       const local = localStorage.getItem('product_knowledge_bookmarks');
       if (local) {
         try {
-          const parsed = JSON.parse(local) as ProductKnowledgeResult[];
-          setBookmarkedProducts(parsed.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+          const parsed = JSON.parse(local) as any[];
+          const normalizedList = (Array.isArray(parsed) ? parsed : []).map(normalizeProductResult);
+          setBookmarkedProducts(normalizedList.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
         } catch (e) {
           console.error("Error parsing local bookmarks", e);
         }
@@ -300,18 +453,19 @@ export default function AiProductKnowledge() {
     );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const firestoreProducts = snapshot.docs.map(doc => doc.data() as ProductKnowledgeResult);
+      const firestoreProducts = snapshot.docs.map(doc => normalizeProductResult(doc.data()));
       
       const localStr = localStorage.getItem('product_knowledge_bookmarks');
       let localProducts: ProductKnowledgeResult[] = [];
       if (localStr) {
         try {
-          localProducts = JSON.parse(localStr);
+          const parsed = JSON.parse(localStr);
+          localProducts = (Array.isArray(parsed) ? parsed : []).map(normalizeProductResult);
         } catch (e) {}
       }
 
       const unsyncedLocal = localProducts.filter(lp => 
-        !firestoreProducts.some(fp => fp.productName.toLowerCase().trim() === lp.productName.toLowerCase().trim())
+        !firestoreProducts.some(fp => (fp.productName || '').toLowerCase().trim() === (lp.productName || '').toLowerCase().trim())
       );
 
       if (unsyncedLocal.length > 0) {
@@ -351,13 +505,13 @@ export default function AiProductKnowledge() {
   useEffect(() => {
     if (result) {
       const exists = bookmarkedProducts.some(
-        (b) => b.productName.toLowerCase() === result.productName.toLowerCase()
+        (b) => (b.productName || '').toLowerCase().trim() === (result.productName || '').toLowerCase().trim()
       );
       setIsBookmarked(exists);
 
       // Auto-switch dosage tab based on product category/formulation
-      const formulationLower = result.formulation.toLowerCase();
-      const catLower = result.category.toLowerCase();
+      const formulationLower = (result.formulation || '').toLowerCase();
+      const catLower = (result.category || '').toLowerCase();
       
       if (formulationLower.includes('ec') || formulationLower.includes('sl') || formulationLower.includes('sc') || formulationLower.includes('liquid') || formulationLower.includes('लिक्लीड') || formulationLower.includes('तरल')) {
         setActiveDosageTab('liquid');
@@ -388,10 +542,11 @@ export default function AiProductKnowledge() {
     if (!forceRefresh) {
       const cachedData = getCachedResult(term);
       if (cachedData) {
+        const normCached = normalizeProductResult(cachedData);
         setIsFromCache(true);
-        setResult(cachedData);
+        setResult(normCached);
         setIsLoading(false);
-        autoSaveProduct(cachedData);
+        autoSaveProduct(normCached);
         return;
       }
     }
@@ -404,9 +559,10 @@ export default function AiProductKnowledge() {
         setResult(null);
         return;
       }
-      saveToCache(term, data);
-      setResult(data);
-      autoSaveProduct(data);
+      const normData = normalizeProductResult(data);
+      saveToCache(term, normData);
+      setResult(normData);
+      autoSaveProduct(normData);
     } catch (err: any) {
       console.error("AI Product Knowledge Search Error:", err);
       const friendly = getFriendlyAiError(err);
@@ -527,11 +683,12 @@ export default function AiProductKnowledge() {
         return;
       }
 
-      saveToCache(data.productName || "scanned_image", data);
-      setResult(data);
-      autoSaveProduct(data);
-      if (data.productName) {
-        setQuery(data.productName);
+      const normData = normalizeProductResult(data);
+      saveToCache(normData.productName || "scanned_image", normData);
+      setResult(normData);
+      autoSaveProduct(normData);
+      if (normData.productName) {
+        setQuery(normData.productName);
       }
     } catch (err: any) {
       console.warn("AI Product Image Search Notice:", err?.message || err);
@@ -548,21 +705,22 @@ export default function AiProductKnowledge() {
 
   // Intelligent Cloud Sync Auto Save, Delete, Order Actions
   const autoSaveProduct = async (data: ProductKnowledgeResult) => {
-    if (!data || !data.productName || data.productName === "जानकारी उपलब्ध नहीं है" || data.productName.includes("पहचान नहीं")) return;
+    const normalized = normalizeProductResult(data);
+    if (!normalized || !normalized.productName || normalized.productName === "जानकारी उपलब्ध नहीं है" || normalized.productName.includes("पहचान नहीं")) return;
     
-    const cleanName = data.productName.toLowerCase().trim();
-    const docId = getSafeDocId(data.productName);
+    const cleanName = (normalized.productName || '').toLowerCase().trim();
+    const docId = getSafeDocId(normalized.productName);
     if (!docId) return;
 
     setBookmarkedProducts((prevList) => {
       const alreadyExists = prevList.some(
-        p => p.productName.toLowerCase().trim() === cleanName
+        p => (p.productName || '').toLowerCase().trim() === cleanName
       );
       if (alreadyExists) return prevList;
 
       const newOrder = prevList.length;
       const rawProductData = {
-        ...data,
+        ...normalized,
         order: newOrder,
         createdAt: Date.now()
       };
@@ -831,7 +989,7 @@ export default function AiProductKnowledge() {
       const diffY = Math.abs(touch.clientY - startTouchYRef.current);
       
       if (duration < 300 && diffX < 8 && diffY < 8) {
-        setResult(bookmarkedProducts[index]);
+        setResult(normalizeProductResult(bookmarkedProducts[index]));
       }
     }
   };
@@ -943,7 +1101,7 @@ export default function AiProductKnowledge() {
         const diffX = Math.abs(upEvent.clientX - startTouchXRef.current);
         const diffY = Math.abs(upEvent.clientY - startTouchYRef.current);
         if (duration < 300 && diffX < 8 && diffY < 8) {
-          setResult(bookmarkedProducts[index]);
+          setResult(normalizeProductResult(bookmarkedProducts[index]));
         }
       }
     };
@@ -957,17 +1115,17 @@ export default function AiProductKnowledge() {
 
     let dosageText = '';
     if (activeDosageTab === 'liquid') {
-      dosageText = `• प्रति 15 लीटर पंप: ${result.dosageLiquid.per15L || result.dosageLiquid.per16L || "उत्पाद श्रेणी अनुसार"}
-• प्रति 20 लीटर पंप: ${result.dosageLiquid.per20L || "उत्पाद श्रेणी अनुसार"}
-• प्रति बीघा: ${result.dosageLiquid.perBigha || "उत्पाद श्रेणी अनुसार"}`;
+      dosageText = `• प्रति 15 लीटर पंप: ${result.dosageLiquid?.per15L || result.dosageLiquid?.per16L || "उत्पाद श्रेणी अनुसार"}
+• प्रति 20 लीटर पंप: ${result.dosageLiquid?.per20L || "उत्पाद श्रेणी अनुसार"}
+• प्रति बीघा: ${result.dosageLiquid?.perBigha || "उत्पाद श्रेणी अनुसार"}`;
     } else if (activeDosageTab === 'powder') {
-      dosageText = `• प्रति 15 लीटर पंप: ${result.dosagePowder.per15L || result.dosagePowder.per16L || "उत्पाद श्रेणी अनुसार"}
-• प्रति 20 लीटर पंप: ${result.dosagePowder.per20L || "उत्पाद श्रेणी अनुसार"}
-• प्रति बीघा: ${result.dosagePowder.perBigha || "उत्पाद श्रेणी अनुसार"}`;
+      dosageText = `• प्रति 15 लीटर पंप: ${result.dosagePowder?.per15L || result.dosagePowder?.per16L || "उत्पाद श्रेणी अनुसार"}
+• प्रति 20 लीटर पंप: ${result.dosagePowder?.per20L || "उत्पाद श्रेणी अनुसार"}
+• प्रति बीघा: ${result.dosagePowder?.perBigha || "उत्पाद श्रेणी अनुसार"}`;
     } else {
-      dosageText = `• प्रति पौधा: ${result.dosageFertilizer.perPlant || "उत्पाद श्रेणी अनुसार"}
-• प्रति सिंचाई: ${result.dosageFertilizer.perIrrigation || "उत्पाद श्रेणी अनुसार"}
-• प्रति बीघा: ${result.dosageFertilizer.perBigha || "उत्पाद श्रेणी अनुसार"}`;
+      dosageText = `• प्रति पौधा: ${result.dosageFertilizer?.perPlant || "उत्पाद श्रेणी अनुसार"}
+• प्रति सिंचाई: ${result.dosageFertilizer?.perIrrigation || "उत्पाद श्रेणी अनुसार"}
+• प्रति बीघा: ${result.dosageFertilizer?.perBigha || "उत्पाद श्रेणी अनुसार"}`;
     }
 
     const shareText = `*फल्सावदिया कृषि बाजार* - AI उत्पाद जानकारी
@@ -1608,36 +1766,36 @@ ${result.safetyInstructions}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">प्रति 1 लीटर पानी</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid.perLiter || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid?.perLiter || "N/A"}</p>
                     </div>
                     <div className="bg-[#2D5A27]/5 p-3.5 rounded-2xl border border-[#2D5A27]/10 text-center relative overflow-hidden">
                       <div className="absolute top-1 right-2 text-[8px] bg-[#2D5A27] text-white px-1 rounded-sm uppercase tracking-wider font-bold">Standard</div>
                       <p className="text-[10px] text-gray-400 font-bold uppercase">15L टंकी (Pump)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid.per15L || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid?.per15L || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">16L टंकी (Pump)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid.per16L || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid?.per16L || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">20L टंकी (Pump)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid.per20L || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid?.per20L || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">25L टंकी (Pump)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid.per25L || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid?.per25L || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center col-span-2 md:col-span-1">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">200L ड्रम (Tank)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid.per200L || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid?.per200L || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center col-span-2 md:col-span-1">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">500L टैंकर (Tanker)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid.per500L || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid?.per500L || "N/A"}</p>
                     </div>
                     <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-center col-span-2 md:col-span-1">
                       <p className="text-[10px] text-amber-700 font-black uppercase">प्रति 1 बीघा (Bigha)</p>
-                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosageLiquid.perBigha || "N/A"}</p>
+                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosageLiquid?.perBigha || "N/A"}</p>
                     </div>
                   </div>
                 </div>
@@ -1649,36 +1807,36 @@ ${result.safetyInstructions}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">प्रति 1 लीटर पानी</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder.perLiter || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder?.perLiter || "N/A"}</p>
                     </div>
                     <div className="bg-[#2D5A27]/5 p-3.5 rounded-2xl border border-[#2D5A27]/10 text-center relative overflow-hidden">
                       <div className="absolute top-1 right-2 text-[8px] bg-[#2D5A27] text-white px-1 rounded-sm uppercase tracking-wider font-bold">Standard</div>
                       <p className="text-[10px] text-gray-400 font-bold uppercase">15L टंकी (Pump)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder.per15L || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder?.per15L || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">16L टंकी (Pump)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder.per16L || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder?.per16L || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">20L टंकी (Pump)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder.per20L || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder?.per20L || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">25L टंकी (Pump)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder.per25L || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder?.per25L || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center col-span-2 md:col-span-1">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">200L ड्रम (Tank)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder.per200L || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder?.per200L || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center col-span-2 md:col-span-1">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">500L टैंकर (Tanker)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder.per500L || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder?.per500L || "N/A"}</p>
                     </div>
                     <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-center col-span-2 md:col-span-1">
                       <p className="text-[10px] text-amber-700 font-black uppercase">प्रति 1 बीघा (Bigha)</p>
-                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosagePowder.perBigha || "N/A"}</p>
+                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosagePowder?.perBigha || "N/A"}</p>
                     </div>
                   </div>
                 </div>
@@ -1690,38 +1848,38 @@ ${result.safetyInstructions}
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">प्रति पौधा</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer.perPlant || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer?.perPlant || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">प्रति गमला (Pot)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer.perPot || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer?.perPot || "N/A"}</p>
                     </div>
                     <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-center">
                       <p className="text-[10px] text-amber-700 font-black uppercase">प्रति 1 बीघा (Bigha)</p>
-                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosageFertilizer.perBigha || "N/A"}</p>
+                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosageFertilizer?.perBigha || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">प्रति सिंचाई</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer.perIrrigation || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer?.perIrrigation || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">प्रति स्प्रे (Spray)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer.perSpray || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer?.perSpray || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">ड्रेंचिंग मात्रा (Drenching)</p>
-                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer.perDrenching || "N/A"}</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer?.perDrenching || "N/A"}</p>
                     </div>
                     <div className="bg-gray-100 p-4 rounded-2xl border border-gray-200 text-center col-span-2 md:col-span-3">
                       <p className="text-[10px] text-gray-500 font-bold uppercase">कुल अनुशंसित मात्रा (Total Dose)</p>
-                      <p className="text-lg font-black text-gray-800 mt-1">{result.dosageFertilizer.totalAmount || "N/A"}</p>
+                      <p className="text-lg font-black text-gray-800 mt-1">{result.dosageFertilizer?.totalAmount || "N/A"}</p>
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Crop Specific Dosages */}
-              {result.cropSpecificDosage && result.cropSpecificDosage.length > 0 && (
+              {Array.isArray(result.cropSpecificDosage) && result.cropSpecificDosage.length > 0 && (
                 <div className="border-t border-gray-100 pt-5 space-y-3">
                   <h4 className="text-sm font-black text-[#4A3728] uppercase tracking-wider flex items-center gap-1.5">
                     <Leaf className="w-4 h-4 text-green-600" />
@@ -1890,7 +2048,7 @@ ${result.safetyInstructions}
           </div>
 
           {/* Web Sources / Citations */}
-          {result.sources && result.sources.length > 0 && (
+          {Array.isArray(result.sources) && result.sources.length > 0 && (
             <div className="bg-gray-50 rounded-3xl p-6 border border-gray-100 space-y-3.5 print:hidden">
               <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">प्रमाणित जानकारी के आधिकारिक स्रोत:</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1958,9 +2116,9 @@ ${result.safetyInstructions}
                     <div 
                       key={`${prod.productName}_${originalIndex}`}
                       onTouchStart={savedSearchQuery ? undefined : (e) => handleCardTouchStart(e, originalIndex)}
-                      onTouchEnd={savedSearchQuery ? (e) => { e.preventDefault(); setResult(prod); } : (e) => handleTouchEnd(e, originalIndex)}
+                      onTouchEnd={savedSearchQuery ? (e) => { e.preventDefault(); setResult(normalizeProductResult(prod)); } : (e) => handleTouchEnd(e, originalIndex)}
                       onMouseDown={savedSearchQuery ? undefined : (e) => handleCardMouseDown(e, originalIndex)}
-                      onClick={savedSearchQuery ? () => setResult(prod) : undefined}
+                      onClick={savedSearchQuery ? () => setResult(normalizeProductResult(prod)) : undefined}
                       className={`bg-white border p-4 rounded-2xl shadow-2xs transition-all duration-150 flex items-center justify-between group select-none relative
                         ${!savedSearchQuery ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}
                         ${draggedIndex === originalIndex 
@@ -2250,19 +2408,19 @@ ${result.safetyInstructions}
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
                 <span className="text-[9px] text-gray-400 font-bold uppercase block">प्रति 15 लीटर पंप</span>
                 <span className="font-extrabold text-sm text-[#2D5A27] mt-1 block">
-                  {result.dosageLiquid.per15L || result.dosagePowder.per15L || "उत्पाद अनुसार"}
+                  {result.dosageLiquid?.per15L || result.dosagePowder?.per15L || "उत्पाद अनुसार"}
                 </span>
               </div>
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
                 <span className="text-[9px] text-gray-400 font-bold uppercase block">प्रति 16 लीटर पंप</span>
                 <span className="font-extrabold text-sm text-[#2D5A27] mt-1 block">
-                  {result.dosageLiquid.per16L || result.dosagePowder.per16L || "उत्पाद अनुसार"}
+                  {result.dosageLiquid?.per16L || result.dosagePowder?.per16L || "उत्पाद अनुसार"}
                 </span>
               </div>
               <div className="bg-[#2D5A27]/5 p-3 rounded-xl border border-[#2D5A27]/20 text-center">
                 <span className="text-[9px] text-[#2D5A27] font-extrabold uppercase block">प्रति 1 बीघा (Bigha)</span>
                 <span className="font-extrabold text-sm text-[#2D5A27] mt-1 block">
-                  {result.dosageLiquid.perBigha || result.dosagePowder.perBigha || result.dosageFertilizer.perBigha || "उत्पाद अनुसार"}
+                  {result.dosageLiquid?.perBigha || result.dosagePowder?.perBigha || result.dosageFertilizer?.perBigha || "उत्पाद अनुसार"}
                 </span>
               </div>
             </div>
@@ -2280,39 +2438,39 @@ ${result.safetyInstructions}
               <tbody>
                 <tr className="border-b border-gray-150">
                   <td className="p-2.5 font-bold text-gray-700">प्रति 1 लीटर पानी</td>
-                  <td className="p-2.5 text-gray-600">{result.dosageLiquid.perLiter || "N/A"}</td>
-                  <td className="p-2.5 text-gray-600">{result.dosagePowder.perLiter || "N/A"}</td>
-                  <td className="p-2.5 text-gray-600">{result.dosageFertilizer.perPlant ? `${result.dosageFertilizer.perPlant} (प्रति पौधा)` : "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosageLiquid?.perLiter || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosagePowder?.perLiter || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosageFertilizer?.perPlant ? `${result.dosageFertilizer.perPlant} (प्रति पौधा)` : "N/A"}</td>
                 </tr>
                 <tr className="border-b border-gray-150">
                   <td className="p-2.5 font-bold text-gray-700">प्रति 15L टंकी (Pump)</td>
-                  <td className="p-2.5 text-gray-600 font-bold">{result.dosageLiquid.per15L || "N/A"}</td>
-                  <td className="p-2.5 text-gray-600 font-bold">{result.dosagePowder.per15L || "N/A"}</td>
-                  <td className="p-2.5 text-gray-600">{result.dosageFertilizer.perPlant ? `${result.dosageFertilizer.perPlant} (प्रति पौधा)` : "N/A"}</td>
+                  <td className="p-2.5 text-gray-600 font-bold">{result.dosageLiquid?.per15L || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600 font-bold">{result.dosagePowder?.per15L || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosageFertilizer?.perPlant ? `${result.dosageFertilizer.perPlant} (प्रति पौधा)` : "N/A"}</td>
                 </tr>
                 <tr className="border-b border-gray-150">
                   <td className="p-2.5 font-bold text-gray-700">प्रति 200L ड्रम</td>
-                  <td className="p-2.5 text-gray-600">{result.dosageLiquid.per200L || "N/A"}</td>
-                  <td className="p-2.5 text-gray-600">{result.dosagePowder.per200L || "N/A"}</td>
-                  <td className="p-2.5 text-gray-600">{result.dosageFertilizer.perIrrigation ? `${result.dosageFertilizer.perIrrigation} (सिंचाई)` : "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosageLiquid?.per200L || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosagePowder?.per200L || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosageFertilizer?.perIrrigation ? `${result.dosageFertilizer.perIrrigation} (सिंचाई)` : "N/A"}</td>
                 </tr>
                 <tr className="border-b border-gray-150">
                   <td className="p-2.5 font-bold text-gray-700">प्रति 500L टैंकर</td>
-                  <td className="p-2.5 text-gray-600">{result.dosageLiquid.per500L || "N/A"}</td>
-                  <td className="p-2.5 text-gray-600">{result.dosagePowder.per500L || "N/A"}</td>
-                  <td className="p-2.5 text-gray-600">{result.dosageFertilizer.perSpray ? `${result.dosageFertilizer.perSpray} (स्प्रे)` : "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosageLiquid?.per500L || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosagePowder?.per500L || "N/A"}</td>
+                  <td className="p-2.5 text-gray-600">{result.dosageFertilizer?.perSpray ? `${result.dosageFertilizer.perSpray} (स्प्रे)` : "N/A"}</td>
                 </tr>
                 <tr className="bg-amber-50/40">
                   <td className="p-2.5 font-black text-[#4A3728]">प्रति 1 बीघा (Bigha)</td>
-                  <td className="p-2.5 font-black text-amber-900">{result.dosageLiquid.perBigha || "N/A"}</td>
-                  <td className="p-2.5 font-black text-amber-900">{result.dosagePowder.perBigha || "N/A"}</td>
-                  <td className="p-2.5 font-black text-amber-900">{result.dosageFertilizer.perBigha || "N/A"}</td>
+                  <td className="p-2.5 font-black text-amber-900">{result.dosageLiquid?.perBigha || "N/A"}</td>
+                  <td className="p-2.5 font-black text-amber-900">{result.dosagePowder?.perBigha || "N/A"}</td>
+                  <td className="p-2.5 font-black text-amber-900">{result.dosageFertilizer?.perBigha || "N/A"}</td>
                 </tr>
               </tbody>
             </table>
 
             {/* Crop Specific Dosage */}
-            {result.cropSpecificDosage && result.cropSpecificDosage.length > 0 && (
+            {Array.isArray(result.cropSpecificDosage) && result.cropSpecificDosage.length > 0 && (
               <div className="mt-4 border border-gray-200 rounded-xl p-4 bg-gray-50/30">
                 <h4 className="text-xs font-black text-[#2D5A27] uppercase tracking-wider mb-2 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#2D5A27]" />
