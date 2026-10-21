@@ -8,7 +8,7 @@ import {
   RotateCcw, AlertTriangle, HelpCircle, CheckCircle2, ChevronRight, FileText, 
   Sparkles, Droplets, Layers, ShieldAlert, Thermometer, ExternalLink, 
   RefreshCw, Star, Info, ClipboardCheck, Printer, Check, Leaf, Heart,
-  Camera, Image as ImageIcon, X, GripVertical, Trash2
+  Camera, Image as ImageIcon, X, GripVertical, Trash2, Sprout
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { getProductKnowledge, ProductKnowledgeResult, analyzeProductImage } from '../services/gemini';
@@ -27,6 +27,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import SafeErrorBoundary from '../components/SafeErrorBoundary';
+import { LandUnitId, SHAMGARH_LAND_UNITS, SHAMGARH_BIGHA_ASSUMPTION_NOTE, scaleDoseString } from '../utils/shamgarhLandMeasure';
 
 const CACHE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
@@ -107,6 +108,15 @@ export const normalizeProductResult = (raw: any): ProductKnowledgeResult => {
         perDrenching: "उपलब्ध नहीं है",
         totalAmount: "उपलब्ध नहीं है",
       },
+      dosageSeeds: {
+        seedRatePerBigha: "उत्पाद/फसल अनुसार",
+        seedRatePerAcre: "उत्पाद/फसल अनुसार",
+        seedTreatment: "2-3 ग्राम या 3-5 मिली प्रति किग्रा बीज",
+        sowingDepth: "3 से 5 सेमी",
+        rowAndPlantSpacing: "फसल अनुसार (उदा. 30x10 सेमी)",
+        germinationDays: "4 से 7 दिन",
+        sowingSeason: "मौसम अनुसार",
+      },
       cropSpecificDosage: [],
       sources: [],
       hasExactMatch: false,
@@ -116,6 +126,7 @@ export const normalizeProductResult = (raw: any): ProductKnowledgeResult => {
   const rawDL = raw.dosageLiquid && typeof raw.dosageLiquid === 'object' ? raw.dosageLiquid : {};
   const rawDP = raw.dosagePowder && typeof raw.dosagePowder === 'object' ? raw.dosagePowder : {};
   const rawDF = raw.dosageFertilizer && typeof raw.dosageFertilizer === 'object' ? raw.dosageFertilizer : {};
+  const rawDS = raw.dosageSeeds && typeof raw.dosageSeeds === 'object' ? raw.dosageSeeds : {};
 
   let safeCropDosage: Array<{ cropName: string; dosage: string; usage: string; sprayTime: string }> = [];
   if (Array.isArray(raw.cropSpecificDosage)) {
@@ -192,6 +203,15 @@ export const normalizeProductResult = (raw: any): ProductKnowledgeResult => {
       perDrenching: String(rawDF.perDrenching || "उपलब्ध नहीं है"),
       totalAmount: String(rawDF.totalAmount || "उपलब्ध नहीं है"),
     },
+    dosageSeeds: {
+      seedRatePerBigha: String(rawDS.seedRatePerBigha || "उत्पाद/फसल अनुसार"),
+      seedRatePerAcre: String(rawDS.seedRatePerAcre || "उत्पाद/फसल अनुसार"),
+      seedTreatment: String(rawDS.seedTreatment || "2-3 ग्राम या 3-5 मिली प्रति किग्रा बीज"),
+      sowingDepth: String(rawDS.sowingDepth || "3 से 5 सेमी"),
+      rowAndPlantSpacing: String(rawDS.rowAndPlantSpacing || "फसल अनुसार (उदा. 30x10 सेमी)"),
+      germinationDays: String(rawDS.germinationDays || "4 से 7 दिन"),
+      sowingSeason: String(rawDS.sowingSeason || "मौसम अनुसार"),
+    },
     cropSpecificDosage: safeCropDosage,
     sources: safeSources,
     hasExactMatch: Boolean(raw.hasExactMatch ?? true),
@@ -200,7 +220,7 @@ export const normalizeProductResult = (raw: any): ProductKnowledgeResult => {
   };
 };
 
-const CACHE_VERSION = 'pk_cache_v_60d_exhaustive';
+const CACHE_VERSION = 'pk_cache_v_60d_exhaustive_seeds';
 
 const getCachedResult = (query: string): ProductKnowledgeResult | null => {
   try {
@@ -396,8 +416,9 @@ export default function AiProductKnowledge() {
   const [isCopied, setIsCopied] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
 
-  // Active Dosage Tab
-  const [activeDosageTab, setActiveDosageTab] = useState<'liquid' | 'powder' | 'fertilizer'>('liquid');
+  // Active Dosage Tab & Selected Land Unit
+  const [activeDosageTab, setActiveDosageTab] = useState<'liquid' | 'powder' | 'fertilizer' | 'seeds'>('liquid');
+  const [selectedLandUnit, setSelectedLandUnit] = useState<LandUnitId>('shamgarh_pucca_bigha');
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
 
   // Drag & Drop and Delete Confirmation states and refs
@@ -512,8 +533,21 @@ export default function AiProductKnowledge() {
       // Auto-switch dosage tab based on product category/formulation
       const formulationLower = (result.formulation || '').toLowerCase();
       const catLower = (result.category || '').toLowerCase();
+      const nameLower = (result.productName || '').toLowerCase();
       
-      if (formulationLower.includes('ec') || formulationLower.includes('sl') || formulationLower.includes('sc') || formulationLower.includes('liquid') || formulationLower.includes('लिक्लीड') || formulationLower.includes('तरल')) {
+      if (
+        catLower.includes('seed') || 
+        catLower.includes('बीज') || 
+        nameLower.includes('बीज') || 
+        nameLower.includes('seed') || 
+        catLower.includes('hybrid') || 
+        catLower.includes('हाइब्रिड') ||
+        formulationLower.includes('seed') ||
+        catLower.includes('बीजोपचार') ||
+        formulationLower.includes('बीजोपचार')
+      ) {
+        setActiveDosageTab('seeds');
+      } else if (formulationLower.includes('ec') || formulationLower.includes('sl') || formulationLower.includes('sc') || formulationLower.includes('liquid') || formulationLower.includes('लिक्लीड') || formulationLower.includes('तरल')) {
         setActiveDosageTab('liquid');
       } else if (catLower.includes('fertilizer') || catLower.includes('खाद') || catLower.includes('urea') || catLower.includes('dap')) {
         setActiveDosageTab('fertilizer');
@@ -1122,6 +1156,12 @@ export default function AiProductKnowledge() {
       dosageText = `• प्रति 15 लीटर पंप: ${result.dosagePowder?.per15L || result.dosagePowder?.per16L || "उत्पाद श्रेणी अनुसार"}
 • प्रति 20 लीटर पंप: ${result.dosagePowder?.per20L || "उत्पाद श्रेणी अनुसार"}
 • प्रति बीघा: ${result.dosagePowder?.perBigha || "उत्पाद श्रेणी अनुसार"}`;
+    } else if (activeDosageTab === 'seeds') {
+      dosageText = `• प्रति बीघा बीज दर: ${result.dosageSeeds?.seedRatePerBigha || "उत्पाद अनुसार"}
+• प्रति एकड़ बीज दर: ${result.dosageSeeds?.seedRatePerAcre || "उत्पाद अनुसार"}
+• बीजोपचार मात्रा: ${result.dosageSeeds?.seedTreatment || "2-3 ग्राम या 3-5 मिली प्रति किग्रा बीज"}
+• कतार व पौधे की दूरी: ${result.dosageSeeds?.rowAndPlantSpacing || "फसल अनुसार"}
+• बुवाई गहराई: ${result.dosageSeeds?.sowingDepth || "3 से 5 सेमी"}`;
     } else {
       dosageText = `• प्रति पौधा: ${result.dosageFertilizer?.perPlant || "उत्पाद श्रेणी अनुसार"}
 • प्रति सिंचाई: ${result.dosageFertilizer?.perIrrigation || "उत्पाद श्रेणी अनुसार"}
@@ -1146,6 +1186,7 @@ ${result.benefits}
 
 *प्रमुख मात्रा (Dosage & Usage):*
 ${dosageText}
+(मात्रा की गणना शामगढ़ क्षेत्र के पक्का बीघा माप [1 बीघा = 27,225 वर्ग फीट, 1 एकड़ = 1.60 बीघा] के अनुसार की गई है।)
 
 *सावधानियां:*
 ${result.safetyInstructions}
@@ -1737,29 +1778,84 @@ ${result.safetyInstructions}
             </div>
 
             {/* Dose Type Selection Tabs */}
-            <div className="flex border-b border-gray-100 print:hidden">
+            <div className="flex border-b border-gray-100 overflow-x-auto no-scrollbar print:hidden">
               <button 
                 onClick={() => setActiveDosageTab('liquid')}
-                className={`flex-1 py-3.5 text-xs font-black text-center border-b-2 transition-all ${activeDosageTab === 'liquid' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 min-w-[90px] py-3.5 px-2 text-xs font-black text-center border-b-2 transition-all whitespace-nowrap ${activeDosageTab === 'liquid' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
-                तरल उत्पाद (Liquid / ML)
+                तरल (Liquid)
               </button>
               <button 
                 onClick={() => setActiveDosageTab('powder')}
-                className={`flex-1 py-3.5 text-xs font-black text-center border-b-2 transition-all ${activeDosageTab === 'powder' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 min-w-[90px] py-3.5 px-2 text-xs font-black text-center border-b-2 transition-all whitespace-nowrap ${activeDosageTab === 'powder' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
-                पाउडर/दानेदार (Powder / Gram)
+                पाउडर (Powder)
               </button>
               <button 
                 onClick={() => setActiveDosageTab('fertilizer')}
-                className={`flex-1 py-3.5 text-xs font-black text-center border-b-2 transition-all ${activeDosageTab === 'fertilizer' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 min-w-[90px] py-3.5 px-2 text-xs font-black text-center border-b-2 transition-all whitespace-nowrap ${activeDosageTab === 'fertilizer' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
-                उर्वरक/खाद (Fertilizers / KG)
+                उर्वरक (Fertilizer)
+              </button>
+              <button 
+                onClick={() => setActiveDosageTab('seeds')}
+                className={`flex-1 min-w-[90px] py-3.5 px-2 text-xs font-black text-center border-b-2 transition-all whitespace-nowrap ${activeDosageTab === 'seeds' ? 'border-[#2D5A27] text-[#2D5A27] bg-[#2D5A27]/5' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                बीज (Seeds)
               </button>
             </div>
 
             {/* Calculations Render */}
             <div className="p-6 space-y-6">
+              {/* Land Unit Selector & Shamgarh Standard Notice */}
+              <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 space-y-2.5 print:border-gray-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <Sprout className="w-4 h-4 text-amber-700 shrink-0" />
+                    <div>
+                      <span className="text-xs font-black text-amber-950 block">
+                        भूमि पैमाना (Land Unit):
+                      </span>
+                      <span className="text-[10px] text-amber-800 font-bold">
+                        डिफ़ॉल्ट: शामगढ़ पक्का बीघा (27,225 वर्ग फीट)
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                    {(['shamgarh_pucca_bigha', 'acre', 'hectare', 'kaccha_bigha'] as LandUnitId[]).map((unitKey) => (
+                      <button
+                        key={unitKey}
+                        type="button"
+                        onClick={() => setSelectedLandUnit(unitKey)}
+                        className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all shrink-0 ${
+                          selectedLandUnit === unitKey
+                            ? 'bg-[#2D5A27] text-white shadow-xs'
+                            : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        {SHAMGARH_LAND_UNITS[unitKey]?.shortLabel || unitKey}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2 pt-2 border-t border-amber-200/60 text-[11px] text-amber-900 leading-relaxed font-medium">
+                  <Info className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-bold">{SHAMGARH_BIGHA_ASSUMPTION_NOTE}</p>
+                    {selectedLandUnit !== 'shamgarh_pucca_bigha' ? (
+                      <p className="text-amber-800 font-bold">
+                        चुनी गई इकाई: {SHAMGARH_LAND_UNITS[selectedLandUnit]?.nameHi} — {SHAMGARH_LAND_UNITS[selectedLandUnit]?.description}
+                      </p>
+                    ) : (
+                      <p className="text-gray-500 font-medium">
+                        यदि आप किसी अन्य क्षेत्र से हैं जहाँ बीघा माप अलग है, तो ऊपर दिए गए विकल्पों (एकड़, हेक्टेयर, कच्चा बीघा) में से अपनी स्थानीय इकाई चुन सकते हैं।
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Liquid Dose Section */}
               {activeDosageTab === 'liquid' && (
                 <div className="space-y-4">
@@ -1794,8 +1890,12 @@ ${result.safetyInstructions}
                       <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid?.per500L || "N/A"}</p>
                     </div>
                     <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-center col-span-2 md:col-span-1">
-                      <p className="text-[10px] text-amber-700 font-black uppercase">प्रति 1 बीघा (Bigha)</p>
-                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosageLiquid?.perBigha || "N/A"}</p>
+                      <p className="text-[10px] text-amber-700 font-black uppercase">
+                        प्रति 1 {SHAMGARH_LAND_UNITS[selectedLandUnit]?.shortLabel || 'बीघा'}
+                      </p>
+                      <p className="text-lg font-black text-amber-900 mt-1">
+                        {scaleDoseString(result.dosageLiquid?.perBigha || "N/A", selectedLandUnit)}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1835,8 +1935,12 @@ ${result.safetyInstructions}
                       <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder?.per500L || "N/A"}</p>
                     </div>
                     <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-center col-span-2 md:col-span-1">
-                      <p className="text-[10px] text-amber-700 font-black uppercase">प्रति 1 बीघा (Bigha)</p>
-                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosagePowder?.perBigha || "N/A"}</p>
+                      <p className="text-[10px] text-amber-700 font-black uppercase">
+                        प्रति 1 {SHAMGARH_LAND_UNITS[selectedLandUnit]?.shortLabel || 'बीघा'}
+                      </p>
+                      <p className="text-lg font-black text-amber-900 mt-1">
+                        {scaleDoseString(result.dosagePowder?.perBigha || "N/A", selectedLandUnit)}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1855,8 +1959,12 @@ ${result.safetyInstructions}
                       <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer?.perPot || "N/A"}</p>
                     </div>
                     <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-center">
-                      <p className="text-[10px] text-amber-700 font-black uppercase">प्रति 1 बीघा (Bigha)</p>
-                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosageFertilizer?.perBigha || "N/A"}</p>
+                      <p className="text-[10px] text-amber-700 font-black uppercase">
+                        प्रति 1 {SHAMGARH_LAND_UNITS[selectedLandUnit]?.shortLabel || 'बीघा'}
+                      </p>
+                      <p className="text-lg font-black text-amber-900 mt-1">
+                        {scaleDoseString(result.dosageFertilizer?.perBigha || "N/A", selectedLandUnit)}
+                      </p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">प्रति सिंचाई</p>
@@ -1874,6 +1982,56 @@ ${result.safetyInstructions}
                       <p className="text-[10px] text-gray-500 font-bold uppercase">कुल अनुशंसित मात्रा (Total Dose)</p>
                       <p className="text-lg font-black text-gray-800 mt-1">{result.dosageFertilizer?.totalAmount || "N/A"}</p>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Seeds Section */}
+              {activeDosageTab === 'seeds' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-center">
+                      <p className="text-[10px] text-amber-700 font-black uppercase">
+                        प्रति 1 {SHAMGARH_LAND_UNITS[selectedLandUnit]?.shortLabel || 'बीघा'} बीज दर
+                      </p>
+                      <p className="text-lg font-black text-amber-900 mt-1">
+                        {scaleDoseString(result.dosageSeeds?.seedRatePerBigha || "उत्पाद अनुसार", selectedLandUnit)}
+                      </p>
+                    </div>
+                    <div className="bg-green-50 p-3.5 rounded-2xl border border-green-200 text-center">
+                      <p className="text-[10px] text-green-700 font-black uppercase">प्रति 1 एकड़ बीज दर (Acre)</p>
+                      <p className="text-lg font-black text-green-900 mt-1">{result.dosageSeeds?.seedRatePerAcre || "उत्पाद अनुसार"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">बुवाई की गहराई (Depth)</p>
+                      <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageSeeds?.sowingDepth || "3 से 5 सेमी"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">कतार व पौधे की दूरी (Spacing)</p>
+                      <p className="text-base font-black text-[#2D5A27] mt-1">{result.dosageSeeds?.rowAndPlantSpacing || "फसल अनुसार"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">अंकुरण समय (Germination)</p>
+                      <p className="text-base font-black text-[#2D5A27] mt-1">{result.dosageSeeds?.germinationDays || "4 से 7 दिन"}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">उपयुक्त बुवाई मौसम (Season)</p>
+                      <p className="text-base font-black text-[#2D5A27] mt-1">{result.dosageSeeds?.sowingSeason || "मौसम अनुसार"}</p>
+                    </div>
+                  </div>
+
+                  {/* Seed Treatment Box */}
+                  <div className="bg-[#2D5A27]/5 p-4 rounded-2xl border border-[#2D5A27]/15 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#2D5A27]" />
+                      <p className="text-xs font-black text-[#2D5A27] uppercase tracking-wider">बीजोपचार विधि एवं दवा मात्रा (Seed Treatment Guide)</p>
+                    </div>
+                    <p className="text-xs font-bold text-gray-800 leading-relaxed">
+                      {result.dosageSeeds?.seedTreatment || "फफूंदनाशक: 2-3 ग्राम/किग्रा बीज अथवा कीटनाशक: 3-5 मिली/किग्रा बीज"}
+                    </p>
+                    <p className="text-[11px] text-gray-500 font-medium pt-1 border-t border-[#2D5A27]/10">
+                      सावधानी: बीजोपचार के बाद बीजों को 20 से 30 मिनट तक छाया में सुखाकर ही बुवाई करें। सीधी धूप में न सुखाएं।
+                    </p>
                   </div>
                 </div>
               )}
@@ -2461,13 +2619,51 @@ ${result.safetyInstructions}
                   <td className="p-2.5 text-gray-600">{result.dosageFertilizer?.perSpray ? `${result.dosageFertilizer.perSpray} (स्प्रे)` : "N/A"}</td>
                 </tr>
                 <tr className="bg-amber-50/40">
-                  <td className="p-2.5 font-black text-[#4A3728]">प्रति 1 बीघा (Bigha)</td>
+                  <td className="p-2.5 font-black text-[#4A3728]">प्रति 1 शामगढ़ पक्का बीघा</td>
                   <td className="p-2.5 font-black text-amber-900">{result.dosageLiquid?.perBigha || "N/A"}</td>
                   <td className="p-2.5 font-black text-amber-900">{result.dosagePowder?.perBigha || "N/A"}</td>
                   <td className="p-2.5 font-black text-amber-900">{result.dosageFertilizer?.perBigha || "N/A"}</td>
                 </tr>
               </tbody>
             </table>
+
+            {/* Shamgarh Pucca Bigha Stamp */}
+            <div className="mb-4 bg-amber-50/60 p-2.5 rounded-xl border border-amber-200/70 text-[10px] text-amber-900 leading-relaxed">
+              <span className="font-bold">स्थानीय भूमि माप मानक: </span>
+              मात्रा की गणना शामगढ़ क्षेत्र के पक्का बीघा माप (1 बीघा = 27,225 वर्ग फीट, 20 बिस्वा | 1 एकड़ = 1.60 बीघा | 1 हेक्टेयर ≈ 3.95 बीघा) के अनुसार की गई है।
+            </div>
+
+            {/* Seeds & Seed Treatment Guide (PDF Export) */}
+            {result.dosageSeeds && (
+              <div className="mb-4 border border-amber-200 rounded-xl p-3.5 bg-amber-50/40">
+                <h4 className="text-xs font-black text-amber-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-600" />
+                  बीज दर एवं बीजोपचार मार्गदर्शिका (Seeds & Seed Treatment Guide)
+                </h4>
+                <div className="grid grid-cols-4 gap-2 text-xs mb-2.5">
+                  <div className="bg-white/90 p-2 rounded-lg border border-amber-200/60 text-center">
+                    <span className="text-[9px] text-gray-500 font-bold uppercase block">प्रति बीघा बीज दर</span>
+                    <span className="font-extrabold text-[#2D5A27] text-xs mt-0.5 block">{result.dosageSeeds.seedRatePerBigha || "उत्पाद अनुसार"}</span>
+                  </div>
+                  <div className="bg-white/90 p-2 rounded-lg border border-amber-200/60 text-center">
+                    <span className="text-[9px] text-gray-500 font-bold uppercase block">प्रति एकड़ बीज दर</span>
+                    <span className="font-extrabold text-[#2D5A27] text-xs mt-0.5 block">{result.dosageSeeds.seedRatePerAcre || "उत्पाद अनुसार"}</span>
+                  </div>
+                  <div className="bg-white/90 p-2 rounded-lg border border-amber-200/60 text-center">
+                    <span className="text-[9px] text-gray-500 font-bold uppercase block">बुवाई गहराई व दूरी</span>
+                    <span className="font-extrabold text-gray-800 text-[11px] mt-0.5 block">{result.dosageSeeds.sowingDepth} ({result.dosageSeeds.rowAndPlantSpacing})</span>
+                  </div>
+                  <div className="bg-white/90 p-2 rounded-lg border border-amber-200/60 text-center">
+                    <span className="text-[9px] text-gray-500 font-bold uppercase block">अंकुरण व मौसम</span>
+                    <span className="font-extrabold text-gray-800 text-[11px] mt-0.5 block">{result.dosageSeeds.germinationDays} / {result.dosageSeeds.sowingSeason}</span>
+                  </div>
+                </div>
+                <div className="p-2.5 bg-white/95 rounded-lg border border-amber-200/60 text-[11px] font-bold text-gray-800">
+                  <span className="text-amber-800 font-black">बीजोपचार (Seed Treatment): </span>
+                  {result.dosageSeeds.seedTreatment}
+                </div>
+              </div>
+            )}
 
             {/* Crop Specific Dosage */}
             {Array.isArray(result.cropSpecificDosage) && result.cropSpecificDosage.length > 0 && (

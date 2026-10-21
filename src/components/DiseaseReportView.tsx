@@ -60,9 +60,10 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
       `🌾 फसल: ${report.cropName}\n` +
       `⚠️ समस्या: ${report.problemType} - ${report.diseaseName}\n\n` +
       `🔍 प्रमुख लक्षण:\n${report.symptoms.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\n` +
-      `💊 अनुशंसित रासायनिक उपचार:\n${report.chemicalControl.map((c, i) => `${i + 1}. ${c.medicineName}: ${c.dosagePump} ${c.dosageAcre ? `(${c.dosageAcre})` : ''}`).join('\n')}\n\n` +
+      `💊 अनुशंसित रासायनिक उपचार:\n${report.chemicalControl.map((c, i) => `${i + 1}. ${c.medicineName}: ${c.dosagePump} ${c.dosageBigha ? `[शामगढ़ बीघा: ${c.dosageBigha}]` : ''} ${c.dosageAcre ? `[एकड़: ${c.dosageAcre}]` : ''}`).join('\n')}\n\n` +
       (report.organicControl.length > 0 ? `🌿 जैविक उपचार:\n${report.organicControl.map((o, i) => `${i + 1}. ${o.methodName}: ${o.dosage}`).join('\n')}\n\n` : '') +
       `🛡️ बचाव एवं सावधानियां:\n${report.preventionTips.map((p, i) => `${i + 1}. ${p}`).join('\n')}\n\n` +
+      `📍 नोट: मात्रा की गणना शामगढ़ क्षेत्र के पक्का बीघा माप (1 बीघा = 27,225 वर्ग फीट, 1 एकड़ = 1.60 बीघा) के अनुसार की गई है।\n` +
       `🏪 फल्सावदिया कृषि बाजार - डिम्पल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़ (458883)`;
 
     navigator.clipboard.writeText(textToCopy);
@@ -276,6 +277,15 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
           </span>
         </div>
 
+        {/* Local Shamgarh Land Measurement Notice */}
+        <div className="bg-amber-50/70 p-3 rounded-2xl border border-amber-200/60 flex items-start gap-2.5 text-xs text-amber-900">
+          <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+          <p className="leading-relaxed">
+            <span className="font-black text-amber-950">स्थानीय भूमि माप मानक: </span>
+            मात्रा की गणना शामगढ़ क्षेत्र के पक्का बीघा माप (1 बीघा = 27,225 वर्ग फीट, 1 एकड़ = 1.60 बीघा) के अनुसार की गई है।
+          </p>
+        </div>
+
         {/* Treatment Shop Notice */}
         <div className="bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/40 rounded-2xl border border-emerald-200/80 p-3.5 sm:p-4 shadow-xs space-y-2.5">
           {/* Header Row */}
@@ -332,6 +342,12 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
                       <span className="inline-flex items-center gap-1.5 bg-[#ECFDF5] text-[#183D16] text-[11px] font-extrabold px-2.5 py-1 rounded-xl border border-[#2D5A27]/20">
                         <Droplets className="w-3 h-3 text-[#2D5A27]" />
                         <span>पंप डोज़: {item.dosagePump}</span>
+                      </span>
+                    )}
+                    {item.dosageBigha && (
+                      <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-900 text-[11px] font-black px-2.5 py-1 rounded-xl border border-amber-200">
+                        <Sprout className="w-3 h-3 text-amber-700" />
+                        <span>प्रति शामगढ़ बीघा: {item.dosageBigha}</span>
                       </span>
                     )}
                     {item.dosageAcre && (

@@ -59,6 +59,7 @@ const getAI = (userApiKey?: string) => {
 export interface ChemicalItem {
   medicineName: string;
   dosagePump: string;
+  dosageBigha?: string;
   dosageAcre?: string;
   instructions?: string;
 }
@@ -154,7 +155,7 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
           2. **Disease or Pest Type**: Identify if it is a fungal/bacterial/viral disease, a Sucking Pest, Chewing Pest, or Nutrient Deficiency.
           3. **Specific Name**: Name of the disease or specific pest with scientific name.
           4. **Symptoms**: Pointwise detailed symptoms observed across the provided photos.
-          5. **Recommended Treatment**: Pointwise chemical and organic solutions with dosage (per 15L/20L pump and per Bigha/Acre).
+          5. **Recommended Treatment**: Pointwise chemical and organic solutions with dosage (per 15L/20L pump, per Shamgarh Pucca Bigha [27,225 sq ft = 20 Biswa], and per Acre [1 Acre = 1.60 Bigha]).
           6. **Prevention & Precautions**: Pointwise long-term prevention tips and spray recommendations.
           
           FORMATTING INSTRUCTIONS:
@@ -169,7 +170,7 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
           2. **Disease or Pest Type**: Identify if it is a disease, a Sucking Pest, or a Chewing Pest.
           3. **Specific Name**: Name of the disease or specific pest with scientific name.
           4. **Symptoms**: Pointwise what is visible in the photo.
-          5. **Recommended Treatment**: Pointwise chemical and organic solutions with dosage.
+          5. **Recommended Treatment**: Pointwise chemical and organic solutions with dosage (per pump, per Shamgarh Pucca Bigha, and per Acre).
           6. **Prevention**: Pointwise long-term prevention tips.
           
           FORMATTING INSTRUCTIONS:
@@ -198,8 +199,8 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
   });
 
   const systemInstruction = language === 'en'
-    ? "You are an expert plant pathologist representing 'Falsawdiya Krishi Bazaar' (Shamgarh, MP). Hours: 8:00 AM to 8:00 PM daily. Respond only in English using natural, correct grammar. NEVER include HTML tags like <br> or <p>. Return structured JSON."
-    : "You are an expert plant pathologist representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Located in Shamgarh, MP. Shop address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Hours: 8:00 AM to 8:00 PM daily. Respond only in Hindi using natural, correct grammar. STRICT RULE: ONLY use 'फल्सावदिया' for the name. Never use 'फालसावदिया'. NEVER include HTML tags like <br> or <p>. Return structured JSON.";
+    ? "You are an expert plant pathologist representing 'Falsawdiya Krishi Bazaar' (Shamgarh, MP). Hours: 8:00 AM to 8:00 PM daily. Land standard: 1 Shamgarh Pucca Bigha = 27,225 sq ft (1 Acre = 1.60 Bigha). Respond only in English using natural, correct grammar. NEVER include HTML tags like <br> or <p>. Return structured JSON."
+    : "You are an expert plant pathologist representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Located in Shamgarh, MP. Shop address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Hours: 8:00 AM to 8:00 PM daily. LAND STANDARD: शामगढ़ क्षेत्र में 1 पक्का बीघा = 27,225 वर्ग फीट (20 बिस्वा), 1 एकड़ = 1.60 बीघा और 1 हेक्टेयर ≈ 3.95 बीघा होता है। रासायनिक नियंत्रण में प्रति पंप के साथ-साथ 'प्रति शामगढ़ पक्का बीघा' (dosageBigha) तथा प्रति एकड़ (dosageAcre) की मात्रा अनिवार्य रूप से प्रदान करें। Respond only in Hindi using natural, correct grammar. STRICT RULE: ONLY use 'फल्सावदिया' for the name. Never use 'फालसावदिया'. NEVER include HTML tags like <br> or <p>. Return structured JSON.";
 
   // Schema with resilient optional nested fields to prevent validation failures on atypical or healthy crop photos
   const responseSchema = {
@@ -217,8 +218,9 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
           type: "OBJECT" as any,
           properties: {
             medicineName: { type: "STRING" },
-            dosagePump: { type: "STRING" },
-            dosageAcre: { type: "STRING" },
+            dosagePump: { type: "STRING", description: "मात्रा प्रति 15L या 20L पंप" },
+            dosageBigha: { type: "STRING", description: "मात्रा प्रति शामगढ़ पक्का बीघा (27,225 वर्ग फीट)" },
+            dosageAcre: { type: "STRING", description: "मात्रा प्रति 1 एकड़ (43,560 वर्ग फीट)" },
             instructions: { type: "STRING" }
           }
         }
@@ -350,7 +352,7 @@ export async function askDiseaseReportChat({
     1. Respond only in ${language === 'en' ? 'English' : 'Hindi'} using natural, correct grammar.
     2. Provide clear, point-wise actionable agronomy advice.
     3. State tank-mixing order if asked (1. Water, 2. WDG, 3. WP, 4. SC, 5. EC, 6. SL, 7. Adjuvant).
-    4. Provide dosages per 15L/20L pump and per acre.
+    4. Provide dosages per 15L/20L pump and per Shamgarh Pucca Bigha (27,225 sq ft = 20 Biswa, 1 Acre = 1.60 Bigha) as primary land unit, and per acre. Always explicitly include the note: 'मात्रा की गणना शामगढ़ क्षेत्र के पक्का बीघा माप के अनुसार की गई है।' If the farmer mentions being from another district or state with a different bigha, confirm their bigha size before recalculating.
     5. Always state that recommended medicines are available at 'Falsawdiya Krishi Bazaar' (फल्सावदिया कृषि बाजार).`;
 
     const prompt = `Previous conversation:
@@ -418,7 +420,7 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
     आज के लिए किसानों को विस्तृत कृषि सलाह प्रदान करें। इसमें सिंचाई, उर्वरक और कीट प्रबंधन पर विशेष जोर हो।`;
 
     let response;
-    const systemInstruction = `You are a helpful Agri-Expert for farmers representing 'फल्सावदिया कृषि बाजार' in Shamgarh, MP. Our shop is at Dimple Chauraha and open 8:00 AM to 8:00 PM (सुबह 8:00 बजे से रात 8:00 बजे तक). Provide advice based on current weather. Today is ${dateStr}. Always use the name 'फल्सावदिया कृषि बाजार' strictly and never 'फालसावदिया'.`;
+    const systemInstruction = `You are a helpful Agri-Expert for farmers representing 'फल्सावदिया कृषि बाजार' in Shamgarh, MP. Our shop is at Dimple Chauraha and open 8:00 AM to 8:00 PM (सुबह 8:00 बजे से रात 8:00 बजे तक). Provide advice based on current weather. Today is ${dateStr}. LAND STANDARD: शामगढ़ क्षेत्र में भूमि की मानक इकाई 'शामगढ़ पक्का बीघा' है (1 बीघा = 27,225 वर्ग फीट = 20 बिस्वा | 1 एकड़ = 1.60 बीघा | 1 हेक्टेयर ≈ 3.95 बीघा)। खाद (यूरिया, डीएपी) और कीटनाशक की मात्रा हमेशा शामगढ़ पक्का बीघा के अनुसार प्राथमिकता से बताएं। Always use the name 'फल्सावदिया कृषि बाजार' strictly and never 'फालसावदिया'.`;
 
     try {
       // Tier 1: Try with live Google Search Grounding
@@ -502,7 +504,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
     मौसम: ${weatherData?.temp || 'N/A'}°C, ${weatherData?.condition || 'N/A'}
     तारीख: ${dateStr}`;
 
-    const systemInstruction = "You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाजार' located in Shamgarh, Mandsaur, MP.\n\nShop Profile:\n- Name: फल्सावदिया कृषि बाजार\n- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)\n- Timings: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)\n\nInstructions: Answer farmer questions in simple Hindi. Always mention that recommended products are available at 'फल्सावदिया कृषि बाजार'. STRICT RULE: Do not use 'फालसावदिया'.";
+    const systemInstruction = "You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाजार' located in Shamgarh, Mandsaur, MP.\n\nShop Profile:\n- Name: फल्सावदिया कृषि बाजार\n- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)\n- Timings: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)\n\nInstructions: Answer farmer questions in simple Hindi. LAND STANDARD: शामगढ़ क्षेत्र में भूमि की स्थानीय मानक इकाई 'शामगढ़ पक्का बीघा' है (1 बीघा = 27,225 वर्ग फीट = 20 बिस्वा | 1 एकड़ = 1.60 बीघा | 1 हेक्टेयर ≈ 3.95 बीघा)। खाद, बीज दर या दवा की गणना हमेशा शामगढ़ पक्का बीघा के अनुसार ही बताएं। Always mention that recommended products are available at 'फल्सावदिया कृषि बाजार'. STRICT RULE: Do not use 'फालसावदिया'.";
 
     let response;
     try {
@@ -617,6 +619,15 @@ export interface ProductKnowledgeResult {
     perDrenching: string;
     totalAmount: string;
   };
+  dosageSeeds?: {
+    seedRatePerBigha: string;
+    seedRatePerAcre: string;
+    seedTreatment: string;
+    sowingDepth: string;
+    rowAndPlantSpacing: string;
+    germinationDays: string;
+    sowingSeason: string;
+  };
   cropSpecificDosage: Array<{
     cropName: string;
     dosage: string;
@@ -683,6 +694,15 @@ const DEFAULT_PRODUCT_KNOWLEDGE: ProductKnowledgeResult = {
     perSpray: "उपलब्ध नहीं है",
     perDrenching: "उपलब्ध नहीं है",
     totalAmount: "उपलब्ध नहीं है"
+  },
+  dosageSeeds: {
+    seedRatePerBigha: "उत्पाद/फसल अनुसार",
+    seedRatePerAcre: "उत्पाद/फसल अनुसार",
+    seedTreatment: "2-3 ग्राम या 3-5 मिली प्रति किग्रा बीज",
+    sowingDepth: "3 से 5 सेमी",
+    rowAndPlantSpacing: "फसल अनुसार (उदा. 30x10 सेमी)",
+    germinationDays: "4 से 7 दिन",
+    sowingSeason: "मौसम अनुसार"
   },
   cropSpecificDosage: [],
   hasExactMatch: false
@@ -807,6 +827,12 @@ function safeParseProductKnowledge(jsonText: string): ProductKnowledgeResult {
       result.dosageFertilizer = { ...DEFAULT_PRODUCT_KNOWLEDGE.dosageFertilizer };
     }
 
+    if (parsed.dosageSeeds && typeof parsed.dosageSeeds === 'object') {
+      result.dosageSeeds = { ...DEFAULT_PRODUCT_KNOWLEDGE.dosageSeeds, ...parsed.dosageSeeds };
+    } else {
+      result.dosageSeeds = { ...DEFAULT_PRODUCT_KNOWLEDGE.dosageSeeds };
+    }
+
     // Ensure cropSpecificDosage is always an array of objects
     if (Array.isArray(parsed.cropSpecificDosage)) {
       result.cropSpecificDosage = parsed.cropSpecificDosage.map((item: any) => ({
@@ -887,14 +913,15 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
      * per25L: 25 लीटर स्प्रेयर के लिए (उदा. 10 - 12.5 मिली)
      * per200L: 200 लीटर ड्रम के लिए (उदा. 60 - 75 मिली)
      * per500L: 500 लीटर टैंकर के लिए (उदा. 150 - 175 मिली)
-     * perBigha: 1 बीघा (मध्य प्रदेश मानक) के लिए (उदा. 30 - 35 मिली)
-   - dosagePowder: यदि पाउडर फॉर्मूलेशन है तो इसी तरह प्रति लीटर, 15L, 16L, 20L, 25L, 200L, 500L, बीघा हेतु सटीक ग्राम में मात्रा
-   - dosageFertilizer: यदि खाद/उर्वरक है तो प्रति पौधा, प्रति गमला, प्रति बीघा, प्रति सिंचाई, स्प्रे व ड्रेंचिंग मात्रा
+     * perBigha: 1 शामगढ़ पक्का बीघा (27,225 वर्ग फीट, 1 एकड़ = 1.60 बीघा) के लिए सटीक मात्रा (उदा. 30 - 35 मिली)
+   - dosagePowder: यदि पाउडर फॉर्मूलेशन है तो इसी तरह प्रति लीटर, 15L, 16L, 20L, 25L, 200L, 500L, प्रति शामगढ़ पक्का बीघा हेतु सटीक ग्राम में मात्रा
+   - dosageFertilizer: यदि खाद/उर्वरक है तो प्रति पौधा, प्रति गमला, प्रति शामगढ़ पक्का बीघा, प्रति सिंचाई, स्प्रे व ड्रेंचिंग मात्रा
+   - dosageSeeds: यदि बीज (Seeds/Hybrid) या बीजोपचार रसायन (Seed Treatment) है तो: { seedRatePerBigha (उदा. 18-20 किग्रा प्रति शामगढ़ पक्का बीघा [27,225 वर्ग फीट]), seedRatePerAcre (उदा. 40-45 किग्रा/एकड़), seedTreatment (बीजोपचार की सटीक मात्रा व तरीका प्रति किग्रा बीज), sowingDepth (बुवाई गहराई 3-5 सेमी), rowAndPlantSpacing (कतार व पौधे की दूरी), germinationDays (अंकुरण समय 4-7 दिन), sowingSeason (बुवाई मौसम) }
    - cropSpecificDosage: कम से कम 4 से 6 फसलों (उदा. सोयाबीन, चना, गेहूं, धान, मिर्च, टमाटर) के लिए एक सारणी जिसमें cropName, dosage (मात्रा प्रति बीघा/एकड़), usage (छिड़काव/ड्रेंचिंग विधि) और sprayTime (छिड़काव का सही समय) स्पष्ट हो
 5. सरकारी स्रोत: CIBRC, DPPQS, ICAR, FCO एवं राज्य कृषि विश्वविद्यालय
 6. आउटपुट फॉर्मेट: केवल और केवल वैध Raw JSON स्ट्रिंग लौटाएं जो इन सभी कीज़ को शुद्धता से धारण करती हो।`;
 
-    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY LANGUAGE REQUIREMENT: Your audience is exclusively Hindi-speaking Indian farmers. You MUST respond 100% in simple, clear, respectful HINDI (सरल हिंदी भाषा). Consult official government agricultural sources (CIBRC, ICAR, FCO). NEVER provide descriptions, benefits, usages, or symptoms in English. Ensure the output is valid JSON. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
+    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY LANGUAGE REQUIREMENT: Your audience is exclusively Hindi-speaking Indian farmers. You MUST respond 100% in simple, clear, respectful HINDI (सरल हिंदी भाषा). Consult official government agricultural sources (CIBRC, ICAR, FCO). LAND MEASUREMENT STANDARD: In Shamgarh (MP), 1 Pucca Bigha = 27,225 sq ft = 20 Biswa. 1 Acre = 1.60 Pucca Bigha, and 1 Hectare ≈ 3.95 Pucca Bigha. All per-Bigha dosages and seed rates MUST be strictly calibrated to this Shamgarh Pucca Bigha standard. NEVER provide descriptions, benefits, usages, or symptoms in English. Ensure the output is valid JSON. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
 
     let response: any = null;
     let lastError: any = null;
@@ -1029,12 +1056,13 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
    - dosageLiquid: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha }
    - dosagePowder: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha }
    - dosageFertilizer: { perPlant, perPot, perBigha, perIrrigation, perSpray, perDrenching, totalAmount }
+   - dosageSeeds: { seedRatePerBigha, seedRatePerAcre, seedTreatment, sowingDepth, rowAndPlantSpacing, germinationDays, sowingSeason }
    - cropSpecificDosage: कम से कम 4 से 6 फसलों हेतु { cropName, dosage, usage, sprayTime }
 7. **पहचान की स्थिति**: पहचान होने पर 'hasExactMatch' को true सेट करें। यदि फोटो कृषि से संबंधित नहीं है तो 'productName' में 'पहचान नहीं हो सकी' दें।
 8. **कोई इमेज डेटा आउटपुट में न दें**: JSON में कोई base64 या इमेज स्ट्रिंग शामिल न करें।
 9. आउटपुट फॉर्मेट: केवल और केवल वैध JSON ऑब्जेक्ट स्ट्रिंग लौटाएं।`;
 
-    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY LANGUAGE REQUIREMENT: Your audience is exclusively Hindi-speaking Indian farmers. You MUST respond 100% in simple, clear, respectful HINDI (सरल हिंदी भाषा). NEVER provide descriptions, benefits, usages, or symptoms in English. Never echo base64 image data in output. Ensure the output is valid JSON. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
+    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY LANGUAGE REQUIREMENT: Your audience is exclusively Hindi-speaking Indian farmers. You MUST respond 100% in simple, clear, respectful HINDI (सरल हिंदी भाषा). LAND MEASUREMENT STANDARD: In Shamgarh (MP), 1 Pucca Bigha = 27,225 sq ft = 20 Biswa. 1 Acre = 1.60 Pucca Bigha, and 1 Hectare ≈ 3.95 Pucca Bigha. All per-Bigha dosages and seed rates MUST be strictly calibrated to this Shamgarh Pucca Bigha standard. NEVER provide descriptions, benefits, usages, or symptoms in English. Never echo base64 image data in output. Ensure the output is valid JSON. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
 
     // Dynamic MIME type detection from Base64 Data URL (prevents invalid argument error on PNG/WebP)
     let mimeType = "image/jpeg";

@@ -6,6 +6,7 @@
 export interface ChemicalMedicine {
   medicineName: string;
   dosagePump: string;
+  dosageBigha?: string;
   dosageAcre?: string;
   instructions?: string;
   raw: string;
@@ -69,13 +70,20 @@ function parseChemicalLine(line: string): ChemicalMedicine {
     const namePart = cleaned.substring(0, colonIndex).replace(/\*\*/g, '').trim();
     const rest = cleaned.substring(colonIndex + 1).trim();
 
-    // Try to extract pump and acre dosages
+    // Try to extract pump, bigha, and acre dosages
     let dosagePump = rest;
+    let dosageBigha = '';
     let dosageAcre = '';
     let instructions = '';
 
+    // Match bigha dosage if present
+    const bighaMatch = rest.match(/\(?(\d+(?:[-–]\d+)?\s*(?:मिलीलीटर|मिली|ग्राम|ml|gm|g)\s*(?:प्रति\s*(?:शामगढ़\s*)?बीघा|\/\s*बीघा))\)?/i);
+    if (bighaMatch) {
+      dosageBigha = bighaMatch[1].trim();
+    }
+
     // Match acre dosage if present in brackets or separate phrase
-    const acreMatch = rest.match(/\(?(\d+(?:[-–]\d+)?\s*(?:मिलीलीटर|मिली|ग्राम|ml|gm|g)\s*(?:प्रति\s*(?:एकड़|बीघा)|\/\s*एकड़))\)?/i);
+    const acreMatch = rest.match(/\(?(\d+(?:[-–]\d+)?\s*(?:मिलीलीटर|मिली|ग्राम|ml|gm|g)\s*(?:प्रति\s*एकड़|\/\s*एकड़))\)?/i);
     if (acreMatch) {
       dosageAcre = acreMatch[1].trim();
     }
@@ -95,6 +103,7 @@ function parseChemicalLine(line: string): ChemicalMedicine {
     return {
       medicineName: namePart,
       dosagePump: dosagePump || rest,
+      dosageBigha: dosageBigha || undefined,
       dosageAcre: dosageAcre || undefined,
       instructions: instructions || (dosagePump !== rest ? rest : undefined),
       raw: cleaned
@@ -167,13 +176,34 @@ export function parseDiseaseReport(
       severityLabel = 'गंभीर / तत्काल रोकथाम आवश्यक (Severe)';
     }
 
-    const chemicalControl: ChemicalMedicine[] = (preStructured.chemicalControl || []).map(c => ({
-      medicineName: c.medicineName || c.name || '',
-      dosagePump: c.dosagePump || c.dosage || '',
-      dosageAcre: c.dosageAcre,
-      instructions: c.instructions,
-      raw: `${c.medicineName}: ${c.dosagePump || c.dosage}`
-    }));
+    const chemicalControl: ChemicalMedicine[] = (preStructured.chemicalControl || []).map((c: any) => {
+      let bighaDose = c.dosageBigha;
+      if (!bighaDose && c.dosageAcre) {
+        // Automatically derive Shamgarh Pucca Bigha from Acre (1 Acre = 1.60 Bigha)
+        const rangeMatch = c.dosageAcre.match(/(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*(.*)/);
+        if (rangeMatch) {
+          const l = Math.round((parseFloat(rangeMatch[1]) / 1.60) * 10) / 10;
+          const h = Math.round((parseFloat(rangeMatch[2]) / 1.60) * 10) / 10;
+          const u = rangeMatch[3].replace(/प्रति\s*एकड़|\/\s*एकड़/gi, '').trim();
+          bighaDose = `${l} - ${h} ${u || 'ml/g'}/बीघा`.trim();
+        } else {
+          const singleMatch = c.dosageAcre.match(/(\d+(?:\.\d+)?)\s*(.*)/);
+          if (singleMatch) {
+            const val = Math.round((parseFloat(singleMatch[1]) / 1.60) * 10) / 10;
+            const u = singleMatch[2].replace(/प्रति\s*एकड़|\/\s*एकड़/gi, '').trim();
+            bighaDose = `${val} ${u || 'ml/g'}/बीघा`.trim();
+          }
+        }
+      }
+      return {
+        medicineName: c.medicineName || c.name || '',
+        dosagePump: c.dosagePump || c.dosage || '',
+        dosageBigha: bighaDose,
+        dosageAcre: c.dosageAcre,
+        instructions: c.instructions,
+        raw: `${c.medicineName}: ${c.dosagePump || c.dosage}`
+      };
+    });
 
     const organicControl: OrganicMedicine[] = (preStructured.organicControl || []).map(o => ({
       methodName: o.methodName || o.name || '',
