@@ -1,8 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { jsonrepair } from "jsonrepair";
 import { getFriendlyAiError } from "../utils/aiErrorHandler";
-import { findVerifiedAgriProduct } from "../data/verifiedAgriProducts";
-import { harmonizeDosages } from "../utils/agriDoseEngine";
 
 function isQuotaError(error: any): boolean {
   const status = error?.status || error?.code;
@@ -61,7 +59,6 @@ const getAI = (userApiKey?: string) => {
 export interface ChemicalItem {
   medicineName: string;
   dosagePump: string;
-  dosageBigha?: string;
   dosageAcre?: string;
   instructions?: string;
 }
@@ -157,7 +154,7 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
           2. **Disease or Pest Type**: Identify if it is a fungal/bacterial/viral disease, a Sucking Pest, Chewing Pest, or Nutrient Deficiency.
           3. **Specific Name**: Name of the disease or specific pest with scientific name.
           4. **Symptoms**: Pointwise detailed symptoms observed across the provided photos.
-          5. **Recommended Treatment**: Pointwise chemical and organic solutions with dosage (per 15L/20L pump, per Shamgarh Pucca Bigha [27,225 sq ft = 20 Biswa], and per Acre [1 Acre = 1.60 Bigha]).
+          5. **Recommended Treatment**: Pointwise chemical and organic solutions with dosage (per 15L/20L pump and per Bigha/Acre).
           6. **Prevention & Precautions**: Pointwise long-term prevention tips and spray recommendations.
           
           FORMATTING INSTRUCTIONS:
@@ -172,7 +169,7 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
           2. **Disease or Pest Type**: Identify if it is a disease, a Sucking Pest, or a Chewing Pest.
           3. **Specific Name**: Name of the disease or specific pest with scientific name.
           4. **Symptoms**: Pointwise what is visible in the photo.
-          5. **Recommended Treatment**: Pointwise chemical and organic solutions with dosage (per pump, per Shamgarh Pucca Bigha, and per Acre).
+          5. **Recommended Treatment**: Pointwise chemical and organic solutions with dosage.
           6. **Prevention**: Pointwise long-term prevention tips.
           
           FORMATTING INSTRUCTIONS:
@@ -201,8 +198,8 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
   });
 
   const systemInstruction = language === 'en'
-    ? "You are an expert plant pathologist representing 'Falsawdiya Krishi Bazaar' (Shamgarh, MP). Hours: 8:00 AM to 8:00 PM daily. Land standard: 1 Shamgarh Pucca Bigha = 27,225 sq ft (1 Acre = 1.60 Bigha). Respond only in English using natural, correct grammar. NEVER include HTML tags like <br> or <p>. Return structured JSON."
-    : "You are an expert plant pathologist representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Located in Shamgarh, MP. Shop address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Hours: 8:00 AM to 8:00 PM daily. LAND STANDARD: शामगढ़ क्षेत्र में 1 पक्का बीघा = 27,225 वर्ग फीट (20 बिस्वा), 1 एकड़ = 1.60 बीघा और 1 हेक्टेयर ≈ 3.95 बीघा होता है। रासायनिक नियंत्रण में प्रति पंप के साथ-साथ 'प्रति शामगढ़ पक्का बीघा' (dosageBigha) तथा प्रति एकड़ (dosageAcre) की मात्रा अनिवार्य रूप से प्रदान करें। Respond only in Hindi using natural, correct grammar. STRICT RULE: ONLY use 'फल्सावदिया' for the name. Never use 'फालसावदिया'. NEVER include HTML tags like <br> or <p>. Return structured JSON.";
+    ? "You are an expert plant pathologist representing 'Falsawdiya Krishi Bazaar' (Shamgarh, MP). Hours: 8:00 AM to 8:00 PM daily. Respond only in English using natural, correct grammar. NEVER include HTML tags like <br> or <p>. Return structured JSON."
+    : "You are an expert plant pathologist representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar). Located in Shamgarh, MP. Shop address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). Hours: 8:00 AM to 8:00 PM daily. Respond only in Hindi using natural, correct grammar. STRICT RULE: ONLY use 'फल्सावदिया' for the name. Never use 'फालसावदिया'. NEVER include HTML tags like <br> or <p>. Return structured JSON.";
 
   // Schema with resilient optional nested fields to prevent validation failures on atypical or healthy crop photos
   const responseSchema = {
@@ -220,9 +217,8 @@ export async function detectDisease(base64Image: string | string[], userApiKey?:
           type: "OBJECT" as any,
           properties: {
             medicineName: { type: "STRING" },
-            dosagePump: { type: "STRING", description: "मात्रा प्रति 15L या 20L पंप" },
-            dosageBigha: { type: "STRING", description: "मात्रा प्रति शामगढ़ पक्का बीघा (27,225 वर्ग फीट)" },
-            dosageAcre: { type: "STRING", description: "मात्रा प्रति 1 एकड़ (43,560 वर्ग फीट)" },
+            dosagePump: { type: "STRING" },
+            dosageAcre: { type: "STRING" },
             instructions: { type: "STRING" }
           }
         }
@@ -354,7 +350,7 @@ export async function askDiseaseReportChat({
     1. Respond only in ${language === 'en' ? 'English' : 'Hindi'} using natural, correct grammar.
     2. Provide clear, point-wise actionable agronomy advice.
     3. State tank-mixing order if asked (1. Water, 2. WDG, 3. WP, 4. SC, 5. EC, 6. SL, 7. Adjuvant).
-    4. Provide dosages per 15L/20L pump and per Shamgarh Pucca Bigha (27,225 sq ft = 20 Biswa, 1 Acre = 1.60 Bigha) as primary land unit, and per acre. Always explicitly include the note: 'मात्रा की गणना शामगढ़ क्षेत्र के पक्का बीघा माप के अनुसार की गई है।' If the farmer mentions being from another district or state with a different bigha, confirm their bigha size before recalculating.
+    4. Provide dosages per 15L/20L pump and per acre.
     5. Always state that recommended medicines are available at 'Falsawdiya Krishi Bazaar' (फल्सावदिया कृषि बाजार).`;
 
     const prompt = `Previous conversation:
@@ -422,7 +418,7 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
     आज के लिए किसानों को विस्तृत कृषि सलाह प्रदान करें। इसमें सिंचाई, उर्वरक और कीट प्रबंधन पर विशेष जोर हो।`;
 
     let response;
-    const systemInstruction = `You are a helpful Agri-Expert for farmers representing 'फल्सावदिया कृषि बाजार' in Shamgarh, MP. Our shop is at Dimple Chauraha and open 8:00 AM to 8:00 PM (सुबह 8:00 बजे से रात 8:00 बजे तक). Provide advice based on current weather. Today is ${dateStr}. LAND STANDARD: शामगढ़ क्षेत्र में भूमि की मानक इकाई 'शामगढ़ पक्का बीघा' है (1 बीघा = 27,225 वर्ग फीट = 20 बिस्वा | 1 एकड़ = 1.60 बीघा | 1 हेक्टेयर ≈ 3.95 बीघा)। खाद (यूरिया, डीएपी) और कीटनाशक की मात्रा हमेशा शामगढ़ पक्का बीघा के अनुसार प्राथमिकता से बताएं। Always use the name 'फल्सावदिया कृषि बाजार' strictly and never 'फालसावदिया'.`;
+    const systemInstruction = `You are a helpful Agri-Expert for farmers representing 'फल्सावदिया कृषि बाजार' in Shamgarh, MP. Our shop is at Dimple Chauraha and open 8:00 AM to 8:00 PM (सुबह 8:00 बजे से रात 8:00 बजे तक). Provide advice based on current weather. Today is ${dateStr}. Always use the name 'फल्सावदिया कृषि बाजार' strictly and never 'फालसावदिया'.`;
 
     try {
       // Tier 1: Try with live Google Search Grounding
@@ -506,7 +502,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
     मौसम: ${weatherData?.temp || 'N/A'}°C, ${weatherData?.condition || 'N/A'}
     तारीख: ${dateStr}`;
 
-    const systemInstruction = "You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाजार' located in Shamgarh, Mandsaur, MP.\n\nShop Profile:\n- Name: फल्सावदिया कृषि बाजार\n- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)\n- Timings: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)\n\nInstructions: Answer farmer questions in simple Hindi. LAND STANDARD: शामगढ़ क्षेत्र में भूमि की स्थानीय मानक इकाई 'शामगढ़ पक्का बीघा' है (1 बीघा = 27,225 वर्ग फीट = 20 बिस्वा | 1 एकड़ = 1.60 बीघा | 1 हेक्टेयर ≈ 3.95 बीघा)। खाद, बीज दर या दवा की गणना हमेशा शामगढ़ पक्का बीघा के अनुसार ही बताएं। Always mention that recommended products are available at 'फल्सावदिया कृषि बाजार'. STRICT RULE: Do not use 'फालसावदिया'.";
+    const systemInstruction = "You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाजार' located in Shamgarh, Mandsaur, MP.\n\nShop Profile:\n- Name: फल्सावदिया कृषि बाजार\n- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)\n- Timings: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)\n\nInstructions: Answer farmer questions in simple Hindi. Always mention that recommended products are available at 'फल्सावदिया कृषि बाजार'. STRICT RULE: Do not use 'फालसावदिया'.";
 
     let response;
     try {
@@ -592,37 +588,37 @@ export interface ProductKnowledgeResult {
   sprayTiming: string;
   rainfastPeriod: string;
   storage: string;
-  dosageLiquid: {
-    perLiter: string;
-    per15L: string;
-    per16L: string;
-    per20L: string;
-    per25L: string;
-    per200L: string;
-    per500L: string;
-    perBigha: string;
+  dosageLiquid?: {
+    perLiter?: string;
+    per15L?: string;
+    per16L?: string;
+    per20L?: string;
+    per25L?: string;
+    per200L?: string;
+    per500L?: string;
+    perBigha?: string;
     perAcre?: string;
   };
-  dosagePowder: {
-    perLiter: string;
-    per15L: string;
-    per16L: string;
-    per20L: string;
-    per25L: string;
-    per200L: string;
-    per500L: string;
-    perBigha: string;
+  dosagePowder?: {
+    perLiter?: string;
+    per15L?: string;
+    per16L?: string;
+    per20L?: string;
+    per25L?: string;
+    per200L?: string;
+    per500L?: string;
+    perBigha?: string;
     perAcre?: string;
   };
-  dosageFertilizer: {
-    perPlant: string;
-    perPot: string;
-    perBigha: string;
+  dosageFertilizer?: {
+    perPlant?: string;
+    perPot?: string;
+    perBigha?: string;
     perAcre?: string;
-    perIrrigation: string;
-    perSpray: string;
-    perDrenching: string;
-    totalAmount: string;
+    perIrrigation?: string;
+    perSpray?: string;
+    perDrenching?: string;
+    totalAmount?: string;
   };
   dosageSeeds?: {
     seedRatePerBigha: string;
@@ -643,9 +639,6 @@ export interface ProductKnowledgeResult {
   sources?: Array<{ title: string; uri: string }>;
   order?: number;
   createdAt?: number;
-  isGovernmentVerified?: boolean;
-  verificationSource?: string;
-  cibrcRegNumber?: string;
 }
 
 const DEFAULT_PRODUCT_KNOWLEDGE: ProductKnowledgeResult = {
@@ -682,8 +675,7 @@ const DEFAULT_PRODUCT_KNOWLEDGE: ProductKnowledgeResult = {
     per25L: "उत्पाद अनुसार",
     per200L: "उत्पाद अनुसार",
     per500L: "उत्पाद अनुसार",
-    perBigha: "उत्पाद अनुसार",
-    perAcre: "उत्पाद अनुसार"
+    perBigha: "उत्पाद अनुसार"
   },
   dosagePowder: {
     perLiter: "उत्पाद अनुसार",
@@ -693,14 +685,12 @@ const DEFAULT_PRODUCT_KNOWLEDGE: ProductKnowledgeResult = {
     per25L: "उत्पाद अनुसार",
     per200L: "उत्पाद अनुसार",
     per500L: "उत्पाद अनुसार",
-    perBigha: "उत्पाद अनुसार",
-    perAcre: "उत्पाद अनुसार"
+    perBigha: "उत्पाद अनुसार"
   },
   dosageFertilizer: {
     perPlant: "उत्पाद अनुसार",
     perPot: "उत्पाद अनुसार",
     perBigha: "उत्पाद अनुसार",
-    perAcre: "उत्पाद अनुसार",
     perIrrigation: "उपलब्ध नहीं है",
     perSpray: "उपलब्ध नहीं है",
     perDrenching: "उपलब्ध नहीं है",
@@ -879,142 +869,35 @@ function safeParseProductKnowledge(jsonText: string): ProductKnowledgeResult {
 }
 
 export async function getProductKnowledge(query: string, userApiKey?: string): Promise<ProductKnowledgeResult> {
-  // 1. Instant Zero-Latency Verified Master Database Check (100% CIBRC / Company Label Verified)
-  const directVerified = findVerifiedAgriProduct(query);
-  if (directVerified) {
-    return {
-      ...directVerified,
-      isGovernmentVerified: true,
-      verificationSource: directVerified.verificationSource || "CIBRC भारत सरकार एवं निर्माता आधिकारिक तकनीकी लीफलेट",
-      hasExactMatch: true
-    };
-  }
-
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
 
-    const prompt = `आप भारत के सर्वोच्च कृषि वैज्ञानिक, पौध संरक्षण विशेषज्ञ एवं CIBRC/ICAR नियामक सलाहकार हैं, जो 'फल्सावदिया कृषि बाजार' का प्रतिनिधित्व करते हैं।
-आपका कार्य कृषि उत्पाद: "${query}" पर आधिकारिक भारत सरकार के कृषि डेटाबेसों (CIBRC, ICAR, DPPQS, FCO, SAUs) एवं निर्माता टेक्निकल शोध पत्रों के आधार पर 100% सटीक, अत्यधिक विस्तृत, प्रामाणिक व व्यावहारिक कृषि रिपोर्ट तैयार करना है।
+    const prompt = `आप भारत के शीर्षस्थ कृषि वैज्ञानिक, पौध संरक्षण विशेषज्ञ एवं CIBRC/ICAR नियामक सलाहकार हैं, जो 'फल्सावदिया कृषि बाजार' का प्रतिनिधित्व करते हैं।
+आपका कार्य कृषि उत्पाद: "${query}" पर आधिकारिक भारत सरकार (CIBRC, ICAR, DPPQS, FCO, SAUs) एवं निर्माता टेक्निकल शोध के आधार पर 100% प्रामाणिक, अत्यधिक विस्तृत (Detailed) और वैज्ञानिक रूप से बिल्कुल सटीक (100% Accurate) कृषि रिपोर्ट तैयार करना है।
 
-अति-महत्वपूर्ण गुणवत्ता नियम (60 दिन पहले की तरह पूर्ण विस्तृत व सटीक जानकारी):
-1. कोई भी संक्षिप्त या आधा-अधूरा उत्तर न दें। प्रत्येक फील्ड में कम से कम 2 से 4 वाक्यों का गहन, वैज्ञानिक एवं किसान-उपयोगी विवरण होना अनिवार्य है।
-2. भाषा नियम (100% केवल सरल हिंदी): समस्त विवरण, लाभ, सावधानियां, कार्यप्रणाली, फसलें, कीट व मात्राएं सरल, स्पष्ट व सम्मानजनक हिंदी भाषा में ही होनी चाहिए। अंग्रेजी पैराग्राफ कतई न लिखें। टेक्निकल केमिकल नाम के साथ कोष्ठक में अंग्रेजी नाम दे सकते हैं (उदा. 'क्लोरेंट्रानिलिप्रोल (Chlorantraniliprole 18.5% SC)')।
-3. संपूर्ण विस्तृत फील्ड्स (All Fields Must Be Thoroughly Filled):
-   - productName: उत्पाद का पूरा ब्रांड नाम व हिंदी उच्चारण
-   - companyName: मूल निर्माता कंपनी का नाम (उदा. FMC India, Bayer, Syngenta, IFFCO, Dhanuka, UPL, आदि)
-   - technicalName: सक्रिय टेक्निकल रसायन का पूरा नाम, सांद्रता व फॉर्मूलेशन (उदा. क्लोरेंट्रानिलिप्रोल 18.5% एससी)
-   - category: सटीक श्रेणी (उदा. प्रणालीगत कीटनाशक (Systemic Insecticide), ब्रॉड-स्पेक्ट्रम फफूंदनाशक, आदि)
-   - formulation: फॉर्मूलेशन का प्रकार (उदा. सस्पेंशन कॉन्सेंट्रेट (SC - Suspension Concentrate))
-   - activeIngredient: सक्रिय घटक एवं उसकी प्रतिशत मात्रा
-   - modeOfAction: कार्य करने का सटीक वैज्ञानिक तरीका (Mode of Action) - कीट/फसल के शरीर में यह दवा किस प्रकार कार्य करती है, इसका कम से कम 2-3 वाक्यों में विस्तृत विवरण
-   - fracIracHracGroup: सटीक IRAC / FRAC / HRAC ग्रुप कोड (उदा. IRAC Group 28 - Diamides)
-   - targetCrops: कम से कम 6 से 8 प्रमुख भारतीय फसलें (उदा. सोयाबीन, धान, मक्का, कपास, चना, टमाटर, मिर्च, बैंगन, गोभी, गन्ना)
-   - targetPests: सभी लक्षित कीटों, इल्लियों या रोगों के नाम (हिंदी व अंग्रेजी/वैज्ञानिक नाम सहित)
-   - symptoms: खेत में फसल पर कीट या रोग के हमले के स्पष्ट लक्षण (Symptoms), जिससे किसान तुरंत पहचान सके
-   - usage: खेत में उपयोग की विस्तृत विधि, प्रति एकड़ पानी की मात्रा, नोजल का प्रकार और छिड़काव तकनीक
-   - benefits: कम से कम 5 से 6 बिंदुवार विस्तृत फायदे (फसल की हरियाली, लंबे समय तक सुरक्षा, उपज में वृद्धि)
-   - features: उत्पाद की विशेष तकनीकी खूबियां (ग्रीन लेबल, मित्र कीटों की सुरक्षा, 2 घंटे में वर्षा स्थिरता)
-   - compatibleProducts: टैंक-मिक्स में किन कीटनाशकों, फफूंदनाशकों व टॉनिकों के साथ मिलाया जा सकता है
-   - incompatibleProducts: किन रसायनों (क्षारीय, कॉपर, सल्फर, बोर्डो मिश्रण) के साथ कतई न मिलाएं
-   - waitingPeriod: तुड़ाई प्रतीक्षा अवधि (Pre-Harvest Interval) का फसलवार विस्तृत विवरण
-   - phi: विभिन्न फसलों के लिए अंतिम छिड़काव और कटाई के बीच सुरक्षित दिनों का अंतराल (उदा. धान: 14 दिन, गन्ना: 21 दिन, टमाटर: 3 दिन, सोयाबीन: 21 दिन)
-   - rei: खेत में दोबारा प्रवेश का सुरक्षित समय (Re-Entry Interval) (उदा. 12 से 24 घंटे)
-   - toxicity: टॉक्सिसिटी त्रिकोण का रंग (हरा / नीला / पीला / लाल) व विषाक्तता स्तर
-   - safetyInstructions: किसानों के लिए व्यक्तिगत सुरक्षा (दस्ताने, मास्क, चश्मा, हवा की दिशा)
-   - mixingOrder: WALES नियम अनुसार सही घोल बनाने का क्रम (सर्वप्रथम आधा पानी -> WP/WDG -> SC/CS -> EC -> SL/SP)
-   - sprayTiming: छिड़काव का सर्वोत्तम समय (सुबह 7 से 10 या शाम 4 से 7 बजे)
-   - rainfastPeriod: बारिश से धुलने से बचाव का समय (उदा. छिड़काव के 2 घंटे बाद)
-   - storage: सुरक्षित भंडारण निर्देश
-4. अत्यंत सटीक व वैज्ञानिक मात्रा (Exhaustive & Accurate Dosages for Every Sprayer):
-   - dosageLiquid:
-     * perLiter: सटीक मात्रा (उदा. 0.3 - 0.4 मिली प्रति लीटर)
-     * per15L: 15 लीटर नैपसैक पंप के लिए (उदा. 6 - 7 मिली)
-     * per16L: 16 लीटर बैटरी पंप के लिए (उदा. 6.5 - 7.5 मिली)
-     * per20L: 20 लीटर पावर पंप के लिए (उदा. 8 - 10 मिली)
-     * per25L: 25 लीटर स्प्रेयर के लिए (उदा. 10 - 12.5 मिली)
-     * per200L: 200 लीटर ड्रम के लिए (उदा. 60 - 75 मिली)
-     * per500L: 500 लीटर टैंकर के लिए (उदा. 150 - 175 मिली)
-     * perBigha: 1 शामगढ़ पक्का बीघा (27,225 वर्ग फीट, 1 एकड़ = 1.60 बीघा) के लिए सटीक मात्रा (उदा. 30 - 35 मिली)
-     * perAcre: 1 एकड़ (43,560 वर्ग फीट ≈ 1.60 शामगढ़ बीघा) के लिए सटीक मात्रा (उदा. 50 - 60 मिली)
-   - dosagePowder: यदि पाउडर फॉर्मूलेशन है तो इसी तरह प्रति लीटर, 15L, 16L, 20L, 25L, 200L, 500L, प्रति शामगढ़ पक्का बीघा (perBigha) एवं प्रति एकड़ (perAcre) हेतु सटीक ग्राम/किग्रा में मात्रा
-   - dosageFertilizer: यदि खाद/उर्वरक है तो प्रति पौधा, प्रति गमला, प्रति शामगढ़ पक्का बीघा (perBigha), प्रति एकड़ (perAcre), प्रति सिंचाई, स्प्रे व ड्रेंचिंग मात्रा
-   - dosageSeeds: यदि बीज (Seeds/Hybrid) या बीजोपचार रसायन (Seed Treatment) है तो: { seedRatePerBigha (उदा. 18-20 किग्रा प्रति शामगढ़ पक्का बीघा [27,225 वर्ग फीट]), seedRatePerAcre (उदा. 40-45 किग्रा/एकड़), seedTreatment (बीजोपचार की सटीक मात्रा व तरीका प्रति किग्रा बीज), sowingDepth (बुवाई गहराई 3-5 सेमी), rowAndPlantSpacing (कतार व पौधे की दूरी), germinationDays (अंकुरण समय 4-7 दिन), sowingSeason (बुवाई मौसम) }
-   - cropSpecificDosage: कम से कम 4 से 6 फसलों (उदा. सोयाबीन, चना, गेहूं, धान, मिर्च, टमाटर) के लिए एक सारणी जिसमें cropName, dosage (मात्रा प्रति बीघा/एकड़), usage (छिड़काव/ड्रेंचिंग विधि) और sprayTime (छिड़काव का सही समय) स्पष्ट हो
-5. सरकारी स्रोत: CIBRC, DPPQS, ICAR, FCO एवं राज्य कृषि विश्वविद्यालय
-6. आउटपुट फॉर्मेट: केवल और केवल वैध Raw JSON स्ट्रिंग लौटाएं जो इन सभी कीज़ को शुद्धता से धारण करती हो।`;
+अति-महत्वपूर्ण शुद्धता एवं विस्तृत विवरण के नियम:
+1. **कोई संक्षिप्त उत्तर न दें (Fully Detailed)**: प्रत्येक फील्ड में गहन, वैज्ञानिक व किसान-उपयोगी विवरण होना अनिवार्य है। आधी-अधूरी जानकारी बिल्कुल न दें।
+2. **100% सरल, स्पष्ट एवं सम्मानजनक हिंदी**: संपूर्ण रिपोर्ट केवल और केवल सरल हिंदी में हो। टेक्निकल रसायनों के नाम के साथ कोष्ठक में अंग्रेजी नाम लिख सकते हैं (उदा. 'क्लोरेंट्रानिलिप्रोल (Chlorantraniliprole 18.5% SC)')।
+3. **सटीक व वास्तविक डोज़ (Strict Scientific Accuracy - No Guesswork)**:
+   - हर उत्पाद की आधिकारिक अनुमोदित मात्रा (CIBRC label claim) के अनुसार ही सटीक डोज़ बताएं।
+   - यदि उत्पाद तरल (Liquid EC/SC/SL/FS) है: तो dosageLiquid में प्रति 1 लीटर पानी (उदा. 0.3-0.5 ml या 2-3 ml जैसा भी वास्तविक लेबल हो), 15L पंप, 16L बैटरी पंप, 20L पावर पंप, 25L ट्रॉली पंप, 200L ड्रम, 500L टैंकर, और प्रति 1 बीघा व एकड़ की वास्तविक मिलीलीटर मात्रा लिखें।
+   - यदि उत्पाद पाउडर/दानेदार (Powder/Granule WP/SP/WDG/GR) है: तो dosagePowder में प्रति लीटर, 15L पंप, 20L पंप, 200L ड्रम और प्रति बीघा व एकड़ की वास्तविक ग्राम/किग्रा मात्रा लिखें।
+   - यदि उत्पाद उर्वरक/खाद (Fertilizer/Micronutrient) है: तो dosageFertilizer में प्रति पौधा, प्रति गमला, प्रति बीघा, प्रति सिंचाई, स्प्रे व ड्रेंचिंग की सही मात्रा भरें।
+   - यदि उत्पाद बीज (Seed) या बीजोपचार (Seed Treatment) है: तो dosageSeeds में { seedRatePerBigha, seedRatePerAcre, seedTreatment (बीजोपचार की प्रति किग्रा बीज मात्रा), sowingDepth, rowAndPlantSpacing, germinationDays, sowingSeason } की सही जानकारी दें।
+4. **फसलवार विशिष्ट डोज़ (Crop Specific Dosage)**: कम से कम 4 से 6 फसलों (उदा. सोयाबीन, चना, गेहूं, धान, मिर्च, टमाटर, कपास आदि) के लिए एक सारणी जिसमें cropName, dosage (मात्रा प्रति बीघा/एकड़), usage (छिड़काव/ड्रेंचिंग विधि) और sprayTime (छिड़काव का सही समय) स्पष्ट हो।
+5. **विस्तृत कार्यप्रणाली (Mode of Action)**: कम से कम 2-3 वाक्यों में वैज्ञानिक रूप से समझाएं कि यह दवा कीट या फफूंद के शरीर में (जैसे रयानॉडाइन रिसेप्टर्स, तंत्रिका तंत्र, कोशिका विभाजन आदि पर) कैसे काम करती है।
+6. **पहचान के लक्षण (Symptoms)**: फसल को देखकर किसान कैसे समझें कि इस उत्पाद की आवश्यकता है।
+7. **टैंक मिक्सिंग अनुकूलता (Compatibility)**: किन कीटनाशकों/फफूंदनाशकों/टॉनिकों के साथ मिला सकते हैं (Compatible) और किनके साथ कतई न मिलाएं (Incompatible जैसे कॉपर, सल्फर, चूना आदि)।
+8. **सुरक्षा एवं प्रतीक्षा अवधि**: तुड़ाई से पहले सुरक्षित अंतर (PHI/Waiting Period), खेत में प्रवेश निषेध (REI), टॉक्सिसिटी त्रिकोण का रंग (हरा/नीला/पीला/लाल) और सुरक्षा सावधानियां।
+9. **आउटपुट फॉर्मेट**: केवल और केवल वैध JSON स्ट्रिंग लौटाएं।`;
 
-    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY LANGUAGE REQUIREMENT: Your audience is exclusively Hindi-speaking Indian farmers. You MUST respond 100% in simple, clear, respectful HINDI (सरल हिंदी भाषा). Consult official government agricultural sources (CIBRC, ICAR, FCO). LAND MEASUREMENT STANDARD: In Shamgarh (MP), 1 Pucca Bigha = 27,225 sq ft = 20 Biswa. 1 Acre = 1.60 Pucca Bigha, and 1 Hectare ≈ 3.95 Pucca Bigha. All per-Bigha dosages and seed rates MUST be strictly calibrated to this Shamgarh Pucca Bigha standard. NEVER provide descriptions, benefits, usages, or symptoms in English. Ensure the output is valid JSON. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
+    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY REQUIREMENT: Provide 100% scientifically accurate, deeply detailed, authentic agronomic information based on official CIB&RC and ICAR standards. Respond 100% in simple, respectful HINDI. Never invent dummy or arbitrary dosages. Return strictly valid JSON. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
 
     let response: any = null;
     let lastError: any = null;
 
-    // TIER 1: Prioritize Live Google Search Grounding to search official CIBRC, ICAR, and authentic web sources
-    const candidateModels = getPrioritizedModels();
-    for (const model of candidateModels) {
-      try {
-        response = await ai.models.generateContent({
-          model,
-          contents: prompt,
-          config: {
-            systemInstruction: `${systemInstruction} Return strictly a valid raw JSON object string without any markdown wraps.`,
-            tools: [{ googleSearch: {} }]
-          }
-        });
-
-        if (response?.text) {
-          const parsed = safeParseProductKnowledge(response.text);
-          if (
-            parsed && 
-            parsed.productName && 
-            parsed.productName !== "जानकारी उपलब्ध नहीं है" && 
-            !parsed.productName.includes("पहचान नहीं") &&
-            !parsed.productName.includes("पहचाना नहीं")
-          ) {
-            // Check if recognized brand/technical matches our verified database
-            const verified = findVerifiedAgriProduct(parsed.productName) || findVerifiedAgriProduct(parsed.technicalName);
-            if (verified) {
-              return {
-                ...verified,
-                isGovernmentVerified: true,
-                verificationSource: verified.verificationSource || "CIBRC भारत सरकार एवं निर्माता आधिकारिक तकनीकी लीफलेट",
-                hasExactMatch: true
-              };
-            }
-
-            // Harmonize AI dosages with mathematical calculation engine
-            if (parsed.dosageLiquid) {
-              parsed.dosageLiquid = harmonizeDosages(parsed.dosageLiquid, 'liquid');
-            }
-            if (parsed.dosagePowder) {
-              parsed.dosagePowder = harmonizeDosages(parsed.dosagePowder, 'powder');
-            }
-
-            // Extract search grounding citations if present
-            const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-            const liveSources: Array<{ title: string; uri: string }> = [];
-            if (chunks && chunks.length > 0) {
-              chunks.forEach((c: any) => {
-                if (c.web?.uri) {
-                  liveSources.push({
-                    title: c.web.title || "आधिकारिक सरकारी स्रोत",
-                    uri: c.web.uri
-                  });
-                }
-              });
-            }
-            parsed.sources = enrichGovernmentSources(parsed.category, liveSources);
-            return parsed;
-          }
-        }
-      } catch (searchError: any) {
-        markModelTemporaryFailure(model, searchError);
-        lastError = searchError;
-        console.warn(`[getProductKnowledge] Search grounding attempt on ${model} notice:`, searchError?.status, searchError?.message?.substring(0, 80));
-      }
-    }
-
-    // TIER 2: Secondary Resilient Direct Structured JSON Generation with the exhaustive prompt
+    // Prioritized model chain: gemini-3.6-flash -> gemini-3.5-flash
     const healthyModels = getPrioritizedModels();
     for (const model of healthyModels) {
       try {
@@ -1036,23 +919,6 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
             !parsed.productName.includes("पहचान नहीं") &&
             !parsed.productName.includes("पहचाना नहीं")
           ) {
-            const verified = findVerifiedAgriProduct(parsed.productName) || findVerifiedAgriProduct(parsed.technicalName);
-            if (verified) {
-              return {
-                ...verified,
-                isGovernmentVerified: true,
-                verificationSource: verified.verificationSource || "CIBRC भारत सरकार एवं निर्माता आधिकारिक तकनीकी लीफलेट",
-                hasExactMatch: true
-              };
-            }
-
-            if (parsed.dosageLiquid) {
-              parsed.dosageLiquid = harmonizeDosages(parsed.dosageLiquid, 'liquid');
-            }
-            if (parsed.dosagePowder) {
-              parsed.dosagePowder = harmonizeDosages(parsed.dosagePowder, 'powder');
-            }
-
             parsed.sources = enrichGovernmentSources(parsed.category, parsed.sources);
             return parsed;
           }
@@ -1060,7 +926,7 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
       } catch (directErr: any) {
         markModelTemporaryFailure(model, directErr);
         lastError = directErr;
-        console.warn(`[getProductKnowledge] Direct model attempt on ${model} notice:`, directErr?.status, directErr?.message?.substring(0, 80));
+        console.warn(`[getProductKnowledge] Model ${model} attempt notice:`, directErr?.status, directErr?.message?.substring(0, 80));
       }
     }
 
@@ -1069,26 +935,9 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
     }
 
     const result = safeParseProductKnowledge(response.text);
-    if (result) {
-      const verified = findVerifiedAgriProduct(result.productName) || findVerifiedAgriProduct(result.technicalName);
-      if (verified) {
-        return {
-          ...verified,
-          isGovernmentVerified: true,
-          verificationSource: verified.verificationSource || "CIBRC भारत सरकार एवं निर्माता आधिकारिक तकनीकी लीफलेट",
-          hasExactMatch: true
-        };
-      }
-      if (result.dosageLiquid) {
-        result.dosageLiquid = harmonizeDosages(result.dosageLiquid, 'liquid');
-      }
-      if (result.dosagePowder) {
-        result.dosagePowder = harmonizeDosages(result.dosagePowder, 'powder');
-      }
-    }
 
     if (!result.productName || result.productName === "जानकारी उपलब्ध नहीं है" || result.productName.includes("पहचान नहीं") || result.productName.includes("पहचाना नहीं")) {
-      throw new Error("इस उत्पाद की जानकारी नहीं मिल सकी। कृपया सही नाम या स्पेलिंग (जैसे: कोराजन, यूरिया, इमिडाक्लोप्रिड) लिखकर पुनः प्रयास करें।");
+      throw new Error("इस उत्पाद की जानकारी नहीं मिल सकी। कृपया सही नाम या स्पेलिंग (जैसे: कोराजन, यूरिया, इमिडाक्लोप्रिड, साफ) लिखकर पुनः प्रयास करें।");
     }
 
     result.sources = enrichGovernmentSources(result.category, result.sources);
@@ -1108,18 +957,23 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
 
-    const prompt = `आप भारत के सर्वोच्च कृषि वैज्ञानिक, पौध संरक्षण विशेषज्ञ, इमेज एनालिस्ट एवं CIBRC/ICAR नियामक सलाहकार हैं, जो 'फल्सावदिया कृषि बाजार' का प्रतिनिधित्व करते हैं।
-आपका कार्य संलग्न कृषि उत्पाद (कीटनाशक की बोतल, फफूंदनाशक का पाउच, खरपतवारनाशक, टॉनिक/PGR, सूक्ष्म पोषक तत्व, उर्वरक/खाद की बोरी, या बीज पैकेट जैसे 'श्री मंगलम एम-501') की फोटो का गहन विश्लेषण करना है और 60 दिन पहले की तरह 100% सटीक, अत्यधिक विस्तृत, प्रामाणिक व व्यावहारिक कृषि रिपोर्ट तैयार करना है।
+    const prompt = `आप भारत के शीर्षस्थ कृषि वैज्ञानिक, पौध संरक्षण विशेषज्ञ, इमेज एनालिस्ट एवं CIBRC/ICAR नियामक सलाहकार हैं, जो 'फल्सावदिया कृषि बाजार' का प्रतिनिधित्व करते हैं।
+आपका कार्य संलग्न कृषि उत्पाद (कीटनाशक की बोतल, फफूंदनाशक का पाउच, खरपतवारनाशक, टॉनिक/PGR, सूक्ष्म पोषक तत्व, उर्वरक/खाद की बोरी, या बीज पैकेट) की फोटो का गहन विश्लेषण करना है और 100% सटीक, अत्यधिक विस्तृत (Detailed) व प्रामाणिक कृषि रिपोर्ट तैयार करना है।
 
 अति-महत्वपूर्ण विश्लेषण एवं नियामक मानक (OCR & Government Standards):
-1. **OCR व पैकेजिंग टेक्स्ट एक्सट्रैक्शन**: लेबल, बोतल या पैकेट पर छपे समस्त अक्षर, ब्रांड नाम, टेक्निकल रसायन नाम, फॉर्मूलेशन कोड (EC, SC, WP, SP, आदि), निर्माता कंपनी, बैच नंबर तथा CIBRC / CIR पंजीकरण नंबर को ध्यानपूर्वक पढ़ें।
-2. **सटीक कृषि पुनर्निर्माण**: यदि फोटो धुंधली, कम रोशनी वाली या तिरछी हो, तो भी उपलब्ध अक्षरों (उदा. 'श्री मंगलम एम-501', 'कोराजन', 'साफ', 'यूरिया', 'इमिडाक्लोप्रिड', 'एम-45') से सटीक उत्पाद की पहचान करें।
-3. **सरकारी मानकों से मिलान**: CIBRC (केंद्रीय कीटनाशक बोर्ड), ICAR एवं उर्वरक नियंत्रण आदेश (FCO) के आधिकारिक पंजीकृत दावों से मिलान कर पूर्ण विवरण भरें।
-4. **100% केवल सरल हिंदी (अति-महत्वपूर्ण)**: भारतीय किसान इस रिपोर्ट को पढ़ेंगे। समस्त विवरण, फायदे, सावधानियां, कार्यप्रणाली, फसलें, कीट व मात्राएं सरल, स्पष्ट व सम्मानजनक हिंदी में ही लिखें। अंग्रेजी वाक्य बिल्कुल न लिखें।
+1. **OCR व पैकेजिंग टेक्स्ट एक्सट्रैक्शन**: लेबल, बोतल या पैकेट पर छपे समस्त अक्षर, ब्रांड नाम, टेक्निकल रसायन नाम, फॉर्मूलेशन कोड (EC, SC, WP, SP, आदि), निर्माता कंपनी और CIBRC पंजीकरण को ध्यानपूर्वक पढ़ें।
+2. **सटीक पहचान**: उपलब्ध अक्षरों व पैकेट के डिज़ाइन से सही उत्पाद की पहचान करें।
+3. **सरकारी मानकों से मिलान**: CIBRC (केंद्रीय कीटनाशक बोर्ड), ICAR एवं उर्वरक नियंत्रण आदेश (FCO) के आधिकारिक पंजीकृत दावों से मिलान कर पूर्ण और सटीक विवरण भरें।
+4. **100% केवल सरल हिंदी**: भारतीय किसान इस रिपोर्ट को पढ़ेंगे। समस्त विवरण, फायदे, सावधानियां, कार्यप्रणाली, फसलें, कीट व मात्राएं सरल, स्पष्ट व सम्मानजनक हिंदी में ही लिखें।
 5. **सटीक व विस्तृत फील्ड्स**:
-   - productName, companyName, technicalName, category, formulation, activeIngredient
+   - productName: उत्पाद का पूरा ब्रांड नाम व हिंदी उच्चारण
+   - companyName: मूल निर्माता कंपनी
+   - technicalName: सक्रिय टेक्निकल रसायन, सांद्रता व फॉर्मूलेशन
+   - category: सटीक श्रेणी (कीटनाशक, फफूंदनाशक, खरपतवारनाशक, खाद आदि)
+   - formulation: फॉर्मूलेशन का प्रकार (SC, EC, WP, WDG आदि)
+   - activeIngredient: सक्रिय घटक
    - modeOfAction: कार्य करने का सटीक वैज्ञानिक तरीका (कम से कम 2-3 वाक्यों में)
-   - fracIracHracGroup: सटीक ग्रुप कोड
+   - fracIracHracGroup: ग्रुप कोड
    - targetCrops: कम से कम 6 से 8 प्रमुख भारतीय फसलें
    - targetPests: सभी लक्षित कीट, रोग व इल्लियां
    - symptoms: खेत में फसल पर दिखाई देने वाले लक्षण
@@ -1128,17 +982,17 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
    - features: विशेष तकनीकी खूबियां
    - compatibleProducts & incompatibleProducts
    - waitingPeriod, phi, rei, toxicity, safetyInstructions, mixingOrder (WALES नियम), sprayTiming, rainfastPeriod, storage
-6. **प्रत्येक स्प्रेयर हेतु सटीक मात्रा (Dosages)**:
-   - dosageLiquid: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha, perAcre }
-   - dosagePowder: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha, perAcre }
-   - dosageFertilizer: { perPlant, perPot, perBigha, perAcre, perIrrigation, perSpray, perDrenching, totalAmount }
+6. **प्रत्येक स्प्रेयर हेतु सटीक वास्तविक मात्रा (Accurate Dosages)**:
+   - dosageLiquid: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha } - सही मिलीलीटर मात्रा
+   - dosagePowder: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha } - सही ग्राम/किग्रा मात्रा
+   - dosageFertilizer: { perPlant, perPot, perBigha, perIrrigation, perSpray, perDrenching, totalAmount }
    - dosageSeeds: { seedRatePerBigha, seedRatePerAcre, seedTreatment, sowingDepth, rowAndPlantSpacing, germinationDays, sowingSeason }
    - cropSpecificDosage: कम से कम 4 से 6 फसलों हेतु { cropName, dosage, usage, sprayTime }
 7. **पहचान की स्थिति**: पहचान होने पर 'hasExactMatch' को true सेट करें। यदि फोटो कृषि से संबंधित नहीं है तो 'productName' में 'पहचान नहीं हो सकी' दें।
-8. **कोई इमेज डेटा आउटपुट में न दें**: JSON में कोई base64 या इमेज स्ट्रिंग शामिल न करें।
-9. आउटपुट फॉर्मेट: केवल और केवल वैध JSON ऑब्जेक्ट स्ट्रिंग लौटाएं।`;
+8. कोई base64 या इमेज स्ट्रिंग आउटपुट JSON में न दें।
+9. आउटपुट केवल और केवल वैध JSON स्ट्रिंग लौटाएं।`;
 
-    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY LANGUAGE REQUIREMENT: Your audience is exclusively Hindi-speaking Indian farmers. You MUST respond 100% in simple, clear, respectful HINDI (सरल हिंदी भाषा). LAND MEASUREMENT STANDARD: In Shamgarh (MP), 1 Pucca Bigha = 27,225 sq ft = 20 Biswa. 1 Acre = 1.60 Pucca Bigha, and 1 Hectare ≈ 3.95 Pucca Bigha. All per-Bigha dosages and seed rates MUST be strictly calibrated to this Shamgarh Pucca Bigha standard. NEVER provide descriptions, benefits, usages, or symptoms in English. Never echo base64 image data in output. Ensure the output is valid JSON. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
+    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY REQUIREMENT: Analyze the image with extreme accuracy. Provide 100% scientifically accurate, deeply detailed, authentic agronomic information based on official CIB&RC and ICAR standards. Respond 100% in simple, respectful HINDI. Never echo base64 image data. Return strictly valid JSON. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
 
     // Dynamic MIME type detection from Base64 Data URL (prevents invalid argument error on PNG/WebP)
     let mimeType = "image/jpeg";
@@ -1176,26 +1030,7 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
         });
         if (response?.text) {
           const parsed = safeParseProductKnowledge(response.text);
-          if (parsed && parsed.productName && !parsed.productName.includes("पहचान नहीं")) {
-            // Check if recognized scanned product matches verified CIBRC database
-            const verified = findVerifiedAgriProduct(parsed.productName) || findVerifiedAgriProduct(parsed.technicalName);
-            if (verified) {
-              return {
-                ...verified,
-                isGovernmentVerified: true,
-                verificationSource: verified.verificationSource || "CIBRC भारत सरकार एवं निर्माता आधिकारिक तकनीकी लीफलेट",
-                hasExactMatch: true
-              };
-            }
-
-            // Otherwise mathematically harmonize the recognized dosages
-            if (parsed.dosageLiquid) {
-              parsed.dosageLiquid = harmonizeDosages(parsed.dosageLiquid, 'liquid');
-            }
-            if (parsed.dosagePowder) {
-              parsed.dosagePowder = harmonizeDosages(parsed.dosagePowder, 'powder');
-            }
-
+          if (parsed && parsed.productName) {
             parsed.sources = enrichGovernmentSources(parsed.category, parsed.sources);
             return parsed;
           }
@@ -1212,23 +1047,6 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
     }
 
     const result = safeParseProductKnowledge(response.text);
-    if (result && result.productName && !result.productName.includes("पहचान नहीं")) {
-      const verified = findVerifiedAgriProduct(result.productName) || findVerifiedAgriProduct(result.technicalName);
-      if (verified) {
-        return {
-          ...verified,
-          isGovernmentVerified: true,
-          verificationSource: verified.verificationSource || "CIBRC भारत सरकार एवं निर्माता आधिकारिक तकनीकी लीफलेट",
-          hasExactMatch: true
-        };
-      }
-      if (result.dosageLiquid) {
-        result.dosageLiquid = harmonizeDosages(result.dosageLiquid, 'liquid');
-      }
-      if (result.dosagePowder) {
-        result.dosagePowder = harmonizeDosages(result.dosagePowder, 'powder');
-      }
-    }
     result.sources = enrichGovernmentSources(result.category, result.sources);
     return result;
   } catch (error: any) {
