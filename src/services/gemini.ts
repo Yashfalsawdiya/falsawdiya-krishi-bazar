@@ -1,6 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
 import { jsonrepair } from "jsonrepair";
 import { getFriendlyAiError } from "../utils/aiErrorHandler";
+import { findVerifiedAgriProduct } from "../data/verifiedAgriProducts";
+import { harmonizeDosages } from "../utils/agriDoseEngine";
 
 function isQuotaError(error: any): boolean {
   const status = error?.status || error?.code;
@@ -599,6 +601,7 @@ export interface ProductKnowledgeResult {
     per200L: string;
     per500L: string;
     perBigha: string;
+    perAcre?: string;
   };
   dosagePowder: {
     perLiter: string;
@@ -609,11 +612,13 @@ export interface ProductKnowledgeResult {
     per200L: string;
     per500L: string;
     perBigha: string;
+    perAcre?: string;
   };
   dosageFertilizer: {
     perPlant: string;
     perPot: string;
     perBigha: string;
+    perAcre?: string;
     perIrrigation: string;
     perSpray: string;
     perDrenching: string;
@@ -638,6 +643,9 @@ export interface ProductKnowledgeResult {
   sources?: Array<{ title: string; uri: string }>;
   order?: number;
   createdAt?: number;
+  isGovernmentVerified?: boolean;
+  verificationSource?: string;
+  cibrcRegNumber?: string;
 }
 
 const DEFAULT_PRODUCT_KNOWLEDGE: ProductKnowledgeResult = {
@@ -674,7 +682,8 @@ const DEFAULT_PRODUCT_KNOWLEDGE: ProductKnowledgeResult = {
     per25L: "उत्पाद अनुसार",
     per200L: "उत्पाद अनुसार",
     per500L: "उत्पाद अनुसार",
-    perBigha: "उत्पाद अनुसार"
+    perBigha: "उत्पाद अनुसार",
+    perAcre: "उत्पाद अनुसार"
   },
   dosagePowder: {
     perLiter: "उत्पाद अनुसार",
@@ -684,12 +693,14 @@ const DEFAULT_PRODUCT_KNOWLEDGE: ProductKnowledgeResult = {
     per25L: "उत्पाद अनुसार",
     per200L: "उत्पाद अनुसार",
     per500L: "उत्पाद अनुसार",
-    perBigha: "उत्पाद अनुसार"
+    perBigha: "उत्पाद अनुसार",
+    perAcre: "उत्पाद अनुसार"
   },
   dosageFertilizer: {
     perPlant: "उत्पाद अनुसार",
     perPot: "उत्पाद अनुसार",
     perBigha: "उत्पाद अनुसार",
+    perAcre: "उत्पाद अनुसार",
     perIrrigation: "उपलब्ध नहीं है",
     perSpray: "उपलब्ध नहीं है",
     perDrenching: "उपलब्ध नहीं है",
@@ -868,6 +879,17 @@ function safeParseProductKnowledge(jsonText: string): ProductKnowledgeResult {
 }
 
 export async function getProductKnowledge(query: string, userApiKey?: string): Promise<ProductKnowledgeResult> {
+  // 1. Instant Zero-Latency Verified Master Database Check (100% CIBRC / Company Label Verified)
+  const directVerified = findVerifiedAgriProduct(query);
+  if (directVerified) {
+    return {
+      ...directVerified,
+      isGovernmentVerified: true,
+      verificationSource: directVerified.verificationSource || "CIBRC भारत सरकार एवं निर्माता आधिकारिक तकनीकी लीफलेट",
+      hasExactMatch: true
+    };
+  }
+
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
@@ -914,8 +936,9 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
      * per200L: 200 लीटर ड्रम के लिए (उदा. 60 - 75 मिली)
      * per500L: 500 लीटर टैंकर के लिए (उदा. 150 - 175 मिली)
      * perBigha: 1 शामगढ़ पक्का बीघा (27,225 वर्ग फीट, 1 एकड़ = 1.60 बीघा) के लिए सटीक मात्रा (उदा. 30 - 35 मिली)
-   - dosagePowder: यदि पाउडर फॉर्मूलेशन है तो इसी तरह प्रति लीटर, 15L, 16L, 20L, 25L, 200L, 500L, प्रति शामगढ़ पक्का बीघा हेतु सटीक ग्राम में मात्रा
-   - dosageFertilizer: यदि खाद/उर्वरक है तो प्रति पौधा, प्रति गमला, प्रति शामगढ़ पक्का बीघा, प्रति सिंचाई, स्प्रे व ड्रेंचिंग मात्रा
+     * perAcre: 1 एकड़ (43,560 वर्ग फीट ≈ 1.60 शामगढ़ बीघा) के लिए सटीक मात्रा (उदा. 50 - 60 मिली)
+   - dosagePowder: यदि पाउडर फॉर्मूलेशन है तो इसी तरह प्रति लीटर, 15L, 16L, 20L, 25L, 200L, 500L, प्रति शामगढ़ पक्का बीघा (perBigha) एवं प्रति एकड़ (perAcre) हेतु सटीक ग्राम/किग्रा में मात्रा
+   - dosageFertilizer: यदि खाद/उर्वरक है तो प्रति पौधा, प्रति गमला, प्रति शामगढ़ पक्का बीघा (perBigha), प्रति एकड़ (perAcre), प्रति सिंचाई, स्प्रे व ड्रेंचिंग मात्रा
    - dosageSeeds: यदि बीज (Seeds/Hybrid) या बीजोपचार रसायन (Seed Treatment) है तो: { seedRatePerBigha (उदा. 18-20 किग्रा प्रति शामगढ़ पक्का बीघा [27,225 वर्ग फीट]), seedRatePerAcre (उदा. 40-45 किग्रा/एकड़), seedTreatment (बीजोपचार की सटीक मात्रा व तरीका प्रति किग्रा बीज), sowingDepth (बुवाई गहराई 3-5 सेमी), rowAndPlantSpacing (कतार व पौधे की दूरी), germinationDays (अंकुरण समय 4-7 दिन), sowingSeason (बुवाई मौसम) }
    - cropSpecificDosage: कम से कम 4 से 6 फसलों (उदा. सोयाबीन, चना, गेहूं, धान, मिर्च, टमाटर) के लिए एक सारणी जिसमें cropName, dosage (मात्रा प्रति बीघा/एकड़), usage (छिड़काव/ड्रेंचिंग विधि) और sprayTime (छिड़काव का सही समय) स्पष्ट हो
 5. सरकारी स्रोत: CIBRC, DPPQS, ICAR, FCO एवं राज्य कृषि विश्वविद्यालय
@@ -948,6 +971,25 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
             !parsed.productName.includes("पहचान नहीं") &&
             !parsed.productName.includes("पहचाना नहीं")
           ) {
+            // Check if recognized brand/technical matches our verified database
+            const verified = findVerifiedAgriProduct(parsed.productName) || findVerifiedAgriProduct(parsed.technicalName);
+            if (verified) {
+              return {
+                ...verified,
+                isGovernmentVerified: true,
+                verificationSource: verified.verificationSource || "CIBRC भारत सरकार एवं निर्माता आधिकारिक तकनीकी लीफलेट",
+                hasExactMatch: true
+              };
+            }
+
+            // Harmonize AI dosages with mathematical calculation engine
+            if (parsed.dosageLiquid) {
+              parsed.dosageLiquid = harmonizeDosages(parsed.dosageLiquid, 'liquid');
+            }
+            if (parsed.dosagePowder) {
+              parsed.dosagePowder = harmonizeDosages(parsed.dosagePowder, 'powder');
+            }
+
             // Extract search grounding citations if present
             const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
             const liveSources: Array<{ title: string; uri: string }> = [];
@@ -994,6 +1036,23 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
             !parsed.productName.includes("पहचान नहीं") &&
             !parsed.productName.includes("पहचाना नहीं")
           ) {
+            const verified = findVerifiedAgriProduct(parsed.productName) || findVerifiedAgriProduct(parsed.technicalName);
+            if (verified) {
+              return {
+                ...verified,
+                isGovernmentVerified: true,
+                verificationSource: verified.verificationSource || "CIBRC भारत सरकार एवं निर्माता आधिकारिक तकनीकी लीफलेट",
+                hasExactMatch: true
+              };
+            }
+
+            if (parsed.dosageLiquid) {
+              parsed.dosageLiquid = harmonizeDosages(parsed.dosageLiquid, 'liquid');
+            }
+            if (parsed.dosagePowder) {
+              parsed.dosagePowder = harmonizeDosages(parsed.dosagePowder, 'powder');
+            }
+
             parsed.sources = enrichGovernmentSources(parsed.category, parsed.sources);
             return parsed;
           }
@@ -1010,6 +1069,23 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
     }
 
     const result = safeParseProductKnowledge(response.text);
+    if (result) {
+      const verified = findVerifiedAgriProduct(result.productName) || findVerifiedAgriProduct(result.technicalName);
+      if (verified) {
+        return {
+          ...verified,
+          isGovernmentVerified: true,
+          verificationSource: verified.verificationSource || "CIBRC भारत सरकार एवं निर्माता आधिकारिक तकनीकी लीफलेट",
+          hasExactMatch: true
+        };
+      }
+      if (result.dosageLiquid) {
+        result.dosageLiquid = harmonizeDosages(result.dosageLiquid, 'liquid');
+      }
+      if (result.dosagePowder) {
+        result.dosagePowder = harmonizeDosages(result.dosagePowder, 'powder');
+      }
+    }
 
     if (!result.productName || result.productName === "जानकारी उपलब्ध नहीं है" || result.productName.includes("पहचान नहीं") || result.productName.includes("पहचाना नहीं")) {
       throw new Error("इस उत्पाद की जानकारी नहीं मिल सकी। कृपया सही नाम या स्पेलिंग (जैसे: कोराजन, यूरिया, इमिडाक्लोप्रिड) लिखकर पुनः प्रयास करें।");
@@ -1053,9 +1129,9 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
    - compatibleProducts & incompatibleProducts
    - waitingPeriod, phi, rei, toxicity, safetyInstructions, mixingOrder (WALES नियम), sprayTiming, rainfastPeriod, storage
 6. **प्रत्येक स्प्रेयर हेतु सटीक मात्रा (Dosages)**:
-   - dosageLiquid: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha }
-   - dosagePowder: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha }
-   - dosageFertilizer: { perPlant, perPot, perBigha, perIrrigation, perSpray, perDrenching, totalAmount }
+   - dosageLiquid: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha, perAcre }
+   - dosagePowder: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha, perAcre }
+   - dosageFertilizer: { perPlant, perPot, perBigha, perAcre, perIrrigation, perSpray, perDrenching, totalAmount }
    - dosageSeeds: { seedRatePerBigha, seedRatePerAcre, seedTreatment, sowingDepth, rowAndPlantSpacing, germinationDays, sowingSeason }
    - cropSpecificDosage: कम से कम 4 से 6 फसलों हेतु { cropName, dosage, usage, sprayTime }
 7. **पहचान की स्थिति**: पहचान होने पर 'hasExactMatch' को true सेट करें। यदि फोटो कृषि से संबंधित नहीं है तो 'productName' में 'पहचान नहीं हो सकी' दें।
@@ -1100,7 +1176,26 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
         });
         if (response?.text) {
           const parsed = safeParseProductKnowledge(response.text);
-          if (parsed && parsed.productName) {
+          if (parsed && parsed.productName && !parsed.productName.includes("पहचान नहीं")) {
+            // Check if recognized scanned product matches verified CIBRC database
+            const verified = findVerifiedAgriProduct(parsed.productName) || findVerifiedAgriProduct(parsed.technicalName);
+            if (verified) {
+              return {
+                ...verified,
+                isGovernmentVerified: true,
+                verificationSource: verified.verificationSource || "CIBRC भारत सरकार एवं निर्माता आधिकारिक तकनीकी लीफलेट",
+                hasExactMatch: true
+              };
+            }
+
+            // Otherwise mathematically harmonize the recognized dosages
+            if (parsed.dosageLiquid) {
+              parsed.dosageLiquid = harmonizeDosages(parsed.dosageLiquid, 'liquid');
+            }
+            if (parsed.dosagePowder) {
+              parsed.dosagePowder = harmonizeDosages(parsed.dosagePowder, 'powder');
+            }
+
             parsed.sources = enrichGovernmentSources(parsed.category, parsed.sources);
             return parsed;
           }
@@ -1117,6 +1212,23 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
     }
 
     const result = safeParseProductKnowledge(response.text);
+    if (result && result.productName && !result.productName.includes("पहचान नहीं")) {
+      const verified = findVerifiedAgriProduct(result.productName) || findVerifiedAgriProduct(result.technicalName);
+      if (verified) {
+        return {
+          ...verified,
+          isGovernmentVerified: true,
+          verificationSource: verified.verificationSource || "CIBRC भारत सरकार एवं निर्माता आधिकारिक तकनीकी लीफलेट",
+          hasExactMatch: true
+        };
+      }
+      if (result.dosageLiquid) {
+        result.dosageLiquid = harmonizeDosages(result.dosageLiquid, 'liquid');
+      }
+      if (result.dosagePowder) {
+        result.dosagePowder = harmonizeDosages(result.dosagePowder, 'powder');
+      }
+    }
     result.sources = enrichGovernmentSources(result.category, result.sources);
     return result;
   } catch (error: any) {

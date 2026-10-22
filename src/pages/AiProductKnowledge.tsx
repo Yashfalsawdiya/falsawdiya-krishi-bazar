@@ -27,7 +27,6 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import SafeErrorBoundary from '../components/SafeErrorBoundary';
-import { LandUnitId, SHAMGARH_LAND_UNITS, SHAMGARH_BIGHA_ASSUMPTION_NOTE, scaleDoseString } from '../utils/shamgarhLandMeasure';
 
 const CACHE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
@@ -416,9 +415,8 @@ export default function AiProductKnowledge() {
   const [isCopied, setIsCopied] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
 
-  // Active Dosage Tab & Selected Land Unit
+  // Active Dosage Tab
   const [activeDosageTab, setActiveDosageTab] = useState<'liquid' | 'powder' | 'fertilizer' | 'seeds'>('liquid');
-  const [selectedLandUnit, setSelectedLandUnit] = useState<LandUnitId>('shamgarh_pucca_bigha');
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
 
   // Drag & Drop and Delete Confirmation states and refs
@@ -1807,52 +1805,20 @@ ${result.safetyInstructions}
 
             {/* Calculations Render */}
             <div className="p-6 space-y-6">
-              {/* Land Unit Selector & Shamgarh Standard Notice */}
-              <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 space-y-2.5 print:border-gray-200">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2">
-                    <Sprout className="w-4 h-4 text-amber-700 shrink-0" />
-                    <div>
-                      <span className="text-xs font-black text-amber-950 block">
-                        भूमि पैमाना (Land Unit):
-                      </span>
-                      <span className="text-[10px] text-amber-800 font-bold">
-                        डिफ़ॉल्ट: शामगढ़ पक्का बीघा (27,225 वर्ग फीट)
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                    {(['shamgarh_pucca_bigha', 'acre', 'hectare', 'kaccha_bigha'] as LandUnitId[]).map((unitKey) => (
-                      <button
-                        key={unitKey}
-                        type="button"
-                        onClick={() => setSelectedLandUnit(unitKey)}
-                        className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all shrink-0 ${
-                          selectedLandUnit === unitKey
-                            ? 'bg-[#2D5A27] text-white shadow-xs'
-                            : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                        }`}
-                      >
-                        {SHAMGARH_LAND_UNITS[unitKey]?.shortLabel || unitKey}
-                      </button>
-                    ))}
-                  </div>
+              {/* Land Unit & Shamgarh Standard Notice Card */}
+              <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 sm:p-5 space-y-3 print:border-gray-200">
+                <div className="flex items-center gap-2">
+                  <Sprout className="w-4.5 h-4.5 text-amber-800 shrink-0" />
+                  <h4 className="text-sm font-black text-amber-950">
+                    भूमि पैमाना (Land Unit):
+                  </h4>
                 </div>
 
-                <div className="flex items-start gap-2 pt-2 border-t border-amber-200/60 text-[11px] text-amber-900 leading-relaxed font-medium">
-                  <Info className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
-                  <div className="space-y-0.5">
-                    <p className="font-bold">{SHAMGARH_BIGHA_ASSUMPTION_NOTE}</p>
-                    {selectedLandUnit !== 'shamgarh_pucca_bigha' ? (
-                      <p className="text-amber-800 font-bold">
-                        चुनी गई इकाई: {SHAMGARH_LAND_UNITS[selectedLandUnit]?.nameHi} — {SHAMGARH_LAND_UNITS[selectedLandUnit]?.description}
-                      </p>
-                    ) : (
-                      <p className="text-gray-500 font-medium">
-                        यदि आप किसी अन्य क्षेत्र से हैं जहाँ बीघा माप अलग है, तो ऊपर दिए गए विकल्पों (एकड़, हेक्टेयर, कच्चा बीघा) में से अपनी स्थानीय इकाई चुन सकते हैं।
-                      </p>
-                    )}
-                  </div>
+                <div className="flex items-start gap-2 pt-0.5 text-xs text-amber-950 leading-relaxed font-bold">
+                  <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <p>
+                    मात्रा की गणना शामगढ़ क्षेत्र के पक्का बीघा माप (1 बीघा = 27,225 वर्ग फीट (Sq. Ft.), 1 एकड़ = 43,560 वर्ग फीट (Sq. Ft.) ≈ 1.60 बीघा) के अनुसार की गई है।
+                  </p>
                 </div>
               </div>
 
@@ -1890,12 +1856,8 @@ ${result.safetyInstructions}
                       <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageLiquid?.per500L || "N/A"}</p>
                     </div>
                     <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-center col-span-2 md:col-span-1">
-                      <p className="text-[10px] text-amber-700 font-black uppercase">
-                        प्रति 1 {SHAMGARH_LAND_UNITS[selectedLandUnit]?.shortLabel || 'बीघा'}
-                      </p>
-                      <p className="text-lg font-black text-amber-900 mt-1">
-                        {scaleDoseString(result.dosageLiquid?.perBigha || "N/A", selectedLandUnit)}
-                      </p>
+                      <p className="text-[10px] text-amber-700 font-black uppercase">प्रति 1 बीघा (Bigha)</p>
+                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosageLiquid?.perBigha || "N/A"}</p>
                     </div>
                   </div>
                 </div>
@@ -1935,12 +1897,8 @@ ${result.safetyInstructions}
                       <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosagePowder?.per500L || "N/A"}</p>
                     </div>
                     <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-center col-span-2 md:col-span-1">
-                      <p className="text-[10px] text-amber-700 font-black uppercase">
-                        प्रति 1 {SHAMGARH_LAND_UNITS[selectedLandUnit]?.shortLabel || 'बीघा'}
-                      </p>
-                      <p className="text-lg font-black text-amber-900 mt-1">
-                        {scaleDoseString(result.dosagePowder?.perBigha || "N/A", selectedLandUnit)}
-                      </p>
+                      <p className="text-[10px] text-amber-700 font-black uppercase">प्रति 1 बीघा (Bigha)</p>
+                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosagePowder?.perBigha || "N/A"}</p>
                     </div>
                   </div>
                 </div>
@@ -1959,12 +1917,8 @@ ${result.safetyInstructions}
                       <p className="text-lg font-black text-[#2D5A27] mt-1">{result.dosageFertilizer?.perPot || "N/A"}</p>
                     </div>
                     <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-center">
-                      <p className="text-[10px] text-amber-700 font-black uppercase">
-                        प्रति 1 {SHAMGARH_LAND_UNITS[selectedLandUnit]?.shortLabel || 'बीघा'}
-                      </p>
-                      <p className="text-lg font-black text-amber-900 mt-1">
-                        {scaleDoseString(result.dosageFertilizer?.perBigha || "N/A", selectedLandUnit)}
-                      </p>
+                      <p className="text-[10px] text-amber-700 font-black uppercase">प्रति 1 बीघा (Bigha)</p>
+                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosageFertilizer?.perBigha || "N/A"}</p>
                     </div>
                     <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-center">
                       <p className="text-[10px] text-gray-400 font-bold uppercase">प्रति सिंचाई</p>
@@ -1991,12 +1945,8 @@ ${result.safetyInstructions}
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-center">
-                      <p className="text-[10px] text-amber-700 font-black uppercase">
-                        प्रति 1 {SHAMGARH_LAND_UNITS[selectedLandUnit]?.shortLabel || 'बीघा'} बीज दर
-                      </p>
-                      <p className="text-lg font-black text-amber-900 mt-1">
-                        {scaleDoseString(result.dosageSeeds?.seedRatePerBigha || "उत्पाद अनुसार", selectedLandUnit)}
-                      </p>
+                      <p className="text-[10px] text-amber-700 font-black uppercase">प्रति 1 बीघा बीज दर (Bigha)</p>
+                      <p className="text-lg font-black text-amber-900 mt-1">{result.dosageSeeds?.seedRatePerBigha || "उत्पाद अनुसार"}</p>
                     </div>
                     <div className="bg-green-50 p-3.5 rounded-2xl border border-green-200 text-center">
                       <p className="text-[10px] text-green-700 font-black uppercase">प्रति 1 एकड़ बीज दर (Acre)</p>
