@@ -193,15 +193,40 @@ export function scaleDoseString(originalText: string, targetUnit: LandUnitId): s
 }
 
 /**
- * Calculate recommended spray pumps and water for given Bigha area
+ * Calculate recommended spray pumps/containers and water for given Bigha area
  * Standard recommendation: 80 - 100 Liters of water per Shamgarh Pucca Bigha
- * i.e. 5 pumps of 16L or 4 to 5 pumps of 20L per Bigha
+ * i.e. 15L pump, 20L pump, 200L drum, or 500L tanker
  */
-export function calculateSprayerRequirements(bighaCount: number, pumpCapacity: 15 | 16 | 20 | 25 = 16) {
+export type PumpCapacityOption = 15 | 20 | 200 | 500;
+
+export function calculateSprayerRequirements(
+  bighaCount: number,
+  pumpCapacity: PumpCapacityOption = 15
+) {
   const waterLitersMin = Math.round(bighaCount * 80);
   const waterLitersMax = Math.round(bighaCount * 100);
-  const pumpsMin = Math.ceil(waterLitersMin / pumpCapacity);
-  const pumpsMax = Math.ceil(waterLitersMax / pumpCapacity);
+
+  let pumpsMin: number | string;
+  let pumpsMax: number | string;
+  let unitLabel: string;
+
+  if (pumpCapacity === 200) {
+    unitLabel = 'ड्रम';
+    const minVal = Math.round((waterLitersMin / 200) * 10) / 10;
+    const maxVal = Math.round((waterLitersMax / 200) * 10) / 10;
+    pumpsMin = minVal % 1 === 0 ? minVal : minVal.toFixed(1);
+    pumpsMax = maxVal % 1 === 0 ? maxVal : maxVal.toFixed(1);
+  } else if (pumpCapacity === 500) {
+    unitLabel = 'टैंकर';
+    const minVal = Math.round((waterLitersMin / 500) * 10) / 10;
+    const maxVal = Math.round((waterLitersMax / 500) * 10) / 10;
+    pumpsMin = minVal % 1 === 0 ? minVal : minVal.toFixed(1);
+    pumpsMax = maxVal % 1 === 0 ? maxVal : maxVal.toFixed(1);
+  } else {
+    unitLabel = 'पंप';
+    pumpsMin = Math.ceil(waterLitersMin / pumpCapacity);
+    pumpsMax = Math.ceil(waterLitersMax / pumpCapacity);
+  }
 
   return {
     bighaCount,
@@ -209,6 +234,7 @@ export function calculateSprayerRequirements(bighaCount: number, pumpCapacity: 1
     waterLitersMax,
     pumpsMin,
     pumpsMax,
-    pumpCapacity
+    pumpCapacity,
+    unitLabel
   };
 }

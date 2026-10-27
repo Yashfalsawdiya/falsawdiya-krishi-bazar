@@ -98,7 +98,7 @@ export default function App() {
                 <Route path="schemes" element={<FeatureGuard featureKey="schemes" featureTitle="सरकारी योजनाएं"><Schemes /></FeatureGuard>} />
                 <Route path="news" element={<FeatureGuard featureKey="news" featureTitle="कृषि समाचार"><AgriNews /></FeatureGuard>} />
                 <Route path="soil-testing" element={<FeatureGuard featureKey="soil_testing" featureTitle="मिट्टी परीक्षण मार्गदर्शिका"><SoilTesting /></FeatureGuard>} />
-                <Route path="calculator" element={<FeatureGuard featureKey="calculator" featureTitle="कृषि कैलकुलेटर"><AgriCalculator /></FeatureGuard>} />
+                <Route path="calculator" element={<FeatureGuard featureKey="calculator" featureTitle="Agri Calculator"><AgriCalculator /></FeatureGuard>} />
                 <Route path="helpline" element={<FeatureGuard featureKey="helpline" featureTitle="हेल्पलाइन डायरेक्टरी"><Helpline /></FeatureGuard>} />
                 <Route path="encyclopedia" element={<FeatureGuard featureKey="encyclopedia" featureTitle="कीट एवं रोग निर्देशिका"><Encyclopedia /></FeatureGuard>} />
                 <Route path="encyclopedia/:id" element={<FeatureGuard featureKey="encyclopedia" featureTitle="कीट एवं रोग निर्देशिका"><EncyclopediaDetail /></FeatureGuard>} />

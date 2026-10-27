@@ -49,40 +49,49 @@ const normalizeText = (text: string): string => {
     .replace(/\s+/g, " ");
 };
 
-const getCategoryBadgeStyle = (category?: string) => {
+const getCategoryTheme = (category?: string) => {
   const cat = (category || '').toLowerCase();
   if (cat.includes('उर्वरक') || cat.includes('fertilizer') || cat.includes('पोषक')) {
     return {
-      bg: 'bg-emerald-50 text-emerald-900 border-emerald-200/80',
+      avatarBg: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+      gradient: 'from-emerald-500 via-teal-500 to-[#2D5A27]',
       icon: Sprout,
-      accent: 'border-l-4 border-l-emerald-600',
     };
   }
   if (cat.includes('बीज') || cat.includes('seed')) {
     return {
-      bg: 'bg-amber-50 text-amber-900 border-amber-200/80',
+      avatarBg: 'bg-amber-50 text-amber-700 border-amber-200/80',
+      gradient: 'from-amber-500 via-orange-500 to-amber-700',
       icon: Leaf,
-      accent: 'border-l-4 border-l-amber-600',
     };
   }
-  if (cat.includes('कीटनाशक') || cat.includes('insecticide') || cat.includes('फफूंद') || cat.includes('fungicide') || cat.includes('खरपतवार') || cat.includes('herbicide')) {
+  if (
+    cat.includes('कीटनाशक') || cat.includes('insecticide') || 
+    cat.includes('मकड़ीनाशक') || cat.includes('miticide') || cat.includes('acaricide') || 
+    cat.includes('फफूंद') || cat.includes('fungicide') || 
+    cat.includes('खरपतवार') || cat.includes('herbicide')
+  ) {
     return {
-      bg: 'bg-blue-50 text-blue-900 border-blue-200/80',
+      avatarBg: 'bg-blue-50 text-blue-700 border-blue-200/80',
+      gradient: 'from-blue-600 via-indigo-600 to-sky-600',
       icon: ShieldCheck,
-      accent: 'border-l-4 border-l-blue-600',
     };
   }
-  if (cat.includes('बायो') || cat.includes('bio') || cat.includes('ग्रोथ') || cat.includes('stimulant')) {
+  if (
+    cat.includes('बायो') || cat.includes('bio') || 
+    cat.includes('ग्रोथ') || cat.includes('stimulant') || 
+    cat.includes('नियामक') || cat.includes('pgr')
+  ) {
     return {
-      bg: 'bg-purple-50 text-purple-900 border-purple-200/80',
+      avatarBg: 'bg-purple-50 text-purple-700 border-purple-200/80',
+      gradient: 'from-purple-600 via-fuchsia-600 to-indigo-600',
       icon: Sparkles,
-      accent: 'border-l-4 border-l-purple-600',
     };
   }
   return {
-    bg: 'bg-[#2D5A27]/10 text-[#2D5A27] border-[#2D5A27]/20',
+    avatarBg: 'bg-[#2D5A27]/10 text-[#2D5A27] border-[#2D5A27]/20',
+    gradient: 'from-[#2D5A27] via-emerald-600 to-[#2D5A27]',
     icon: FlaskConical,
-    accent: 'border-l-4 border-l-[#2D5A27]',
   };
 };
 
@@ -1384,93 +1393,124 @@ ${result.safetyInstructions}
               </div>
 
               {/* Saved list */}
-              <div className="flex flex-col gap-3.5">
+              <div className="flex flex-col gap-4">
                 {filteredSavedProducts.map((prod, idx) => {
-                  const badgeStyle = getCategoryBadgeStyle(prod.category);
-                  const CategoryIcon = badgeStyle.icon;
+                  const theme = getCategoryTheme(prod.category);
+                  const CategoryIcon = theme.icon;
+                  const quickDose = prod.dosageLiquid?.per15L || prod.dosagePowder?.per15L;
 
                   return (
                     <div 
                       key={`${prod.productName}_${idx}`}
                       onClick={() => setResult(prod)}
-                      className={`group relative bg-white border border-gray-200/90 hover:border-[#2D5A27]/50 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden ${badgeStyle.accent}`}
+                      className="group relative bg-white rounded-3xl border border-gray-200/90 hover:border-[#2D5A27]/50 shadow-sm hover:shadow-xl hover:shadow-[#2D5A27]/10 transition-all duration-300 overflow-hidden cursor-pointer flex flex-col justify-between"
                     >
-                      <div className="flex items-start justify-between gap-3.5">
-                        <div className="flex-1 min-w-0 space-y-2.5">
-                          {/* Category and Badges */}
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-black uppercase tracking-wider border ${badgeStyle.bg}`}>
-                              <CategoryIcon className="w-3.5 h-3.5 shrink-0" />
-                              <span className="truncate max-w-[280px] sm:max-w-none">{prod.category}</span>
-                            </span>
+                      {/* Top Category Accent Line */}
+                      <div className={`h-1.5 w-full bg-gradient-to-r ${theme.gradient}`} />
 
-                            {prod.formulation && prod.formulation !== "उपलब्ध नहीं है" && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-gray-100 text-gray-700 border border-gray-200/80">
-                                {prod.formulation}
-                              </span>
-                            )}
+                      <div className="p-5 sm:p-6 space-y-4">
+                        {/* Header: Icon Avatar + Category Info + Delete Button */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            {/* Category Icon Avatar */}
+                            <div className={`w-12 h-12 rounded-2xl ${theme.avatarBg} border flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform duration-200`}>
+                              <CategoryIcon className="w-6 h-6" />
+                            </div>
 
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-green-50 text-green-800 border border-green-200/70">
-                              <CheckCircle2 className="w-3 h-3 text-green-600" />
-                              <span>सत्यापित</span>
-                            </span>
-                          </div>
-
-                          {/* Product Title */}
-                          <h4 className="text-base sm:text-lg font-black text-gray-900 group-hover:text-[#2D5A27] transition-colors leading-snug">
-                            {prod.productName}
-                          </h4>
-
-                          {/* Technical & Company Metadata */}
-                          <div className="space-y-1.5 pt-0.5">
-                            {prod.technicalName && prod.technicalName !== "उपलब्ध नहीं है" && (
-                              <div className="flex items-start gap-2 text-xs text-gray-700 bg-gray-50/90 rounded-xl px-3 py-2 border border-gray-100">
-                                <FlaskConical className="w-3.5 h-3.5 text-[#2D5A27] shrink-0 mt-0.5" />
-                                <div className="leading-relaxed font-medium">
-                                  <span className="font-bold text-gray-900">टेक्निकल / फॉर्मूला: </span>
-                                  <span>{prod.technicalName}</span>
-                                </div>
+                            {/* Category Metadata */}
+                            <div className="min-w-0 space-y-0.5">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[11px] font-black uppercase tracking-wider text-gray-700 truncate">
+                                  {prod.category}
+                                </span>
+                                {prod.formulation && prod.formulation !== "उपलब्ध नहीं है" && (
+                                  <>
+                                    <span className="text-gray-300 text-xs">·</span>
+                                    <span className="text-[11px] font-bold text-gray-500">
+                                      {prod.formulation}
+                                    </span>
+                                  </>
+                                )}
                               </div>
-                            )}
-
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-500 pt-0.5">
                               {prod.companyName && prod.companyName !== "उपलब्ध नहीं है" && (
-                                <span className="inline-flex items-center gap-1.5 font-medium">
+                                <p className="text-xs font-semibold text-gray-500 truncate flex items-center gap-1.5">
                                   <Building2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                                   <span>{prod.companyName}</span>
-                                </span>
-                              )}
-
-                              {prod.targetCrops && prod.targetCrops !== "उपलब्ध नहीं है" && prod.targetCrops !== "सभी प्रमुख फसलें" && prod.targetCrops !== "सभी फसलें" && (
-                                <span className="inline-flex items-center gap-1.5 font-medium text-emerald-800">
-                                  <Sprout className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                  <span className="truncate max-w-[200px] sm:max-w-xs">{prod.targetCrops}</span>
-                                </span>
+                                </p>
                               )}
                             </div>
                           </div>
-                        </div>
 
-                        {/* Action Buttons: Delete and View Details */}
-                        <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 shrink-0 pt-0.5">
+                          {/* Delete Button */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setProductToDelete(prod);
                               setIsDeleteConfirmOpen(true);
                             }}
-                            className="p-2.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
-                            title="सूची से हटाएं"
+                            className="p-2.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer shrink-0"
+                            title="सुरक्षित सूची से हटाएं"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-4.5 h-4.5" />
                           </button>
+                        </div>
 
-                          <div 
-                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gray-50 group-hover:bg-[#2D5A27] text-gray-400 group-hover:text-white flex items-center justify-center transition-all duration-200 shadow-2xs"
-                            title="विवरण देखें"
-                          >
-                            <ChevronRight className="w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform group-hover:translate-x-0.5" />
+                        {/* Product Title */}
+                        <div>
+                          <h4 className="text-lg sm:text-xl font-black text-gray-900 group-hover:text-[#2D5A27] transition-colors leading-snug tracking-tight">
+                            {prod.productName}
+                          </h4>
+                        </div>
+
+                        {/* Technical / Formula Showcase Box */}
+                        {prod.technicalName && prod.technicalName !== "उपलब्ध नहीं है" && (
+                          <div className="bg-gradient-to-r from-gray-50 via-gray-50/60 to-white rounded-2xl p-3.5 border border-gray-100 flex items-start gap-2.5">
+                            <FlaskConical className="w-4.5 h-4.5 text-[#2D5A27] shrink-0 mt-0.5" />
+                            <div className="text-xs leading-relaxed min-w-0">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 block mb-0.5">
+                                टेक्निकल / एक्टिव फॉर्मूला
+                              </span>
+                              <span className="font-bold text-gray-800 break-words text-[13px]">
+                                {prod.technicalName}
+                              </span>
+                            </div>
                           </div>
+                        )}
+
+                        {/* Crops & Quick 15L Dosage Info */}
+                        <div className="space-y-2 pt-0.5">
+                          {prod.targetCrops && prod.targetCrops !== "उपलब्ध नहीं है" && (
+                            <div className="flex items-start gap-2 text-xs text-gray-600">
+                              <Sprout className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                              <div className="min-w-0">
+                                <span className="font-bold text-gray-700">प्रमुख फसलें: </span>
+                                <span className="text-gray-600 font-medium">{prod.targetCrops}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {quickDose && quickDose !== "उत्पाद अनुसार" && (
+                            <div className="flex items-center gap-2 text-xs">
+                              <Droplets className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
+                              <span className="font-bold text-gray-700">15L टंकी स्प्रे डोज़: </span>
+                              <span className="font-black text-[#2D5A27] bg-[#2D5A27]/10 px-2 py-0.5 rounded-md text-[11px]">
+                                {quickDose}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card Bottom Interactive CTA Bar */}
+                      <div className="px-5 sm:px-6 py-3.5 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between group-hover:bg-[#2D5A27]/5 transition-colors">
+                        <div className="flex items-center gap-1.5 text-xs font-black text-emerald-800">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>प्रमाणित कृषि ज्ञान</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-xs font-black text-[#2D5A27] group-hover:translate-x-1 transition-transform">
+                          <span>डोज़ व पूरा विवरण देखें</span>
+                          <ChevronRight className="w-4 h-4" />
                         </div>
                       </div>
                     </div>

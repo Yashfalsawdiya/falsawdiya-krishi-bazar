@@ -57,7 +57,7 @@ export const DEFAULT_FOOTER_COLUMNS: FooterColumn[] = [
     id: 'col-3',
     title: 'टूल्स व सहायता',
     links: [
-      { id: 'c3-1', label: 'कृषि कैलकुलेटर (Calculator)', path: '/calculator' },
+      { id: 'c3-1', label: 'कृषि कैलकुलेटर (Agri Calculator)', path: '/calculator' },
       { id: 'c3-2', label: 'कृषि समाचार (Agri News)', path: '/news' },
       { id: 'c3-3', label: 'मिट्टी परीक्षण मार्गदर्शिका', path: '/soil-testing' },
       { id: 'c3-4', label: 'हेल्पलाइन डायरेक्टरी', path: '/helpline' },

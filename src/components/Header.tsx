@@ -60,7 +60,7 @@ const Header: React.FC = () => {
     { icon: Bug, label: 'कीट एवं रोग निर्देशिका', path: '/encyclopedia', color: 'text-[#1F4525]' },
     { icon: Landmark, label: 'सरकारी योजनाएं', path: '/schemes', color: 'text-[#2D5A27]' },
     { icon: TestTube2, label: 'मिट्टी परीक्षण (Soil Testing)', path: '/soil-testing', color: 'text-[#183D16]' },
-    { icon: Calculator, label: 'Calculator', path: '/calculator', color: 'text-[#366B2F]' },
+    { icon: Calculator, label: 'Agri Calculator', path: '/calculator', color: 'text-[#366B2F]' },
     { icon: PhoneCall, label: 'हेल्पलाइन डायरेक्टरी', path: '/helpline', color: 'text-[#2D5A27]' },
   ];
 
@@ -477,7 +477,7 @@ const Header: React.FC = () => {
                     isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
                   )}
                 >
-                  <Calculator className="w-3.5 h-3.5" /> कैलकुलेटर
+                  <Calculator className="w-3.5 h-3.5" /> Agri Calculator
                 </NavLink>
 
                 <NavLink 

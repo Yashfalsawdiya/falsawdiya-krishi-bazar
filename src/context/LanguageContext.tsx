@@ -47,7 +47,7 @@ const KNOWN_HINDI_MAP: Record<string, string> = {
   'nav.weather': 'मौसम',
   'bottom_weather': 'मौसम',
   'nav_schemes': 'सरकारी योजनाएं',
-  'nav_calculator': 'खाद कैलकुलेटर',
+  'nav_calculator': 'Agri Calculator',
 
   // Actions & Buttons
   'profile': 'प्रोफाइल',
@@ -70,7 +70,7 @@ const KNOWN_HINDI_MAP: Record<string, string> = {
   'menu_mandi': 'मंडी भाव',
   'menu_encyclopedia': 'रोग व कीट ज्ञानकोष',
   'menu_schemes': 'सरकारी योजनाएं',
-  'menu_calculator': 'खाद कैलकुलेटर',
+  'menu_calculator': 'Agri Calculator',
   'menu_helpline': 'किसान हेल्पलाइन',
   'menu_licensing': 'लाइसेंस एवं प्रमाणीकरण',
   'menu_faq': 'अक्सर पूछे जाने वाले प्रश्न',

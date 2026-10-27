@@ -17,7 +17,10 @@ import {
   CornerDownLeft,
   ArrowRight,
   Droplets,
-  MapPin
+  MapPin,
+  ChevronUp,
+  ChevronDown,
+  CheckCheck
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -26,7 +29,8 @@ import {
   SHAMGARH_BIGHA_ASSUMPTION_NOTE, 
   convertLandArea, 
   formatBighaAndBiswa, 
-  calculateSprayerRequirements 
+  calculateSprayerRequirements,
+  PumpCapacityOption
 } from '../utils/shamgarhLandMeasure';
 
 interface HistoryItem {
@@ -41,11 +45,44 @@ const AgriCalculator: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'normal' | 'bigha' | 'weight' | 'amount'>('normal');
 
   // ==========================================
-  // 1️⃣ Normal Calculator State & Logic
+  // 1️⃣ Normal Commercial Calculator State & Logic
   // ==========================================
   const [normalPrevEquation, setNormalPrevEquation] = useState('');
   const [normalDisplay, setNormalDisplay] = useState('0');
+  const [normalSubDetail, setNormalSubDetail] = useState('');
   const [normalIsFinished, setNormalIsFinished] = useState(false);
+  
+  // Commercial Memory (M+, M-, MRC) & Grand Total (GT)
+  const [memoryValue, setMemoryValue] = useState<number>(0);
+  const [gtAccumulator, setGtAccumulator] = useState<number>(0);
+  const lastMrcClickRef = useRef<number>(0);
+  const lastGtClickRef = useRef<number>(0);
+
+  // Custom GST Rate (%) - Persistent in LocalStorage
+  const [customGSTRate, setCustomGSTRate] = useState<string>(() => {
+    try {
+      return localStorage.getItem('calc_custom_gst_rate') || '18';
+    } catch (e) {
+      return '18';
+    }
+  });
+
+  const handleGSTRateChange = (newRate: string) => {
+    setCustomGSTRate(newRate);
+    try {
+      localStorage.setItem('calc_custom_gst_rate', newRate);
+    } catch (e) {}
+  };
+
+  // Step-by-Step History for 120-Step Check & Correct
+  interface CalcStep {
+    operand: number;
+    operator: string;
+  }
+  const [calcSteps, setCalcSteps] = useState<CalcStep[]>([]);
+  const [checkStepIndex, setCheckStepIndex] = useState<number | null>(null);
+  const [isCorrecting, setIsCorrecting] = useState<boolean>(false);
+
   const [normalHistory, setNormalHistory] = useState<HistoryItem[]>(() => {
     try {
       const saved = localStorage.getItem('calc_normal_history');
@@ -58,31 +95,56 @@ const AgriCalculator: React.FC = () => {
 
   // Save normal calculator history to local storage
   useEffect(() => {
-    localStorage.setItem('calc_normal_history', JSON.stringify(normalHistory));
+    try {
+      localStorage.setItem('calc_normal_history', JSON.stringify(normalHistory));
+    } catch (e) {}
   }, [normalHistory]);
 
   const formatResult = (num: number): string => {
-    if (Math.round(num) === num) return num.toString();
-    const str = num.toString();
+    if (isNaN(num) || !isFinite(num)) return 'Error';
+    const rounded = Math.round((num + Number.EPSILON) * 10000) / 10000;
+    if (Math.round(rounded) === rounded) return rounded.toString();
+    const str = rounded.toString();
     if (str.includes('.')) {
       const decimalPart = str.split('.')[1];
       if (decimalPart.length > 4) {
-        return parseFloat(num.toFixed(4)).toString();
+        return parseFloat(rounded.toFixed(4)).toString();
       }
     }
     return str;
   };
 
   const handleNormalButtonClick = (value: string) => {
+    // ------------------------------------------
+    // 1. ALL CLEAR (AC)
+    // ------------------------------------------
     if (value === 'AC') {
       setNormalDisplay('0');
       setNormalPrevEquation('');
+      setNormalSubDetail('');
       setNormalIsFinished(false);
-    } else if (value === '⌫' || value === 'Backspace') {
-      if (normalIsFinished) {
+      setCheckStepIndex(null);
+      setIsCorrecting(false);
+      setCalcSteps([]);
+    } 
+    // ------------------------------------------
+    // 2. BACKSPACE (⌫)
+    // ------------------------------------------
+    else if (value === '⌫' || value === 'Backspace') {
+      if (isCorrecting) {
+        if (normalDisplay.length > 1) {
+          setNormalDisplay(normalDisplay.slice(0, -1));
+        } else {
+          setNormalDisplay('0');
+        }
+        return;
+      }
+      if (normalIsFinished || normalDisplay === 'Error') {
         setNormalDisplay('0');
         setNormalPrevEquation('');
+        setNormalSubDetail('');
         setNormalIsFinished(false);
+        setCheckStepIndex(null);
       } else {
         if (normalDisplay.length > 1) {
           setNormalDisplay(normalDisplay.slice(0, -1));
@@ -90,21 +152,309 @@ const AgriCalculator: React.FC = () => {
           setNormalDisplay('0');
         }
       }
-    } else if (value === '%') {
+    } 
+    // ------------------------------------------
+    // 3. SIGN TOGGLE (+/−)
+    // ------------------------------------------
+    else if (value === '+/−') {
+      if (normalDisplay === '0' || normalDisplay === 'Error') return;
+      if (normalDisplay.startsWith('-')) {
+        setNormalDisplay(normalDisplay.slice(1));
+      } else {
+        setNormalDisplay('-' + normalDisplay);
+      }
+    }
+    // ------------------------------------------
+    // 4. DOUBLE ZERO (00)
+    // ------------------------------------------
+    else if (value === '00') {
+      if (isCorrecting || normalIsFinished || normalDisplay === '0' || normalDisplay === 'Error') {
+        if (normalIsFinished) {
+          setNormalDisplay('0');
+          setNormalPrevEquation('');
+          setNormalSubDetail('');
+          setNormalIsFinished(false);
+        }
+        return;
+      }
+      setNormalDisplay(normalDisplay + '00');
+    }
+    // ------------------------------------------
+    // 5. PERCENTAGE (%)
+    // ------------------------------------------
+    else if (value === '%') {
       try {
-        const parsed = parseFloat(normalDisplay);
-        if (!isNaN(parsed)) {
-          const res = formatResult(parsed / 100);
+        const currentNum = parseFloat(normalDisplay) || 0;
+        const trimmedPrev = normalPrevEquation.trim();
+        const parts = trimmedPrev.split(' ');
+        const lastOp = parts[parts.length - 1];
+        const baseNum = parseFloat(parts[parts.length - 2]);
+
+        if (!isNaN(baseNum) && ['+', '−', '×', '÷'].includes(lastOp)) {
+          // Contextual percentage (e.g. 1000 - 10% = 100)
+          const pctVal = Math.round(((baseNum * (currentNum / 100)) + Number.EPSILON) * 100) / 100;
+          setNormalDisplay(formatResult(pctVal));
+          setNormalSubDetail(`प्रतिशत मान: ₹${formatResult(pctVal)} (${currentNum}% of ₹${formatResult(baseNum)})`);
+        } else {
+          const res = formatResult(currentNum / 100);
           setNormalDisplay(res);
+          setNormalSubDetail(`प्रतिशत: ${res}`);
         }
       } catch (e) {}
-    } else if (['+', '−', '×', '÷'].includes(value)) {
+    } 
+    // ------------------------------------------
+    // 6. TAX+ (Add Custom GST)
+    // ------------------------------------------
+    else if (value === 'TAX+') {
+      const val = parseFloat(normalDisplay) || 0;
+      const rate = parseFloat(customGSTRate) || 0;
+      const taxAmount = Math.round((val * (rate / 100) + Number.EPSILON) * 100) / 100;
+      const finalTotal = Math.round((val + taxAmount + Number.EPSILON) * 100) / 100;
+      const formattedFinal = formatResult(finalTotal);
+      const formattedBase = formatResult(val);
+      const formattedTax = formatResult(taxAmount);
+
+      setNormalDisplay(formattedFinal);
+      setNormalPrevEquation(`${formattedBase} + ${rate}% GST`);
+      setNormalSubDetail(`मूल मूल्य: ₹${formattedBase} + GST (${rate}%): ₹${formattedTax}`);
+      setGtAccumulator(prev => prev + finalTotal);
+      setNormalHistory(prev => [
+        { equation: `${formattedBase} + ${rate}% GST`, result: formattedFinal },
+        ...prev.slice(0, 19)
+      ]);
+      setNormalIsFinished(true);
+      setCheckStepIndex(null);
+      setIsCorrecting(false);
+    }
+    // ------------------------------------------
+    // 7. TAX− (Extract Custom GST from inclusive price)
+    // ------------------------------------------
+    else if (value === 'TAX−') {
+      const inclusiveVal = parseFloat(normalDisplay) || 0;
+      const rate = parseFloat(customGSTRate) || 0;
+      const baseVal = Math.round(((inclusiveVal / (1 + rate / 100)) + Number.EPSILON) * 100) / 100;
+      const taxAmount = Math.round((inclusiveVal - baseVal + Number.EPSILON) * 100) / 100;
+      const formattedBase = formatResult(baseVal);
+      const formattedTax = formatResult(taxAmount);
+      const formattedInc = formatResult(inclusiveVal);
+
+      setNormalDisplay(formattedBase);
+      setNormalPrevEquation(`${formattedInc} − ${rate}% GST`);
+      setNormalSubDetail(`मूल मूल्य: ₹${formattedBase} | टैक्स अलग किया गया: ₹${formattedTax} (${rate}% GST)`);
+      setNormalHistory(prev => [
+        { equation: `${formattedInc} − ${rate}% GST`, result: formattedBase },
+        ...prev.slice(0, 19)
+      ]);
+      setNormalIsFinished(true);
+      setCheckStepIndex(null);
+      setIsCorrecting(false);
+    }
+    // ------------------------------------------
+    // 8. MEMORY SUITE: M+, M−, MRC
+    // ------------------------------------------
+    else if (value === 'M+') {
+      const val = parseFloat(normalDisplay) || 0;
+      const newMem = Math.round((memoryValue + val + Number.EPSILON) * 100) / 100;
+      setMemoryValue(newMem);
+      setNormalSubDetail(`मेमोरी में जोड़ा (+₹${formatResult(val)}) | संचित कुल M: ₹${formatResult(newMem)}`);
+      setNormalIsFinished(true);
+      setCheckStepIndex(null);
+    }
+    else if (value === 'M−') {
+      const val = parseFloat(normalDisplay) || 0;
+      const newMem = Math.round((memoryValue - val + Number.EPSILON) * 100) / 100;
+      setMemoryValue(newMem);
+      setNormalSubDetail(`मेमोरी से घटाया (−₹${formatResult(val)}) | संचित कुल M: ₹${formatResult(newMem)}`);
+      setNormalIsFinished(true);
+      setCheckStepIndex(null);
+    }
+    else if (value === 'MRC') {
+      const now = Date.now();
+      if (now - lastMrcClickRef.current < 1500) {
+        // Double Click -> Clear Memory (MC)
+        setMemoryValue(0);
+        setNormalSubDetail("मेमोरी साफ़ की गई (Memory Cleared: ₹0)");
+        lastMrcClickRef.current = 0;
+      } else {
+        // Single Click -> Recall Memory (MR)
+        setNormalDisplay(formatResult(memoryValue));
+        setNormalPrevEquation("Memory Recall (MR)");
+        setNormalSubDetail(`मेमोरी में संचित राशि: ₹${formatResult(memoryValue)} (दोबारा दबाने पर Clear)`);
+        setNormalIsFinished(true);
+        lastMrcClickRef.current = now;
+      }
+      setCheckStepIndex(null);
+      setIsCorrecting(false);
+    }
+    // ------------------------------------------
+    // 9. GRAND TOTAL (GT)
+    // ------------------------------------------
+    else if (value === 'GT') {
+      const now = Date.now();
+      if (now - lastGtClickRef.current < 1500) {
+        // Double Click -> Clear GT
+        setGtAccumulator(0);
+        setNormalSubDetail("ग्रैंड टोटल साफ़ किया गया (GT Cleared: ₹0)");
+        lastGtClickRef.current = 0;
+      } else {
+        // Single Click -> Recall GT
+        setNormalDisplay(formatResult(gtAccumulator));
+        setNormalPrevEquation("Grand Total (GT)");
+        setNormalSubDetail(`सभी बिलों का महायोग: ₹${formatResult(gtAccumulator)} (दोबारा दबाने पर Clear)`);
+        setNormalIsFinished(true);
+        lastGtClickRef.current = now;
+      }
+      setCheckStepIndex(null);
+      setIsCorrecting(false);
+    }
+    // ------------------------------------------
+    // 10. MARK UP (MU)
+    // ------------------------------------------
+    else if (value === 'MU') {
+      const currentVal = parseFloat(normalDisplay) || 0;
+      const trimmedPrev = normalPrevEquation.trim();
+      const parts = trimmedPrev.split(' ');
+      const lastOp = parts[parts.length - 1];
+      const prevNum = parseFloat(parts[parts.length - 2]);
+
+      if (!isNaN(prevNum) && lastOp === '÷') {
+        const marginPercent = currentVal;
+        if (marginPercent < 100) {
+          const sellingPrice = Math.round(((prevNum / (1 - marginPercent / 100)) + Number.EPSILON) * 100) / 100;
+          const profit = Math.round((sellingPrice - prevNum + Number.EPSILON) * 100) / 100;
+          const formattedSP = formatResult(sellingPrice);
+          setNormalDisplay(formattedSP);
+          setNormalPrevEquation(`${formatResult(prevNum)} ÷ ${marginPercent}% MU`);
+          setNormalSubDetail(`लागत: ₹${formatResult(prevNum)} | ${marginPercent}% मार्जिन पर विक्रय: ₹${formattedSP} (लाभ: ₹${formatResult(profit)})`);
+          setGtAccumulator(prev => prev + sellingPrice);
+          setNormalIsFinished(true);
+        }
+      } else if (!isNaN(prevNum) && lastOp === '+') {
+        const markupPercent = currentVal;
+        const sellingPrice = Math.round(((prevNum * (1 + markupPercent / 100)) + Number.EPSILON) * 100) / 100;
+        const profit = Math.round((sellingPrice - prevNum + Number.EPSILON) * 100) / 100;
+        const formattedSP = formatResult(sellingPrice);
+        setNormalDisplay(formattedSP);
+        setNormalPrevEquation(`${formatResult(prevNum)} + ${markupPercent}% MU`);
+        setNormalSubDetail(`लागत: ₹${formatResult(prevNum)} | ${markupPercent}% मार्क-अप पर विक्रय: ₹${formattedSP} (लाभ: ₹${formatResult(profit)})`);
+        setGtAccumulator(prev => prev + sellingPrice);
+        setNormalIsFinished(true);
+      } else {
+        // Standalone 10% standard margin
+        const defaultMargin = 10;
+        const sellingPrice = Math.round(((currentVal / (1 - defaultMargin / 100)) + Number.EPSILON) * 100) / 100;
+        const profit = Math.round((sellingPrice - currentVal + Number.EPSILON) * 100) / 100;
+        const formattedSP = formatResult(sellingPrice);
+        setNormalDisplay(formattedSP);
+        setNormalPrevEquation(`${formatResult(currentVal)} MU (10%)`);
+        setNormalSubDetail(`लागत: ₹${formatResult(currentVal)} | 10% मार्जिन पर विक्रय: ₹${formattedSP} (लाभ: ₹${formatResult(profit)})`);
+        setNormalIsFinished(true);
+      }
+    }
+    // ------------------------------------------
+    // 11. CHECK ▲ (Step Backward)
+    // ------------------------------------------
+    else if (value === 'Check ▲') {
+      if (calcSteps.length === 0) {
+        setNormalSubDetail("जाँच के लिए कोई स्टेप उपलब्ध नहीं है। गणना करने के बाद चेक करें।");
+        return;
+      }
+      let targetIndex: number;
+      if (checkStepIndex === null) {
+        targetIndex = calcSteps.length - 1;
+      } else {
+        targetIndex = Math.max(0, checkStepIndex - 1);
+      }
+      setCheckStepIndex(targetIndex);
+      setIsCorrecting(false);
+      setNormalDisplay(formatResult(calcSteps[targetIndex].operand));
+      setNormalPrevEquation(`जाँच (Check): स्टेप ${targetIndex + 1}/${calcSteps.length} [ ${calcSteps[targetIndex].operator} ]`);
+      setNormalSubDetail("संख्या सुधारने के लिए 'Correct' बटन दबाएं");
+    }
+    // ------------------------------------------
+    // 12. CHECK ▼ (Step Forward)
+    // ------------------------------------------
+    else if (value === 'Check ▼') {
+      if (calcSteps.length === 0) {
+        setNormalSubDetail("जाँच के लिए कोई स्टेप उपलब्ध नहीं है। गणना करने के बाद चेक करें।");
+        return;
+      }
+      let targetIndex: number;
+      if (checkStepIndex === null) {
+        targetIndex = 0;
+      } else {
+        targetIndex = Math.min(calcSteps.length - 1, checkStepIndex + 1);
+      }
+      setCheckStepIndex(targetIndex);
+      setIsCorrecting(false);
+      setNormalDisplay(formatResult(calcSteps[targetIndex].operand));
+      setNormalPrevEquation(`जाँच (Check): स्टेप ${targetIndex + 1}/${calcSteps.length} [ ${calcSteps[targetIndex].operator} ]`);
+      setNormalSubDetail("संख्या सुधारने के लिए 'Correct' बटन दबाएं");
+    }
+    // ------------------------------------------
+    // 13. CORRECT (Edit & Recalculate Step)
+    // ------------------------------------------
+    else if (value === 'Correct') {
+      if (checkStepIndex === null) {
+        setNormalSubDetail("पहले 'Check ▲' या 'Check ▼' से वह स्टेप चुनें जिसे सुधारना है");
+        return;
+      }
+      if (!isCorrecting) {
+        setIsCorrecting(true);
+        setNormalSubDetail(`स्टेप ${checkStepIndex + 1} सुधार मोड: नई संख्या टाइप करें, फिर 'Correct' दोबारा दबाएं`);
+      } else {
+        // Finalize Correction & Recalculate whole chain
+        const newOperand = parseFloat(normalDisplay) || 0;
+        const updatedSteps = [...calcSteps];
+        updatedSteps[checkStepIndex].operand = newOperand;
+        setCalcSteps(updatedSteps);
+        setIsCorrecting(false);
+        setCheckStepIndex(null);
+
+        // Recalculate expression
+        let expr = '';
+        for (let i = 0; i < updatedSteps.length; i++) {
+          expr += updatedSteps[i].operand + ' ';
+          if (i < updatedSteps.length - 1) {
+            expr += updatedSteps[i].operator + ' ';
+          }
+        }
+        const sanitized = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
+        try {
+          const clean = sanitized.replace(/[^0-9+\-*/.() ]/g, '');
+          const newResult = new Function(`return (${clean})`)();
+          const formatted = formatResult(newResult);
+          setNormalDisplay(formatted);
+          setNormalPrevEquation(expr + '=');
+          setNormalSubDetail(`स्टेप ${checkStepIndex + 1} सुधारा गया! नया कुल योग: ₹${formatted}`);
+          setNormalHistory(prev => [
+            { equation: expr, result: formatted },
+            ...prev.slice(0, 19)
+          ]);
+          setNormalIsFinished(true);
+        } catch (e) {
+          setNormalSubDetail("सुधार के बाद गणना में त्रुटि");
+        }
+      }
+    }
+    // ------------------------------------------
+    // 14. OPERATORS (+, −, ×, ÷)
+    // ------------------------------------------
+    else if (['+', '−', '×', '÷'].includes(value)) {
+      setCheckStepIndex(null);
+      setIsCorrecting(false);
+
       if (normalIsFinished) {
+        const prevRes = parseFloat(normalDisplay) || 0;
+        setCalcSteps([{ operand: prevRes, operator: value }]);
         setNormalPrevEquation(normalDisplay + ' ' + value + ' ');
         setNormalDisplay('0');
+        setNormalSubDetail('');
         setNormalIsFinished(false);
       } else {
-        // Allow updating operator if display is currently empty/0
+        const currentVal = parseFloat(normalDisplay) || 0;
+        setCalcSteps(prev => [...prev, { operand: currentVal, operator: value }]);
+
         const trimmedPrev = normalPrevEquation.trim();
         const lastChar = trimmedPrev.slice(-1);
         if (normalDisplay === '0' && ['+', '−', '×', '÷'].includes(lastChar)) {
@@ -114,9 +464,22 @@ const AgriCalculator: React.FC = () => {
           setNormalDisplay('0');
         }
       }
-    } else if (value === '=') {
+    } 
+    // ------------------------------------------
+    // 15. EQUALS (=)
+    // ------------------------------------------
+    else if (value === '=') {
+      if (isCorrecting && checkStepIndex !== null) {
+        // Shortcut to finish correcting
+        handleNormalButtonClick('Correct');
+        return;
+      }
+
       let finalExpr = normalPrevEquation + normalDisplay;
       if (!finalExpr || finalExpr.trim() === '' || normalIsFinished) return;
+
+      const finalVal = parseFloat(normalDisplay) || 0;
+      setCalcSteps(prev => [...prev, { operand: finalVal, operator: '=' }]);
       
       const sanitized = finalExpr
         .replace(/×/g, '*')
@@ -130,7 +493,9 @@ const AgriCalculator: React.FC = () => {
           const formatted = formatResult(calcResult);
           setNormalDisplay(formatted);
           setNormalPrevEquation(finalExpr + ' =');
+          setNormalSubDetail(`परिणाम: ₹${formatted}`);
           setNormalIsFinished(true);
+          setGtAccumulator(prev => prev + calcResult);
           
           setNormalHistory(prev => [
             { equation: finalExpr, result: formatted },
@@ -142,21 +507,44 @@ const AgriCalculator: React.FC = () => {
       } catch (err) {
         setNormalDisplay('Error');
       }
-    } else if (value === '.') {
+      setCheckStepIndex(null);
+      setIsCorrecting(false);
+    } 
+    // ------------------------------------------
+    // 16. DECIMAL (.)
+    // ------------------------------------------
+    else if (value === '.') {
       if (normalIsFinished) {
         setNormalDisplay('0.');
         setNormalPrevEquation('');
+        setNormalSubDetail('');
         setNormalIsFinished(false);
+        setCheckStepIndex(null);
       } else if (!normalDisplay.includes('.')) {
         setNormalDisplay(normalDisplay + '.');
       }
-    } else {
-      // Numbers
+    } 
+    // ------------------------------------------
+    // 17. NUMBERS (0-9)
+    // ------------------------------------------
+    else {
+      if (isCorrecting) {
+        if (normalDisplay === '0') {
+          setNormalDisplay(value);
+        } else {
+          setNormalDisplay(normalDisplay + value);
+        }
+        return;
+      }
+
       if (normalDisplay === '0' || normalIsFinished) {
         setNormalDisplay(value);
         if (normalIsFinished) {
           setNormalPrevEquation('');
+          setNormalSubDetail('');
           setNormalIsFinished(false);
+          setCheckStepIndex(null);
+          setCalcSteps([]);
         }
       } else {
         setNormalDisplay(normalDisplay + value);
@@ -198,46 +586,23 @@ const AgriCalculator: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [normalDisplay, normalPrevEquation, normalIsFinished, activeTab]);
+  }, [normalDisplay, normalPrevEquation, normalIsFinished, activeTab, isCorrecting, checkStepIndex, calcSteps]);
 
   const clearNormalHistory = () => {
     setNormalHistory([]);
-    localStorage.removeItem('calc_normal_history');
+    try {
+      localStorage.removeItem('calc_normal_history');
+    } catch (e) {}
   };
 
   const loadFromHistory = (item: HistoryItem) => {
     setNormalDisplay(item.result);
     setNormalPrevEquation(item.equation + ' =');
+    setNormalSubDetail(`इतिहास से लोड किया गया: ₹${item.result}`);
     setNormalIsFinished(true);
     setIsHistoryOpen(false);
+    setCheckStepIndex(null);
   };
-
-  // Normal Keys Array
-  const normalKeys = [
-    { label: 'AC', className: 'bg-red-50 hover:bg-red-100/80 text-red-600 font-bold border border-red-100 rounded-2xl p-4 text-lg active:scale-95 transition-all' },
-    { label: '⌫', className: 'bg-gray-50 hover:bg-gray-100 text-gray-700 font-semibold rounded-2xl p-4 text-lg active:scale-95 transition-all' },
-    { label: '%', className: 'bg-gray-50 hover:bg-gray-100 text-[#2D5A27] font-semibold rounded-2xl p-4 text-lg active:scale-95 transition-all' },
-    { label: '÷', className: 'bg-[#2D5A27]/5 hover:bg-[#2D5A27]/10 text-[#2D5A27] font-black rounded-2xl p-4 text-xl active:scale-95 transition-all' },
-    
-    { label: '7', className: 'bg-white hover:bg-gray-50/80 text-gray-800 font-semibold border border-gray-100 rounded-2xl p-4 text-xl active:scale-95 transition-all shadow-2xs' },
-    { label: '8', className: 'bg-white hover:bg-gray-50/80 text-gray-800 font-semibold border border-gray-100 rounded-2xl p-4 text-xl active:scale-95 transition-all shadow-2xs' },
-    { label: '9', className: 'bg-white hover:bg-gray-50/80 text-gray-800 font-semibold border border-gray-100 rounded-2xl p-4 text-xl active:scale-95 transition-all shadow-2xs' },
-    { label: '×', className: 'bg-[#2D5A27]/5 hover:bg-[#2D5A27]/10 text-[#2D5A27] font-black rounded-2xl p-4 text-xl active:scale-95 transition-all' },
-    
-    { label: '4', className: 'bg-white hover:bg-gray-50/80 text-gray-800 font-semibold border border-gray-100 rounded-2xl p-4 text-xl active:scale-95 transition-all shadow-2xs' },
-    { label: '5', className: 'bg-white hover:bg-gray-50/80 text-gray-800 font-semibold border border-gray-100 rounded-2xl p-4 text-xl active:scale-95 transition-all shadow-2xs' },
-    { label: '6', className: 'bg-white hover:bg-gray-50/80 text-gray-800 font-semibold border border-gray-100 rounded-2xl p-4 text-xl active:scale-95 transition-all shadow-2xs' },
-    { label: '−', className: 'bg-[#2D5A27]/5 hover:bg-[#2D5A27]/10 text-[#2D5A27] font-black rounded-2xl p-4 text-xl active:scale-95 transition-all' },
-    
-    { label: '1', className: 'bg-white hover:bg-gray-50/80 text-gray-800 font-semibold border border-gray-100 rounded-2xl p-4 text-xl active:scale-95 transition-all shadow-2xs' },
-    { label: '2', className: 'bg-white hover:bg-gray-50/80 text-gray-800 font-semibold border border-gray-100 rounded-2xl p-4 text-xl active:scale-95 transition-all shadow-2xs' },
-    { label: '3', className: 'bg-white hover:bg-gray-50/80 text-gray-800 font-semibold border border-gray-100 rounded-2xl p-4 text-xl active:scale-95 transition-all shadow-2xs' },
-    { label: '+', className: 'bg-[#2D5A27]/5 hover:bg-[#2D5A27]/10 text-[#2D5A27] font-black rounded-2xl p-4 text-xl active:scale-95 transition-all' },
-    
-    { label: '0', className: 'bg-white hover:bg-gray-50/80 text-gray-800 font-semibold border border-gray-100 rounded-2xl p-4 text-xl active:scale-95 transition-all shadow-2xs' },
-    { label: '.', className: 'bg-white hover:bg-gray-50/80 text-gray-800 font-semibold border border-gray-100 rounded-2xl p-4 text-xl active:scale-95 transition-all shadow-2xs' },
-    { label: '=', className: 'bg-[#2D5A27] hover:bg-[#20401B] text-white font-bold rounded-2xl p-4 text-xl col-span-2 active:scale-95 transition-all shadow-md shadow-[#2D5A27]/20 flex items-center justify-center gap-1' },
-  ];
 
   // ==========================================
   // 2️⃣ Weight Calculator State & Logic (₹ ➜ Weight)
@@ -372,7 +737,7 @@ const AgriCalculator: React.FC = () => {
   // ==========================================
   const [landAreaInput, setLandAreaInput] = useState<string>('1');
   const [landAreaUnit, setLandAreaUnit] = useState<LandUnitId>('shamgarh_pucca_bigha');
-  const [pumpCapacity, setPumpCapacity] = useState<15 | 16 | 20 | 25>(16);
+  const [pumpCapacity, setPumpCapacity] = useState<PumpCapacityOption>(15);
 
   const parsedLandVal = Math.max(0, parseFloat(landAreaInput) || 0);
   const bighaEquiv = convertLandArea(parsedLandVal, landAreaUnit, 'shamgarh_pucca_bigha');
@@ -387,7 +752,7 @@ const AgriCalculator: React.FC = () => {
   const clearLandCalc = () => {
     setLandAreaInput('1');
     setLandAreaUnit('shamgarh_pucca_bigha');
-    setPumpCapacity(16);
+    setPumpCapacity(15);
   };
 
   return (
@@ -402,7 +767,7 @@ const AgriCalculator: React.FC = () => {
           <ArrowLeft className="w-5.5 h-5.5 text-gray-700" />
         </button>
         <div>
-          <h2 className="text-2xl font-black text-gray-800 leading-tight">Calculator</h2>
+          <h2 className="text-2xl font-black text-gray-800 leading-tight">Agri Calculator</h2>
           <p className="text-xs text-gray-500 font-semibold">कृषि दुकान और रोज़मर्रा के हिसाब-किताब के लिए</p>
         </div>
       </div>
@@ -467,23 +832,75 @@ const AgriCalculator: React.FC = () => {
               className="space-y-4"
             >
               {/* Display card */}
-              <div className="bg-white rounded-3xl p-6 shadow-xs border border-gray-100 relative overflow-hidden">
-                <div className="flex justify-end items-center mb-1 text-gray-400 font-mono text-sm tracking-wider h-6 overflow-hidden select-all">
+              <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-gray-200/80 relative overflow-hidden space-y-2">
+                {/* Status Indicator Bar */}
+                <div className="flex items-center justify-between text-[11px] font-black text-gray-400 border-b border-gray-100 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    {memoryValue !== 0 && (
+                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md font-black text-[10px] border border-emerald-200 animate-pulse">
+                        M ({formatResult(memoryValue)})
+                      </span>
+                    )}
+                    {gtAccumulator !== 0 && (
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md font-black text-[10px] border border-blue-200">
+                        GT ({formatResult(gtAccumulator)})
+                      </span>
+                    )}
+                    {checkStepIndex !== null && (
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-900 rounded-md font-black text-[10px] border border-amber-300 animate-pulse">
+                        STEP {checkStepIndex + 1}/{calcSteps.length}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-gray-500 font-mono text-[11px] flex items-center gap-1">
+                    <span>GST:</span>
+                    <span className="font-black text-[#2D5A27] bg-[#2D5A27]/10 px-1.5 py-0.5 rounded text-[11px]">{customGSTRate}%</span>
+                  </div>
+                </div>
+
+                {/* Equation line */}
+                <div className="flex justify-end items-center text-gray-400 font-mono text-xs sm:text-sm tracking-wider h-5 overflow-hidden select-all">
                   <div>{normalPrevEquation}</div>
                 </div>
                 
-                <div className="text-right text-4xl sm:text-5xl font-black font-mono tracking-tight text-gray-800 overflow-x-auto whitespace-nowrap py-2 scrollbar-none select-all">
+                {/* Main Digits */}
+                <div className="text-right text-4xl sm:text-5xl font-black font-mono tracking-tight text-gray-900 overflow-x-auto whitespace-nowrap py-1 scrollbar-none select-all">
                   {normalDisplay}
                 </div>
 
-                {/* History Trigger & Mode bar */}
-                <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-100/80">
+                {/* Sub-detail message (Tax / Memory / Markup info) */}
+                {normalSubDetail && (
+                  <div className="text-right text-xs font-semibold text-[#2D5A27] font-mono tracking-tight truncate pt-0.5">
+                    {normalSubDetail}
+                  </div>
+                )}
+
+                {/* Custom GST Input Field & History Trigger Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-gray-100">
+                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200/90 rounded-2xl px-3 py-1.5 shadow-2xs">
+                    <span className="text-[11px] font-black text-gray-600 uppercase tracking-wide">कस्टम GST दर:</span>
+                    <div className="flex items-center gap-1">
+                      <input 
+                        type="number" 
+                        min="0" 
+                        max="100" 
+                        step="0.5"
+                        value={customGSTRate} 
+                        onChange={(e) => handleGSTRateChange(e.target.value)} 
+                        className="w-12 bg-white border border-gray-300 rounded-lg px-1.5 py-0.5 text-center font-black text-gray-900 text-xs focus:ring-2 focus:ring-[#2D5A27]/30 focus:border-[#2D5A27] outline-hidden shadow-2xs" 
+                        placeholder="18" 
+                      />
+                      <span className="text-xs font-black text-gray-700">%</span>
+                    </div>
+                  </div>
+
                   <button 
                     onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-                    className="flex items-center gap-1.5 text-xs font-black text-[#2D5A27] hover:bg-[#2D5A27]/10 transition-all bg-[#2D5A27]/5 py-1.5 px-3 rounded-xl"
+                    className="flex items-center gap-1.5 text-xs font-black text-[#2D5A27] hover:bg-[#2D5A27]/10 transition-all bg-[#2D5A27]/5 py-2 px-3.5 rounded-2xl border border-[#2D5A27]/15 cursor-pointer shadow-2xs"
                   >
                     <History className="w-3.5 h-3.5 text-[#2D5A27]" />
-                    <span>इतिहास (History)</span>
+                    <span>इतिहास ({normalHistory.length})</span>
                   </button>
                 </div>
               </div>
@@ -493,7 +910,7 @@ const AgriCalculator: React.FC = () => {
                 <motion.div 
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
-                  className="bg-white border border-gray-100 rounded-3xl p-5 shadow-inner space-y-3"
+                  className="bg-white border border-gray-200 rounded-3xl p-5 shadow-inner space-y-3"
                 >
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-black text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -503,7 +920,7 @@ const AgriCalculator: React.FC = () => {
                     {normalHistory.length > 0 && (
                       <button 
                         onClick={clearNormalHistory}
-                        className="text-[10px] text-red-600 font-bold hover:underline flex items-center gap-1"
+                        className="text-[10px] text-red-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>सब मिटाएं</span>
@@ -535,17 +952,228 @@ const AgriCalculator: React.FC = () => {
                 </motion.div>
               )}
 
-              {/* Keypad Grid */}
-              <div className="grid grid-cols-4 gap-3 bg-gray-50/50 p-2 rounded-3xl border border-gray-100">
-                {normalKeys.map((key, index) => (
+              {/* Commercial Keypad Grid Container */}
+              <div className="space-y-3 bg-gray-50/70 p-3 sm:p-4 rounded-3xl border border-gray-200/80 shadow-2xs">
+                {/* 1. TOP COMMERCIAL FUNCTION ROWS (2 Rows × 5 Columns) */}
+                <div className="grid grid-cols-5 gap-2 sm:gap-2.5">
+                  {/* Row 1: Tax & Audit (TAX+, TAX-, Check ▲, Check ▼, Correct) */}
                   <button
-                    key={index}
-                    onClick={() => handleNormalButtonClick(key.label)}
-                    className={`${key.className}`}
+                    onClick={() => handleNormalButtonClick('TAX+')}
+                    className="bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 rounded-2xl py-3 px-1 text-xs sm:text-sm font-black active:scale-95 transition-all shadow-2xs flex items-center justify-center cursor-pointer"
+                    title={`जोड़ें ${customGSTRate}% GST`}
                   >
-                    {key.label}
+                    TAX+
                   </button>
-                ))}
+                  <button
+                    onClick={() => handleNormalButtonClick('TAX−')}
+                    className="bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 rounded-2xl py-3 px-1 text-xs sm:text-sm font-black active:scale-95 transition-all shadow-2xs flex items-center justify-center cursor-pointer"
+                    title={`अलग करें ${customGSTRate}% GST`}
+                  >
+                    TAX−
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('Check ▲')}
+                    className="bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200/80 rounded-2xl py-3 px-1 text-[11px] sm:text-xs font-black active:scale-95 transition-all shadow-2xs flex items-center justify-center gap-0.5 cursor-pointer"
+                    title="पिछला स्टेप देखें"
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    <span>Check</span>
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('Check ▼')}
+                    className="bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200/80 rounded-2xl py-3 px-1 text-[11px] sm:text-xs font-black active:scale-95 transition-all shadow-2xs flex items-center justify-center gap-0.5 cursor-pointer"
+                    title="अगला स्टेप देखें"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    <span>Check</span>
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('Correct')}
+                    className={`${isCorrecting ? 'bg-amber-500 text-white animate-pulse' : 'bg-sky-100 hover:bg-sky-200 text-sky-950'} border border-sky-300/80 rounded-2xl py-3 px-1 text-[11px] sm:text-xs font-black active:scale-95 transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer`}
+                    title="स्टेप सुधारें"
+                  >
+                    <CheckCheck className="w-3.5 h-3.5" />
+                    <span>Correct</span>
+                  </button>
+
+                  {/* Row 2: Memory & Margin (MRC, M-, M+, MU, GT) */}
+                  <button
+                    onClick={() => handleNormalButtonClick('MRC')}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-200/80 rounded-2xl py-3 px-1 text-xs sm:text-sm font-black active:scale-95 transition-all shadow-2xs flex items-center justify-center cursor-pointer"
+                    title="Memory Recall / Clear (2 बार दबाने पर Clear)"
+                  >
+                    MRC
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('M−')}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-200/80 rounded-2xl py-3 px-1 text-xs sm:text-sm font-black active:scale-95 transition-all shadow-2xs flex items-center justify-center cursor-pointer"
+                    title="मेमोरी से घटाएं"
+                  >
+                    M−
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('M+')}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-200/80 rounded-2xl py-3 px-1 text-xs sm:text-sm font-black active:scale-95 transition-all shadow-2xs flex items-center justify-center cursor-pointer"
+                    title="मेमोरी में जोड़ें"
+                  >
+                    M+
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('MU')}
+                    className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200/80 rounded-2xl py-3 px-1 text-xs sm:text-sm font-black active:scale-95 transition-all shadow-2xs flex items-center justify-center cursor-pointer"
+                    title="Mark Up / Selling Price"
+                  >
+                    MU
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('GT')}
+                    className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200/80 rounded-2xl py-3 px-1 text-xs sm:text-sm font-black active:scale-95 transition-all shadow-2xs flex items-center justify-center cursor-pointer"
+                    title="Grand Total (महायोग)"
+                  >
+                    GT
+                  </button>
+                </div>
+
+                {/* 2. MAIN NUMERIC KEYPAD (4 Columns × 6 Rows) */}
+                <div className="grid grid-cols-4 gap-2.5 sm:gap-3 pt-1">
+                  {/* Row 1: AC, Backspace, Sign, Divide */}
+                  <button
+                    onClick={() => handleNormalButtonClick('AC')}
+                    className="bg-red-50 hover:bg-red-100 text-red-600 font-black border border-red-200/70 rounded-2xl p-3.5 text-base sm:text-lg active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    AC
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('⌫')}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold border border-gray-200/60 rounded-2xl p-3.5 text-base sm:text-lg active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    ⌫
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('+/−')}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-black border border-gray-200/60 rounded-2xl p-3.5 text-base active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    +/−
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('÷')}
+                    className="bg-[#2D5A27]/10 hover:bg-[#2D5A27]/20 text-[#2D5A27] font-black border border-[#2D5A27]/20 rounded-2xl p-3.5 text-2xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    ÷
+                  </button>
+
+                  {/* Row 2: 7, 8, 9, Multiply */}
+                  <button
+                    onClick={() => handleNormalButtonClick('7')}
+                    className="bg-white hover:bg-gray-50 text-gray-900 font-extrabold border border-gray-200/80 rounded-2xl p-3.5 text-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    7
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('8')}
+                    className="bg-white hover:bg-gray-50 text-gray-900 font-extrabold border border-gray-200/80 rounded-2xl p-3.5 text-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    8
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('9')}
+                    className="bg-white hover:bg-gray-50 text-gray-900 font-extrabold border border-gray-200/80 rounded-2xl p-3.5 text-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    9
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('×')}
+                    className="bg-[#2D5A27]/10 hover:bg-[#2D5A27]/20 text-[#2D5A27] font-black border border-[#2D5A27]/20 rounded-2xl p-3.5 text-2xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    ×
+                  </button>
+
+                  {/* Row 3: 4, 5, 6, Subtract */}
+                  <button
+                    onClick={() => handleNormalButtonClick('4')}
+                    className="bg-white hover:bg-gray-50 text-gray-900 font-extrabold border border-gray-200/80 rounded-2xl p-3.5 text-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    4
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('5')}
+                    className="bg-white hover:bg-gray-50 text-gray-900 font-extrabold border border-gray-200/80 rounded-2xl p-3.5 text-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    5
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('6')}
+                    className="bg-white hover:bg-gray-50 text-gray-900 font-extrabold border border-gray-200/80 rounded-2xl p-3.5 text-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    6
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('−')}
+                    className="bg-[#2D5A27]/10 hover:bg-[#2D5A27]/20 text-[#2D5A27] font-black border border-[#2D5A27]/20 rounded-2xl p-3.5 text-2xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    −
+                  </button>
+
+                  {/* Row 4: 1, 2, 3, Add */}
+                  <button
+                    onClick={() => handleNormalButtonClick('1')}
+                    className="bg-white hover:bg-gray-50 text-gray-900 font-extrabold border border-gray-200/80 rounded-2xl p-3.5 text-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    1
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('2')}
+                    className="bg-white hover:bg-gray-50 text-gray-900 font-extrabold border border-gray-200/80 rounded-2xl p-3.5 text-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    2
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('3')}
+                    className="bg-white hover:bg-gray-50 text-gray-900 font-extrabold border border-gray-200/80 rounded-2xl p-3.5 text-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    3
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('+')}
+                    className="bg-[#2D5A27]/10 hover:bg-[#2D5A27]/20 text-[#2D5A27] font-black border border-[#2D5A27]/20 rounded-2xl p-3.5 text-2xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    +
+                  </button>
+
+                  {/* Row 5: 0, 00, Decimal, Percentage */}
+                  <button
+                    onClick={() => handleNormalButtonClick('0')}
+                    className="bg-white hover:bg-gray-50 text-gray-900 font-extrabold border border-gray-200/80 rounded-2xl p-3.5 text-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    0
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('00')}
+                    className="bg-white hover:bg-gray-50 text-gray-900 font-extrabold border border-gray-200/80 rounded-2xl p-3.5 text-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    00
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('.')}
+                    className="bg-white hover:bg-gray-50 text-gray-900 font-extrabold border border-gray-200/80 rounded-2xl p-3.5 text-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    .
+                  </button>
+                  <button
+                    onClick={() => handleNormalButtonClick('%')}
+                    className="bg-gray-100 hover:bg-gray-200 text-[#2D5A27] font-black border border-gray-200/70 rounded-2xl p-3.5 text-xl active:scale-95 transition-all shadow-2xs cursor-pointer"
+                  >
+                    %
+                  </button>
+
+                  {/* Row 6: Equals (=) spanning all 4 columns */}
+                  <button
+                    onClick={() => handleNormalButtonClick('=')}
+                    className="bg-[#2D5A27] hover:bg-[#20401B] text-white font-black rounded-2xl p-4 text-2xl col-span-4 active:scale-95 transition-all shadow-md shadow-[#2D5A27]/25 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    =
+                  </button>
+                </div>
               </div>
             </motion.div>
           )}
@@ -604,11 +1232,10 @@ const AgriCalculator: React.FC = () => {
                       onChange={(e) => setLandAreaUnit(e.target.value as LandUnitId)}
                       className="px-3 py-3.5 bg-gray-50/90 border border-gray-200/80 rounded-2xl text-xs font-black text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#2D5A27] focus:bg-white transition-all cursor-pointer"
                     >
+                      <option value="biswa">बिस्वा (Biswa)</option>
                       <option value="shamgarh_pucca_bigha">पक्का बीघा (शामगढ़)</option>
                       <option value="acre">एकड़ (Acre)</option>
                       <option value="hectare">हेक्टेयर (Hectare)</option>
-                      <option value="biswa">बिस्वा (Biswa)</option>
-                      <option value="kaccha_bigha">कच्चा बीघा</option>
                     </select>
                   </div>
                 </div>
@@ -710,70 +1337,102 @@ const AgriCalculator: React.FC = () => {
               </div>
 
               {/* Spray & Tank Requirements Card */}
-              <div className="bg-[#2D5A27] text-white rounded-3xl p-6 shadow-md relative overflow-hidden space-y-4">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
-
-                <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Droplets className="w-5 h-5 text-amber-300" />
+              <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-[#2D5A27]/20 relative overflow-hidden space-y-4">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200/70 flex items-center justify-center shrink-0">
+                      <Droplets className="w-5 h-5 text-[#2D5A27]" />
+                    </div>
                     <div>
-                      <h4 className="text-sm font-black uppercase tracking-wider text-white">
+                      <h4 className="text-sm font-black uppercase tracking-wider text-[#1B4316]">
                         छिड़काव व टंकी गणना (Spray Calculator)
                       </h4>
-                      <p className="text-[10px] text-white/70 font-semibold mt-0.5">
+                      <p className="text-[11px] text-gray-500 font-medium mt-0.5">
                         मानक: 80 से 100 लीटर पानी प्रति शामगढ़ पक्का बीघा
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Pump Capacity Selection */}
+                {/* Pump / Container Capacity Selection */}
                 <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold text-white/80 uppercase tracking-wider">
-                    स्प्रे पंप क्षमता चुनें (Pump Tank Size):
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">
+                    स्प्रे पंप / कंटेनर क्षमता चुनें (Pump Tank / Container Size):
                   </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[15, 16, 20, 25].map((cap) => (
-                      <button
-                        key={cap}
-                        type="button"
-                        onClick={() => setPumpCapacity(cap as 15 | 16 | 20 | 25)}
-                        className={`py-2 px-1 rounded-xl text-xs font-black transition-all ${
-                          pumpCapacity === cap
-                            ? 'bg-amber-400 text-[#2D5A27] shadow-sm'
-                            : 'bg-white/10 text-white hover:bg-white/20'
-                        }`}
-                      >
-                        {cap} लीटर {cap === 16 ? '(मानक)' : ''}
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { id: 15 as const, label: '15 लीटर' },
+                      { id: 20 as const, label: '20 लीटर' },
+                      { id: 200 as const, label: '200 लीटर ड्रम' },
+                      { id: 500 as const, label: '500 लीटर टैंकर' },
+                    ].map((item) => {
+                      const isSelected = pumpCapacity === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setPumpCapacity(item.id)}
+                          className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center ${
+                            isSelected
+                              ? 'bg-amber-400 text-stone-900 shadow-sm border border-amber-500/50 ring-2 ring-amber-400/30 font-black'
+                              : 'bg-[#FAF9F6] hover:bg-emerald-50/80 text-stone-700 border border-gray-200/90 hover:border-emerald-300'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
                 {/* Spray Calculations Output */}
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div className="bg-white/10 rounded-2xl p-4 border border-white/5 text-center">
-                    <p className="text-[10px] font-black text-white/60 uppercase tracking-wider">कुल आवश्यक पानी</p>
-                    <p className="text-xl sm:text-2xl font-black mt-1 text-amber-300 font-mono">
-                      {sprayerInfo.waterLitersMin} - {sprayerInfo.waterLitersMax} <span className="text-xs text-white">L</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="bg-[#FAF9F6] rounded-2xl p-4 border border-emerald-100/90 text-center">
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">कुल आवश्यक पानी</p>
+                    <p className="text-2xl sm:text-3xl font-black mt-1 text-amber-600 font-mono tracking-tight">
+                      {sprayerInfo.waterLitersMin} - {sprayerInfo.waterLitersMax} <span className="text-xs font-bold text-[#2D5A27]">L</span>
                     </p>
-                    <p className="text-[9px] text-white/60 mt-0.5">80-100 L/बीघा दर</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5 font-medium">80-100 L/बीघा दर</p>
                   </div>
 
-                  <div className="bg-white/10 rounded-2xl p-4 border border-white/5 text-center">
-                    <p className="text-[10px] font-black text-white/60 uppercase tracking-wider">कुल स्प्रे पंप (टंकी)</p>
-                    <p className="text-xl sm:text-2xl font-black mt-1 text-white font-mono">
-                      {sprayerInfo.pumpsMin} - {sprayerInfo.pumpsMax} <span className="text-xs text-amber-300">पंप</span>
+                  <div className="bg-[#FAF9F6] rounded-2xl p-4 border border-emerald-100/90 text-center">
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                      {pumpCapacity === 200
+                        ? 'कुल स्प्रे ड्रम'
+                        : pumpCapacity === 500
+                        ? 'कुल स्प्रे टैंकर'
+                        : 'कुल स्प्रे पंप (टंकी)'}
                     </p>
-                    <p className="text-[9px] text-white/60 mt-0.5">{pumpCapacity} लीटर प्रति पंप</p>
+                    <p className="text-2xl sm:text-3xl font-black mt-1 text-amber-600 font-mono tracking-tight">
+                      {sprayerInfo.pumpsMin === sprayerInfo.pumpsMax
+                        ? sprayerInfo.pumpsMin
+                        : `${sprayerInfo.pumpsMin} - ${sprayerInfo.pumpsMax}`}{' '}
+                      <span className="text-xs font-bold text-[#2D5A27]">{sprayerInfo.unitLabel}</span>
+                    </p>
+                    <p className="text-[10px] text-gray-500 mt-0.5 font-medium">
+                      {pumpCapacity >= 200
+                        ? `${pumpCapacity} लीटर क्षमता प्रति ${sprayerInfo.unitLabel}`
+                        : `${pumpCapacity} लीटर प्रति पंप`}
+                    </p>
                   </div>
                 </div>
 
                 {/* Practical Advice */}
-                <div className="bg-black/20 p-3 rounded-xl border border-white/5 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-amber-300 shrink-0" />
-                  <p className="text-[11px] font-medium leading-relaxed">
-                    किसान भाई, अपने <span className="text-amber-300 font-bold">{bighaBiswaFormatted.formatted}</span> के लिए लगभग <span className="text-amber-300 font-bold">{sprayerInfo.pumpsMin} से {sprayerInfo.pumpsMax} टंकी</span> घोल तैयार करें।
+                <div className="bg-emerald-50/70 p-3.5 rounded-2xl border border-emerald-200/60 flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-[#2D5A27] shrink-0" />
+                  <p className="text-xs font-medium text-stone-800 leading-relaxed">
+                    किसान भाई, अपने{' '}
+                    <span className="text-[#2D5A27] font-bold">
+                      {bighaBiswaFormatted.formatted}
+                    </span>{' '}
+                    के लिए लगभग{' '}
+                    <span className="text-amber-800 font-black bg-amber-100/90 px-1.5 py-0.5 rounded-md border border-amber-300/50">
+                      {sprayerInfo.pumpsMin === sprayerInfo.pumpsMax
+                        ? sprayerInfo.pumpsMin
+                        : `${sprayerInfo.pumpsMin} से ${sprayerInfo.pumpsMax}`}{' '}
+                      {sprayerInfo.unitLabel}
+                    </span>{' '}
+                    घोल तैयार करें।
                   </p>
                 </div>
               </div>
