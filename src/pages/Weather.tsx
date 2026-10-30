@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CloudSun, Wind, Droplets, Sun, CloudRain, Thermometer, Loader2, Cloud, CloudLightning, RefreshCw, Navigation, Moon, CloudMoon } from 'lucide-react';
+import { CloudSun, Wind, Droplets, Sun, CloudRain, Thermometer, Loader2, Cloud, CloudLightning, RefreshCw, Navigation, Moon, CloudMoon, ArrowUp, ArrowDown, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { fetchWeather, WeatherData } from '../services/weatherService';
 import { 
@@ -14,6 +14,155 @@ import {
 import { cn } from '../lib/utils';
 
 const language = 'hi';
+
+/**
+ * Atmospheric Dynamic Theme for Weather Hero Visual
+ * Automatically maps day, night, cloudy, rainy, and thunder conditions to rich visual states.
+ */
+const getWeatherHeroTheme = (condition: string, isNight: boolean) => {
+  const cond = condition.toLowerCase();
+
+  // Thunder / Lightning / Storm
+  if (cond.includes('गरज') || cond.includes('तूफान') || cond.includes('बिजली') || cond.includes('thunder') || cond.includes('lightning')) {
+    return {
+      type: 'thunder' as const,
+      Icon: CloudLightning,
+      bgGradient: 'bg-gradient-to-br from-indigo-950/10 via-purple-50/90 to-amber-50/60',
+      border: 'border-indigo-200/90',
+      ring: 'ring-4 ring-purple-100/70',
+      shadow: 'shadow-lg shadow-indigo-500/10',
+      glow: 'bg-gradient-to-tr from-purple-500/25 to-amber-400/20',
+      iconClass: 'text-indigo-700',
+    };
+  }
+
+  // Rain / Showers / Drizzle / Hail
+  if (cond.includes('बारिश') || cond.includes('बूंदाबांदी') || cond.includes('बौछार') || cond.includes('वर्षा') || cond.includes('ओले') || cond.includes('rain') || cond.includes('drizzle')) {
+    return {
+      type: 'rainy' as const,
+      Icon: CloudRain,
+      bgGradient: 'bg-gradient-to-br from-sky-50 via-blue-50/90 to-indigo-50/70',
+      border: 'border-sky-200/90',
+      ring: 'ring-4 ring-sky-100/70',
+      shadow: 'shadow-lg shadow-sky-500/15',
+      glow: 'bg-gradient-to-tr from-sky-400/30 to-blue-500/25',
+      iconClass: 'text-sky-600',
+    };
+  }
+
+  // Night Conditions
+  if (isNight) {
+    if (cond.includes('बादल') || cond.includes('आंशिक') || cond.includes('cloud') || cond.includes('overcast')) {
+      return {
+        type: 'cloudy-night' as const,
+        Icon: CloudMoon,
+        bgGradient: 'bg-gradient-to-br from-slate-50 via-indigo-50/90 to-purple-50/70',
+        border: 'border-indigo-200/90',
+        ring: 'ring-4 ring-indigo-100/70',
+        shadow: 'shadow-lg shadow-indigo-500/15',
+        glow: 'bg-gradient-to-tr from-indigo-500/25 to-purple-400/25',
+        iconClass: 'text-indigo-600',
+      };
+    }
+    // Clear Night
+    return {
+      type: 'clear-night' as const,
+      Icon: Moon,
+      bgGradient: 'bg-gradient-to-br from-indigo-50/90 via-slate-100/90 to-indigo-100/80',
+      border: 'border-indigo-200/90',
+      ring: 'ring-4 ring-indigo-100/70',
+      shadow: 'shadow-lg shadow-indigo-500/15',
+      glow: 'bg-gradient-to-tr from-indigo-400/30 to-violet-500/25',
+      iconClass: 'text-indigo-600',
+    };
+  }
+
+  // Day Conditions
+  if (cond.includes('बादल') || cond.includes('आंशिक') || cond.includes('cloud') || cond.includes('overcast')) {
+    return {
+      type: 'cloudy-day' as const,
+      Icon: CloudSun,
+      bgGradient: 'bg-gradient-to-br from-slate-50 via-emerald-50/70 to-teal-50/60',
+      border: 'border-emerald-200/90',
+      ring: 'ring-4 ring-emerald-100/70',
+      shadow: 'shadow-lg shadow-emerald-500/10',
+      glow: 'bg-gradient-to-tr from-amber-300/25 to-emerald-400/25',
+      iconClass: 'text-emerald-700',
+    };
+  }
+
+  // Sunny / Clear Day (Default)
+  return {
+    type: 'sunny' as const,
+    Icon: Sun,
+    bgGradient: 'bg-gradient-to-br from-amber-50 via-orange-50/90 to-amber-100/70',
+    border: 'border-amber-300/90',
+    ring: 'ring-4 ring-amber-100/80',
+    shadow: 'shadow-lg shadow-amber-500/20',
+    glow: 'bg-gradient-to-tr from-amber-400/35 via-orange-400/25 to-yellow-300/25',
+    iconClass: 'text-amber-500',
+  };
+};
+
+const WeatherHeroVisual: React.FC<{ condition: string; isNight: boolean }> = ({ condition, isNight }) => {
+  const theme = getWeatherHeroTheme(condition, isNight);
+  const IconComponent = theme.Icon;
+
+  return (
+    <div className="relative shrink-0 flex flex-col items-center select-none group">
+      {/* Dynamic Ambient Background Glow */}
+      <div 
+        className={cn(
+          "absolute -inset-2 rounded-full blur-xl opacity-75 group-hover:opacity-95 transition-opacity duration-500 pointer-events-none",
+          theme.glow
+        )} 
+      />
+
+      {/* Modern Multi-Layered Squircle Pod with Gentle Float */}
+      <motion.div
+        animate={{ y: [0, -4, 0] }}
+        transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+        className={cn(
+          "relative w-22 h-22 sm:w-26 sm:h-26 rounded-3xl p-3 sm:p-4 flex items-center justify-center border backdrop-blur-xs transition-all duration-300 group-hover:scale-105",
+          theme.bgGradient,
+          theme.border,
+          theme.ring,
+          theme.shadow
+        )}
+      >
+        {/* Subtle decorative inner corner glass shine */}
+        <div className="absolute top-1.5 left-2 w-4 h-2 bg-white/60 rounded-full blur-[1px] pointer-events-none" />
+
+        {/* Dynamic Multi-Tonal Icon Render */}
+        {theme.type === 'sunny' ? (
+          <div className="relative flex items-center justify-center">
+            {/* Ambient sun core pulse */}
+            <div className="absolute w-8 h-8 rounded-full bg-amber-400/30 blur-sm animate-pulse" />
+            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-amber-500 stroke-[2] drop-shadow-sm transition-transform duration-500 group-hover:rotate-45" />
+          </div>
+        ) : theme.type === 'clear-night' ? (
+          <div className="relative flex items-center justify-center">
+            {/* Ambient night glow with subtle star twinkle */}
+            <IconComponent className="w-12 h-12 sm:w-14 sm:h-14 text-indigo-600 stroke-[2] drop-shadow-sm transition-transform duration-300 group-hover:-rotate-12" />
+            <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-amber-400 stroke-[2] animate-pulse" />
+          </div>
+        ) : theme.type === 'rainy' ? (
+          <div className="relative flex items-center justify-center">
+            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-sky-600 stroke-[2] drop-shadow-sm" />
+          </div>
+        ) : theme.type === 'thunder' ? (
+          <div className="relative flex items-center justify-center">
+            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-indigo-700 stroke-[2] drop-shadow-sm" />
+          </div>
+        ) : (
+          <div className="relative flex items-center justify-center">
+            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-emerald-700 stroke-[2] drop-shadow-sm" />
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+};
 
 const Weather: React.FC = () => {
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -250,7 +399,6 @@ const Weather: React.FC = () => {
       {/* Main Card */}
       {(() => {
         const isNowNight = weather.hourly && weather.hourly.length > 0 ? weather.hourly[0].isNight : (new Date().getHours() < 6 || new Date().getHours() >= 19);
-        const MainIcon = getIcon(weather.condition, isNowNight);
 
         return (
           <motion.div 
@@ -282,12 +430,31 @@ const Weather: React.FC = () => {
                 <p className="text-gray-500 font-medium mt-1">
                   {getConditionLabel(weather.condition, weather.weatherCode)}
                 </p>
-                <div className="flex gap-4 mt-2 text-xs text-gray-400">
-                  <span>अधिकतम: {weather.maxTemp}°C</span>
-                  <span>न्यूनतम: {weather.minTemp}°C</span>
-                </div>
+                {/* Modern High & Low Temperature Indicators */}
+                {(weather.maxTemp !== undefined || weather.minTemp !== undefined) && (
+                  <div className="flex flex-wrap items-center gap-2 mt-3 select-none">
+                    {weather.maxTemp !== undefined && (
+                      <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-50 to-orange-50/70 border border-amber-200/80 px-2.5 py-1 rounded-xl shadow-2xs">
+                        <div className="w-4 h-4 rounded-full bg-amber-500/15 flex items-center justify-center shrink-0">
+                          <ArrowUp className="w-2.5 h-2.5 text-amber-700 stroke-[2.5]" />
+                        </div>
+                        <span className="text-[11px] font-bold text-amber-800">अधिकतम</span>
+                        <span className="text-xs font-black font-mono text-amber-950">{weather.maxTemp}°C</span>
+                      </div>
+                    )}
+                    {weather.minTemp !== undefined && (
+                      <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-sky-50 to-blue-50/70 border border-sky-200/80 px-2.5 py-1 rounded-xl shadow-2xs">
+                        <div className="w-4 h-4 rounded-full bg-sky-500/15 flex items-center justify-center shrink-0">
+                          <ArrowDown className="w-2.5 h-2.5 text-sky-700 stroke-[2.5]" />
+                        </div>
+                        <span className="text-[11px] font-bold text-sky-800">न्यूनतम</span>
+                        <span className="text-xs font-black font-mono text-sky-950">{weather.minTemp}°C</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <MainIcon className="w-20 h-20 text-[#2D5A27]" />
+              <WeatherHeroVisual condition={weather.condition} isNight={isNowNight} />
             </div>
 
             <div className="grid grid-cols-3 gap-2 border-t border-gray-100 pt-4 mt-4 text-center">
@@ -502,22 +669,35 @@ const Weather: React.FC = () => {
               </div>
 
               {/* Right Side: Temperature High/Low Display */}
-              <div className="text-right shrink-0 pl-3">
+              <div className="text-right shrink-0 pl-3 flex flex-col items-end justify-center">
                 <div className="flex items-baseline justify-end gap-0.5">
-                  <span className="text-2xl sm:text-3xl font-black text-[#1B4318] tracking-tight font-mono">
+                  <span className="text-2xl sm:text-3xl font-black text-gray-900 group-hover:text-[#1B4318] transition-colors tracking-tight font-mono">
                     {maxTempClean || '30'}
                   </span>
                   <span className="text-xs font-bold text-[#2D5A27]">°C</span>
                 </div>
 
                 {minTempClean ? (
-                  <div className="text-[10px] font-mono font-bold text-gray-400 mt-0.5 flex items-center justify-end gap-1">
-                    <span className="text-slate-500 bg-slate-50 px-1 py-0.2 rounded border border-slate-200/80">
-                      लो {minTempClean}°
-                    </span>
-                    <span className="text-amber-800 bg-amber-50 px-1 py-0.2 rounded border border-amber-200/80">
-                      हाई {maxTempClean}°
-                    </span>
+                  <div className="mt-1 flex items-center justify-end gap-1.5 select-none">
+                    {/* Low Temperature Micro-Pill */}
+                    <div 
+                      className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-sky-800 bg-gradient-to-b from-sky-50 to-blue-50/70 border border-sky-200/80 px-1.5 py-0.5 rounded-lg shadow-2xs"
+                      title={`न्यूनतम तापमान: ${minTempClean}°C`}
+                    >
+                      <ArrowDown className="w-2.5 h-2.5 text-sky-600 stroke-[2.5] shrink-0" />
+                      <span className="font-sans font-medium text-[10px] text-sky-700">लो</span>
+                      <span className="text-sky-950 font-black">{minTempClean}°</span>
+                    </div>
+
+                    {/* High Temperature Micro-Pill */}
+                    <div 
+                      className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-amber-900 bg-gradient-to-b from-amber-50 to-orange-50/70 border border-amber-200/80 px-1.5 py-0.5 rounded-lg shadow-2xs"
+                      title={`अधिकतम तापमान: ${maxTempClean}°C`}
+                    >
+                      <ArrowUp className="w-2.5 h-2.5 text-amber-600 stroke-[2.5] shrink-0" />
+                      <span className="font-sans font-medium text-[10px] text-amber-700">हाई</span>
+                      <span className="text-amber-950 font-black">{maxTempClean}°</span>
+                    </div>
                   </div>
                 ) : (
                   <span className="text-[10px] font-bold text-gray-400 block mt-0.5">

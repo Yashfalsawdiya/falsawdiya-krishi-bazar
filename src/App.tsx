@@ -62,7 +62,6 @@ const MyOrdersPage = safeLazy(() => import('./pages/MyOrdersPage'));
 const OrderDetailsPage = safeLazy(() => import('./pages/OrderDetailsPage'));
 const DeliveryOrdersPage = safeLazy(() => import('./pages/DeliveryOrdersPage'));
 
-
 const PageLoader = () => (
   <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] gap-4">
     <div className="relative">

@@ -31,7 +31,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onCartItemIdChange
 }) => {
   const navigate = useNavigate();
-  const { categories } = useAppContext();
+  const { categories, appContent } = useAppContext();
+  const isPriceHidden = Boolean(appContent?.hideAllProductPrices || product?.hidePrice);
   const { addToCart, cartItems, updateQuantity, updateVariant } = useCart();
   const [isZoomOpen, setIsZoomOpen] = React.useState(false);
   const [selectedVariant, setSelectedVariant] = React.useState<{id: string; quantity: string; price: number} | null>(null);
@@ -185,13 +186,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               )}
 
               {/* Price and Unit Section */}
-              {(displayPrice || product.hidePrice) ? (
+              {(displayPrice || isPriceHidden) ? (
                 <div className="flex items-center justify-between bg-[#F5F2ED] p-4 rounded-2xl border border-[#4A3728]/10">
                   <div>
                     <div className="flex items-center gap-1.5 text-xs text-[#4A3728]/60 font-bold uppercase mb-1">
                       <Tag className="w-3.5 h-3.5" /> कीमत
                     </div>
-                    {product.hidePrice || !displayPrice ? (
+                    {isPriceHidden || !displayPrice ? (
                       <span className="text-sm font-bold text-gray-400">कीमत उपलब्ध नहीं</span>
                     ) : (
                       <div className="flex items-baseline gap-1 animate-in fade-in zoom-in-95 duration-300" key={displayPrice}>
@@ -224,8 +225,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
               )}
 
-              {/* Cart Qty Editor within the modal content list */}
-              {currentCartItem && (
+              {/* Cart Qty Editor within the modal content list (only if price is not hidden) */}
+              {currentCartItem && !isPriceHidden && (
                 <div className="bg-[#E7F3E1] p-4 rounded-2xl border-2 border-[#2D5A27]/20 flex items-center justify-between">
                   <div>
                     <h5 className="text-xs font-black text-[#2D5A27] uppercase tracking-wider mb-0.5">यह मात्रा कार्ट में है</h5>
@@ -325,7 +326,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 बंद करें
               </button>
 
-              {product.hidePrice ? (
+              {isPriceHidden ? (
                 <button
                   type="button"
                   onClick={() => {

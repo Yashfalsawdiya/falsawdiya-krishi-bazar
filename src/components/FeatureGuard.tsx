@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldAlert, Home, ArrowLeft } from 'lucide-react';
+import { ShieldAlert, Home, ArrowLeft, EyeOff } from 'lucide-react';
 import { useFeatureToggle } from '../hooks/useFeatureToggle';
 
 interface FeatureGuardProps {
@@ -48,9 +48,15 @@ export const FeatureGuard: React.FC<FeatureGuardProps> = ({
   return (
     <>
       {isAdmin && isHiddenForUsers && (
-        <div className="bg-amber-500 text-white text-xs font-bold py-2 px-4 text-center flex items-center justify-center gap-2 shadow-xs sticky top-16 z-40 border-b border-amber-600">
-          <ShieldAlert className="w-4 h-4 shrink-0" />
-          <span>[एडमिन टेस्ट मोड] यह सुविधा सामान्य ग्राहकों के लिए बंद (HIDE) है। केवल आप इसे देख व टेस्ट कर सकते हैं।</span>
+        <div className="sticky top-16 z-40 py-2 px-3 flex justify-center pointer-events-none">
+          <div className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50/95 backdrop-blur-md border border-amber-200/90 text-amber-900 shadow-sm text-xs font-bold">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            </span>
+            <EyeOff className="w-3.5 h-3.5 text-amber-700 shrink-0 stroke-[2.2]" />
+            <span className="tracking-tight">एडमिन प्रीव्यू • ग्राहकों के लिए बंद (Hidden)</span>
+          </div>
         </div>
       )}
       {children}

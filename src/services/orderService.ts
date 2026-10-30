@@ -56,6 +56,18 @@ export const generateOrderNumber = (): string => {
 
 // Create a new Order in Firestore and LocalStorage
 export const createNewOrder = async (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt' | 'timeline'> & { id?: string }): Promise<Order> => {
+  // Validate that global price hide is not active
+  try {
+    const contentDoc = await getDoc(doc(db, 'settings', 'content'));
+    if (contentDoc.exists() && contentDoc.data()?.hideAllProductPrices === true) {
+      throw new Error('उत्पादों की कीमतें छिपी होने के कारण ऑनलाइन ऑर्डर स्वीकार नहीं किया जा सकता।');
+    }
+  } catch (err: any) {
+    if (err.message?.includes('कीमतें छिपी')) {
+      throw err;
+    }
+  }
+
   const orderId = orderData.id || `order_${Date.now()}_${Math.random().toString(36).substr(2, 7)}`;
   const orderNumber = generateOrderNumber();
   const now = Date.now();

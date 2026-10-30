@@ -5,6 +5,7 @@ import { Product, ImageSource } from '../types';
 import SmartImage from './SmartImage';
 import { cn } from '../lib/utils';
 import { openProductWhatsAppEnquiry } from '../utils/whatsappHelper';
+import { useAppContext } from '../context/AppContext';
 
 interface KrishiBazaarProductCardProps {
   product: Product;
@@ -23,6 +24,8 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
   onAddToCart,
   onBuy
 }) => {
+  const { appContent } = useAppContext();
+  const isPriceHidden = Boolean(appContent?.hideAllProductPrices || product.hidePrice);
   // Extract all available packaging variants dynamically
   const variants = useMemo(() => {
     if (product.variants && product.variants.length > 0) {
@@ -154,7 +157,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
                         ? "bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs scale-105 font-semibold"
                         : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
                     )}
-                    title={product.hidePrice ? v.quantity : `${v.quantity} - ₹${v.price}`}
+                    title={isPriceHidden ? v.quantity : `${v.quantity} - ₹${v.price}`}
                   >
                     {v.quantity}
                   </button>
@@ -166,7 +169,7 @@ export const KrishiBazaarProductCard: React.FC<KrishiBazaarProductCardProps> = (
 
         {/* BOTTOM: Price & Action Buttons */}
         <div className="pt-3 mt-3 border-t border-gray-100">
-          {product.hidePrice ? (
+          {isPriceHidden ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500 font-bold bg-gray-100 px-2.5 py-1 rounded-lg border border-gray-200">

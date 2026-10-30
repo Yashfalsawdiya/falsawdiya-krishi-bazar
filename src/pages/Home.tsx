@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen, Info, ChevronRight, ChevronLeft, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, Award, Facebook, Instagram, Plus, MessageCircle, Copy, Check, Store, Clock } from 'lucide-react';
+import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen, Info, ChevronRight, ChevronLeft, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, EyeOff, Award, Facebook, Instagram, Plus, MessageCircle, Copy, Check, Store, Clock } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
@@ -308,6 +308,7 @@ const Home: React.FC = () => {
   };
 
   const handleBuyClick = (product: Product, variant?: { id: string; quantity: string; price: number }) => {
+    if (appContent?.hideAllProductPrices || product.hidePrice) return;
     addToCart(product, variant || product.variants?.[0]);
     navigate('/cart');
   };
@@ -512,9 +513,13 @@ const Home: React.FC = () => {
 
                   {/* Admin test mode indicator */}
                   {isAdmin && !isFeatureEnabled('ai_call') && (
-                    <div className="mb-2 bg-amber-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
-                      <ShieldAlert className="w-3 h-3" />
-                      <span>एडमिन टेस्ट मोड (ग्राहकों के लिए बंद)</span>
+                    <div className="mb-2.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50/90 border border-amber-200/90 text-amber-900 text-[10.5px] font-bold shadow-2xs">
+                      <span className="relative flex h-1.5 w-1.5 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                      </span>
+                      <EyeOff className="w-3 h-3 text-amber-700 shrink-0 stroke-[2.2]" />
+                      <span>ग्राहकों के लिए बंद (Hidden)</span>
                     </div>
                   )}
 
@@ -577,9 +582,13 @@ const Home: React.FC = () => {
 
                   {/* Admin test mode indicator */}
                   {isAdmin && !isFeatureEnabled('ai_product_knowledge') && (
-                    <div className="mb-2 bg-amber-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
-                      <ShieldAlert className="w-3 h-3" />
-                      <span>एडमिन टेस्ट मोड (ग्राहकों के लिए बंद)</span>
+                    <div className="mb-2.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50/90 border border-amber-200/90 text-amber-900 text-[10.5px] font-bold shadow-2xs">
+                      <span className="relative flex h-1.5 w-1.5 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                      </span>
+                      <EyeOff className="w-3 h-3 text-amber-700 shrink-0 stroke-[2.2]" />
+                      <span>ग्राहकों के लिए बंद (Hidden)</span>
                     </div>
                   )}
 
@@ -637,7 +646,15 @@ const Home: React.FC = () => {
             <div className="relative z-10 flex flex-col justify-between h-full">
               <div className="flex justify-between items-start">
                 <CloudSun className="w-8 h-8 text-[#EAB308]" />
-                <span className="text-[10px] font-bold opacity-70 uppercase">मौसम</span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-[10px] font-bold opacity-70 uppercase">मौसम</span>
+                  {isAdmin && !isFeatureEnabled('weather') && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/30 backdrop-blur-xs border border-white/20 text-amber-200 text-[9px] font-bold">
+                      <EyeOff className="w-2.5 h-2.5 text-amber-300" />
+                      Hidden
+                    </span>
+                  )}
+                </div>
               </div>
               {weather ? (
                 <div className="mt-2">
@@ -660,7 +677,15 @@ const Home: React.FC = () => {
             <div className="relative z-10 flex flex-col justify-between h-full">
               <div className="flex justify-between items-start">
                 <TrendingUp className="w-8 h-8 text-[#2D5A27]" />
-                <span className="text-[10px] font-bold text-gray-400 uppercase">मंडी भाव</span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">मंडी भाव</span>
+                  {isAdmin && !isFeatureEnabled('mandi') && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-[9px] font-bold">
+                      <EyeOff className="w-2.5 h-2.5 text-amber-700" />
+                      Hidden
+                    </span>
+                  )}
+                </div>
               </div>
               {mandi ? (
                 <div className="animate-in fade-in duration-500 mt-2">
@@ -691,7 +716,13 @@ const Home: React.FC = () => {
             <div className="relative z-10">
               <h3 className="text-base sm:text-lg font-bold flex items-center gap-2">
                 <Landmark className="w-5 h-5 text-[#EAB308] shrink-0" />
-                सरकारी योजनाएं
+                <span>सरकारी योजनाएं</span>
+                {isAdmin && !isFeatureEnabled('schemes') && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/30 backdrop-blur-xs border border-white/20 text-amber-200 text-[9px] font-bold">
+                    <EyeOff className="w-2.5 h-2.5 text-amber-300" />
+                    Hidden
+                  </span>
+                )}
               </h3>
               <p className="text-xs text-white/80 mt-1">
                 PM-Kisan, सब्सिडी और बीमा

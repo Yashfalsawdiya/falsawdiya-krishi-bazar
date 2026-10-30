@@ -151,6 +151,7 @@ service cloud.firestore {
              (!('apiKeyGuideVideoUrl' in data) || data.apiKeyGuideVideoUrl is string) &&
              (!('offers' in data) || data.offers is map) &&
              (!('festivalOffer' in data) || data.festivalOffer is map) &&
+             (!('hideAllProductPrices' in data) || data.hideAllProductPrices is bool) &&
              (!('featureToggles' in data) || data.featureToggles is map);
     }
     

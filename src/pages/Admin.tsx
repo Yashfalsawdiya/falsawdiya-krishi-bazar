@@ -394,6 +394,26 @@ const Admin: React.FC = () => {
     }
   };
 
+  const [isTogglingGlobalPrice, setIsTogglingGlobalPrice] = useState(false);
+
+  const handleToggleGlobalPriceHide = async (nextVal: boolean) => {
+    if (!contentForm) return;
+    setIsTogglingGlobalPrice(true);
+    try {
+      const updated = {
+        ...contentForm,
+        hideAllProductPrices: nextVal
+      };
+      setContentForm(updated);
+      await updateAppContent(updated);
+    } catch (e) {
+      console.error("Failed to toggle global price hide:", e);
+      alert("ग्लोबल कीमत सेटिंग अपडेट करने में त्रुटि हुई।");
+    } finally {
+      setIsTogglingGlobalPrice(false);
+    }
+  };
+
   const featuredProductsList = React.useMemo(() => {
     return products
       .filter(p => p.isFeatured)
@@ -898,6 +918,93 @@ const Admin: React.FC = () => {
 
       {activeTab === 'products' ? (
         <>
+          {/* Global Price Hide / Show Master Control Card */}
+          <div className={cn(
+            "rounded-3xl p-5 border transition-all duration-200 shadow-sm mb-4",
+            Boolean(contentForm?.hideAllProductPrices ?? appContent?.hideAllProductPrices)
+              ? "bg-gradient-to-r from-amber-500/10 via-amber-50 to-orange-50 border-amber-300 ring-1 ring-amber-400/30" 
+              : "bg-white border-gray-100"
+          )}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className={cn(
+                  "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-xs transition-colors",
+                  Boolean(contentForm?.hideAllProductPrices ?? appContent?.hideAllProductPrices)
+                    ? "bg-amber-500 text-white shadow-amber-200" 
+                    : "bg-[#2D5A27]/10 text-[#2D5A27]"
+                )}>
+                  {Boolean(contentForm?.hideAllProductPrices ?? appContent?.hideAllProductPrices) ? (
+                    <EyeOff className="w-6 h-6" />
+                  ) : (
+                    <Eye className="w-6 h-6" />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="font-extrabold text-[#4A3728] text-base leading-tight">
+                      सभी Products की कीमत छिपाएँ (Hide All Product Prices)
+                    </h4>
+                    {Boolean(contentForm?.hideAllProductPrices ?? appContent?.hideAllProductPrices) ? (
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                        <EyeOff className="w-3 h-3 text-amber-700" />
+                        सभी कीमतें छिपी हैं (Active)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1">
+                        <Eye className="w-3 h-3 text-emerald-700" />
+                        व्यक्तिगत सेटिंग्स लागू (Normal)
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-600 leading-relaxed font-medium">
+                    {Boolean(contentForm?.hideAllProductPrices ?? appContent?.hideAllProductPrices) ? (
+                      <span>
+                        <strong className="text-amber-950 font-bold">ग्लोबल हाइड चालू है:</strong> पूरे ऐप (Home, Krishi Bazaar, Search, Details) में सभी उत्पादों की कीमतें छिपी हैं और Cart / Checkout ब्लॉक है। प्रत्येक उत्पाद की व्यक्तिगत सेटिंग्स सुरक्षित हैं।
+                      </span>
+                    ) : (
+                      <span>
+                        <strong className="text-emerald-950 font-bold">सामान्य मोड:</strong> प्रत्येक उत्पाद अपनी-अपनी व्यक्तिगत Hide/Show सेटिंग के अनुसार प्रदर्शित हो रहा है।
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Master Switch Toggle Button */}
+              <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-200/60">
+                <button
+                  type="button"
+                  disabled={isTogglingGlobalPrice}
+                  onClick={() => handleToggleGlobalPriceHide(!Boolean(contentForm?.hideAllProductPrices ?? appContent?.hideAllProductPrices))}
+                  className={cn(
+                    "relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none shadow-inner",
+                    Boolean(contentForm?.hideAllProductPrices ?? appContent?.hideAllProductPrices) ? "bg-amber-600" : "bg-gray-300 hover:bg-gray-400",
+                    isTogglingGlobalPrice && "opacity-60 cursor-wait"
+                  )}
+                  title={Boolean(contentForm?.hideAllProductPrices ?? appContent?.hideAllProductPrices) ? "ग्लोबल हाइड बंद करें" : "सभी कीमतें छिपाएँ"}
+                >
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block h-7 w-7 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out flex items-center justify-center text-xs font-bold",
+                      Boolean(contentForm?.hideAllProductPrices ?? appContent?.hideAllProductPrices) ? "translate-x-6 text-amber-700" : "translate-x-0 text-gray-400"
+                    )}
+                  >
+                    {isTogglingGlobalPrice ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500" />
+                    ) : Boolean(contentForm?.hideAllProductPrices ?? appContent?.hideAllProductPrices) ? (
+                      <EyeOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
+                  </span>
+                </button>
+                <span className="text-[11px] font-bold text-gray-500">
+                  {Boolean(contentForm?.hideAllProductPrices ?? appContent?.hideAllProductPrices) ? 'चालू (ON)' : 'बंद (OFF)'}
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Header Action Row */}
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-bold text-gray-500 text-sm uppercase tracking-wider flex items-center gap-1.5">
@@ -1076,11 +1183,16 @@ const Admin: React.FC = () => {
                           )}
                           {product.hidePrice ? (
                             <span className="text-[8px] bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-black flex items-center gap-1 border border-red-200">
-                              <EyeOff className="w-2.5 h-2.5" /> कीमत छिपी
+                              <EyeOff className="w-2.5 h-2.5" /> व्यक्तिगत: छिपी
                             </span>
                           ) : (
                             <span className="text-[8px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-black flex items-center gap-1 border border-emerald-200">
-                              <Eye className="w-2.5 h-2.5" /> कीमत चालू
+                              <Eye className="w-2.5 h-2.5" /> व्यक्तिगत: चालू
+                            </span>
+                          )}
+                          {Boolean(contentForm?.hideAllProductPrices ?? appContent?.hideAllProductPrices) && (
+                            <span className="text-[8px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-extrabold flex items-center gap-1 border border-amber-300">
+                              <EyeOff className="w-2.5 h-2.5" /> ग्लोबल लागू
                             </span>
                           )}
                           {product.isFeatured && (

@@ -17,7 +17,8 @@ type SortOption = 'default' | 'price-asc' | 'price-desc' | 'name-asc';
 
 const Products: React.FC = () => {
   const navigate = useNavigate();
-  const { products, categories, loadProducts, loadCategoryData } = useAppContext();
+  const { products, categories, loadProducts, loadCategoryData, appContent } = useAppContext();
+  const isPriceHiddenGlobally = Boolean(appContent?.hideAllProductPrices);
   const sortedCategories = useMemo(() => sortCategoriesByOrder(categories), [categories]);
   const { addToCart } = useCart();
   const [searchParams] = useSearchParams();
@@ -113,10 +114,10 @@ const Products: React.FC = () => {
       : baseFiltered.filter(p => p.category === selectedCategory);
 
     // Apply explicit sort options if chosen
-    if (sortBy === 'price-asc') {
+    if (sortBy === 'price-asc' && !isPriceHiddenGlobally) {
       return [...categoryFiltered].sort((a, b) => getProductPrice(a) - getProductPrice(b));
     }
-    if (sortBy === 'price-desc') {
+    if (sortBy === 'price-desc' && !isPriceHiddenGlobally) {
       return [...categoryFiltered].sort((a, b) => getProductPrice(b) - getProductPrice(a));
     }
     if (sortBy === 'name-asc') {
@@ -247,8 +248,12 @@ const Products: React.FC = () => {
               className="appearance-none bg-transparent text-xs font-semibold pl-8 pr-7 py-2 rounded-xl outline-none cursor-pointer focus:outline-none"
             >
               <option value="default" className="text-gray-900 font-normal">क्रम: अनुशंसित (Default)</option>
-              <option value="price-asc" className="text-gray-900 font-normal">कीमत: कम से ज्यादा (₹ Low to High)</option>
-              <option value="price-desc" className="text-gray-900 font-normal">कीमत: ज्यादा से कम (₹ High to Low)</option>
+              {!isPriceHiddenGlobally && (
+                <>
+                  <option value="price-asc" className="text-gray-900 font-normal">कीमत: कम से ज्यादा (₹ Low to High)</option>
+                  <option value="price-desc" className="text-gray-900 font-normal">कीमत: ज्यादा से कम (₹ High to Low)</option>
+                </>
+              )}
               <option value="name-asc" className="text-gray-900 font-normal">नाम: A से Z</option>
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 pointer-events-none group-hover:text-gray-600 transition-colors" />

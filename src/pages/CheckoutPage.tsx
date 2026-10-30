@@ -7,7 +7,7 @@ import {
   MapPin, Phone, User, AlertCircle, ShoppingBag, 
   CreditCard, Loader2, Sparkles, MessageSquare, Info, RefreshCw,
   Scale, Navigation, Zap, LocateFixed, ChevronDown, ChevronUp, PackageCheck,
-  Check, Lightbulb
+  Check, Lightbulb, EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
@@ -204,6 +204,46 @@ const CheckoutPage: React.FC = () => {
 
   // If delivery is suspended, show courteous master control unavailable screen
   const isDeliveryActive = deliveryConfig?.isDeliveryActive !== false && appContent?.isDeliveryActive !== false;
+  const isPriceHiddenGlobally = Boolean(appContent?.hideAllProductPrices);
+  const hasHiddenPriceItems = isPriceHiddenGlobally || cartItems.some(item => item.product.hidePrice);
+
+  if (hasHiddenPriceItems && !isProcessing) {
+    return (
+      <div className="max-w-xl mx-auto space-y-4 py-8 px-4">
+        <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-xl text-center space-y-5">
+          <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto text-amber-600 border border-amber-100/80 shadow-xs">
+            <EyeOff className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-lg sm:text-xl font-black text-gray-800">
+              उत्पादों की कीमतें छिपी हुई हैं
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-600 leading-relaxed max-w-md mx-auto font-medium">
+              वर्तमान में उत्पादों की कीमतें छिपी होने के कारण ऑनलाइन ऑर्डर व चेकआउट अस्थायी रूप से बंद है। किसी भी उत्पाद की कीमत जानने या सीधा ऑर्डर करने के लिए कृपया WhatsApp या फोन पर संपर्क करें।
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => navigate('/products')}
+              className="px-6 py-3.5 bg-[#2D5A27] text-white rounded-2xl text-xs sm:text-sm font-black shadow-md shadow-[#2D5A27]/20 hover:bg-[#2D5A27]/90 active:scale-95 transition-all cursor-pointer"
+            >
+              उत्पाद देखें (Explore Products)
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/cart')}
+              className="px-6 py-3.5 bg-gray-100 text-gray-700 rounded-2xl text-xs sm:text-sm font-bold hover:bg-gray-200 active:scale-95 transition-all cursor-pointer"
+            >
+              कार्ट पर लौटें
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isDeliveryActive && !isProcessing) {
     return (
@@ -254,6 +294,11 @@ const CheckoutPage: React.FC = () => {
   }
 
   const validateForm = (): boolean => {
+    if (hasHiddenPriceItems) {
+      setErrorMsg('उत्पादों की कीमतें छिपी होने के कारण ऑनलाइन चेकआउट उपलब्ध नहीं है। कृपया WhatsApp या फोन पर संपर्क करें।');
+      return false;
+    }
+
     if (!isDeliveryActive) {
       setErrorMsg('असुविधा के लिए खेद है। फिलहाल होम डिलीवरी सेवा अस्थायी रूप से बंद है। जल्द ही सेवा पुनः शुरू की जाएगी।');
       return false;

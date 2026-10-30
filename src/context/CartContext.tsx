@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Product, CartItem } from '../types';
 import { safeLocalStorageSet, sanitizeCartItemsForStorage } from '../utils/cacheManager';
+import { useAppContext } from './AppContext';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -11,11 +12,16 @@ interface CartContextType {
   clearCart: () => void;
   cartCount: number;
   cartTotal: number;
+  isPriceHiddenGlobally: boolean;
+  hasHiddenPriceItems: boolean;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { appContent } = useAppContext();
+  const isPriceHiddenGlobally = Boolean(appContent?.hideAllProductPrices);
+
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
       const stored = localStorage.getItem('falsawdiya_cart');
@@ -36,9 +42,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [cartItems]);
 
+  const hasHiddenPriceItems = useMemo(() => {
+    return isPriceHiddenGlobally || cartItems.some((item) => item.product.hidePrice);
+  }, [isPriceHiddenGlobally, cartItems]);
+
   const addToCart = (product: Product, variant?: { id: string; quantity: string; price: number }) => {
-    // Safety guard: Products with hidden prices cannot be added to cart
-    if (product.hidePrice) {
+    // Safety guard: Products with hidden prices (global or individual) cannot be added to cart
+    if (isPriceHiddenGlobally || product.hidePrice) {
       console.warn('Cannot add product with hidden price to cart:', product.name);
       return;
     }
@@ -139,6 +149,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearCart,
         cartCount,
         cartTotal,
+        isPriceHiddenGlobally,
+        hasHiddenPriceItems,
       }}
     >
       {children}

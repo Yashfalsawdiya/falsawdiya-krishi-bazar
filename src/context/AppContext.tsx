@@ -98,6 +98,7 @@ export interface AppContent {
   isDeliveryActive?: boolean;
   isDeliveryChargesEnabled?: boolean;
   deliveryChargesAmount?: number;
+  hideAllProductPrices?: boolean;
   footer?: FooterConfig;
   featureToggles?: Record<string, boolean>;
 }

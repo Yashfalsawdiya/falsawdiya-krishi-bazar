@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAppContext } from '../context/AppContext';
-import { Minus, Plus, Trash2, ArrowLeft, ShoppingCart, CreditCard, ShieldCheck, Truck, AlertCircle } from 'lucide-react';
+import { Minus, Plus, Trash2, ArrowLeft, ShoppingCart, CreditCard, ShieldCheck, Truck, AlertCircle, EyeOff, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
 import ProductDetailModal from '../components/ProductDetailModal';
+import { cn } from '../lib/utils';
+import { openGeneralWhatsAppEnquiry } from '../utils/whatsappHelper';
 
 const CartPage: React.FC = () => {
   const { 
@@ -15,12 +17,15 @@ const CartPage: React.FC = () => {
     updateVariant, 
     cartTotal, 
     cartCount, 
-    clearCart 
+    clearCart,
+    isPriceHiddenGlobally,
+    hasHiddenPriceItems
   } = useCart();
   const { appContent, deliveryConfig } = useAppContext();
   const navigate = useNavigate();
   const [activeCartItemId, setActiveCartItemId] = useState<string | null>(null);
   const [showDeliveryBlockedModal, setShowDeliveryBlockedModal] = useState<boolean>(false);
+  const [showPriceBlockedModal, setShowPriceBlockedModal] = useState<boolean>(false);
 
   const isDeliveryActive = deliveryConfig?.isDeliveryActive !== false && appContent?.isDeliveryActive !== false;
 
@@ -32,6 +37,10 @@ const CartPage: React.FC = () => {
   };
 
   const handleProceedToCheckout = () => {
+    if (hasHiddenPriceItems) {
+      setShowPriceBlockedModal(true);
+      return;
+    }
     if (!isDeliveryActive) {
       setShowDeliveryBlockedModal(true);
       return;
@@ -101,6 +110,8 @@ const CartPage: React.FC = () => {
             <div className="lg:col-span-7 xl:col-span-8 space-y-3">
               {cartItems.map((item) => {
                 const itemTotal = item.price * item.quantity;
+                const isItemPriceHidden = isPriceHiddenGlobally || Boolean(item.product.hidePrice);
+
                 return (
                   <motion.div
                     key={item.id}
@@ -144,7 +155,7 @@ const CartPage: React.FC = () => {
                             >
                               {item.product.variants.map((v) => (
                                 <option key={v.id} value={v.id} className="font-semibold text-gray-700 bg-white">
-                                  मात्रा (Variant): {v.quantity} (₹{v.price})
+                                  मात्रा (Variant): {v.quantity}{!isItemPriceHidden ? ` (₹${v.price})` : ''}
                                 </option>
                               ))}
                             </select>
@@ -166,9 +177,15 @@ const CartPage: React.FC = () => {
                         </h4>
                         <p className="text-[10px] text-gray-400 mt-0.5 mb-1.5">{item.product.name}</p>
 
-                        {/* Pricing details nicely laid out */}
+                        {/* Pricing details */}
                         <div className="text-[11px] text-gray-500 font-medium">
-                          एक इकाई मूल्य (Per Unit): <span className="font-bold text-gray-700">₹{item.price}</span>
+                          {isItemPriceHidden ? (
+                            <span className="text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
+                              कीमत उपलब्ध नहीं
+                            </span>
+                          ) : (
+                            <>एक इकाई मूल्य (Per Unit): <span className="font-bold text-gray-700">₹{item.price}</span></>
+                          )}
                         </div>
                       </div>
 
@@ -203,12 +220,20 @@ const CartPage: React.FC = () => {
 
                         {/* Price and total labels */}
                         <div className="text-right flex flex-col justify-end">
-                          <span className="text-[10px] text-gray-400 font-semibold leading-none mb-1">
-                            कुल (₹{item.price} x {item.quantity})
-                          </span>
-                          <span className="text-base font-black text-[#2D5A27] leading-none">
-                            ₹{itemTotal}
-                          </span>
+                          {!isItemPriceHidden ? (
+                            <>
+                              <span className="text-[10px] text-gray-400 font-semibold leading-none mb-1">
+                                कुल (₹{item.price} x {item.quantity})
+                              </span>
+                              <span className="text-base font-black text-[#2D5A27] leading-none">
+                                ₹{itemTotal}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
+                              कीमत छिपी है
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -244,14 +269,16 @@ const CartPage: React.FC = () => {
               
               <div className="flex items-center justify-between text-xs text-gray-700 font-semibold border-t border-gray-200/60 pt-2">
                 <span>उत्पाद उप-योग</span>
-                <span className="font-bold text-gray-900">₹{cartTotal}</span>
+                <span className="font-bold text-gray-900">{hasHiddenPriceItems ? 'कीमत उपलब्ध नहीं' : `₹${cartTotal}`}</span>
               </div>
               
               <div className="flex items-center justify-between pt-2 border-t border-gray-300/60">
                 <span className="text-sm font-bold text-[#4A3728]">
                   कुल उत्पाद राशि
                 </span>
-                <span className="text-xl font-black text-[#2D5A27]">₹{cartTotal}</span>
+                <span className={cn("font-black", hasHiddenPriceItems ? "text-sm text-amber-700" : "text-xl text-[#2D5A27]")}>
+                  {hasHiddenPriceItems ? 'कीमत उपलब्ध नहीं (छिपी हुई)' : `₹${cartTotal}`}
+                </span>
               </div>
 
               <div className="text-[10px] text-gray-500 bg-white/70 p-2 rounded-xl border border-gray-200/50 mt-1 flex items-center gap-1.5">
@@ -262,8 +289,25 @@ const CartPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Price Hidden Notice if prices are hidden */}
+            {hasHiddenPriceItems && (
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3 shadow-sm">
+                <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0 text-amber-700 mt-0.5">
+                  <EyeOff className="w-5 h-5" />
+                </div>
+                <div className="text-xs space-y-1">
+                  <p className="font-black text-amber-900">
+                    उत्पादों की कीमतें वर्तमान में छिपी हुई हैं
+                  </p>
+                  <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
+                    कीमतें छिपी होने के कारण ऑनलाइन ऑर्डर व चेकआउट अस्थायी रूप से बंद है। किसी भी उत्पाद की कीमत जानने या सीधा ऑर्डर करने के लिए कृपया हमारे WhatsApp या फोन पर संपर्क करें।
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Delivery Suspended Warning if OFF */}
-            {!isDeliveryActive && (
+            {!isDeliveryActive && !hasHiddenPriceItems && (
               <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3 shadow-sm">
                 <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0 text-amber-700 mt-0.5">
                   <Truck className="w-5 h-5" />
@@ -284,13 +328,76 @@ const CartPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleProceedToCheckout}
-                className="w-full bg-[#2D5A27] hover:bg-[#2D5A27]/90 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-[#2D5A27]/20 active:scale-95 transition-all"
+                className={cn(
+                  "w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2.5 transition-all shadow-lg",
+                  hasHiddenPriceItems
+                    ? "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20 active:scale-95 cursor-pointer"
+                    : "bg-[#2D5A27] hover:bg-[#2D5A27]/90 text-white shadow-[#2D5A27]/20 active:scale-95 cursor-pointer"
+                )}
               >
-                <CreditCard className="w-5 h-5 text-[#EAB308]" />
-                सुरक्षित ऑनलाइन ऑर्डर करें
+                {hasHiddenPriceItems ? (
+                  <>
+                    <EyeOff className="w-5 h-5 text-amber-200" />
+                    कीमतें छिपी हैं (ऑर्डर के लिए संपर्क करें)
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-5 h-5 text-[#EAB308]" />
+                    सुरक्षित ऑनलाइन ऑर्डर करें
+                  </>
+                )}
               </button>
             </div>
             </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Price Hidden Modal Popup */}
+      <AnimatePresence>
+        {showPriceBlockedModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 15 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-gray-100 text-center space-y-4"
+            >
+              <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto text-amber-600 border border-amber-100/80 shadow-xs">
+                <EyeOff className="w-8 h-8" />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-base sm:text-lg font-black text-gray-800">
+                  ऑनलाइन चेकआउट उपलब्ध नहीं है
+                </h3>
+                <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-medium">
+                  आपके कार्ट में मौजूद उत्पादों की कीमतें वर्तमान में छिपी हुई हैं। इसलिए ऑनलाइन चेकआउट व भुगतान की सुविधा उपलब्ध नहीं है। कृपया WhatsApp या फोन पर संपर्क करके सीधे ऑर्डर करें।
+                </p>
+              </div>
+
+              <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPriceBlockedModal(false);
+                    openGeneralWhatsAppEnquiry('नमस्कार, मुझे आपके कार्ट उत्पादों की कीमत व ऑर्डर के संबंध में जानकारी चाहिए।');
+                  }}
+                  className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs sm:text-sm font-black shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  WhatsApp पर पूछें
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPriceBlockedModal(false)}
+                  className="py-3 px-5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl text-xs sm:text-sm font-bold active:scale-95 transition-all"
+                >
+                  बंद करें
+                </button>
+              </div>
+            </motion.div>
           </div>
         )}
       </AnimatePresence>

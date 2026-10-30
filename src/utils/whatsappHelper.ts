@@ -31,3 +31,11 @@ export const openProductWhatsAppEnquiry = (
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(details)}`;
   window.open(url, '_blank');
 };
+
+export const openGeneralWhatsAppEnquiry = (message?: string, whatsappNumber?: string) => {
+  const phone = getCleanWhatsAppNumber(whatsappNumber);
+  const text = message || 'नमस्ते फल्सावदिया कृषि बाजार, मुझे कृषि उत्पादों व ऑर्डर के संबंध में जानकारी चाहिए।';
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  window.open(url, '_blank');
+};
+

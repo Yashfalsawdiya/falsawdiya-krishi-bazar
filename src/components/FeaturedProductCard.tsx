@@ -5,6 +5,7 @@ import { Product, ImageSource } from '../types';
 import SmartImage from './SmartImage';
 import { cn } from '../lib/utils';
 import { openProductWhatsAppEnquiry } from '../utils/whatsappHelper';
+import { useAppContext } from '../context/AppContext';
 
 interface FeaturedProductCardProps {
   product: Product;
@@ -21,6 +22,8 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
   onBuy,
   index
 }) => {
+  const { appContent } = useAppContext();
+  const isPriceHidden = Boolean(appContent?.hideAllProductPrices || product.hidePrice);
   // Extract all available packaging variants dynamically from database
   const variants = useMemo(() => {
     if (product.variants && product.variants.length > 0) {
@@ -145,7 +148,7 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
                         ? "bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs scale-105 font-semibold"
                         : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
                     )}
-                    title={product.hidePrice ? variant.quantity : `${variant.quantity} - ₹${variant.price}`}
+                    title={isPriceHidden ? variant.quantity : `${variant.quantity} - ₹${variant.price}`}
                   >
                     {variant.quantity}
                   </button>
@@ -157,7 +160,7 @@ export const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({
 
         {/* Price & Action Area */}
         <div className="pt-2.5 mt-2 border-t border-gray-100">
-          {product.hidePrice ? (
+          {isPriceHidden ? (
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-lg border border-gray-200">
                 कीमत उपलब्ध नहीं
