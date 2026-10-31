@@ -152,6 +152,7 @@ service cloud.firestore {
              (!('offers' in data) || data.offers is map) &&
              (!('festivalOffer' in data) || data.festivalOffer is map) &&
              (!('hideAllProductPrices' in data) || data.hideAllProductPrices is bool) &&
+             (!('showTreatmentPlanInDiseaseReport' in data) || data.showTreatmentPlanInDiseaseReport is bool) &&
              (!('featureToggles' in data) || data.featureToggles is map);
     }
     

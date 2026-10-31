@@ -414,6 +414,26 @@ const Admin: React.FC = () => {
     }
   };
 
+  const [isTogglingTreatmentPlan, setIsTogglingTreatmentPlan] = useState(false);
+
+  const handleToggleTreatmentPlanVisibility = async (nextVal: boolean) => {
+    if (!contentForm) return;
+    setIsTogglingTreatmentPlan(true);
+    try {
+      const updated = {
+        ...contentForm,
+        showTreatmentPlanInDiseaseReport: nextVal
+      };
+      setContentForm(updated);
+      await updateAppContent(updated);
+    } catch (e) {
+      console.error("Failed to toggle treatment plan visibility:", e);
+      alert("उपचार योजना दृश्यता सेटिंग अपडेट करने में त्रुटि हुई।");
+    } finally {
+      setIsTogglingTreatmentPlan(false);
+    }
+  };
+
   const featuredProductsList = React.useMemo(() => {
     return products
       .filter(p => p.isFeatured)
@@ -2036,6 +2056,93 @@ const Admin: React.FC = () => {
                     />
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Treatment Plan Visibility Setting Card (Crop Doctor / Disease Report) */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-[#2D5A27]" />
+              Treatment Plan Visibility (बीमारी रिपोर्ट में उपचार योजना)
+            </h3>
+
+            <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+              <div className="flex items-start gap-3.5">
+                <div className={cn(
+                  "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm transition-colors",
+                  contentForm?.showTreatmentPlanInDiseaseReport !== false
+                    ? "bg-emerald-50 text-[#2D5A27] border border-emerald-200"
+                    : "bg-amber-50 text-amber-700 border border-amber-200"
+                )}>
+                  {contentForm?.showTreatmentPlanInDiseaseReport !== false ? (
+                    <FileText className="w-6 h-6 text-[#2D5A27]" />
+                  ) : (
+                    <EyeOff className="w-6 h-6 text-amber-700" />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="font-extrabold text-[#4A3728] text-base leading-tight">
+                      Show Treatment Plan in Disease Report
+                    </h4>
+                    {contentForm?.showTreatmentPlanInDiseaseReport !== false ? (
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1 shadow-2xs">
+                        <CheckCircle className="w-3 h-3 text-emerald-700" />
+                        Enabled: Treatment Plan दिखाई दे रहा है।
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1 shadow-2xs">
+                        <AlertCircle className="w-3 h-3 text-amber-700" />
+                        Disabled: Promotional Card दिखाई दे रहा है।
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-600 leading-relaxed font-medium">
+                    {contentForm?.showTreatmentPlanInDiseaseReport !== false ? (
+                      <span>
+                        <strong className="text-emerald-950 font-bold">चालू (ON):</strong> फसल रोग रिपोर्ट में सभी किसानों को अनुशंसित उपचार योजना (रासायनिक, जैविक नियंत्रण व डोज़) दिखाई दे रही है।
+                      </span>
+                    ) : (
+                      <span>
+                        <strong className="text-amber-950 font-bold">बंद (OFF):</strong> सामान्य किसानों से उपचार योजना छिपी है और उसकी जगह दुकान का प्रमोशनल कार्ड दिख रहा है। <span className="text-[#2D5A27] font-bold">Admin को हमेशा पूरा Treatment Plan ही दिखेगा।</span>
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Master Switch Toggle Button */}
+              <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-200/60">
+                <button
+                  type="button"
+                  disabled={isTogglingTreatmentPlan}
+                  onClick={() => handleToggleTreatmentPlanVisibility(contentForm?.showTreatmentPlanInDiseaseReport === false ? true : false)}
+                  className={cn(
+                    "relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none shadow-inner",
+                    contentForm?.showTreatmentPlanInDiseaseReport !== false ? "bg-[#2D5A27]" : "bg-gray-300 hover:bg-gray-400",
+                    isTogglingTreatmentPlan && "opacity-60 cursor-wait"
+                  )}
+                  title={contentForm?.showTreatmentPlanInDiseaseReport !== false ? "Treatment Plan छिपाएँ" : "Treatment Plan दिखाएँ"}
+                >
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block h-7 w-7 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out flex items-center justify-center text-xs font-bold",
+                      contentForm?.showTreatmentPlanInDiseaseReport !== false ? "translate-x-6 text-[#2D5A27]" : "translate-x-0 text-gray-400"
+                    )}
+                  >
+                    {isTogglingTreatmentPlan ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500" />
+                    ) : contentForm?.showTreatmentPlanInDiseaseReport !== false ? (
+                      <CheckCircle className="w-3.5 h-3.5 text-[#2D5A27]" />
+                    ) : (
+                      <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+                    )}
+                  </span>
+                </button>
+                <span className="text-[11px] font-bold text-gray-500">
+                  {contentForm?.showTreatmentPlanInDiseaseReport !== false ? 'सक्रिय (ON)' : 'निष्क्रिय (OFF)'}
+                </span>
               </div>
             </div>
           </div>

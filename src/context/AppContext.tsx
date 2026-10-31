@@ -99,6 +99,7 @@ export interface AppContent {
   isDeliveryChargesEnabled?: boolean;
   deliveryChargesAmount?: number;
   hideAllProductPrices?: boolean;
+  showTreatmentPlanInDiseaseReport?: boolean;
   footer?: FooterConfig;
   featureToggles?: Record<string, boolean>;
 }

@@ -20,10 +20,12 @@ import {
   Sparkles,
   FileText,
   Store,
-  BadgeCheck
+  BadgeCheck,
+  EyeOff
 } from 'lucide-react';
 import { DiseaseAnalysis } from '../services/gemini';
 import { parseDiseaseReport } from '../utils/diseaseReportParser';
+import { useAppContext } from '../context/AppContext';
 
 interface DiseaseReportViewProps {
   analysisResult: DiseaseAnalysis;
@@ -40,7 +42,11 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
   onReset,
   whatsappNumber = '919876543210'
 }) => {
+  const { isAdmin, appContent } = useAppContext();
   const [copied, setCopied] = useState(false);
+
+  // Admin always has treatment plan visibility; normal users follow global setting (default true)
+  const isTreatmentPlanVisible = isAdmin || (appContent?.showTreatmentPlanInDiseaseReport !== false);
 
   // Parse report into structured pointwise sections
   const report = parseDiseaseReport(analysisResult.analysis, {
@@ -56,14 +62,21 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
   });
 
   const handleCopyReport = () => {
+    let treatmentText = '';
+    if (isTreatmentPlanVisible) {
+      treatmentText = `💊 अनुशंसित रासायनिक उपचार:\n${report.chemicalControl.map((c, i) => `${i + 1}. ${c.medicineName}: ${c.dosagePump} ${c.dosageBigha ? `[शामगढ़ बीघा: ${c.dosageBigha}]` : ''} ${c.dosageAcre ? `[एकड़: ${c.dosageAcre}]` : ''}`).join('\n')}\n\n` +
+        (report.organicControl.length > 0 ? `🌿 जैविक उपचार:\n${report.organicControl.map((o, i) => `${i + 1}. ${o.methodName}: ${o.dosage}`).join('\n')}\n\n` : '');
+    } else {
+      treatmentText = `🏪 अनुशंसित कृषि समाधान:\nआपकी फसल में पहचानी गई समस्या (${report.diseaseName}) के प्रभावी प्रबंधन हेतु सही उत्पाद व उचित मार्गदर्शन के लिए फल्सावदिया कृषि बाजार शामगढ़ पर पधारें।\n\n`;
+    }
+
     const textToCopy = `📋 फसल रोग जाँच रिपोर्ट (${reportId || 'Falsawdiya Krishi'})\n` +
       `🌾 फसल: ${report.cropName}\n` +
       `⚠️ समस्या: ${report.problemType} - ${report.diseaseName}\n\n` +
       `🔍 प्रमुख लक्षण:\n${report.symptoms.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\n` +
-      `💊 अनुशंसित रासायनिक उपचार:\n${report.chemicalControl.map((c, i) => `${i + 1}. ${c.medicineName}: ${c.dosagePump} ${c.dosageBigha ? `[शामगढ़ बीघा: ${c.dosageBigha}]` : ''} ${c.dosageAcre ? `[एकड़: ${c.dosageAcre}]` : ''}`).join('\n')}\n\n` +
-      (report.organicControl.length > 0 ? `🌿 जैविक उपचार:\n${report.organicControl.map((o, i) => `${i + 1}. ${o.methodName}: ${o.dosage}`).join('\n')}\n\n` : '') +
+      treatmentText +
       `🛡️ बचाव एवं सावधानियां:\n${report.preventionTips.map((p, i) => `${i + 1}. ${p}`).join('\n')}\n\n` +
-      `📍 नोट: मात्रा की गणना शामगढ़ क्षेत्र के पक्का बीघा माप (1 बीघा = 27,225 वर्ग फीट, 1 एकड़ = 1.60 बीघा) के अनुसार की गई है।\n` +
+      (isTreatmentPlanVisible ? `📍 नोट: मात्रा की गणना शामगढ़ क्षेत्र के पक्का बीघा माप (1 बीघा = 27,225 वर्ग फीट, 1 एकड़ = 1.60 बीघा) के अनुसार की गई है।\n` : '') +
       `🏪 फल्सावदिया कृषि बाजार - डिम्पल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़ (458883)`;
 
     navigator.clipboard.writeText(textToCopy);
@@ -78,7 +91,10 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
     `• फसल: ${report.cropName}\n` +
     `• समस्या: ${report.problemType} (${report.diseaseName})\n\n` +
     `*जाँच में आए लक्षण:*\n${report.symptoms.slice(0, 3).map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\n` +
-    `*अनुशंसित दवाएं:*\n${report.chemicalControl.map((c, i) => `${i + 1}. ${c.medicineName} (${c.dosagePump})`).join('\n')}\n\n` +
+    (isTreatmentPlanVisible 
+      ? `*अनुशंसित दवाएं:*\n${report.chemicalControl.map((c, i) => `${i + 1}. ${c.medicineName} (${c.dosagePump})`).join('\n')}\n\n`
+      : `*कृषि मार्गदर्शन परामर्श:*\nमेरी फसल में ${report.diseaseName} की समस्या के लिए सही उत्पाद, असली ब्रांड व सटीक मार्गदर्शन प्रदान करें।\n\n`
+    ) +
     `कृपया मुझे सही दवा, असली ब्रांड व सटीक मात्रा के बारे में मार्गदर्शन करें।\nधन्यवाद!`
   );
 
@@ -261,21 +277,30 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
         </div>
       )}
 
-      {/* 4. SECTION 3: RECOMMENDED TREATMENT PLAN (उपचार योजना - POINTWISE) */}
-      <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-[#2D5A27] text-white flex items-center justify-center font-bold text-xs">
-              3
+      {/* 4. SECTION 3: RECOMMENDED TREATMENT PLAN (उपचार योजना) OR PROMOTIONAL GUIDANCE CARD */}
+      {isTreatmentPlanVisible ? (
+        <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-[#2D5A27] text-white flex items-center justify-center font-bold text-xs">
+                3
+              </div>
+              <h4 className="font-extrabold text-[#4A3728] text-sm tracking-wide">
+                अनुशंसित उपचार योजना (Treatment Plan)
+              </h4>
             </div>
-            <h4 className="font-extrabold text-[#4A3728] text-sm tracking-wide">
-              अनुशंसित उपचार योजना (Treatment Plan)
-            </h4>
+            <div className="flex items-center gap-2">
+              {appContent?.showTreatmentPlanInDiseaseReport === false && isAdmin && (
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1 shadow-2xs">
+                  <EyeOff className="w-3 h-3 text-amber-700" />
+                  एडमिन दृश्य (ग्राहकों के लिए बंद)
+                </span>
+              )}
+              <span className="text-[10px] font-bold text-[#2D5A27] bg-[#2D5A27]/10 px-2.5 py-0.5 rounded-full">
+                सटीक डोज़ सहित
+              </span>
+            </div>
           </div>
-          <span className="text-[10px] font-bold text-[#2D5A27] bg-[#2D5A27]/10 px-2.5 py-0.5 rounded-full">
-            सटीक डोज़ सहित
-          </span>
-        </div>
 
         {/* Local Shamgarh Land Measurement Notice */}
         <div className="bg-amber-50/70 p-3 rounded-2xl border border-amber-200/60 flex items-start gap-2.5 text-xs text-amber-900">
@@ -409,6 +434,86 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
           </div>
         )}
       </div>
+    ) : (
+        /* PROMOTIONAL GUIDANCE CARD WHEN TREATMENT PLAN IS DISABLED FOR USERS */
+        <div className="bg-gradient-to-br from-emerald-50/90 via-white to-amber-50/40 rounded-3xl p-5 sm:p-6 shadow-sm border border-emerald-200/80 space-y-4 relative overflow-hidden">
+          {/* Subtle decorative background circle */}
+          <div className="absolute top-0 right-0 w-36 h-36 bg-[#2D5A27]/5 rounded-bl-full pointer-events-none" />
+
+          {/* Card Header Row */}
+          <div className="flex items-center justify-between gap-2 border-b border-gray-100 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#2D5A27] text-white flex items-center justify-center shadow-xs shrink-0">
+                <Store className="w-4 h-4" />
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-[#2D5A27] text-white flex items-center justify-center font-black text-xs">
+                  3
+                </div>
+                <h4 className="font-extrabold text-[#4A3728] text-sm sm:text-base tracking-wide">
+                  अनुशंसित समाधान (Recommended Guidance)
+                </h4>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-200 shrink-0">
+              <BadgeCheck className="w-3 h-3 text-[#2D5A27]" /> 100% असली उत्पाद
+            </span>
+          </div>
+
+          {/* Dynamic Disease Highlight Chip */}
+          <div className="bg-amber-100/90 border border-amber-300/80 p-3 rounded-2xl flex items-center gap-2.5 shadow-2xs">
+            <Bug className="w-4 h-4 text-amber-800 shrink-0" />
+            <p className="text-xs sm:text-sm font-bold text-amber-950">
+              आपकी फसल में पहचानी गई समस्या: <span className="font-black text-[#854D0E] underline decoration-amber-500/50">{report.diseaseName || 'पहचानी गई बीमारी'}</span>
+            </p>
+          </div>
+
+          {/* Main Promotional Heading & Description */}
+          <div className="space-y-2">
+            <h5 className="font-extrabold text-[#2D5A27] text-sm sm:text-base leading-snug">
+              आपकी फसल के बेहतर स्वास्थ्य के लिए हम हैं आपके साथ!
+            </h5>
+            <p className="text-xs sm:text-sm text-gray-700 font-medium leading-relaxed">
+              आपकी फसल में पहचानी गई बीमारी के प्रभावी प्रबंधन के लिए आवश्यक गुणवत्तापूर्ण कृषि उत्पाद हमारे Falsawdiya Krishi Bazaar पर उपलब्ध हैं। अपनी फसल की आवश्यकता के अनुसार सही उत्पाद और कृषि मार्गदर्शन प्राप्त करने के लिए हमारी दुकान पर पधारें।
+            </p>
+          </div>
+
+          {/* Closing Guidance Message */}
+          <div className="bg-white/90 p-3.5 rounded-2xl border border-emerald-200/70 shadow-2xs">
+            <p className="text-xs text-gray-800 font-semibold leading-relaxed flex items-start gap-2">
+              <Sparkles className="w-4 h-4 text-[#2D5A27] shrink-0 mt-0.5" />
+              <span>
+                सही उत्पाद, उचित कृषि मार्गदर्शन और समय पर फसल सुरक्षा के साथ अपनी फसल को स्वस्थ रखें और बेहतर पैदावार की दिशा में आगे बढ़ें।
+              </span>
+            </p>
+          </div>
+
+          {/* Brand & Store Footer */}
+          <div className="pt-2 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-[#2D5A27]/10 text-[#2D5A27] flex items-center justify-center shrink-0">
+                <Store className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <p className="font-black text-[#4A3728] leading-tight">
+                  फल्सावदिया कृषि बाजार
+                </p>
+                <p className="text-[11px] text-gray-500 font-medium">
+                  किसान का भरोसा, हमारी पहचान।
+                </p>
+              </div>
+            </div>
+
+            <a
+              href="#store-advisory-section"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-[#2D5A27] hover:bg-[#23471e] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all shrink-0"
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              <span>दुकान का पता व समय देखें</span>
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* 5. SECTION 4: PREVENTION & PRECAUTIONS (बचाव एवं सावधानियां - POINTWISE CHECKLIST) */}
       {report.preventionTips.length > 0 && (
@@ -446,7 +551,7 @@ export const DiseaseReportView: React.FC<DiseaseReportViewProps> = ({
       )}
 
       {/* 6. STORE ADVISORY, TIMINGS & CONSULTATION BANNER */}
-      <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 space-y-4">
+      <div id="store-advisory-section" className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 space-y-4 scroll-mt-20">
         <div className="flex items-center justify-between gap-2 border-b border-gray-100 pb-3.5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#2D5A27]/10 text-[#2D5A27] flex items-center justify-center border border-[#2D5A27]/20 shrink-0">
