@@ -183,9 +183,9 @@ const DiseaseDetection: React.FC = () => {
     try {
       const fileList = Array.from(files).slice(0, MAX_PHOTOS);
       const compressedList = await compressMultipleImageFiles(fileList, {
-        maxWidth: 1024,
-        maxHeight: 1024,
-        quality: 0.82
+        maxWidth: 1280,
+        maxHeight: 1280,
+        quality: 0.85
       });
 
       if (compressedList.length > 0) {
@@ -223,9 +223,9 @@ const DiseaseDetection: React.FC = () => {
     try {
       const fileList = Array.from(files).slice(0, remainingSlots);
       const newCompressedList = await compressMultipleImageFiles(fileList, {
-        maxWidth: 1024,
-        maxHeight: 1024,
-        quality: 0.82
+        maxWidth: 1280,
+        maxHeight: 1280,
+        quality: 0.85
       });
 
       if (newCompressedList.length > 0) {
