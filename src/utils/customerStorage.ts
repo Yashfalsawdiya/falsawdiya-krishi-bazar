@@ -6,6 +6,7 @@ export interface CustomerDetails {
   email?: string;
   addressHouse: string;
   addressCity: string;
+  addressTehsil?: string;
   addressDistrict: string;
   addressState: string;
   addressPincode: string;
@@ -27,6 +28,7 @@ export const getCustomerDetails = (): CustomerDetails => {
     phone: '',
     addressHouse: '',
     addressCity: '',
+    addressTehsil: '',
     addressDistrict: '',
     addressState: '',
     addressPincode: '',

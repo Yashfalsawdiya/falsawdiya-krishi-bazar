@@ -220,15 +220,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const mergeDeliveryConfig = (saved?: Partial<DynamicDeliveryConfig> | null): DynamicDeliveryConfig => {
     if (!saved) return DEFAULT_DELIVERY_CONFIG;
+    const mergedVillages = (Array.isArray(saved.villageDirectory) && saved.villageDirectory.length > 0)
+      ? saved.villageDirectory
+      : DEFAULT_DELIVERY_CONFIG.villageDirectory;
+
+    const effectiveTehsils = (Array.isArray(saved.activeTehsils) && saved.activeTehsils.length > 0)
+      ? saved.activeTehsils
+      : Array.from(new Set(mergedVillages.map(v => v.tehsil).filter(Boolean)));
+
     return {
       ...DEFAULT_DELIVERY_CONFIG,
       ...saved,
+      activeTehsils: effectiveTehsils.length > 0 ? effectiveTehsils : DEFAULT_DELIVERY_CONFIG.activeTehsils,
       storeOrigin: { ...DEFAULT_DELIVERY_CONFIG.storeOrigin, ...(saved.storeOrigin || {}) },
       vehicles: (saved.vehicles && saved.vehicles.length > 0) ? saved.vehicles : DEFAULT_DELIVERY_CONFIG.vehicles,
       weightSlabs: (saved.weightSlabs && saved.weightSlabs.length > 0) ? saved.weightSlabs : DEFAULT_DELIVERY_CONFIG.weightSlabs,
       distanceSlabs: (saved.distanceSlabs && saved.distanceSlabs.length > 0) ? saved.distanceSlabs : DEFAULT_DELIVERY_CONFIG.distanceSlabs,
       rateMatrix: { ...DEFAULT_DELIVERY_CONFIG.rateMatrix, ...(saved.rateMatrix || {}) },
       pincodeDistances: { ...DEFAULT_DELIVERY_CONFIG.pincodeDistances, ...(saved.pincodeDistances || {}) },
+      villageDirectory: mergedVillages,
     };
   };
 

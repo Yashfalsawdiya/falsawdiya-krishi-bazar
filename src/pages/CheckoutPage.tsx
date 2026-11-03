@@ -6,8 +6,8 @@ import {
   ArrowLeft, ShieldCheck, Truck, CheckCircle2, 
   MapPin, Phone, User, AlertCircle, ShoppingBag, 
   CreditCard, Loader2, Sparkles, MessageSquare, Info, RefreshCw,
-  Scale, Navigation, Zap, LocateFixed, ChevronDown, ChevronUp, PackageCheck,
-  Check, Lightbulb, EyeOff
+  Scale, Navigation, Zap, PackageCheck, ChevronDown, ChevronUp,
+  Check, Lightbulb, EyeOff, Home, Building2, Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
@@ -24,11 +24,6 @@ import {
   STORE_ORIGIN,
   DistanceDetectionResult
 } from '../utils/deliveryCalculator';
-import { 
-  requestHighAccuracyGps, 
-  fetchDrivingRoadDistance, 
-  UserCoordsWithAccuracy 
-} from '../services/deliveryDistanceService';
 import { VehicleIcon } from '../components/common/VehicleIcon';
 
 const CheckoutPage: React.FC = () => {
@@ -40,16 +35,13 @@ const CheckoutPage: React.FC = () => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [addressHouse, setAddressHouse] = useState('');
+  const [addressTehsil, setAddressTehsil] = useState('शामगढ़');
   const [addressCity, setAddressCity] = useState('');
-  const [addressDistrict, setAddressDistrict] = useState('');
+  const [addressDistrict, setAddressDistrict] = useState('मंदसौर');
   const [addressState, setAddressState] = useState('मध्यप्रदेश');
-  const [addressPincode, setAddressPincode] = useState('');
+  const [addressPincode, setAddressPincode] = useState('458883');
   const [customerEmail, setCustomerEmail] = useState('');
-
-  // Location & Distance state
-  const [userCoords, setUserCoords] = useState<UserCoordsWithAccuracy | null>(null);
-  const [isDetectingGps, setIsDetectingGps] = useState(false);
-  const [gpsError, setGpsError] = useState<string | null>(null);
+  // Distance state
   const [distanceInfo, setDistanceInfo] = useState<DistanceDetectionResult | null>(null);
   const [showWeightBreakdown, setShowWeightBreakdown] = useState(false);
 
@@ -71,13 +63,14 @@ const CheckoutPage: React.FC = () => {
   const isAddressSufficient = useMemo(() => {
     const cleanPin = (addressPincode || '').trim().replace(/\D/g, '');
     const hasCity = (addressCity || '').trim().length >= 2;
+    const hasTehsil = (addressTehsil || '').trim().length >= 2;
     const hasStreet = (addressHouse || '').trim().length >= 2;
     const hasDistrict = (addressDistrict || '').trim().length >= 2;
     const hasName = (name || '').trim().length >= 2;
     const hasPhone = (phone || '').trim().replace(/\D/g, '').length >= 10;
     
-    return cleanPin.length === 6 && (hasCity || hasDistrict || hasStreet) && (hasName || hasPhone);
-  }, [addressPincode, addressCity, addressDistrict, addressHouse, name, phone]);
+    return cleanPin.length === 6 && (hasCity || hasStreet) && hasTehsil && (hasName || hasPhone);
+  }, [addressPincode, addressCity, addressTehsil, addressDistrict, addressHouse, name, phone]);
 
   // AI Smart Product Weights Breakdown
   const itemsWeightBreakdown = useMemo(() => {
@@ -95,89 +88,53 @@ const CheckoutPage: React.FC = () => {
     return calculateCartWeight(cartItems);
   }, [cartItems]);
 
-  // Recalculate Distance strictly via System Detection (Address, Pincode, GPS, Geocoding)
+  // Recalculate Distance strictly via System Detection (Address, Tehsil, Village, Pincode)
   const runDistanceDetection = useCallback(() => {
     const result = detectDeliveryDistance({
       pincode: addressPincode,
       city: addressCity,
+      tehsil: addressTehsil,
       district: addressDistrict,
       state: addressState,
       street: addressHouse,
-      coords: userCoords ? { lat: userCoords.lat, lng: userCoords.lng } : null,
     }, deliveryConfig);
 
     setDistanceInfo(result);
-  }, [addressPincode, addressCity, addressDistrict, addressState, addressHouse, userCoords, deliveryConfig]);
+  }, [addressPincode, addressCity, addressTehsil, addressDistrict, addressState, addressHouse, deliveryConfig]);
 
   // Trigger system detection whenever address inputs change
   useEffect(() => {
     runDistanceDetection();
-  }, [addressPincode, addressCity, addressDistrict, addressHouse, addressState, userCoords, runDistanceDetection]);
+  }, [addressPincode, addressCity, addressTehsil, addressDistrict, addressHouse, addressState, runDistanceDetection]);
 
   // Dynamic Delivery Calculations (Vehicle + System Distance + Weight)
   const deliveryQuote = useMemo(() => {
-    if (!distanceInfo?.isValidLocation || distanceKm <= 0) {
+    const isCourierType = distanceInfo?.deliveryType === 'courier';
+    const effectiveDist = isCourierType ? Math.max(1, distanceKm || 20) : distanceKm;
+
+    if (!distanceInfo?.isValidLocation || (!isCourierType && distanceKm <= 0)) {
       return calculateDynamicDeliveryCharge(
         totalCartWeightKg,
         0,
         deliveryConfig,
-        cartTotal
+        cartTotal,
+        distanceInfo?.deliveryType
       );
     }
 
     return calculateDynamicDeliveryCharge(
       totalCartWeightKg,
-      distanceKm,
+      effectiveDist,
       deliveryConfig,
-      cartTotal
+      cartTotal,
+      distanceInfo?.deliveryType
     );
   }, [totalCartWeightKg, distanceKm, distanceInfo, deliveryConfig, cartTotal]);
 
-  const isLocationValid = Boolean(distanceInfo?.isValidLocation && distanceKm > 0);
+  const isLocationValid = Boolean(distanceInfo?.isValidLocation && !distanceInfo?.isDeliveryDisabled && (distanceInfo?.deliveryType === 'courier' || distanceKm > 0));
   const finalDeliveryCharges = isLocationValid ? deliveryQuote.finalDeliveryCharge : 0;
   const finalPayableTotal = isLocationValid ? (cartTotal + finalDeliveryCharges) : cartTotal;
   const whatsappNumber = appContent?.contactInfo?.whatsapp || '918982338046';
-
-  // High-Accuracy Geolocation Trigger with Live Road Route Calculation
-  const handleDetectGpsLocation = async () => {
-    setIsDetectingGps(true);
-    setGpsError(null);
-
-    try {
-      const { coords } = await requestHighAccuracyGps();
-      setUserCoords(coords);
-
-      // Immediately query real road driving distance from Store Origin
-      const originLat = deliveryConfig?.storeOrigin?.latitude || STORE_ORIGIN.lat;
-      const originLng = deliveryConfig?.storeOrigin?.longitude || STORE_ORIGIN.lng;
-      
-      const routeRes = await fetchDrivingRoadDistance(originLat, originLng, coords.lat, coords.lng);
-      const calculatedKm = routeRes?.distanceKm || detectDeliveryDistance({ coords }, deliveryConfig).distanceKm;
-
-      setDistanceInfo({
-        distanceKm: calculatedKm,
-        formattedDistance: `लगभग ${calculatedKm} km`,
-        isValidLocation: true,
-        confidence: 'exact',
-        locationLabel: `GPS वास्तविक लोकेशन (सड़क मार्ग दूरी: लगभग ${calculatedKm} km, सटीकता ±${coords.accuracy || 10}m)`,
-        source: 'gps',
-        isLocal: calculatedKm <= 10,
-        accuracyMeters: coords.accuracy,
-      });
-
-      // Auto-fill Shamgarh if within local zone
-      if (calculatedKm <= 5 && (!addressCity || !addressDistrict)) {
-        if (!addressCity) setAddressCity('शामगढ़');
-        if (!addressDistrict) setAddressDistrict('मंदसौर');
-        if (!addressPincode) setAddressPincode('458883');
-      }
-    } catch (err: any) {
-      console.warn('High accuracy GPS error:', err);
-      setGpsError(err.message || 'आपकी सटीक Location नहीं मिल पाई। कृपया GPS/Location चालू करें और पुनः प्रयास करें।');
-    } finally {
-      setIsDetectingGps(false);
-    }
-  };
 
   // Load gateway config from server
   useEffect(() => {
@@ -193,6 +150,7 @@ const CheckoutPage: React.FC = () => {
     if (details.name) setName(details.name);
     if (details.phone) setPhone(details.phone);
     if (details.addressHouse) setAddressHouse(details.addressHouse);
+    if (details.addressTehsil) setAddressTehsil(details.addressTehsil);
     if (details.addressCity) setAddressCity(details.addressCity);
     if (details.addressDistrict) setAddressDistrict(details.addressDistrict);
     if (details.addressState) setAddressState(details.addressState);
@@ -309,8 +267,8 @@ const CheckoutPage: React.FC = () => {
       return false;
     }
 
-    if (!name.trim() || !phone.trim() || !addressHouse.trim() || !addressCity.trim() || !addressDistrict.trim() || !addressState.trim() || !addressPincode.trim()) {
-      setErrorMsg('कृपया सभी डिलीवरी फ़ील्ड (नाम, फोन, पता, गांव, जिला, राज्य, पिनकोड) भरें।');
+    if (!name.trim() || !phone.trim() || !addressHouse.trim() || !addressCity.trim() || !addressTehsil.trim() || !addressDistrict.trim() || !addressState.trim() || !addressPincode.trim()) {
+      setErrorMsg('कृपया सभी डिलीवरी फ़ील्ड (नाम, फोन, पता, तहसील, गांव/शहर, जिला, राज्य, पिनकोड) भरें।');
       return false;
     }
 
@@ -326,8 +284,13 @@ const CheckoutPage: React.FC = () => {
       return false;
     }
 
+    if (distanceInfo?.isDeliveryDisabled) {
+      setErrorMsg(distanceInfo.disabledReason || 'आपके द्वारा चुने गए गांव के लिए वर्तमान में होम डिलीवरी सेवा बंद है।');
+      return false;
+    }
+
     if (!isLocationValid || distanceKm <= 0) {
-      setErrorMsg(distanceInfo?.errorMessage || 'डिलीवरी दूरी निर्धारित नहीं हो सकी। कृपया मान्य 6-अंकीय पिनकोड दर्ज करें या GPS लोकेशन अनुमति दें।');
+      setErrorMsg(distanceInfo?.errorMessage || 'डिलीवरी दूरी निर्धारित नहीं हो सकी। कृपया मान्य 6-अंकीय पिनकोड और गांव/तहसील दर्ज करें।');
       return false;
     }
 
@@ -347,6 +310,7 @@ const CheckoutPage: React.FC = () => {
       phone: cleanPhone,
       email: customerEmail?.trim() || user?.email?.trim() || undefined,
       addressHouse: addressHouse.trim(),
+      addressTehsil: addressTehsil.trim(),
       addressCity: addressCity.trim(),
       addressDistrict: addressDistrict.trim(),
       addressState: addressState.trim(),
@@ -541,36 +505,58 @@ const CheckoutPage: React.FC = () => {
                 </div>
               </div>
 
-            {/* House / Street / Landmark */}
+            {/* House / Street / Mohalla / Landmark */}
             <div>
               <label className="block text-[11px] font-bold text-gray-600 mb-1">
-                मकान / खेत का पता / गली *
+                मकान नं. / गली / मोहल्ला / मुख्य लैंडमार्क *
               </label>
               <input
                 type="text"
                 required
-                placeholder="उदा: मकान नं. 01, प्राथमिक विद्यालय के पास"
+                placeholder="उदा: मकान नं. 01, खाती मोहल्ला, प्राथमिक विद्यालय के पास"
                 value={addressHouse}
                 onChange={(e) => setAddressHouse(e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
               />
             </div>
 
-            {/* Village / City & District */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Tehsil & Village / City */}
+            {/* Tehsil & Village / City - Direct Typed Text Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Tehsil Text Input */}
               <div>
                 <label className="block text-[11px] font-bold text-gray-600 mb-1">
-                  गांव / शहर *
+                  तहसील (Tehsil) *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="उदा: शामगढ़ / गरोठ / सुवासरा"
-                  value={addressCity}
-                  onChange={(e) => setAddressCity(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
+                  placeholder="उदा: शामगढ़, गरोठ, सुवासरा..."
+                  value={addressTehsil}
+                  onChange={(e) => setAddressTehsil(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800 font-bold"
                 />
               </div>
+
+              {/* Village / Town Text Input */}
+              <div>
+                <label className="block text-[11px] font-bold text-gray-600 mb-1 flex items-center justify-between">
+                  <span>गांव / शहर (Village / Town) *</span>
+                  <span className="text-[9px] text-gray-400">हिंदी या English</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="उदा: तकरावद, छान, शामगढ़..."
+                  value={addressCity}
+                  onChange={(e) => setAddressCity(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800 font-bold"
+                />
+              </div>
+            </div>
+
+            {/* District, State & Pincode */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div>
                 <label className="block text-[11px] font-bold text-gray-600 mb-1">
                   जिला *
@@ -584,10 +570,7 @@ const CheckoutPage: React.FC = () => {
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
                 />
               </div>
-            </div>
 
-            {/* State & Pincode */}
-            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-[11px] font-bold text-gray-600 mb-1">
                   राज्य *
@@ -601,6 +584,7 @@ const CheckoutPage: React.FC = () => {
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800"
                 />
               </div>
+
               <div>
                 <label className="block text-[11px] font-bold text-gray-600 mb-1">
                   पिन कोड *
@@ -617,33 +601,28 @@ const CheckoutPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Live GPS Auto-detect Button */}
-            <div className="pt-1 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={handleDetectGpsLocation}
-                disabled={isDetectingGps}
-                className="text-[11px] text-[#2D5A27] font-bold bg-[#2D5A27]/8 hover:bg-[#2D5A27]/15 py-1.5 px-3 rounded-xl inline-flex items-center gap-1.5 transition-colors active:scale-95"
-              >
-                {isDetectingGps ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <LocateFixed className="w-3.5 h-3.5 text-[#2D5A27]" />
-                )}
-                <span>वर्तमान GPS लोकेशन से सटीक दूरी निकालें</span>
-              </button>
-
-              {userCoords && (
-                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                  <Check className="w-3 h-3 text-emerald-600" /> GPS सक्रिय
-                </span>
-              )}
+            {/* Delivery Policy Notice (Home & Shop Delivery Only) */}
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/90 rounded-2xl p-3.5 space-y-1.5 shadow-2xs">
+              <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                <Home className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>केवल पक्के मकान व दुकान पर होम डिलीवरी उपलब्ध</span>
+              </div>
+              <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
+                हमारे डिलीवरी वाहन केवल गांव या शहर के मुख्य मार्ग, पक्के मकान अथवा दुकान के पते तक ही सामान पहुंचाते हैं। खेतों, कुओं, ट्यूबवेल या कच्चे पगडंडी मार्गों पर डिलीवरी उपलब्ध नहीं है। कृपया अपने पक्के घर या दुकान का ही सही पता दर्ज करें ताकि डिलीवरी वाहन आसानी से आपके दरवाजे तक पहुंच सके।
+              </p>
             </div>
 
-            {gpsError && (
-              <p className="text-[10px] text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
-                {gpsError}
-              </p>
+            {/* Delivery Disabled Alert if village is marked inactive */}
+            {distanceInfo?.isDeliveryDisabled && (
+              <div className="bg-red-50 border-2 border-red-200 p-3.5 rounded-2xl space-y-1 text-red-900">
+                <div className="flex items-center gap-2 text-xs font-bold text-red-700">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>होम डिलीवरी सेवा उपलब्ध नहीं है</span>
+                </div>
+                <p className="text-[11px] text-red-800 font-medium leading-relaxed">
+                  {distanceInfo.disabledReason || 'आपके द्वारा चुने गए गांव के लिए वर्तमान में होम डिलीवरी सेवा बंद है। कृपया नजदीकी मुख्य कस्बा चुनें या WhatsApp पर संपर्क करें।'}
+                </p>
+              </div>
             )}
           </div>
         </div>
@@ -685,7 +664,7 @@ const CheckoutPage: React.FC = () => {
                     </span>
                   </div>
                   <span className="text-[10px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-100">
-                    {distanceInfo?.source === 'gps' ? 'GPS सड़क मार्ग' : distanceInfo?.source === 'town_match' ? 'सटीक क्षेत्रीय दूरी' : 'पिनकोड मैट्रिक्स'}
+                    {distanceInfo?.source === 'village_directory' ? 'स्थानीय ग्राम मैपिंग (LGD/OSM)' : distanceInfo?.source === 'town_match' ? 'सटीक क्षेत्रीय दूरी' : 'पिनकोड मैट्रिक्स'}
                   </span>
                 </div>
               </div>
@@ -811,11 +790,11 @@ const CheckoutPage: React.FC = () => {
               <div className="flex items-center gap-2 font-bold text-red-800">
                 <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
                 <span>
-                  डिलीवरी दूरी निर्धारित नहीं हो सकी
+                  {distanceInfo?.isDeliveryDisabled ? 'डिलीवरी सेवा अनुपलब्ध' : 'डिलीवरी दूरी निर्धारित नहीं हो सकी'}
                 </span>
               </div>
-              <p className="text-[11px] text-red-700 leading-relaxed">
-                {distanceInfo?.errorMessage || 'दर्ज किए गए पते या पिनकोड से सटीक लोकेशन नहीं मिल पाई है। गलत डिलीवरी शुल्क से बचने के लिए कृपया मान्य 6-अंकीय पिनकोड और पूरा पता दर्ज करें या ऊपर दिए गए GPS बटन को दबाएं।'}
+              <p className="text-[11px] text-red-700 leading-relaxed font-medium">
+                {distanceInfo?.disabledReason || distanceInfo?.errorMessage || 'दर्ज किए गए पते या पिनकोड से सटीक लोकेशन नहीं मिल पाई है। गलत डिलीवरी शुल्क से बचने के लिए कृपया मान्य 6-अंकीय पिनकोड और पूरा पता दर्ज करें या ऊपर दिए गए GPS बटन को दबाएं।'}
               </p>
             </div>
           )

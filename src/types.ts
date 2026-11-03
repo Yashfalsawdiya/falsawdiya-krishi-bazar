@@ -192,6 +192,7 @@ export interface Order {
     email?: string;
     addressHouse: string;
     addressCity: string;
+    addressTehsil?: string;
     addressDistrict: string;
     addressState: string;
     addressPincode: string;
@@ -666,9 +667,35 @@ export interface StoreOriginLocation {
   longitude?: number;
 }
 
+export interface VillageDeliveryEntry {
+  id: string;
+  nameHi: string;
+  nameEn: string;
+  tehsil: string;
+  district: string;
+  pincode: string;
+  distanceKm: number;
+  isActive: boolean;
+  isCustom?: boolean;
+}
+
+export interface CourierDeliveryRates {
+  isEnabled: boolean;
+  baseWeightKg: number;
+  baseCharge: number;
+  perKgAdditionalCharge: number;
+  freeDeliveryThreshold?: number;
+  defaultPartnerName?: string;
+}
+
+export type DeliveryOperationalMode = 'local_only' | 'courier_only' | 'hybrid';
+
 export interface DynamicDeliveryConfig {
   isEnabled: boolean; // whether dynamic delivery mode is active
   isDeliveryActive: boolean; // whether store delivery is accepted
+  deliveryMode?: DeliveryOperationalMode; // 'local_only' | 'courier_only' | 'hybrid' (default)
+  activeTehsils?: string[]; // list of active local tehsils (e.g. ['शामगढ़', 'गरोठ', 'सुवासरा', ...])
+  courierRates?: CourierDeliveryRates; // postal / courier delivery rates
   defaultFixedCharge: number; // fallback fixed fee if dynamic is toggled off
   enableFreeDelivery: boolean;
   freeDeliveryThreshold: number; // Free delivery above this cart amount
@@ -678,6 +705,7 @@ export interface DynamicDeliveryConfig {
   distanceSlabs: DistanceSlab[];
   rateMatrix: DeliveryRateMatrix;
   pincodeDistances?: { [pincode: string]: number };
+  villageDirectory?: VillageDeliveryEntry[];
   lastUpdated: number;
 }
 
@@ -696,6 +724,10 @@ export interface CalculatedDeliveryQuote {
   isFreeDelivery: boolean;
   breakdownText: string;
   calculationNote?: string;
+  deliveryType?: 'local' | 'courier';
+  courierPartnerName?: string;
+  isServiceable?: boolean;
+  unserviceableReason?: string;
 }
 
 export interface OrderDeliverySnapshot {
@@ -715,6 +747,8 @@ export interface OrderDeliverySnapshot {
   isManuallyOverridden?: boolean;
   overrideReason?: string;
   calculatedAt: number;
+  deliveryType?: 'local' | 'courier';
+  courierPartnerName?: string;
 }
 
 // ==========================================
