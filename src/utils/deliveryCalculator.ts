@@ -372,6 +372,22 @@ export const detectDeliveryDistance = (
   const stateStr = (address.state || '').toLowerCase().trim();
   const fullLoc = `${streetStr} ${cityStr} ${tehsilStr} ${distStr} ${stateStr}`.trim();
 
+  // If Village / Town is not yet filled, do not mark as disabled or calculate prematurely
+  if (!cityStr || cityStr.length < 2) {
+    return {
+      distanceKm: 0,
+      formattedDistance: '0 km',
+      isValidLocation: false,
+      confidence: 'invalid',
+      locationLabel: 'गांव / शहर दर्ज करें',
+      source: 'village_directory',
+      isLocal: false,
+      isDeliveryDisabled: false,
+      errorMessage: 'कृपया अपना गांव या शहर दर्ज करें',
+      deliveryType: 'local',
+    };
+  }
+
   // If Delivery Mode is Courier Only, all valid locations route to Courier
   if (deliveryMode === 'courier_only') {
     if (isSixDigitPin || fullLoc.length >= 4) {

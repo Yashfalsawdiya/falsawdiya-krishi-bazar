@@ -907,6 +907,218 @@ export const getVillagesByTehsil = (
 };
 
 /**
+ * Normalizes text for farmer-friendly phonetic and matra tolerance (Hindi + English)
+ * Handles:
+ * - Vowels & Matras: अ/आ, इ/ई (ि/ी), उ/ऊ (ु/ू), ए/ऐ (े/ै), ओ/औ (ो/ौ)
+ * - Anusvara/Chandrabindu: ं/ँ
+ * - Consonants: श/ष/स -> s, ब/व -> v, ड/ड़ -> d, ण/न -> n, etc.
+ * - English transliterations: aa/a, ee/i/y, oo/u, sh/s, w/v/b, th/t, etc.
+ */
+export const normalizeFarmerHindi = (str: string = ''): string => {
+  let s = str.toLowerCase().trim();
+  if (!s) return '';
+
+  // 1. Normalize Hindi matras and nasal marks
+  s = s
+    .replace(/[ँं]/g, '') // strip chandrabindu & anusvara
+    .replace(/़/g, '') // strip nukta
+    .replace(/[\u093e]/g, '') // strip aa ki matra (ा)
+    .replace(/[\u093f\u0940]/g, 'i') // इ/ई matra
+    .replace(/[\u0941\u0942]/g, 'u') // उ/ऊ matra
+    .replace(/[\u0947\u0948]/g, 'e') // ए/ऐ matra
+    .replace(/[\u094b\u094c]/g, 'o') // ओ/औ matra
+    .replace(/[\u0905\u0906]/g, 'a') // अ/आ
+    .replace(/[\u0907\u0908]/g, 'i') // इ/ई
+    .replace(/[\u0909\u090a]/g, 'u') // उ/ऊ
+    .replace(/[\u090f\u0910]/g, 'e') // ए/ऐ
+    .replace(/[\u0913\u0914]/g, 'o') // ओ/औ
+    .replace(/[\u0936\u0937\u0938]/g, 's') // श, ष, स -> s
+    .replace(/[\u092c\u0935]/g, 'v') // ब, व -> v
+    .replace(/[\u0921\u095c]/g, 'd') // ड, ड़ -> d
+    .replace(/[\u0923\u0928]/g, 'n') // ण, न -> n
+    .replace(/[\u0924\u091f]/g, 't') // त, ट -> t
+    .replace(/[\u0925\u0920]/g, 'th') // थ, ठ -> th
+    .replace(/[\u0926\u0921]/g, 'd') // द, ड -> d
+    .replace(/[\u0927\u0922]/g, 'dh') // ध, ढ -> dh
+    .replace(/[\u0915\u0916]/g, 'k') // क, ख -> k
+    .replace(/[\u0917\u0918]/g, 'g') // ग, घ -> g
+    .replace(/[\u091a\u091b]/g, 'c') // च, छ -> c
+    .replace(/[\u091c\u091d]/g, 'j') // ज, झ -> j
+    .replace(/[\u092a\u092b]/g, 'p') // प, फ -> p
+    .replace(/[\u092e]/g, 'm') // म -> m
+    .replace(/[\u092f]/g, 'y') // य -> y
+    .replace(/[\u0930]/g, 'r') // र -> r
+    .replace(/[\u0932]/g, 'l') // ल -> l
+    .replace(/[\u0939]/g, 'h') // ह -> h
+    .replace(/[\u094d]/g, ''); // halant
+
+  // 2. Normalize English phonetics
+  s = s
+    .replace(/sh/g, 's')
+    .replace(/aa/g, 'a')
+    .replace(/ee/g, 'i')
+    .replace(/oo/g, 'u')
+    .replace(/ou/g, 'u')
+    .replace(/w/g, 'v')
+    .replace(/b/g, 'v')
+    .replace(/th/g, 't')
+    .replace(/dh/g, 'd')
+    .replace(/kh/g, 'k')
+    .replace(/gh/g, 'g')
+    .replace(/jh/g, 'j')
+    .replace(/ch/g, 'c')
+    .replace(/ph/g, 'f')
+    .replace(/y/g, 'i')
+    .replace(/[^a-z0-9]/g, '');
+
+  return s;
+};
+
+/**
+ * Standard Levenshtein edit distance calculation
+ */
+export const levenshteinDistance = (a: string, b: string): number => {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const d: number[][] = [];
+  for (let i = 0; i <= m; i++) d[i] = [i];
+  for (let j = 0; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(
+        d[i - 1][j] + 1,
+        d[i][j - 1] + 1,
+        d[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return d[m][n];
+};
+
+/**
+ * Calculates a fuzzy match score (0-100+) between user query and a village
+ */
+export const calculateVillageSimilarityScore = (
+  query: string,
+  village: VillageDeliveryEntry,
+  tehsilHint?: string
+): number => {
+  const qClean = normalizeLocationText(query);
+  const qPhonetic = normalizeFarmerHindi(query);
+  if (!qClean && !qPhonetic) return 0;
+
+  const vHiClean = normalizeLocationText(village.nameHi);
+  const vEnClean = normalizeLocationText(village.nameEn);
+  const vHiPhonetic = normalizeFarmerHindi(village.nameHi);
+  const vEnPhonetic = normalizeFarmerHindi(village.nameEn);
+
+  let score = 0;
+
+  // Tehsil alignment bonus
+  let tehsilBonus = 0;
+  if (tehsilHint) {
+    const tClean = normalizeLocationText(tehsilHint);
+    const vTehsilClean = normalizeLocationText(village.tehsil);
+    if (vTehsilClean.includes(tClean) || tClean.includes(vTehsilClean)) {
+      tehsilBonus = 20;
+    }
+  }
+
+  // 1. Exact matches
+  if (vHiClean === qClean || vEnClean === qClean) return 100 + tehsilBonus;
+  if (vHiPhonetic === qPhonetic || vEnPhonetic === qPhonetic) return 95 + tehsilBonus;
+
+  // 2. Starts with / prefix
+  if (vHiClean.startsWith(qClean) || vEnClean.startsWith(qClean)) return 85 + tehsilBonus;
+  if (vHiPhonetic.startsWith(qPhonetic) || vEnPhonetic.startsWith(qPhonetic)) return 80 + tehsilBonus;
+
+  // 3. Includes substring
+  if (vHiClean.includes(qClean) || vEnClean.includes(qClean)) return 70 + tehsilBonus;
+  if (vHiPhonetic.includes(qPhonetic) || vEnPhonetic.includes(qPhonetic)) return 65 + tehsilBonus;
+
+  // Reverse includes (if query has extra words like "आंकली दीवान गांव" or "village aankali")
+  if (qClean.includes(vHiClean) || qClean.includes(vEnClean)) return 75 + tehsilBonus;
+  if (qPhonetic.includes(vHiPhonetic) || qPhonetic.includes(vEnPhonetic)) return 70 + tehsilBonus;
+
+  // 4. Levenshtein edit distance on phonetic representations
+  if (qPhonetic.length >= 3 && vHiPhonetic.length >= 3) {
+    const dist = Math.min(
+      levenshteinDistance(qPhonetic, vHiPhonetic),
+      levenshteinDistance(qPhonetic, vEnPhonetic)
+    );
+    const maxLen = Math.max(qPhonetic.length, Math.min(vHiPhonetic.length, vEnPhonetic.length));
+    const similarity = (maxLen - dist) / maxLen;
+    if (similarity >= 0.55) {
+      score = Math.max(score, similarity * 60 + tehsilBonus);
+    }
+  }
+
+  return score;
+};
+
+/**
+ * Returns intelligent suggestions for auto-complete dropdown
+ */
+export const getIntelligentVillageSuggestions = (
+  queryText: string,
+  tehsilHint?: string,
+  allVillages?: VillageDeliveryEntry[],
+  limit = 8
+): VillageDeliveryEntry[] => {
+  const trimmed = queryText.trim();
+  if (!trimmed || trimmed.length < 1) return [];
+
+  const list = allVillages || DEFAULT_VILLAGE_DIRECTORY;
+
+  const scored = list
+    .map((village) => ({
+      village,
+      score: calculateVillageSimilarityScore(trimmed, village, tehsilHint),
+    }))
+    .filter((item) => item.score > 25)
+    .sort((a, b) => b.score - a.score);
+
+  return scored.slice(0, limit).map((s) => s.village);
+};
+
+/**
+ * Returns a high-confidence "Did you mean?" village if query has a slight misspelling
+ */
+export const findFuzzyVillageDidYouMean = (
+  queryText: string,
+  tehsilHint?: string,
+  allVillages?: VillageDeliveryEntry[]
+): VillageDeliveryEntry | null => {
+  const trimmed = queryText.trim();
+  if (!trimmed || trimmed.length < 2) return null;
+
+  const list = allVillages || DEFAULT_VILLAGE_DIRECTORY;
+  
+  // If already an exact match, no need for "did you mean"
+  const qClean = normalizeLocationText(trimmed);
+  const exact = list.find(v => 
+    normalizeLocationText(v.nameHi) === qClean || 
+    normalizeLocationText(v.nameEn) === qClean
+  );
+  if (exact) return null;
+
+  const suggestions = getIntelligentVillageSuggestions(trimmed, tehsilHint, list, 3);
+  if (suggestions.length === 0) return null;
+
+  const top = suggestions[0];
+  const topScore = calculateVillageSimilarityScore(trimmed, top, tehsilHint);
+
+  // Return suggestion if it has high similarity (score >= 45)
+  if (topScore >= 45) {
+    return top;
+  }
+  return null;
+};
+
+/**
  * Searches a village entry matching either Hindi name, English name, or phonetics
  */
 export const findVillageMatch = (
@@ -955,5 +1167,17 @@ export const findVillageMatch = (
     return vNameHi.includes(cleanQuery) || vNameEn.includes(cleanQuery);
   });
 
-  return partialMatch || null;
+  if (partialMatch) return partialMatch;
+
+  // 4. Farmer-friendly phonetic & matra tolerance match
+  const suggestions = getIntelligentVillageSuggestions(queryText, tehsilHint, list, 1);
+  if (suggestions.length > 0) {
+    const best = suggestions[0];
+    const score = calculateVillageSimilarityScore(queryText, best, tehsilHint);
+    if (score >= 60) {
+      return best;
+    }
+  }
+
+  return null;
 };

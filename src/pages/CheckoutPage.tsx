@@ -7,7 +7,7 @@ import {
   MapPin, Phone, User, AlertCircle, ShoppingBag, 
   CreditCard, Loader2, Sparkles, MessageSquare, Info, RefreshCw,
   Scale, Navigation, Zap, PackageCheck, ChevronDown, ChevronUp,
-  Check, Lightbulb, EyeOff, Home, Building2, Search
+  Check, Lightbulb, EyeOff, Home, Building2, Search, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
@@ -25,6 +25,12 @@ import {
   DistanceDetectionResult
 } from '../utils/deliveryCalculator';
 import { VehicleIcon } from '../components/common/VehicleIcon';
+import { 
+  getIntelligentVillageSuggestions, 
+  findFuzzyVillageDidYouMean, 
+  getCombinedVillageDirectory,
+  VillageDeliveryEntry 
+} from '../data/villageDirectory';
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
@@ -51,6 +57,39 @@ const CheckoutPage: React.FC = () => {
   const [gatewayConfig, setGatewayConfig] = useState<RazorpayPublicConfig | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
 
+  // Village Intelligent Autocomplete & Suggestion States
+  const [showVillageSuggestions, setShowVillageSuggestions] = useState(false);
+  const [dismissedSuggestion, setDismissedSuggestion] = useState(false);
+
+  // Active village directory from configuration or default 77 villages
+  const activeVillageDirectory = useMemo(() => {
+    return getCombinedVillageDirectory(deliveryConfig?.villageDirectory);
+  }, [deliveryConfig?.villageDirectory]);
+
+  // Intelligent real-time suggestions based on current typed text (phonetic & matra tolerant)
+  const intelligentVillageSuggestions = useMemo(() => {
+    if (!addressCity || addressCity.trim().length < 1) return [];
+    return getIntelligentVillageSuggestions(addressCity, addressTehsil, activeVillageDirectory, 8);
+  }, [addressCity, addressTehsil, activeVillageDirectory]);
+
+  // High-confidence fuzzy "Did you mean?" village if slightly misspelled
+  const fuzzyDidYouMeanVillage = useMemo(() => {
+    if (dismissedSuggestion || !addressCity || addressCity.trim().length < 2) return null;
+    return findFuzzyVillageDidYouMean(addressCity, addressTehsil, activeVillageDirectory);
+  }, [addressCity, addressTehsil, activeVillageDirectory, dismissedSuggestion]);
+
+  const handleSelectVillage = (v: VillageDeliveryEntry) => {
+    setAddressCity(v.nameHi);
+    if (v.tehsil && addressTehsil !== v.tehsil) {
+      setAddressTehsil(v.tehsil);
+    }
+    if (v.pincode && addressPincode !== v.pincode) {
+      setAddressPincode(v.pincode);
+    }
+    setShowVillageSuggestions(false);
+    setDismissedSuggestion(true);
+  };
+
   // System-calculated distance (strictly non-editable by user)
   const distanceKm = useMemo(() => {
     if (distanceInfo && distanceInfo.isValidLocation && distanceInfo.distanceKm > 0) {
@@ -60,17 +99,16 @@ const CheckoutPage: React.FC = () => {
   }, [distanceInfo]);
 
   // Check if minimum address information is filled
+  // Strictly requires Village/Town (hasCity) so that delivery disabled alert never appears prematurely
   const isAddressSufficient = useMemo(() => {
     const cleanPin = (addressPincode || '').trim().replace(/\D/g, '');
     const hasCity = (addressCity || '').trim().length >= 2;
     const hasTehsil = (addressTehsil || '').trim().length >= 2;
-    const hasStreet = (addressHouse || '').trim().length >= 2;
-    const hasDistrict = (addressDistrict || '').trim().length >= 2;
     const hasName = (name || '').trim().length >= 2;
     const hasPhone = (phone || '').trim().replace(/\D/g, '').length >= 10;
     
-    return cleanPin.length === 6 && (hasCity || hasStreet) && hasTehsil && (hasName || hasPhone);
-  }, [addressPincode, addressCity, addressTehsil, addressDistrict, addressHouse, name, phone]);
+    return cleanPin.length === 6 && hasCity && hasTehsil && (hasName || hasPhone);
+  }, [addressPincode, addressCity, addressTehsil, name, phone]);
 
   // AI Smart Product Weights Breakdown
   const itemsWeightBreakdown = useMemo(() => {
@@ -538,20 +576,114 @@ const CheckoutPage: React.FC = () => {
                 />
               </div>
 
-              {/* Village / Town Text Input */}
-              <div>
+              {/* Village / Town Text Input with Intelligent Farmer-Friendly Autocomplete */}
+              <div className="relative">
                 <label className="block text-[11px] font-bold text-gray-600 mb-1 flex items-center justify-between">
                   <span>गांव / शहर (Village / Town) *</span>
-                  <span className="text-[9px] text-gray-400">हिंदी या English</span>
+                  <span className="text-[9px] text-[#2D5A27] font-semibold flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-500" /> ऑटो-सुझाव (हिंदी / English)
+                  </span>
                 </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="उदा: तकरावद, छान, शामगढ़..."
-                  value={addressCity}
-                  onChange={(e) => setAddressCity(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800 font-bold"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    placeholder="उदा: तकरावद, छान, शामगढ़..."
+                    value={addressCity}
+                    onFocus={() => setShowVillageSuggestions(true)}
+                    onChange={(e) => {
+                      setAddressCity(e.target.value);
+                      setShowVillageSuggestions(true);
+                      setDismissedSuggestion(false);
+                    }}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#2D5A27] focus:ring-1 focus:ring-[#2D5A27] outline-none text-gray-800 font-bold pr-8"
+                  />
+                  {addressCity && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddressCity('');
+                        setShowVillageSuggestions(false);
+                        setDismissedSuggestion(true);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Intelligent Village Dropdown Suggestions (Farmer-friendly) */}
+                {showVillageSuggestions && intelligentVillageSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1.5 z-30 bg-white rounded-2xl shadow-xl border border-emerald-100 overflow-hidden divide-y divide-gray-100 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="p-2 bg-emerald-50/80 border-b border-emerald-100 flex items-center justify-between text-[11px] font-black text-[#2D5A27]">
+                      <span className="flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-emerald-700" />
+                        सुझाए गए गांव (क्लिक करके चुनें):
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowVillageSuggestions(false)}
+                        className="text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="max-h-56 overflow-y-auto">
+                      {intelligentVillageSuggestions.map((v) => (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => handleSelectVillage(v)}
+                          className="w-full p-2.5 text-left hover:bg-emerald-50/60 transition-colors flex items-center justify-between gap-2 group cursor-pointer"
+                        >
+                          <div className="space-y-0.5">
+                            <span className="text-xs font-black text-gray-800 group-hover:text-[#2D5A27] block">
+                              {v.nameHi} <span className="text-[10px] text-gray-400 font-normal">({v.nameEn})</span>
+                            </span>
+                            <span className="text-[10px] text-gray-500 font-medium block">
+                              तहसील: <strong className="text-gray-700">{v.tehsil}</strong>
+                              {v.pincode ? ` • पिन: ${v.pincode}` : ''}
+                            </span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="px-2 py-0.5 bg-emerald-100/70 text-emerald-800 rounded-md text-[10px] font-black group-hover:bg-[#2D5A27] group-hover:text-white transition-colors">
+                              {v.distanceKm} km
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* "Did you mean?" (क्या आप यह ढूंढ रहे हैं?) Banner */}
+                {!showVillageSuggestions && fuzzyDidYouMeanVillage && (
+                  <div className="mt-1.5 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-2 text-xs animate-in fade-in duration-200">
+                    <div className="flex items-center gap-1.5 text-emerald-950 font-medium">
+                      <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span className="text-[11px] leading-tight">
+                        क्या आप <strong>"{fuzzyDidYouMeanVillage.nameHi} ({fuzzyDidYouMeanVillage.tehsil})"</strong> ढूंढ रहे हैं?
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectVillage(fuzzyDidYouMeanVillage)}
+                        className="px-2.5 py-1 bg-[#2D5A27] hover:bg-[#23461e] text-white rounded-lg font-bold text-[11px] flex items-center gap-1 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                      >
+                        <Check className="w-3 h-3" /> हाँ, यही चुनें
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDismissedSuggestion(true)}
+                        className="px-2 py-1 bg-white hover:bg-gray-100 text-gray-600 rounded-lg font-bold text-[11px] border border-gray-200 transition-colors cursor-pointer"
+                      >
+                        नहीं
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -611,19 +743,6 @@ const CheckoutPage: React.FC = () => {
                 हमारे डिलीवरी वाहन केवल गांव या शहर के मुख्य मार्ग, पक्के मकान अथवा दुकान के पते तक ही सामान पहुंचाते हैं। खेतों, कुओं, ट्यूबवेल या कच्चे पगडंडी मार्गों पर डिलीवरी उपलब्ध नहीं है। कृपया अपने पक्के घर या दुकान का ही सही पता दर्ज करें ताकि डिलीवरी वाहन आसानी से आपके दरवाजे तक पहुंच सके।
               </p>
             </div>
-
-            {/* Delivery Disabled Alert if village is marked inactive */}
-            {distanceInfo?.isDeliveryDisabled && (
-              <div className="bg-red-50 border-2 border-red-200 p-3.5 rounded-2xl space-y-1 text-red-900">
-                <div className="flex items-center gap-2 text-xs font-bold text-red-700">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>होम डिलीवरी सेवा उपलब्ध नहीं है</span>
-                </div>
-                <p className="text-[11px] text-red-800 font-medium leading-relaxed">
-                  {distanceInfo.disabledReason || 'आपके द्वारा चुने गए गांव के लिए वर्तमान में होम डिलीवरी सेवा बंद है। कृपया नजदीकी मुख्य कस्बा चुनें या WhatsApp पर संपर्क करें।'}
-                </p>
-              </div>
-            )}
           </div>
         </div>
 
@@ -655,17 +774,14 @@ const CheckoutPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Calculation Source Badge */}
-                <div className="text-[11px] text-gray-700 bg-gray-50/80 p-2.5 rounded-2xl border border-gray-100 flex items-center justify-between">
+                {/* Calculation Source Row */}
+                <div className="text-[11px] text-gray-700 bg-gray-50/80 p-2.5 rounded-2xl border border-gray-100 flex items-center">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                     <span>
                       लोकेशन आधार: <strong className="text-gray-900">{distanceInfo?.locationLabel || `पिनकोड ${addressPincode}`}</strong>
                     </span>
                   </div>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-100">
-                    {distanceInfo?.source === 'village_directory' ? 'स्थानीय ग्राम मैपिंग (LGD/OSM)' : distanceInfo?.source === 'town_match' ? 'सटीक क्षेत्रीय दूरी' : 'पिनकोड मैट्रिक्स'}
-                  </span>
                 </div>
               </div>
 
@@ -790,7 +906,7 @@ const CheckoutPage: React.FC = () => {
               <div className="flex items-center gap-2 font-bold text-red-800">
                 <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
                 <span>
-                  {distanceInfo?.isDeliveryDisabled ? 'डिलीवरी सेवा अनुपलब्ध' : 'डिलीवरी दूरी निर्धारित नहीं हो सकी'}
+                  {distanceInfo?.isDeliveryDisabled ? 'होम डिलीवरी सेवा उपलब्ध नहीं है' : 'डिलीवरी दूरी निर्धारित नहीं हो सकी'}
                 </span>
               </div>
               <p className="text-[11px] text-red-700 leading-relaxed font-medium">
