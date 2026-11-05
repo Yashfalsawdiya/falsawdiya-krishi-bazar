@@ -133,28 +133,15 @@ export const getVehicleIcon = (
   return (vehicleType && STANDARD_ICONS[vehicleType]) || '🚚';
 };
 
-import { DEFAULT_VILLAGE_DIRECTORY, PRIMARY_TEHSILS } from './villageDirectory';
-
 export const DEFAULT_DELIVERY_CONFIG: DynamicDeliveryConfig = {
   isEnabled: true,
   isDeliveryActive: true,
-  deliveryMode: 'hybrid',
-  activeTehsils: ['शामगढ़', 'गरोठ', 'सुवासरा', 'सीतामऊ', 'भानपुरा', 'मंदसौर'],
-  courierRates: {
-    isEnabled: true,
-    baseWeightKg: 1,
-    baseCharge: 60,
-    perKgAdditionalCharge: 30,
-    freeDeliveryThreshold: 2000,
-    defaultPartnerName: 'Speed Post (इंडिया पोस्ट)',
-  },
   defaultFixedCharge: 40,
   enableFreeDelivery: false,
   freeDeliveryThreshold: 0,
-  villageDirectory: DEFAULT_VILLAGE_DIRECTORY,
   storeOrigin: {
-    name: 'फल्सावदिया कृषि बाजार, डिंपल चौराहा, शामगढ़ – 458883',
-    address: 'डिंपल चौराहा, शामगढ़',
+    name: 'फल्सावदिया कृषि बाजार (Falsawdiya Krishi Bazaar)',
+    address: 'फल्सावदिया, मुख्य बस स्टैंड के पास',
     city: 'शामगढ़',
     district: 'मंदसौर',
     state: 'मध्यप्रदेश',
