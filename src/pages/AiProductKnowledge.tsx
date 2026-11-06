@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { getProductKnowledge, ProductKnowledgeResult, analyzeProductImage } from '../services/gemini';
+import { VERIFIED_AGRI_PRODUCTS } from '../data/verifiedAgriProducts';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
 import { getFriendlyAiError } from '../utils/aiErrorHandler';
@@ -468,7 +469,25 @@ export default function AiProductKnowledge() {
     setError(null);
     setResult(null);
 
-    // Check Offline Cache first
+    // 1. Check Verified CIBRC Agricultural Master Database first
+    if (!forceRefresh) {
+      const cleanTerm = term.toLowerCase().trim();
+      const verifiedMatch = VERIFIED_AGRI_PRODUCTS.find(p => 
+        p.productName.toLowerCase().includes(cleanTerm) ||
+        (p.technicalName && p.technicalName.toLowerCase().includes(cleanTerm)) ||
+        (p.aliases && p.aliases.some(a => a.toLowerCase().includes(cleanTerm)))
+      );
+      if (verifiedMatch) {
+        const normVerified = normalizeProductResult(verifiedMatch);
+        setIsFromCache(true);
+        setResult(normVerified);
+        setIsLoading(false);
+        autoSaveProduct(normVerified);
+        return;
+      }
+    }
+
+    // 2. Check Offline Cache
     if (!forceRefresh) {
       const cachedData = getCachedResult(term);
       if (cachedData) {

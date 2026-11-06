@@ -756,6 +756,73 @@ app.post('/api/admin/razorpay/settings', (req: Request, res: Response): void => 
   }
 });
 
+app.post('/api/admin/razorpay/test-connection', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { mode: reqMode, testKeyId, testKeySecret, liveKeyId, liveKeySecret } = req.body;
+    const mode = reqMode === 'live' ? 'live' : (reqMode === 'test' ? 'test' : serverConfig.mode);
+
+    const keyId = mode === 'live' 
+      ? (liveKeyId || serverConfig.liveKeyId) 
+      : (testKeyId || serverConfig.testKeyId);
+
+    const keySecret = mode === 'live' 
+      ? (liveKeySecret && !liveKeySecret.includes('••••') ? liveKeySecret : serverConfig.liveKeySecret) 
+      : (testKeySecret && !testKeySecret.includes('••••') ? testKeySecret : serverConfig.testKeySecret);
+
+    if (!keyId || !keySecret) {
+      res.status(400).json({
+        success: false,
+        message: `${mode.toUpperCase()} मोड के लिए Key ID और Key Secret दोनों दर्ज करना आवश्यक है।`,
+        mode
+      });
+      return;
+    }
+
+    const authHeader = 'Basic ' + Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+    const rzpRes = await fetch('https://api.razorpay.com/v1/payments?count=1', {
+      headers: { 'Authorization': authHeader }
+    });
+
+    if (rzpRes.ok) {
+      serverConfig.lastTestResult = {
+        success: true,
+        mode,
+        timestamp: Date.now(),
+        message: `Razorpay (${mode.toUpperCase()}) कनेक्शन सफल रहा!`
+      };
+      saveRazorpayConfig({ lastTestResult: serverConfig.lastTestResult });
+
+      res.json({
+        success: true,
+        message: `Razorpay ${mode.toUpperCase()} क्रेडेंशियल्स सत्यापित हो गए हैं और लाइव काम कर रहे हैं।`,
+        mode
+      });
+    } else {
+      const errData: any = await rzpRes.json().catch(() => ({}));
+      const errMsg = errData.error?.description || `Razorpay API प्रमाणीकरण विफल (${rzpRes.status} Unauthorized)`;
+      
+      serverConfig.lastTestResult = {
+        success: false,
+        mode,
+        timestamp: Date.now(),
+        message: errMsg
+      };
+      saveRazorpayConfig({ lastTestResult: serverConfig.lastTestResult });
+
+      res.status(400).json({
+        success: false,
+        message: errMsg,
+        mode
+      });
+    }
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      message: err.message || 'Razorpay सर्वर से कनेक्ट करने में नेटवर्क त्रुटि आई।'
+    });
+  }
+});
+
 // Routing & Geocoding Helpers
 app.get('/api/delivery/calculate-route', async (req: Request, res: Response): Promise<void> => {
   try {

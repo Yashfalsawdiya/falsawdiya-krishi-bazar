@@ -59,7 +59,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (request.auth.token.get('email', '') == "yashfalsawdiya36@gmail.com" ||
+        ((request.auth.token.get('email', '') == "yashfalsawdiya36@gmail.com" && request.auth.token.get('email_verified', false) == true) ||
          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin') || 
          (exists(/databases/$(database)/documents/settings/content) && request.auth.token.get('email', '') in get(/databases/$(database)/documents/settings/content).data.get('adminEmails', [])));
     }
@@ -173,14 +173,6 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Crop Advice Collection
-    match /cropAdvice/{adviceId} {
-      allow read: if true;
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
-    }
-
     // Users Collection
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
@@ -198,21 +190,21 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Settings Collection
+    // Settings Collection - Strictly Admin Only for Writes
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if (settingId in ['smtp_config', 'razorpay_config', 'delivery_config', 'courier_partners', 'metadata_version']) || (isAdmin() && (settingId != 'content' || isValidAppContent(request.resource.data)));
+      allow write: if isAdmin() && (settingId != 'content' || isValidAppContent(request.resource.data));
     }
 
-    // Metadata Versioning (Zero-quota farmer sync beacon)
+    // Metadata Versioning (Zero-quota farmer sync beacon - Admin mutation authority)
     match /_metadata/{docId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isAdmin();
     }
 
-    // Delivery OTP tokens collection (For reliable cross-instance/serverless verification)
+    // Delivery OTP tokens collection (Server/Admin only)
     match /delivery_otps/{orderId} {
-      allow read, write: if true;
+      allow read, write: if isAdmin();
     }
 
     // Categories Collection
@@ -241,9 +233,13 @@ service cloud.firestore {
 
     // Orders Collection (For ecommerce orders & tracking)
     match /orders/{orderId} {
-      // Users can read their own orders or guest orders by ID, Admin & Delivery partners can read orders
-      allow read: if true;
-      // Any authenticated user or guest can create an order with valid data
+      // Direct single order tracking allowed by order ID (for customer tracking)
+      allow get: if true;
+      // Protected list queries: only owner can list their orders, or admin/delivery partner
+      allow list: if isAdmin() || 
+                     (isAuthenticated() && resource.data.userId == request.auth.uid) ||
+                     (isAuthenticated() && resource.data.assignedPartnerEmail == request.auth.token.get('email', ''));
+      // Any customer or guest can create an order with valid data
       allow create: if request.resource.data.orderNumber is string &&
                        request.resource.data.items is list &&
                        request.resource.data.totalAmount is number;
@@ -261,12 +257,6 @@ service cloud.firestore {
       allow update: if (isAdmin() && isValidDeliveryPartner(request.resource.data)) ||
                        (isAuthenticated() && resource.data.email == request.auth.token.get('email', '') && isValidDeliveryPartner(request.resource.data));
       allow delete: if isAdmin();
-    }
-
-    // Agri Trade Notices Collection
-    match /agri_trade_notices/{noticeId} {
-      allow read: if true;
-      allow create, update, delete: if isAuthenticated();
     }
 
     // ===============================================================

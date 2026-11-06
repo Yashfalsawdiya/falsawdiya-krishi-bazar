@@ -31,6 +31,7 @@ import {
   addCustomCourierPartner,
   deleteCustomCourierPartner
 } from '../services/courierService';
+import { createShipmentForOrder } from '../services/shippingService';
 
 // Web Audio API Chime generator (Zero external files, 100% reliable)
 const playOrderChime = () => {
@@ -112,6 +113,8 @@ const AdminOrdersManager: React.FC = () => {
   const [inlineCourierName, setInlineCourierName] = useState('');
   const [inlineTrackingUrl, setInlineTrackingUrl] = useState('');
   const [inlineTrackingNumber, setInlineTrackingNumber] = useState('');
+  const [isGeneratingShipment, setIsGeneratingShipment] = useState(false);
+  const [shipmentFeedback, setShipmentFeedback] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // Delivery Partners State & Assign Modal
   const [deliveryPartners, setDeliveryPartners] = useState<DeliveryPartner[]>([]);
@@ -392,6 +395,58 @@ const AdminOrdersManager: React.FC = () => {
       setShowInlineAddCourier(false);
     } catch (err) {
       console.error('Failed to add custom courier partner:', err);
+    }
+  };
+
+  // 1-Click Ship via Shiprocket (Ad-hoc order, AWB, pickup request & label generation)
+  const handleShipViaShiprocket = async () => {
+    if (!selectedOrder) return;
+    setIsGeneratingShipment(true);
+    setShipmentFeedback(null);
+
+    const res = await createShipmentForOrder(selectedOrder);
+    setIsGeneratingShipment(false);
+
+    if (res.success && res.shipment) {
+      setShipmentFeedback({
+        type: 'success',
+        text: `Shiprocket पर शिपमेंट तैयार! AWB: ${res.shipment.awbCode} (${res.shipment.courierName})`,
+      });
+      setCourierPartner(res.shipment.courierName);
+      setTrackingNumber(res.shipment.awbCode);
+      setCourierTrackingUrl(res.shipment.trackingUrl);
+      setNewStatus('dispatched');
+
+      try {
+        await updateOrderStatus(selectedOrder.id, 'dispatched', 'Shiprocket द्वारा शिपमेंट तैयार व AWB जनरेट किया गया', {
+          trackingNumber: res.shipment.awbCode,
+          courierPartner: res.shipment.courierName,
+          courierTrackingUrl: res.shipment.trackingUrl,
+          shiprocketOrderId: res.shipment.shiprocketOrderId,
+          shiprocketShipmentId: res.shipment.shipmentId,
+          awbCode: res.shipment.awbCode,
+          shippingLabelUrl: res.shipment.labelUrl,
+        });
+
+        setSelectedOrder(prev => prev ? {
+          ...prev,
+          status: 'dispatched',
+          trackingNumber: res.shipment!.awbCode,
+          courierPartner: res.shipment!.courierName,
+          courierTrackingUrl: res.shipment!.trackingUrl,
+          shiprocketOrderId: res.shipment!.shiprocketOrderId,
+          shiprocketShipmentId: res.shipment!.shipmentId,
+          awbCode: res.shipment!.awbCode,
+          shippingLabelUrl: res.shipment!.labelUrl,
+        } : null);
+      } catch (e: any) {
+        console.warn("Could not sync order updates immediately:", e.message);
+      }
+    } else {
+      setShipmentFeedback({
+        type: 'error',
+        text: res.error || 'Shiprocket से शिपमेंट बनाने में त्रुटि आई। कृपया एडमिन सेटिंग्स में क्रेडेंशियल्स जांचें।',
+      });
     }
   };
 
@@ -833,9 +888,18 @@ const AdminOrdersManager: React.FC = () => {
                       <Check className="w-3 h-3 text-emerald-600" />
                       <span>Razorpay Paid {order.razorpayPaymentId ? `(${order.razorpayPaymentId})` : ''}</span>
                     </p>
-                    {order.deliverySnapshot ? (
+                    {order.awbCode ? (
+                      <div className="text-[10px] bg-purple-50 text-purple-900 px-2 py-0.5 rounded border border-purple-200 inline-flex items-center gap-1 font-semibold">
+                        <Package className="w-3 h-3 text-purple-700" />
+                        <span>AWB: {order.awbCode} ({order.courierPartner || 'Shiprocket'})</span>
+                      </div>
+                    ) : order.isStorePickup ? (
                       <div className="text-[10px] bg-emerald-50 text-emerald-900 px-2 py-0.5 rounded border border-emerald-200 inline-block font-semibold">
-                        {order.deliverySnapshot.vehicleEmoji} {order.deliverySnapshot.vehicleNameHindi} • {order.deliverySnapshot.totalWeightKg}kg • {order.deliverySnapshot.distanceKm}km (₹{order.deliveryCharges})
+                        दुकान से पिकअप (₹0)
+                      </div>
+                    ) : order.deliverySnapshot ? (
+                      <div className="text-[10px] bg-emerald-50 text-emerald-900 px-2 py-0.5 rounded border border-emerald-200 inline-block font-semibold">
+                        {order.deliverySnapshot.vehicleNameHindi} • {order.deliverySnapshot.totalWeightKg}kg (₹{order.deliveryCharges})
                       </div>
                     ) : (
                       <p className="text-[10px] text-gray-500">डिलीवरी शुल्क: ₹{order.deliveryCharges || 0}</p>
@@ -1073,6 +1137,100 @@ const AdminOrdersManager: React.FC = () => {
                         </p>
                       </div>
                     </div>
+                  </div>
+
+                  {/* SHIPROCKET 1-CLICK DISPATCH HERO CARD */}
+                  <div className="p-3.5 bg-gradient-to-r from-purple-50 via-indigo-50 to-emerald-50 rounded-2xl border border-purple-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Package className="w-4 h-4 text-purple-700" />
+                        <span className="text-xs font-black text-purple-950">
+                          Shiprocket ऑटोमेटेड कूरियर सेवा
+                        </span>
+                      </div>
+                      {selectedOrder.awbCode && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          AWB जनरेटेड
+                        </span>
+                      )}
+                    </div>
+
+                    {selectedOrder.awbCode ? (
+                      <div className="space-y-2 pt-1 text-xs">
+                        <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-purple-100">
+                          <div>
+                            <span className="text-[10px] text-gray-400 font-bold block">AWB नंबर</span>
+                            <span className="font-mono font-black text-purple-900">{selectedOrder.awbCode}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-gray-400 font-bold block">कूरियर पार्टनर</span>
+                            <span className="font-bold text-gray-800">{selectedOrder.courierPartner || 'Shiprocket'}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          {selectedOrder.shippingLabelUrl && (
+                            <a
+                              href={selectedOrder.shippingLabelUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex-1 py-2 px-3 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-xs"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>शिपिंग लेबल (PDF)</span>
+                            </a>
+                          )}
+                          <a
+                            href={selectedOrder.courierTrackingUrl || `https://shiprocket.co/tracking/${selectedOrder.awbCode}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex-1 py-2 px-3 bg-white hover:bg-gray-50 text-purple-900 border border-purple-200 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>लाइव ट्रैकिंग</span>
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 pt-1">
+                        <p className="text-[11px] text-gray-600 leading-tight">
+                          1-क्लिक में ग्राहक के पते ({selectedOrder.customerDetails.addressPincode}) पर Shiprocket से AWB जनरेट करें, पिकअप शेड्यूल करें व लेबल तैयार करें।
+                        </p>
+                        <button
+                          type="button"
+                          disabled={isGeneratingShipment}
+                          onClick={handleShipViaShiprocket}
+                          className="w-full py-2.5 px-4 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {isGeneratingShipment ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Shiprocket से AWB बन रहा है...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Truck className="w-4 h-4" />
+                              <span>Shiprocket से AWB जनरेट करें व शिप करें</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {shipmentFeedback && (
+                      <div className={`p-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 border ${
+                        shipmentFeedback.type === 'success' 
+                          ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                          : 'bg-red-50 text-red-800 border-red-200'
+                      }`}>
+                        {shipmentFeedback.type === 'success' ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                        )}
+                        <span>{shipmentFeedback.text}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Courier Partner Selector Pills & Manual Name */}

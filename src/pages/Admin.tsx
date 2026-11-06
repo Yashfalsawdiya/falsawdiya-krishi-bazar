@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { CategoryData, Product, AgriIssue, Helpline } from '../types';
-// import { CATEGORIES } from '../data/mockData'; // No longer needed
 import { 
   Plus, Trash2, Edit2, X, Save, LogIn, LogOut, Loader2, 
   ShoppingBag, Sprout, ChevronRight, Image as ImageIcon, 

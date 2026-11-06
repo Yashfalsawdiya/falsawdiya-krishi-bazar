@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Product, CropAdvice, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig, DeliveryEmailTemplateConfig, DeviceType, DeviceBanner, DeviceBannersMap, YouTubeVideoItem, FooterConfig } from '../types';
-import { PRODUCTS, CROP_ADVICE, CATEGORIES } from '../data/mockData';
+import { Product, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig, DeliveryEmailTemplateConfig, DeviceType, DeviceBanner, DeviceBannersMap, YouTubeVideoItem, FooterConfig } from '../types';
+import { CATEGORIES } from '../data/mockData';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
 import { DEFAULT_INVOICE_TEMPLATE, mergeInvoiceTemplate } from '../data/defaultInvoiceTemplate';
 import { DEFAULT_DELIVERY_EMAIL_TEMPLATE, mergeDeliveryEmailTemplate } from '../data/defaultDeliveryEmailTemplate';

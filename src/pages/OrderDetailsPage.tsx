@@ -11,7 +11,7 @@ import {
   ChevronRight, Calendar, Sparkles, Loader2, FileCheck,
   ShoppingBag, ClipboardCheck, Bike, Check, XCircle,
   AlertTriangle, RotateCcw, HelpCircle, FileText, Ban, Key, Mail, Lightbulb,
-  Copy, ExternalLink
+  Copy, ExternalLink, Store
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
@@ -756,6 +756,53 @@ const OrderDetailsPage: React.FC = () => {
             courierPartners
           );
 
+          const isStorePickup = Boolean(
+            order.deliveryCharges === 0 ||
+            order.deliverySnapshot?.vehicleType === 'pickup' || 
+            order.deliverySnapshot?.vehicleNameHindi?.includes('पिकअप') ||
+            order.deliverySnapshot?.vehicleName?.includes('पिकअप')
+          );
+
+          if (isStorePickup) {
+            return (
+              <div className="p-4 sm:p-5 rounded-3xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/80 via-white to-green-50/40 shadow-xs space-y-3.5 transition-all">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-[#2D5A27] text-white flex items-center justify-center shadow-xs shrink-0">
+                      <Store className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                          दुकान से स्वयं पिकअप (Store Pickup)
+                        </span>
+                      </div>
+                      <h4 className="text-xs sm:text-sm font-black text-gray-900 mt-0.5">
+                        फल्सावदिया कृषि बाजार, शामगढ़
+                      </h4>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-[10px] text-gray-500 font-medium block">पिकअप शुल्क</span>
+                    <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">₹0 (नि:शुल्क)</span>
+                  </div>
+                </div>
+
+                {/* Store Pickup Info Box */}
+                <div className="bg-emerald-100/50 p-3 sm:p-3.5 rounded-2xl border border-emerald-200/80 text-[11px] sm:text-xs text-emerald-950 space-y-1.5">
+                  <p className="flex items-center gap-1.5 font-bold text-emerald-900">
+                    <MapPin className="w-4 h-4 text-[#2D5A27] shrink-0" />
+                    <span>पिकअप स्थान: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़ (मंदसौर)</span>
+                  </p>
+                  <p className="text-[10px] sm:text-[11px] text-emerald-800/90 pl-5 leading-relaxed">
+                    समय: प्रतिदिन सुबह 8:00 AM से रात 8:00 PM। आप कभी भी दुकान पर आकर अपना ऑर्डर नंबर (<b>#{order.orderNumber}</b>) दिखाकर पैक किया हुआ सामान प्राप्त कर सकते हैं।
+                  </p>
+                </div>
+              </div>
+            );
+          }
+
           if (resolved.isLocal) {
             // Local Delivery / Own Delivery Card (Direct store delivery tracked inside the app)
             return (
@@ -1104,15 +1151,17 @@ const OrderDetailsPage: React.FC = () => {
             </div>
             <div className="flex justify-between items-start">
               <div>
-                <span>डिलीवरी शुल्क:</span>
+                <span>डिलीवरी / पिकअप शुल्क:</span>
                 {order.deliverySnapshot && (
                   <p className="text-[10px] text-gray-500 font-medium">
-                    {order.deliverySnapshot.vehicleEmoji} {order.deliverySnapshot.vehicleNameHindi} • {order.deliverySnapshot.totalWeightKg} kg • {order.deliverySnapshot.distanceKm} km
+                    {order.deliveryCharges === 0 
+                      ? 'दुकान से स्वयं पिकअप (डिंपल चौराहा, शामगढ़)' 
+                      : `${order.deliverySnapshot.vehicleNameHindi} • ${order.deliverySnapshot.totalWeightKg} kg`}
                   </p>
                 )}
               </div>
-              <span className="font-bold text-amber-800">
-                {order.deliveryCharges > 0 ? `+ ₹${order.deliveryCharges}` : 'मुफ़्त'}
+              <span className="font-bold text-emerald-800">
+                {order.deliveryCharges > 0 ? `+ ₹${order.deliveryCharges}` : '₹0 (मुफ़्त)'}
               </span>
             </div>
             <div className="flex justify-between items-center pt-1.5 border-t border-gray-100 font-bold text-sm text-gray-800">

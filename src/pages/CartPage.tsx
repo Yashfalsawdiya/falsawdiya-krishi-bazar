@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAppContext } from '../context/AppContext';
-import { Minus, Plus, Trash2, ArrowLeft, ShoppingCart, CreditCard, ShieldCheck, Truck, AlertCircle, EyeOff, MessageSquare } from 'lucide-react';
+import { Minus, Plus, Trash2, ArrowLeft, ShoppingCart, CreditCard, ShieldCheck, Truck, AlertCircle, EyeOff, MessageSquare, Store } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
 import ProductDetailModal from '../components/ProductDetailModal';
@@ -281,10 +281,10 @@ const CartPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="text-[10px] text-gray-500 bg-white/70 p-2 rounded-xl border border-gray-200/50 mt-1 flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
+              <div className="text-[10px] text-gray-600 bg-white/70 p-2 rounded-xl border border-gray-200/50 mt-1 flex items-center gap-1.5">
+                <Store className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
                 <span>
-                  डिलीवरी शुल्क व वाहन चयन अगले चेकआउट पेज पर आपके पते के अनुसार निकाला जाएगा।
+                  दुकान से स्वयं पिकअप (डिंपल चौराहा, शामगढ़) पर ₹0 (नि:शुल्क) उपलब्ध है।
                 </span>
               </div>
             </div>
@@ -306,18 +306,18 @@ const CartPage: React.FC = () => {
               </div>
             )}
 
-            {/* Delivery Suspended Warning if OFF */}
+            {/* Order Suspended Warning if OFF */}
             {!isDeliveryActive && !hasHiddenPriceItems && (
               <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3 shadow-sm">
                 <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0 text-amber-700 mt-0.5">
-                  <Truck className="w-5 h-5" />
+                  <Store className="w-5 h-5" />
                 </div>
                 <div className="text-xs space-y-1">
                   <p className="font-black text-amber-900">
-                    अभी होम डिलीवरी सेवा उपलब्ध नहीं है
+                    अभी ऑनलाइन ऑर्डर सेवा बंद है
                   </p>
                   <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
-                    असुविधा के लिए खेद है। फिलहाल होम डिलीवरी सेवा अस्थायी रूप से बंद है। जल्द ही सेवा पुनः शुरू की जाएगी। आपके सहयोग के लिए धन्यवाद।
+                    असुविधा के लिए खेद है। फिलहाल ऑनलाइन ऑर्डर व पिकअप सेवा अस्थायी रूप से बंद है। किसी भी सामग्री के लिए कृपया दुकान पर संपर्क करें।
                   </p>
                 </div>
               </div>
@@ -414,15 +414,15 @@ const CartPage: React.FC = () => {
               className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-gray-100 text-center space-y-4"
             >
               <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto text-amber-600 border border-amber-100/80 shadow-xs">
-                <Truck className="w-8 h-8" />
+                <Store className="w-8 h-8" />
               </div>
 
               <div className="space-y-2">
                 <h3 className="text-base sm:text-lg font-black text-gray-800">
-                  अभी होम डिलीवरी सेवा उपलब्ध नहीं है
+                  अभी ऑनलाइन ऑर्डर सेवा बंद है
                 </h3>
                 <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-medium">
-                  असुविधा के लिए खेद है। फिलहाल होम डिलीवरी सेवा अस्थायी रूप से बंद है। जल्द ही सेवा पुनः शुरू की जाएगी। कृपया कुछ समय बाद दोबारा प्रयास करें। आपके सहयोग के लिए धन्यवाद।
+                  असुविधा के लिए खेद है। फिलहाल ऑनलाइन ऑर्डर व पिकअप सेवा अस्थायी रूप से बंद है। किसी भी सामग्री के लिए कृपया दुकान (डिंपल चौराहा, शामगढ़) पर संपर्क करें।
                 </p>
               </div>
 

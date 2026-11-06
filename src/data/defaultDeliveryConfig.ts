@@ -141,7 +141,7 @@ export const DEFAULT_DELIVERY_CONFIG: DynamicDeliveryConfig = {
   freeDeliveryThreshold: 0,
   storeOrigin: {
     name: 'फल्सावदिया कृषि बाजार (Falsawdiya Krishi Bazaar)',
-    address: 'फल्सावदिया, मुख्य बस स्टैंड के पास',
+    address: 'डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़',
     city: 'शामगढ़',
     district: 'मंदसौर',
     state: 'मध्यप्रदेश',
@@ -149,6 +149,9 @@ export const DEFAULT_DELIVERY_CONFIG: DynamicDeliveryConfig = {
     latitude: 24.1842,
     longitude: 75.6431,
   },
+  pickupTimings: 'प्रतिदिन सुबह 08:00 बजे से रात 08:00 बजे तक (08:00 AM – 08:00 PM)',
+  pickupInstructions: 'कृपया दुकान पर आकर अपना ऑर्डर नंबर दिखाकर पैक किया हुआ सामान प्राप्त करें।',
+  pickupPhone: '8982338046',
   vehicles: DEFAULT_VEHICLES,
   weightSlabs: [
     {

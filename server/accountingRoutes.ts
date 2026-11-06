@@ -49,13 +49,13 @@ Strict Rule: Base all analysis 100% on the figures provided. Do NOT invent fake 
     let response;
     try {
       response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.6-flash',
         contents: prompt,
       });
     } catch (primaryErr: any) {
       console.warn('[Accounting API] Primary model failed, trying fallback model...', primaryErr);
       response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: 'gemini-3.5-flash',
         contents: prompt,
       });
     }

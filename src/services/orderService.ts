@@ -109,7 +109,16 @@ export const updateOrderStatus = async (
   orderId: string, 
   newStatus: OrderStatus, 
   note?: string,
-  extraDetails?: { trackingNumber?: string; courierPartner?: string; courierTrackingUrl?: string; estimatedDeliveryDate?: string }
+  extraDetails?: { 
+    trackingNumber?: string; 
+    courierPartner?: string; 
+    courierTrackingUrl?: string; 
+    estimatedDeliveryDate?: string;
+    shiprocketOrderId?: string | number;
+    shiprocketShipmentId?: string | number;
+    awbCode?: string;
+    shippingLabelUrl?: string;
+  }
 ): Promise<void> => {
   const statusTitles: Record<OrderStatus, string> = {
     placed: 'ऑर्डर दर्ज हुआ (Order Placed)',
@@ -146,6 +155,10 @@ export const updateOrderStatus = async (
     if (extraDetails?.courierPartner) local.courierPartner = extraDetails.courierPartner;
     if (extraDetails?.courierTrackingUrl) local.courierTrackingUrl = extraDetails.courierTrackingUrl;
     if (extraDetails?.estimatedDeliveryDate) local.estimatedDeliveryDate = extraDetails.estimatedDeliveryDate;
+    if (extraDetails?.shiprocketOrderId) local.shiprocketOrderId = extraDetails.shiprocketOrderId;
+    if (extraDetails?.shiprocketShipmentId) local.shiprocketShipmentId = extraDetails.shiprocketShipmentId;
+    if (extraDetails?.awbCode) local.awbCode = extraDetails.awbCode;
+    if (extraDetails?.shippingLabelUrl) local.shippingLabelUrl = extraDetails.shippingLabelUrl;
     if (note) local.notes = note;
     saveLocalOrder(local);
   }

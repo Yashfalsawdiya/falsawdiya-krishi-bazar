@@ -673,6 +673,9 @@ export interface DynamicDeliveryConfig {
   enableFreeDelivery: boolean;
   freeDeliveryThreshold: number; // Free delivery above this cart amount
   storeOrigin: StoreOriginLocation;
+  pickupTimings?: string;
+  pickupInstructions?: string;
+  pickupPhone?: string;
   vehicles: VehicleConfig[];
   weightSlabs: WeightSlab[];
   distanceSlabs: DistanceSlab[];
