@@ -490,13 +490,13 @@ const Home: React.FC = () => {
         </motion.div>
       )}
 
-      {/* AI Intelligence Cards (Side by side on Tablet & Desktop) */}
+      {/* AI Intelligence Cards (Side by side on Tablet & Desktop, full width when single) */}
       {(canAccessAiCall || canAccessAiKnowledge) && (
         <div className={cn(
           "grid gap-3.5 md:gap-4 xl:gap-6 2xl:gap-8 pt-1",
           canAccessAiCall && canAccessAiKnowledge 
             ? "grid-cols-1 md:grid-cols-2" 
-            : "grid-cols-1 max-w-2xl mx-auto"
+            : "grid-cols-1 w-full"
         )}>
           {/* AI Voice Agent Entry Section */}
           {canAccessAiCall && (

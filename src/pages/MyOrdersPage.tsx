@@ -6,7 +6,8 @@ import { Order, OrderStatus } from '../types';
 import { 
   Package, ArrowRight, ChevronRight, Clock, 
   CheckCircle2, Truck, AlertCircle, ShoppingBag, 
-  Search, RefreshCw, Eye, Sparkles, MessageSquare, X
+  Search, RefreshCw, Eye, Sparkles, MessageSquare, X,
+  Store
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SmartImage from '../components/SmartImage';
@@ -27,6 +28,18 @@ const getStatusBadge = (status: OrderStatus, isEnglish: boolean = false) => {
         label: isEnglish ? 'Confirmed & Packing' : 'स्वीकृत एवं पैकिंग',
         bg: 'bg-amber-50 text-amber-700 border-amber-200',
         icon: Package
+      };
+    case 'ready_for_pickup':
+      return {
+        label: isEnglish ? 'Ready for Pickup' : 'पिकअप के लिए तैयार',
+        bg: 'bg-purple-50 text-purple-700 border-purple-200',
+        icon: Store
+      };
+    case 'pickup_success':
+      return {
+        label: isEnglish ? 'Pickup Completed' : 'सफलतापूर्वक पिकअप',
+        bg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        icon: CheckCircle2
       };
     case 'dispatched':
       return {
@@ -188,9 +201,20 @@ const MyOrdersPage: React.FC = () => {
                 {/* Top Row: Order No, Date and Status */}
                 <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
                   <div>
-                    <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">
-                      {isEnglish ? 'Order ID' : 'ऑर्डर आईडी'}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">
+                        {isEnglish ? 'Order ID' : 'ऑर्डर आईडी'}
+                      </span>
+                      {order.isStorePickup || order.deliveryType === 'store_pickup' || order.deliveryType === 'STORE_PICKUP' ? (
+                        <span className="text-[9px] font-black bg-emerald-50 text-emerald-800 px-2 py-0.2 rounded-full border border-emerald-200 flex items-center gap-1">
+                          <Store className="w-2.5 h-2.5" /> दुकान पिकअप
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-black bg-blue-50 text-blue-800 px-2 py-0.2 rounded-full border border-blue-200 flex items-center gap-1">
+                          <Truck className="w-2.5 h-2.5" /> होम डिलीवरी
+                        </span>
+                      )}
+                    </div>
                     <p className="font-black text-xs text-[#2D5A27]">{order.orderNumber}</p>
                     <p className="text-[10px] text-gray-400 mt-0.5">{orderDate}</p>
                   </div>

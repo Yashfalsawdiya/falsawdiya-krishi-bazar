@@ -68,7 +68,10 @@ const DiseaseDetection: React.FC = () => {
   const { appContent, deliveryConfig, userSettings, products, categories, loading: appLoading } = useAppContext();
   const { addToCart } = useCart();
   const { isEnglish } = useLanguage();
-  const isDeliveryActive = deliveryConfig?.isDeliveryActive !== false && appContent?.isDeliveryActive !== false;
+  const isOnlineOrderingActive = (deliveryConfig?.enableStorePickup !== false) && 
+                                (deliveryConfig?.isDeliveryActive !== false) && 
+                                (appContent?.isDeliveryActive !== false);
+  const isDeliveryActive = isOnlineOrderingActive;
   
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
   

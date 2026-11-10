@@ -271,49 +271,101 @@ const OrderDetailsPage: React.FC = () => {
   const isAfterDispatch = order.status === 'dispatched' || order.status === 'out_for_delivery';
   const canCancel = order.status !== 'delivered' && order.status !== 'cancelled';
 
-  const timelineSteps = [
-    { 
-      key: 'placed', 
-      hindiTitle: 'ऑर्डर दर्ज', 
-      englishStatus: '(Placed)', 
-      icon: ShoppingBag 
-    },
-    { 
-      key: 'confirmed', 
-      hindiTitle: 'स्वीकृत', 
-      englishStatus: '(Confirmed)', 
-      icon: ClipboardCheck 
-    },
-    { 
-      key: 'dispatched', 
-      hindiTitle: 'रवाना', 
-      englishStatus: '(Shipped)', 
-      icon: Truck 
-    },
-    { 
-      key: 'out_for_delivery', 
-      hindiTitle: 'डिलीवरी के लिए निकला', 
-      englishStatus: '(Out for Delivery)', 
-      icon: Bike 
-    },
-    { 
-      key: 'delivered', 
-      hindiTitle: 'डिलीवर', 
-      englishStatus: '(Delivered)', 
-      icon: Check 
-    },
-  ];
+  const isStorePickupOrder = Boolean(
+    order.isStorePickup ||
+    order.deliveryType === 'store_pickup' ||
+    order.deliveryType === 'STORE_PICKUP' ||
+    order.deliverySnapshot?.vehicleType === 'pickup' ||
+    order.deliverySnapshot?.vehicleIcon === 'store' ||
+    order.deliverySnapshot?.vehicleName?.includes('पिकअप') ||
+    order.deliverySnapshot?.vehicleName?.includes('दुकान') ||
+    order.customerDetails?.addressHouse === 'दुकान से स्वयं पिकअप' ||
+    order.customerDetails?.addressHouse?.includes('दुकान से स्वयं पिकअप')
+  );
 
-  const statusOrderIndex: Record<OrderStatus, number> = {
-    placed: 0,
-    confirmed: 1,
-    dispatched: 2,
-    out_for_delivery: 3,
-    delivered: 4,
-    cancelled: -1,
-  };
+  const timelineSteps = isStorePickupOrder
+    ? [
+        { 
+          key: 'placed', 
+          hindiTitle: 'ऑर्डर दर्ज', 
+          englishStatus: '(Order Placed)', 
+          icon: ShoppingBag 
+        },
+        { 
+          key: 'confirmed', 
+          hindiTitle: 'स्वीकृत', 
+          englishStatus: '(Confirmed)', 
+          icon: ClipboardCheck 
+        },
+        { 
+          key: 'ready_for_pickup', 
+          hindiTitle: 'पिकअप के लिए तैयार', 
+          englishStatus: '(Ready for Pickup)', 
+          icon: Store 
+        },
+        { 
+          key: 'pickup_success', 
+          hindiTitle: 'सफलतापूर्वक पिकअप किया गया', 
+          englishStatus: '(Pickup Success)', 
+          icon: FileCheck 
+        },
+      ]
+    : [
+        { 
+          key: 'placed', 
+          hindiTitle: 'ऑर्डर दर्ज', 
+          englishStatus: '(Placed)', 
+          icon: ShoppingBag 
+        },
+        { 
+          key: 'confirmed', 
+          hindiTitle: 'स्वीकृत', 
+          englishStatus: '(Confirmed)', 
+          icon: ClipboardCheck 
+        },
+        { 
+          key: 'dispatched', 
+          hindiTitle: 'रवाना', 
+          englishStatus: '(Shipped)', 
+          icon: Truck 
+        },
+        { 
+          key: 'out_for_delivery', 
+          hindiTitle: 'डिलीवरी के लिए निकला', 
+          englishStatus: '(Out for Delivery)', 
+          icon: Bike 
+        },
+        { 
+          key: 'delivered', 
+          hindiTitle: 'डिलीवर', 
+          englishStatus: '(Delivered)', 
+          icon: Check 
+        },
+      ];
 
-  const currentStepIdx = statusOrderIndex[order.status];
+  const currentStepIdx = isStorePickupOrder
+    ? (order.status === 'placed'
+        ? 0
+        : order.status === 'confirmed'
+        ? 1
+        : order.status === 'ready_for_pickup'
+        ? 2
+        : (order.status === 'pickup_success' || order.status === 'delivered')
+        ? 3
+        : order.status === 'cancelled'
+        ? -1
+        : 1)
+    : (order.status === 'placed'
+        ? 0
+        : order.status === 'confirmed'
+        ? 1
+        : order.status === 'dispatched'
+        ? 2
+        : order.status === 'out_for_delivery'
+        ? 3
+        : order.status === 'delivered' || order.status === 'pickup_success'
+        ? 4
+        : -1);
 
   return (
     <div className="space-y-4 pb-12 print:p-0">
@@ -649,39 +701,59 @@ const OrderDetailsPage: React.FC = () => {
                 ? 'bg-red-50 text-red-700 border-red-200'
                 : 'text-[#2D5A27] bg-[#ECFDF5] border-emerald-200/80'
             }`}>
-              {order.status === 'delivered'
-                ? 'डिलीवर हो चुका है (Delivered)'
-                : order.status === 'out_for_delivery'
-                ? 'डिलीवरी के लिए निकला (Out for Delivery)'
-                : order.status === 'dispatched'
-                ? 'पार्सल रवाना (Shipped)'
-                : order.status === 'confirmed'
-                ? 'स्वीकृत (Confirmed)'
-                : order.status === 'placed'
-                ? 'ऑर्डर दर्ज (Placed)'
-                : 'रद्द (Cancelled)'}
+              {isStorePickupOrder ? (
+                order.status === 'pickup_success' || order.status === 'delivered'
+                  ? 'सफलतापूर्वक पिकअप किया गया (Pickup Success)'
+                  : order.status === 'ready_for_pickup'
+                  ? 'पिकअप के लिए तैयार (Ready for Pickup)'
+                  : order.status === 'confirmed'
+                  ? 'स्वीकृत (Confirmed)'
+                  : order.status === 'placed'
+                  ? 'ऑर्डर दर्ज (Order Placed)'
+                  : 'रद्द (Cancelled)'
+              ) : (
+                order.status === 'delivered' || order.status === 'pickup_success'
+                  ? 'डिलीवर हो चुका है (Delivered)'
+                  : order.status === 'out_for_delivery'
+                  ? 'डिलीवरी के लिए निकला (Out for Delivery)'
+                  : order.status === 'dispatched'
+                  ? 'पार्सल रवाना (Shipped)'
+                  : order.status === 'confirmed'
+                  ? 'स्वीकृत (Confirmed)'
+                  : order.status === 'placed'
+                  ? 'ऑर्डर दर्ज (Placed)'
+                  : 'रद्द (Cancelled)'
+              )}
             </span>
           </div>
         </div>
 
-        {/* Horizontal 5-Step Indicator Matching Reference Design */}
+        {/* Horizontal Step Indicator Matching Reference Design (4 steps for Store Pickup, 5 steps for Local Delivery) */}
         {order.status !== 'cancelled' ? (
           <div className="relative pt-2 pb-3">
-            {/* Subtle Thin Background Line Connecting Center of 1st Circle (10%) to Center of 5th Circle (90%) */}
-            <div className="absolute top-[22px] sm:top-[24px] left-[10%] right-[10%] h-[1.5px] bg-gray-200 -translate-y-1/2 rounded-full" />
+            {/* Background Line Connecting Center of 1st Circle to Center of Last Circle */}
+            <div 
+              className={`absolute top-[22px] sm:top-[24px] h-[1.5px] bg-gray-200 -translate-y-1/2 rounded-full ${
+                isStorePickupOrder ? 'left-[12.5%] right-[12.5%]' : 'left-[10%] right-[10%]'
+              }`} 
+            />
             
             {/* Active Green Line */}
             {currentStepIdx >= 0 && (
               <div
-                className="absolute top-[22px] sm:top-[24px] left-[10%] h-[1.5px] bg-[#2D5A27] -translate-y-1/2 rounded-full transition-all duration-700 ease-out"
+                className={`absolute top-[22px] sm:top-[24px] h-[1.5px] bg-[#2D5A27] -translate-y-1/2 rounded-full transition-all duration-700 ease-out ${
+                  isStorePickupOrder ? 'left-[12.5%]' : 'left-[10%]'
+                }`}
                 style={{
-                  width: `${Math.min(80, Math.max(0, (currentStepIdx / (timelineSteps.length - 1)) * 80))}%`,
+                  width: isStorePickupOrder
+                    ? `${Math.min(75, Math.max(0, (currentStepIdx / (timelineSteps.length - 1)) * 75))}%`
+                    : `${Math.min(80, Math.max(0, (currentStepIdx / (timelineSteps.length - 1)) * 80))}%`,
                 }}
               />
             )}
 
-            {/* 5 Steps Grid */}
-            <div className="grid grid-cols-5 relative z-10">
+            {/* Steps Grid: 4 columns for Store Pickup, 5 columns for Local Delivery */}
+            <div className={`grid relative z-10 ${isStorePickupOrder ? 'grid-cols-4' : 'grid-cols-5'}`}>
               {timelineSteps.map((step, idx) => {
                 const isCompleted = idx <= currentStepIdx;
                 const isCurrent = idx === currentStepIdx;

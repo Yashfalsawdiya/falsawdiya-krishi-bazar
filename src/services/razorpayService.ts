@@ -115,6 +115,7 @@ export const createRazorpayServerOrder = async (payload: {
   items: any[];
   customerDetails: any;
   deliveryCharges?: number;
+  deliveryType?: 'store_pickup' | 'local_delivery';
   notes?: Record<string, string>;
   isDeliveryActive?: boolean;
 }): Promise<{
@@ -194,6 +195,7 @@ export const loadRazorpayScript = (): Promise<boolean> => {
 export interface ProcessPaymentParams {
   items: any[];
   deliveryCharges?: number;
+  deliveryType?: 'store_pickup' | 'local_delivery';
   orderNumber?: string;
   customerName: string;
   customerPhone: string;
@@ -216,6 +218,7 @@ export interface ProcessPaymentParams {
 export const initiateRazorpayPayment = async ({
   items,
   deliveryCharges = 0,
+  deliveryType,
   orderNumber,
   customerName,
   customerPhone,
@@ -242,6 +245,7 @@ export const initiateRazorpayPayment = async ({
         email: customerEmail,
       },
       deliveryCharges,
+      deliveryType,
       isDeliveryActive,
       notes: {
         orderNumber: orderNumber || '',

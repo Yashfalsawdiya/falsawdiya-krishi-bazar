@@ -623,12 +623,11 @@ export const detectDeliveryDistance = (
   config?: DynamicDeliveryConfig | null
 ): DistanceDetectionResult => {
   const cfg = config || DEFAULT_DELIVERY_CONFIG;
-  const deliveryMode = cfg.deliveryMode || 'hybrid';
   const activeTehsils = (cfg.activeTehsils && cfg.activeTehsils.length > 0)
     ? cfg.activeTehsils
     : ['शामगढ़', 'गरोठ', 'सुवासरा', 'भानपुरा', 'सीतामऊ'];
 
-  const UNAVAILABLE_MSG = 'क्षमा करें! आपके क्षेत्र में फल्सावदिया कृषि बाजार की स्थानीय डिलीवरी सेवा अभी उपलब्ध नहीं है। कृपया अन्य उपलब्ध डिलीवरी विकल्प देखें।';
+  const UNAVAILABLE_MSG = 'क्षमा करें! आपके क्षेत्र में फल्सावदिया कृषि बाजार की स्थानीय डिलीवरी सेवा अभी उपलब्ध नहीं है। डिलीवरी केवल शामगढ़ व अधिकृत ग्रामीण क्षेत्रों में ही उपलब्ध है।';
 
   const isTehsilActive = (tehsilName?: string): boolean => {
     if (!tehsilName) return false;
@@ -659,46 +658,31 @@ export const detectDeliveryDistance = (
       isDeliveryDisabled: false,
       errorMessage: 'कृपया अपना गांव या शहर दर्ज करें',
       deliveryType: 'local',
+      isCourierEligible: false,
     };
   }
 
-  // 1. PINCODE ROAD DISTANCE CHECK (All India 6-Digit Precision)
+  // 1. PINCODE ROAD DISTANCE CHECK (Local Area only - distance > 25 km is strictly out-of-delivery zone)
   const pinResult = isSixDigitPin ? calculateAllIndiaPincodeRoadDistance(cleanPin) : null;
 
-  // If a valid 6-digit Pincode indicates a distant region (> 25 km, like Indore 452001, Mandsaur 458001, Pune 411001),
-  // NEVER allow it to be hijacked by local Shamgarh fallback rules!
   if (pinResult && pinResult.km > 25) {
-    if (deliveryMode === 'local_only') {
-      return {
-        distanceKm: 0,
-        formattedDistance: '0 km',
-        isValidLocation: false,
-        confidence: 'invalid',
-        locationLabel: `${cityStr || tehsilStr || pinResult.label} (${cleanPin})`,
-        source: 'pincode_matrix',
-        isLocal: false,
-        isDeliveryDisabled: true,
-        disabledReason: UNAVAILABLE_MSG,
-        errorMessage: UNAVAILABLE_MSG,
-        deliveryType: 'local',
-      };
-    }
-
     return {
-      distanceKm: pinResult.km,
-      formattedDistance: 'अखिल भारतीय कूरियर (Speed Post)',
-      isValidLocation: true,
-      confidence: 'high',
-      locationLabel: `${cityStr} (${cleanPin})`,
-      source: 'courier_service',
+      distanceKm: 0,
+      formattedDistance: '0 km',
+      isValidLocation: false,
+      confidence: 'invalid',
+      locationLabel: `${cityStr || tehsilStr || pinResult.label} (${cleanPin})`,
+      source: 'pincode_matrix',
       isLocal: false,
-      deliveryType: 'courier',
-      isCourierEligible: true,
+      isDeliveryDisabled: true,
+      disabledReason: UNAVAILABLE_MSG,
+      errorMessage: UNAVAILABLE_MSG,
+      deliveryType: 'local',
+      isCourierEligible: false,
     };
   }
 
   // 2. SMART VILLAGE DIRECTORY MATCH (Strictly matching cityStr against local village directory)
-  // NEVER pass streetStr / house address to findVillageMatch!
   const villageList = getCombinedVillageDirectory(cfg.villageDirectory);
   const matchedVillage = cityStr ? findVillageMatch(cityStr, tehsilStr, villageList) : null;
 
@@ -706,48 +690,32 @@ export const detectDeliveryDistance = (
     const isVillageActiveLocally = matchedVillage.isActive !== false && isTehsilActive(matchedVillage.tehsil);
 
     if (!isVillageActiveLocally) {
-      // If delivery mode is local only, block and show the courteous message
-      if (deliveryMode === 'local_only') {
-        return {
-          distanceKm: 0,
-          formattedDistance: '0 km',
-          isValidLocation: false,
-          confidence: 'invalid',
-          locationLabel: `${matchedVillage.nameHi} (तहसील ${matchedVillage.tehsil})`,
-          source: 'village_directory',
-          isLocal: false,
-          isDeliveryDisabled: true,
-          disabledReason: UNAVAILABLE_MSG,
-          errorMessage: UNAVAILABLE_MSG,
-          deliveryType: 'local',
-        };
-      }
-
-      // Hybrid or Courier mode: fallback to Courier delivery with accurate local distance
       return {
-        distanceKm: matchedVillage.distanceKm,
-        formattedDistance: 'कूरियर डिलीवरी (Speed Post)',
-        isValidLocation: true,
-        confidence: 'exact',
-        locationLabel: `${matchedVillage.nameHi} (कूरियर डिलीवरी सेवा)`,
-        source: 'courier_service',
+        distanceKm: 0,
+        formattedDistance: '0 km',
+        isValidLocation: false,
+        confidence: 'invalid',
+        locationLabel: `${matchedVillage.nameHi} (तहसील ${matchedVillage.tehsil})`,
+        source: 'village_directory',
         isLocal: false,
-        deliveryType: 'courier',
-        isCourierEligible: true,
+        isDeliveryDisabled: true,
+        disabledReason: UNAVAILABLE_MSG,
+        errorMessage: UNAVAILABLE_MSG,
+        deliveryType: 'local',
+        isCourierEligible: false,
       };
     }
 
-    const isCourier = deliveryMode === 'courier_only';
     return {
       distanceKm: matchedVillage.distanceKm,
-      formattedDistance: isCourier ? 'कूरियर डिलीवरी (Speed Post)' : `लगभग ${matchedVillage.distanceKm} km`,
+      formattedDistance: `लगभग ${matchedVillage.distanceKm} km`,
       isValidLocation: true,
       confidence: 'exact',
       locationLabel: `${matchedVillage.nameHi} (तहसील ${matchedVillage.tehsil} - ${matchedVillage.distanceKm} km)`,
       source: 'village_directory',
-      isLocal: !isCourier && matchedVillage.distanceKm <= 10,
-      deliveryType: isCourier ? 'courier' : 'local',
-      isCourierEligible: isCourier,
+      isLocal: matchedVillage.distanceKm <= 10,
+      deliveryType: 'local',
+      isCourierEligible: false,
     };
   }
 
@@ -774,54 +742,38 @@ export const detectDeliveryDistance = (
         const tehsilMatchesActive = isTehsilActive(key);
 
         if (!tehsilMatchesActive) {
-          if (deliveryMode === 'local_only') {
-            return {
-              distanceKm: 0,
-              formattedDistance: '0 km',
-              isValidLocation: false,
-              confidence: 'invalid',
-              locationLabel: `${val.label} (${cityStr || tehsilStr})`,
-              source: 'town_match',
-              isLocal: false,
-              isDeliveryDisabled: true,
-              disabledReason: UNAVAILABLE_MSG,
-              errorMessage: UNAVAILABLE_MSG,
-              deliveryType: 'local',
-            };
-          }
-
-          // Hybrid or Courier mode
           return {
-            distanceKm: val.km,
-            formattedDistance: 'कूरियर डिलीवरी (Speed Post)',
-            isValidLocation: true,
-            confidence: 'high',
-            locationLabel: `${val.label} (${cityStr || tehsilStr} - कूरियर)`,
-            source: 'courier_service',
+            distanceKm: 0,
+            formattedDistance: '0 km',
+            isValidLocation: false,
+            confidence: 'invalid',
+            locationLabel: `${val.label} (${cityStr || tehsilStr})`,
+            source: 'town_match',
             isLocal: false,
-            deliveryType: 'courier',
-            isCourierEligible: true,
+            isDeliveryDisabled: true,
+            disabledReason: UNAVAILABLE_MSG,
+            errorMessage: UNAVAILABLE_MSG,
+            deliveryType: 'local',
+            isCourierEligible: false,
           };
         }
 
-        const isCourier = deliveryMode === 'courier_only' || val.km > 20;
         return {
           distanceKm: val.km,
-          formattedDistance: isCourier ? 'कूरियर डिलीवरी (Speed Post)' : `लगभग ${val.km} km`,
+          formattedDistance: `लगभग ${val.km} km`,
           isValidLocation: true,
           confidence: 'high',
           locationLabel: `${val.label} (${cityStr || tehsilStr})`,
-          source: isCourier ? 'courier_service' : 'town_match',
-          isLocal: !isCourier && val.km <= 10,
-          deliveryType: isCourier ? 'courier' : 'local',
-          isCourierEligible: isCourier,
+          source: 'town_match',
+          isLocal: val.km <= 10,
+          deliveryType: 'local',
+          isCourierEligible: false,
         };
       }
     }
   }
 
   // 4. Local Shamgarh Specific Area Granularity (Store Origin in Falsawdiya, Shamgarh)
-  // Strictly checks cityStr / tehsilStr (never streetStr) to avoid false matches for other towns
   const cleanCity = cityStr.toLowerCase();
   const cleanTehsil = tehsilStr.toLowerCase();
   const isShamgarhLocality = cleanPin === '458883' ||
@@ -831,59 +783,55 @@ export const detectDeliveryDistance = (
 
   if (isShamgarhLocality) {
     if (cleanCity.includes('फल्सावदिया') || cleanCity.includes('falsawdiya')) {
-      const isCourier = deliveryMode === 'courier_only';
       return {
         distanceKm: 0.8,
-        formattedDistance: isCourier ? 'कूरियर डिलीवरी' : 'लगभग 0.8 km',
+        formattedDistance: 'लगभग 0.8 km',
         isValidLocation: true,
         confidence: 'high',
         locationLabel: 'फल्सावदिया (लोकल दुकान क्षेत्र - 458883)',
         source: 'town_match',
-        isLocal: !isCourier,
-        deliveryType: isCourier ? 'courier' : 'local',
-        isCourierEligible: isCourier,
+        isLocal: true,
+        deliveryType: 'local',
+        isCourierEligible: false,
       };
     }
     if (cleanCity.includes('चंदवासा') || cleanCity.includes('chandwasa')) {
-      const isCourier = deliveryMode === 'courier_only';
       return {
         distanceKm: 9.5,
-        formattedDistance: isCourier ? 'कूरियर डिलीवरी' : 'लगभग 9.5 km',
+        formattedDistance: 'लगभग 9.5 km',
         isValidLocation: true,
         confidence: 'high',
         locationLabel: 'चंदवासा (458883)',
         source: 'town_match',
-        isLocal: !isCourier,
-        deliveryType: isCourier ? 'courier' : 'local',
-        isCourierEligible: isCourier,
+        isLocal: true,
+        deliveryType: 'local',
+        isCourierEligible: false,
       };
     }
     if (cleanCity.includes('बोलिया') || cleanCity.includes('bolia')) {
-      const isCourier = deliveryMode === 'courier_only';
       return {
         distanceKm: 10.5,
-        formattedDistance: isCourier ? 'कूरियर डिलीवरी' : 'लगभग 10.5 km',
+        formattedDistance: 'लगभग 10.5 km',
         isValidLocation: true,
         confidence: 'high',
         locationLabel: 'बोलिया (458883)',
         source: 'town_match',
         isLocal: false,
-        deliveryType: isCourier ? 'courier' : 'local',
-        isCourierEligible: isCourier,
+        deliveryType: 'local',
+        isCourierEligible: false,
       };
     }
     // Shamgarh Town Center (Station, Mandi, Market, Subhash Nagar, etc.)
-    const isCourier = deliveryMode === 'courier_only';
     return {
       distanceKm: 1.8,
-      formattedDistance: isCourier ? 'कूरियर डिलीवरी' : 'लगभग 1.8 km',
+      formattedDistance: 'लगभग 1.8 km',
       isValidLocation: true,
       confidence: 'high',
       locationLabel: 'शामगढ़ शहर (458883)',
       source: 'town_match',
-      isLocal: !isCourier,
-      deliveryType: isCourier ? 'courier' : 'local',
-      isCourierEligible: isCourier,
+      isLocal: true,
+      deliveryType: 'local',
+      isCourierEligible: false,
     };
   }
 
@@ -902,43 +850,11 @@ export const detectDeliveryDistance = (
     { pattern: /सुनेल|sunel|पिड़ावा|pirawa/i, km: 40.0, label: 'सुनेल / पिड़ावा' },
     { pattern: /दलोदा|dalauda|dhodhar|ढोढर/i, km: 52.0, label: 'दलोदा' },
     { pattern: /पिपलिया|piplia|मल्हारगढ़|malhargarh/i, km: 58.0, label: 'पिपलिया मंडी' },
-    { pattern: /झालावाड़|jhalawar|झालरापाटन/i, km: 48.0, label: 'झालावाड़' },
-    { pattern: /मंदसौर|mandsaur|mandsour/i, km: 68.0, label: 'मंदसौर शहर' },
-    { pattern: /मनासा|manasa|कुकड़ेश्वर/i, km: 75.0, label: 'मनासा' },
-    { pattern: /जावरा|jawra|jaora/i, km: 85.0, label: 'जावरा' },
-    { pattern: /नीमच|neemuch|nimach/i, km: 85.0, label: 'नीमच' },
-    { pattern: /कोटा|kota/i, km: 115.0, label: 'कोटा' },
-    { pattern: /रतलाम|ratlam/i, km: 120.0, label: 'रतलाम' },
-    { pattern: /चित्तौड़|chittorgarh/i, km: 130.0, label: 'चित्तौड़गढ़' },
-    { pattern: /उज्जैन|ujjain/i, km: 145.0, label: 'उज्जैन' },
-    { pattern: /इंदौर|indore/i, km: 195.0, label: 'इंदौर' },
-    { pattern: /महू|mhow|dr\.\s*ambedkar\s*nagar/i, km: 210.0, label: 'महू / Dr. Ambedkar Nagar' },
-    { pattern: /भोपाल|bhopal/i, km: 240.0, label: 'भोपाल' },
-    { pattern: /पुणे|pune/i, km: 755.0, label: 'पुणे' },
-    { pattern: /मुंबई|mumbai|परेल|parel|दादर|dadar|ठाणे|thane|navi\s*mumbai|नवी\s*मुंबई/i, km: 725.0, label: 'मुंबई / परेल' },
-    { pattern: /नासिक|nashik/i, km: 560.0, label: 'नासिक' },
-    { pattern: /नागपुर|nagpur/i, km: 570.0, label: 'नागपुर' },
-    { pattern: /अहमदाबाद|ahmedabad/i, km: 390.0, label: 'अहमदाबाद' },
-    { pattern: /वडोदरा|vadodara|baroda/i, km: 385.0, label: 'वडोदरा' },
-    { pattern: /सूरत|surat/i, km: 530.0, label: 'सूरत' },
-    { pattern: /जयपुर|jaipur/i, km: 345.0, label: 'जयपुर' },
-    { pattern: /उदयपुर|udaipur/i, km: 225.0, label: 'उदयपुर' },
-    { pattern: /जोधपुर|jodhpur/i, km: 465.0, label: 'जोधपुर' },
-    { pattern: /दिल्ली|delhi|gurugram|गुरुग्राम|noida|नोएडा|faridabad|फरीदाबाद/i, km: 605.0, label: 'दिल्ली एनसीआर' },
-    { pattern: /लखनऊ|lucknow/i, km: 680.0, label: 'लखनऊ' },
-    { pattern: /कानपुर|kanpur/i, km: 640.0, label: 'कानपुर' },
-    { pattern: /आगरा|agra/i, km: 480.0, label: 'आगरा' },
-    { pattern: /ग्वालियर|gwalior/i, km: 380.0, label: 'ग्वालियर' },
-    { pattern: /जबलपुर|jabalpur/i, km: 520.0, label: 'जबलपुर' },
-    { pattern: /कोलकाता|kolkata|calcutta/i, km: 1480.0, label: 'कोलकाता' },
-    { pattern: /हैदराबाद|hyderabad/i, km: 960.0, label: 'हैदराबाद' },
-    { pattern: /बेंगलुरु|bengaluru|bangalore/i, km: 1420.0, label: 'बेंगलुरु' },
-    { pattern: /चेन्नई|chennai/i, km: 1560.0, label: 'चेन्नई' },
   ];
 
   for (const item of TOWN_MATCHES) {
     if (item.pattern.test(fullLoc)) {
-      if (deliveryMode === 'local_only' && item.km > 20) {
+      if (item.km > 25) {
         return {
           distanceKm: 0,
           formattedDistance: '0 km',
@@ -951,68 +867,38 @@ export const detectDeliveryDistance = (
           disabledReason: UNAVAILABLE_MSG,
           errorMessage: UNAVAILABLE_MSG,
           deliveryType: 'local',
+          isCourierEligible: false,
         };
       }
 
-      const isCourier = item.km > 20 || deliveryMode === 'courier_only';
       return {
         distanceKm: item.km,
-        formattedDistance: isCourier ? 'अखिल भारतीय कूरियर (Speed Post)' : `लगभग ${item.km} km`,
+        formattedDistance: `लगभग ${item.km} km`,
         isValidLocation: true,
         confidence: 'high',
-        locationLabel: `${item.label}${isCourier ? ' (कूरियर सेवा)' : ''}`,
-        source: isCourier ? 'courier_service' : 'town_match',
-        isLocal: !isCourier && item.km <= 10,
-        deliveryType: isCourier ? 'courier' : 'local',
-        isCourierEligible: isCourier,
+        locationLabel: item.label,
+        source: 'town_match',
+        isLocal: item.km <= 10,
+        deliveryType: 'local',
+        isCourierEligible: false,
       };
     }
   }
 
-  // 6. Generic Address with valid City and Tehsil in Global/Courier mode (Regional Geolocation Fallback)
-  if ((deliveryMode === 'hybrid' || deliveryMode === 'courier_only') && cityStr && tehsilStr) {
-    let regionalEstKm = 450.0;
-    if (stateStr.includes('महाराष्ट्र') || stateStr.includes('maharashtra')) {
-      regionalEstKm = 720.0;
-    } else if (stateStr.includes('गुजरात') || stateStr.includes('gujarat')) {
-      regionalEstKm = 420.0;
-    } else if (stateStr.includes('राजस्थान') || stateStr.includes('rajasthan')) {
-      regionalEstKm = 280.0;
-    } else if (stateStr.includes('उत्तर प्रदेश') || stateStr.includes('uttar pradesh')) {
-      regionalEstKm = 620.0;
-    } else if (stateStr.includes('दिल्ली') || stateStr.includes('delhi')) {
-      regionalEstKm = 605.0;
-    } else if (stateStr.includes('मध्य प्रदेश') || stateStr.includes('madhya pradesh')) {
-      regionalEstKm = 220.0;
-    } else if (stateStr.includes('कर्नाटक') || stateStr.includes('तमिलनाडु') || stateStr.includes('केरल')) {
-      regionalEstKm = 1450.0;
-    } else if (stateStr.includes('पश्चिम बंगाल') || stateStr.includes('बिहार')) {
-      regionalEstKm = 1200.0;
-    }
-
-    return {
-      distanceKm: regionalEstKm,
-      formattedDistance: 'अखिल भारतीय कूरियर (Speed Post)',
-      isValidLocation: true,
-      confidence: 'approximate',
-      locationLabel: `${cityStr}, ${tehsilStr}${distStr ? `, ${distStr}` : ''}`,
-      source: 'courier_service',
-      isLocal: false,
-      deliveryType: 'courier',
-      isCourierEligible: true,
-    };
-  }
-
-  // 7. Invalid / Incomplete Location - DO NOT GUESS OR FAKE
+  // 6. Outside local area or unknown location - strictly return unavailable
   return {
     distanceKm: 0,
     formattedDistance: '0 km',
     isValidLocation: false,
     confidence: 'invalid',
-    locationLabel: 'लोकेशन अज्ञात',
+    locationLabel: cityStr ? `${cityStr} (${cleanPin || 'क्षेत्र'})` : 'लोकेशन अज्ञात',
     source: 'unknown',
     isLocal: false,
-    errorMessage: 'आपकी सटीक Location नहीं मिल पाई। कृपया 6-अंकीय पिनकोड और पूरा पता दर्ज करें।',
+    isDeliveryDisabled: true,
+    disabledReason: UNAVAILABLE_MSG,
+    errorMessage: UNAVAILABLE_MSG,
+    deliveryType: 'local',
+    isCourierEligible: false,
   };
 };
 
@@ -1126,83 +1012,7 @@ export const calculateDynamicDeliveryCharge = (
 
   const safeWeight = Math.max(0.1, Math.round(totalWeightKg * 100) / 100);
   const safeDistance = Math.max(1, Math.round(distanceKm * 10) / 10);
-  const isCourier = deliveryTypeOption === 'courier' || cfg.deliveryMode === 'courier_only';
-
-  // 1. COURIER DELIVERY PRICING (India Post / Speed Post / Courier)
-  if (isCourier) {
-    const courierRates = cfg.courierRates || {
-      isEnabled: true,
-      baseWeightKg: 1,
-      baseCharge: 60,
-      perKgAdditionalCharge: 30,
-      freeDeliveryThreshold: 2000,
-      defaultPartnerName: 'Speed Post (इंडिया पोस्ट)',
-    };
-
-    const baseWeight = courierRates.baseWeightKg || 1;
-    const baseFee = courierRates.baseCharge || 60;
-    const perKg = courierRates.perKgAdditionalCharge || 30;
-    const extraWeight = Math.max(0, safeWeight - baseWeight);
-    const extraUnits = Math.ceil(extraWeight);
-    const calculatedBase = baseFee + (extraUnits * perKg);
-
-    const isFree = Boolean(
-      courierRates.freeDeliveryThreshold &&
-      courierRates.freeDeliveryThreshold > 0 &&
-      cartTotal >= courierRates.freeDeliveryThreshold
-    );
-
-    const finalDeliveryCharge = isFree ? 0 : calculatedBase;
-    const partnerName = courierRates.defaultPartnerName || 'Speed Post (इंडिया पोस्ट)';
-
-    const courierVehicle: VehicleConfig = {
-      id: 'courier',
-      name: partnerName,
-      shortName: 'Courier',
-      icon: '📦',
-      description: 'अखिल भारतीय डाक व कूरियर सेवा',
-      maxCapacityKg: 100,
-      isActive: true,
-      order: 99,
-    };
-
-    return {
-      totalWeightKg: safeWeight,
-      distanceKm: safeDistance,
-      vehicle: courierVehicle,
-      vehicleEmoji: '📦',
-      vehicleNameHindi: partnerName,
-      vehicleType: 'कूरियर सेवा',
-      weightSlab: {
-        id: 'ws_courier',
-        minWeightKg: 0,
-        maxWeightKg: 99999,
-        vehicleId: 'courier',
-        label: `${safeWeight} kg कूरियर`,
-      },
-      distanceSlab: {
-        id: 'ds_courier',
-        minDistanceKm: 0,
-        maxDistanceKm: 99999,
-        label: 'कूरियर क्षेत्र',
-      },
-      baseCharge: calculatedBase,
-      discount: isFree ? calculatedBase : 0,
-      finalDeliveryCharge,
-      isFreeDelivery: isFree,
-      breakdownText: isFree
-        ? `₹${courierRates.freeDeliveryThreshold} से अधिक पर मुफ़्त कूरियर डिलीवरी लागू`
-        : `${partnerName} (${safeWeight} kg) = बेस ₹${baseFee} + अतिरिक्त ₹${extraUnits * perKg} = ₹${calculatedBase}`,
-      calculationNote: isFree
-        ? `ऑर्डर मूल्य (₹${cartTotal}) पर मुफ़्त कूरियर डिलीवरी लागू`
-        : `${partnerName} दर: प्रथम ${baseWeight} kg ₹${baseFee}, इसके बाद ₹${perKg}/kg`,
-      deliveryType: 'courier',
-      courierPartnerName: partnerName,
-      isServiceable: true,
-    };
-  }
-
-  // 2. FIXED STANDARD FALLBACK
+  // 1. FIXED STANDARD FALLBACK (When dynamic matrix is toggled off)
   if (!cfg.isEnabled) {
     const fixedFee = cfg.defaultFixedCharge ?? 40;
     const isFree = cfg.enableFreeDelivery && cfg.freeDeliveryThreshold > 0 && cartTotal >= cfg.freeDeliveryThreshold;

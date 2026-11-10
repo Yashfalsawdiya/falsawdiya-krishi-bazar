@@ -438,12 +438,36 @@ app.post('/api/razorpay/create-order', async (req: Request, res: Response): Prom
       return;
     }
 
-    const { items, customerDetails, deliveryCharges = 0, notes = {}, isDeliveryActive = true } = req.body;
+    const { items, customerDetails, deliveryCharges = 0, notes = {}, isDeliveryActive = true, deliveryType } = req.body;
+
+    // Check delivery operational mode: Store Pickup is the Master Online Ordering Switch!
+    try {
+      const remoteDeliveryCfg = await getRemoteFirestoreDoc<any>('settings', 'deliveryConfig');
+      if (remoteDeliveryCfg) {
+        const isOnlineMasterActive = (remoteDeliveryCfg.enableStorePickup !== false) && (remoteDeliveryCfg.isDeliveryActive !== false);
+        if (!isOnlineMasterActive) {
+          res.status(403).json({
+            success: false,
+            error: 'ऑनलाइन ऑर्डरिंग सेवा वर्तमान में अस्थायी रूप से बंद है। नया ऑर्डर स्वीकार नहीं किया जा सकता।',
+          });
+          return;
+        }
+        if (deliveryType === 'local_delivery' && remoteDeliveryCfg.enableLocalDelivery === false) {
+          res.status(403).json({
+            success: false,
+            error: 'घर तक स्थानीय डिलीवरी सेवा वर्तमान में बंद है। केवल दुकान से स्वयं पिकअप उपलब्ध है।',
+          });
+          return;
+        }
+      }
+    } catch (cfgErr) {
+      console.warn('[Server] Error checking remote deliveryConfig:', cfgErr);
+    }
 
     if (isDeliveryActive === false) {
       res.status(403).json({
         success: false,
-        error: 'असुविधा के लिए खेद है। फिलहाल होम डिलीवरी सेवा अस्थायी रूप से बंद है।',
+        error: 'असुविधा के लिए खेद है। फिलहाल ऑनलाइन ऑर्डरिंग सेवा अस्थायी रूप से बंद है।',
       });
       return;
     }

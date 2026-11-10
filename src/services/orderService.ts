@@ -68,6 +68,25 @@ export const createNewOrder = async (orderData: Omit<Order, 'id' | 'orderNumber'
     }
   }
 
+  // Validate Delivery Operational Mode: Store Pickup is the Master Online Ordering Switch!
+  try {
+    const deliveryDoc = await getDoc(doc(db, 'settings', 'deliveryConfig'));
+    if (deliveryDoc.exists()) {
+      const cfg = deliveryDoc.data();
+      const isOnlineActive = (cfg?.enableStorePickup !== false) && (cfg?.isDeliveryActive !== false);
+      if (!isOnlineActive) {
+        throw new Error('ऑनलाइन ऑर्डरिंग सेवा वर्तमान में अस्थायी रूप से बंद है। नया ऑर्डर दर्ज नहीं किया जा सकता।');
+      }
+      if (orderData.deliveryType === 'local_delivery' && cfg?.enableLocalDelivery === false) {
+        throw new Error('घर तक स्थानीय डिलीवरी सेवा वर्तमान में बंद है। केवल दुकान से स्वयं पिकअप उपलब्ध है।');
+      }
+    }
+  } catch (err: any) {
+    if (err.message?.includes('ऑनलाइन ऑर्डरिंग') || err.message?.includes('स्थानीय डिलीवरी')) {
+      throw err;
+    }
+  }
+
   const orderId = orderData.id || `order_${Date.now()}_${Math.random().toString(36).substr(2, 7)}`;
   const orderNumber = generateOrderNumber();
   const now = Date.now();
@@ -123,6 +142,8 @@ export const updateOrderStatus = async (
   const statusTitles: Record<OrderStatus, string> = {
     placed: 'ऑर्डर दर्ज हुआ (Order Placed)',
     confirmed: 'ऑर्डर स्वीकृत हुआ (Order Confirmed)',
+    ready_for_pickup: 'पिकअप के लिए तैयार (Ready for Pickup)',
+    pickup_success: 'सफलतापूर्वक पिकअप किया गया (Pickup Success)',
     dispatched: 'पार्सल रवाना हुआ (Dispatched/Shipped)',
     out_for_delivery: 'डिलीवरी के लिए निकला (Out for Delivery)',
     delivered: 'सफलतापूर्वक डिलीवर हुआ (Delivered)',
@@ -132,6 +153,8 @@ export const updateOrderStatus = async (
   const statusDescriptions: Record<OrderStatus, string> = {
     placed: 'ग्राहक द्वारा ऑनलाइन ऑर्डर दर्ज किया गया।',
     confirmed: 'फल्सावदिया कृषि बाजार द्वारा ऑर्डर स्वीकार व पैक किया गया।',
+    ready_for_pickup: 'आपका ऑर्डर दुकान पर पिकअप के लिए पूरी तरह तैयार है।',
+    pickup_success: 'ग्राहक द्वारा दुकान से ऑर्डर सफलतापूर्वक पिकअप कर लिया गया है।',
     dispatched: extraDetails?.courierPartner ? `पार्सल ${extraDetails.courierPartner} (ट्रैकिंग नं: ${extraDetails.trackingNumber || 'N/A'}) द्वारा रवाना किया गया।` : 'सामान कूरियर/डिलीवरी पार्टनर को सुपुर्द कर दिया गया है।',
     out_for_delivery: 'डिलीवरी पार्टनर आपके पते पर सामान पहुँचाने निकल चुका है।',
     delivered: 'उत्पाद किसान ग्राहक तक सफलतापूर्वक पहुँचा दिया गया है।',

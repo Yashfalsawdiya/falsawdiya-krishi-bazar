@@ -803,15 +803,86 @@ export const DEFAULT_VILLAGE_DIRECTORY: VillageDeliveryEntry[] = [
   },
 ];
 
-export const PRIMARY_TEHSILS = [
-  'शामगढ़',
-  'गरोठ',
-  'सुवासरा',
-  'सीतामऊ',
-  'भानपुरा',
-  'मंदसौर',
-  'अन्य',
+import { TehsilEntry } from '../types';
+export type { TehsilEntry } from '../types';
+
+export const DEFAULT_TEHSIL_DIRECTORY: TehsilEntry[] = [
+  {
+    id: 'tehsil_shamgarh',
+    nameHi: 'शामगढ़',
+    nameEn: 'Shamgarh',
+    district: 'मंदसौर',
+    isActive: true,
+    createdAt: 1700000000000,
+    updatedAt: 1700000000000,
+  },
+  {
+    id: 'tehsil_garoth',
+    nameHi: 'गरोठ',
+    nameEn: 'Garoth',
+    district: 'मंदसौर',
+    isActive: true,
+    createdAt: 1700000000000,
+    updatedAt: 1700000000000,
+  },
+  {
+    id: 'tehsil_suwasra',
+    nameHi: 'सुवासरा',
+    nameEn: 'Suwasra',
+    district: 'मंदसौर',
+    isActive: true,
+    createdAt: 1700000000000,
+    updatedAt: 1700000000000,
+  },
+  {
+    id: 'tehsil_sitamau',
+    nameHi: 'सीतामऊ',
+    nameEn: 'Sitamau',
+    district: 'मंदसौर',
+    isActive: true,
+    createdAt: 1700000000000,
+    updatedAt: 1700000000000,
+  },
+  {
+    id: 'tehsil_bhanpura',
+    nameHi: 'भानपुरा',
+    nameEn: 'Bhanpura',
+    district: 'मंदसौर',
+    isActive: true,
+    createdAt: 1700000000000,
+    updatedAt: 1700000000000,
+  },
+  {
+    id: 'tehsil_mandsaur',
+    nameHi: 'मंदसौर',
+    nameEn: 'Mandsaur',
+    district: 'मंदसौर',
+    isActive: true,
+    createdAt: 1700000000000,
+    updatedAt: 1700000000000,
+  },
+  {
+    id: 'tehsil_other',
+    nameHi: 'अन्य',
+    nameEn: 'Other',
+    district: 'अन्य',
+    isActive: true,
+    createdAt: 1700000000000,
+    updatedAt: 1700000000000,
+  },
 ];
+
+export const PRIMARY_TEHSILS = DEFAULT_TEHSIL_DIRECTORY.map(t => t.nameHi);
+
+/**
+ * Returns dynamic tehsils from deliveryConfig or falls back to DEFAULT_TEHSIL_DIRECTORY
+ */
+export const getCombinedTehsils = (configuredTehsils?: TehsilEntry[]): TehsilEntry[] => {
+  if (Array.isArray(configuredTehsils) && configuredTehsils.length > 0) {
+    return configuredTehsils;
+  }
+  return DEFAULT_TEHSIL_DIRECTORY;
+};
 
 /**
  * Normalizes text for robust bilingual comparison (Hindi & English)

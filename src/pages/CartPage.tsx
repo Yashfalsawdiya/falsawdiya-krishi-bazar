@@ -27,7 +27,11 @@ const CartPage: React.FC = () => {
   const [showDeliveryBlockedModal, setShowDeliveryBlockedModal] = useState<boolean>(false);
   const [showPriceBlockedModal, setShowPriceBlockedModal] = useState<boolean>(false);
 
-  const isDeliveryActive = deliveryConfig?.isDeliveryActive !== false && appContent?.isDeliveryActive !== false;
+  // Master Online Ordering Switch: Store Pickup controls the entire app's online ordering!
+  const isOnlineOrderingActive = (deliveryConfig?.enableStorePickup !== false) && 
+                                (deliveryConfig?.isDeliveryActive !== false) && 
+                                (appContent?.isDeliveryActive !== false);
+  const isDeliveryActive = isOnlineOrderingActive;
 
   const activeCartItem = cartItems.find((item) => item.id === activeCartItemId);
   const activeProduct = activeCartItem ? activeCartItem.product : null;
@@ -41,7 +45,7 @@ const CartPage: React.FC = () => {
       setShowPriceBlockedModal(true);
       return;
     }
-    if (!isDeliveryActive) {
+    if (!isOnlineOrderingActive) {
       setShowDeliveryBlockedModal(true);
       return;
     }
@@ -281,10 +285,10 @@ const CartPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="text-[10px] text-gray-600 bg-white/70 p-2 rounded-xl border border-gray-200/50 mt-1 flex items-center gap-1.5">
+              <div className="text-[10px] text-gray-600 bg-white/70 p-2 rounded-xl border border-gray-200/50 mt-1 flex items-center gap-1.5 leading-relaxed">
                 <Store className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
-                <span>
-                  दुकान से स्वयं पिकअप (डिंपल चौराहा, शामगढ़) पर ₹0 (नि:शुल्क) उपलब्ध है।
+                <span className="break-words">
+                  <strong className="font-bold text-gray-800">फल्सावदिया कृषि बाजार</strong> दुकान से अपना ऑर्डर स्वयं पिकअप करने पर डिलीवरी शुल्क ₹0 है।
                 </span>
               </div>
             </div>
@@ -330,7 +334,7 @@ const CartPage: React.FC = () => {
                 onClick={handleProceedToCheckout}
                 className={cn(
                   "w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2.5 transition-all shadow-lg",
-                  hasHiddenPriceItems
+                  hasHiddenPriceItems || !isOnlineOrderingActive
                     ? "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20 active:scale-95 cursor-pointer"
                     : "bg-[#2D5A27] hover:bg-[#2D5A27]/90 text-white shadow-[#2D5A27]/20 active:scale-95 cursor-pointer"
                 )}
@@ -339,6 +343,11 @@ const CartPage: React.FC = () => {
                   <>
                     <EyeOff className="w-5 h-5 text-amber-200" />
                     कीमतें छिपी हैं (ऑर्डर के लिए संपर्क करें)
+                  </>
+                ) : !isOnlineOrderingActive ? (
+                  <>
+                    <Store className="w-5 h-5 text-amber-200" />
+                    ऑनलाइन ऑर्डरिंग सेवा बंद है (दुकान संपर्क करें)
                   </>
                 ) : (
                   <>

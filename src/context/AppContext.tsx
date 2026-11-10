@@ -220,15 +220,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const mergeDeliveryConfig = (saved?: Partial<DynamicDeliveryConfig> | null): DynamicDeliveryConfig => {
     if (!saved) return DEFAULT_DELIVERY_CONFIG;
+    const enableStorePickup = saved.enableStorePickup !== false;
+    const isDeliveryActive = enableStorePickup && saved.isDeliveryActive !== false;
+
     return {
       ...DEFAULT_DELIVERY_CONFIG,
       ...saved,
+      enableStorePickup,
+      enableLocalDelivery: saved.enableLocalDelivery !== false,
+      isDeliveryActive,
       storeOrigin: { ...DEFAULT_DELIVERY_CONFIG.storeOrigin, ...(saved.storeOrigin || {}) },
       vehicles: (saved.vehicles && saved.vehicles.length > 0) ? saved.vehicles : DEFAULT_DELIVERY_CONFIG.vehicles,
       weightSlabs: (saved.weightSlabs && saved.weightSlabs.length > 0) ? saved.weightSlabs : DEFAULT_DELIVERY_CONFIG.weightSlabs,
       distanceSlabs: (saved.distanceSlabs && saved.distanceSlabs.length > 0) ? saved.distanceSlabs : DEFAULT_DELIVERY_CONFIG.distanceSlabs,
       rateMatrix: { ...DEFAULT_DELIVERY_CONFIG.rateMatrix, ...(saved.rateMatrix || {}) },
       pincodeDistances: { ...DEFAULT_DELIVERY_CONFIG.pincodeDistances, ...(saved.pincodeDistances || {}) },
+      tehsilDirectory: (saved.tehsilDirectory && saved.tehsilDirectory.length > 0) ? saved.tehsilDirectory : DEFAULT_DELIVERY_CONFIG.tehsilDirectory,
+      villageDirectory: (saved.villageDirectory && saved.villageDirectory.length > 0) ? saved.villageDirectory : DEFAULT_DELIVERY_CONFIG.villageDirectory,
     };
   };
 
@@ -1218,8 +1226,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateDeliveryConfig = async (config: DynamicDeliveryConfig) => {
     try {
-      const payload = {
+      const isOnlineActive = config.enableStorePickup !== false;
+      const payload: DynamicDeliveryConfig = {
         ...config,
+        enableStorePickup: isOnlineActive,
+        enableLocalDelivery: config.enableLocalDelivery !== false,
+        isDeliveryActive: isOnlineActive,
         lastUpdated: Date.now(),
       };
       await setDoc(doc(db, 'settings', 'deliveryConfig'), payload, { merge: true });
@@ -1233,13 +1245,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (appContent) {
         const updatedAppContent = {
           ...appContent,
-          isDeliveryActive: config.isDeliveryActive,
+          isDeliveryActive: isOnlineActive,
         };
         setAppContent(updatedAppContent);
         localStorage.setItem('agri_cache_app_content', JSON.stringify(updatedAppContent));
         idbSet(IDB_KEYS.APP_CONTENT, updatedAppContent);
         try {
-          await setDoc(doc(db, 'settings', 'appContent'), { isDeliveryActive: config.isDeliveryActive }, { merge: true });
+          await setDoc(doc(db, 'settings', 'appContent'), { isDeliveryActive: isOnlineActive }, { merge: true });
         } catch (e) {
           console.warn("Synced delivery active to appContent settings:", e);
         }

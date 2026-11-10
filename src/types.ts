@@ -152,7 +152,15 @@ export interface OrderItem {
   image?: string | ImageSource;
 }
 
-export type OrderStatus = 'placed' | 'confirmed' | 'dispatched' | 'out_for_delivery' | 'delivered' | 'cancelled';
+export type OrderStatus = 
+  | 'placed' 
+  | 'confirmed' 
+  | 'ready_for_pickup' 
+  | 'pickup_success' 
+  | 'dispatched' 
+  | 'out_for_delivery' 
+  | 'delivered' 
+  | 'cancelled';
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
 export type PaymentMethod = 'online_razorpay' | 'upi_manual';
 export type RefundStatus = 'not_applicable' | 'pending' | 'processed' | 'failed';
@@ -239,6 +247,12 @@ export interface Order {
   deliveryOtpVerifierName?: string;
   deliveryOtpNote?: string;
   deliveryOtpInAppCode?: string; // Fallback in-app live code for low-connectivity rural areas
+  deliveryType?: 'store_pickup' | 'local_delivery' | 'STORE_PICKUP' | 'LOCAL_DELIVERY' | string;
+  isStorePickup?: boolean;
+  awbCode?: string;
+  shippingLabelUrl?: string;
+  shiprocketOrderId?: string | number;
+  shiprocketShipmentId?: string | number;
   createdAt: number;
   updatedAt: number;
 }
@@ -666,9 +680,33 @@ export interface StoreOriginLocation {
   longitude?: number;
 }
 
+export interface VillageDeliveryEntry {
+  id: string;
+  nameHi: string;
+  nameEn: string;
+  tehsil: string;
+  district: string;
+  pincode: string;
+  distanceKm: number;
+  isActive: boolean;
+  isCustom?: boolean;
+}
+
+export interface TehsilEntry {
+  id: string;
+  nameHi: string;
+  nameEn: string;
+  district: string;
+  isActive: boolean;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
 export interface DynamicDeliveryConfig {
   isEnabled: boolean; // whether dynamic delivery mode is active
   isDeliveryActive: boolean; // whether store delivery is accepted
+  enableStorePickup?: boolean; // whether store pickup is enabled
+  enableLocalDelivery?: boolean; // whether local home delivery is enabled
   defaultFixedCharge: number; // fallback fixed fee if dynamic is toggled off
   enableFreeDelivery: boolean;
   freeDeliveryThreshold: number; // Free delivery above this cart amount
@@ -681,6 +719,9 @@ export interface DynamicDeliveryConfig {
   distanceSlabs: DistanceSlab[];
   rateMatrix: DeliveryRateMatrix;
   pincodeDistances?: { [pincode: string]: number };
+  activeTehsils?: string[];
+  tehsilDirectory?: TehsilEntry[];
+  villageDirectory?: VillageDeliveryEntry[];
   lastUpdated: number;
 }
 
@@ -699,6 +740,9 @@ export interface CalculatedDeliveryQuote {
   isFreeDelivery: boolean;
   breakdownText: string;
   calculationNote?: string;
+  deliveryType?: 'local' | 'courier';
+  courierPartnerName?: string;
+  isServiceable?: boolean;
 }
 
 export interface OrderDeliverySnapshot {
@@ -717,6 +761,8 @@ export interface OrderDeliverySnapshot {
   isFreeDelivery: boolean;
   isManuallyOverridden?: boolean;
   overrideReason?: string;
+  deliveryType?: string;
+  courierPartnerName?: string;
   calculatedAt: number;
 }
 
@@ -943,4 +989,19 @@ export interface FooterConfig {
   bottomText?: string;
   paymentLabel?: string;
   paymentMethods?: string[];
+}
+
+export interface ShippingQuoteResponse {
+  success: boolean;
+  serviceable: boolean;
+  isStorePickup?: boolean;
+  shippingCharge: number;
+  standardCharge?: number;
+  isFreeDelivery?: boolean;
+  courierName: string;
+  estimatedDays: string;
+  pickupAddress?: string;
+  zone?: string;
+  isStorePickupAvailable?: boolean;
+  error?: string;
 }

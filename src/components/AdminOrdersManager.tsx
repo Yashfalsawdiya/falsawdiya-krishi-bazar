@@ -14,7 +14,7 @@ import {
   ChevronDown, Edit3, Loader2, RefreshCw, Download,
   Calendar, DollarSign, Send, Bell, BellRing, ChevronRight,
   TrendingUp, AlertTriangle, ArrowUpRight, Check, Users, UserPlus, UserCheck, X, Hash,
-  ExternalLink, Copy, Globe, Shield, Plus, Trash2
+  ExternalLink, Copy, Globe, Shield, Plus, Trash2, Store
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateOrderInvoicePDF } from '../utils/invoiceGenerator';
@@ -31,7 +31,6 @@ import {
   addCustomCourierPartner,
   deleteCustomCourierPartner
 } from '../services/courierService';
-import { createShipmentForOrder } from '../services/shippingService';
 
 // Web Audio API Chime generator (Zero external files, 100% reliable)
 const playOrderChime = () => {
@@ -113,8 +112,6 @@ const AdminOrdersManager: React.FC = () => {
   const [inlineCourierName, setInlineCourierName] = useState('');
   const [inlineTrackingUrl, setInlineTrackingUrl] = useState('');
   const [inlineTrackingNumber, setInlineTrackingNumber] = useState('');
-  const [isGeneratingShipment, setIsGeneratingShipment] = useState(false);
-  const [shipmentFeedback, setShipmentFeedback] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // Delivery Partners State & Assign Modal
   const [deliveryPartners, setDeliveryPartners] = useState<DeliveryPartner[]>([]);
@@ -306,35 +303,72 @@ const AdminOrdersManager: React.FC = () => {
   const handleOpenStatusModal = (order: Order) => {
     setSelectedOrder(order);
     setUpdatingOrderId(order.id);
-    setNewStatus((order.status === 'placed' || order.status === 'confirmed') ? 'dispatched' : order.status);
-    setStatusNote(order.notes || '');
-    const defaultCourier = 'फल्सावदिया कृषि बाजार (Own Delivery)';
-    const currentCourier = (order.courierPartner && order.courierPartner !== 'लोकल डिलीवरी (Own Delivery)')
-      ? order.courierPartner
-      : defaultCourier;
-    setCourierPartner(currentCourier);
-
-    const isCurrentOwnDelivery = Boolean(
-      currentCourier.toLowerCase().includes('own delivery') ||
-      currentCourier.toLowerCase().includes('फल्सावदिया') ||
-      currentCourier.toLowerCase().includes('लोकल') ||
-      currentCourier.toLowerCase().includes('store delivery') ||
-      courierPartners.find(p => p.name.toLowerCase() === currentCourier.toLowerCase().trim() && p.isLocal)
+    
+    const isPickup = Boolean(
+      order.isStorePickup ||
+      order.deliveryType === 'store_pickup' ||
+      order.deliveryType === 'STORE_PICKUP' ||
+      order.deliverySnapshot?.vehicleType === 'pickup' ||
+      order.deliverySnapshot?.vehicleIcon === 'store' ||
+      order.deliverySnapshot?.vehicleName?.includes('पिकअप') ||
+      order.deliverySnapshot?.vehicleName?.includes('दुकान') ||
+      order.customerDetails?.addressHouse === 'दुकान से स्वयं पिकअप' ||
+      order.customerDetails?.addressHouse?.includes('दुकान से स्वयं पिकअप')
     );
 
-    // If own delivery, do not set external tracking number or external url
-    setTrackingNumber(isCurrentOwnDelivery ? '' : (order.trackingNumber || ''));
+    if (isPickup) {
+      // For Store Pickup: normalize status to one of the 5 allowed options:
+      // placed, confirmed, ready_for_pickup, pickup_success, cancelled
+      if (order.status === 'placed') {
+        setNewStatus('confirmed');
+      } else if (order.status === 'confirmed') {
+        setNewStatus('ready_for_pickup');
+      } else if (order.status === 'ready_for_pickup') {
+        setNewStatus('pickup_success');
+      } else if (order.status === 'delivered' || order.status === 'pickup_success') {
+        setNewStatus('pickup_success');
+      } else if (order.status === 'cancelled') {
+        setNewStatus('cancelled');
+      } else {
+        setNewStatus('ready_for_pickup');
+      }
+      setCourierPartner('दुकान से स्वयं पिकअप (Store Pickup)');
+      setTrackingNumber('');
+      setCourierTrackingUrl('');
+      setEstimatedDeliveryDate(order.estimatedDeliveryDate || 'दुकान से कभी भी पिकअप करें (सुबह 8:00 AM - रात 8:00 PM)');
+    } else {
+      // For Local Home Delivery: preserve original delivery options
+      setNewStatus((order.status === 'placed' || order.status === 'confirmed') ? 'dispatched' : order.status);
+      const defaultCourier = 'फल्सावदिया कृषि बाजार (Own Delivery)';
+      const currentCourier = (order.courierPartner && order.courierPartner !== 'लोकल डिलीवरी (Own Delivery)')
+        ? order.courierPartner
+        : defaultCourier;
+      setCourierPartner(currentCourier);
 
-    // Default delivery time: If empty or legacy "2-4", default to "3-7 कार्य दिवस (3-7 Working Days)"
-    const rawDelivery = (order.estimatedDeliveryDate || '').trim();
-    const defaultDelivery = '3-7 कार्य दिवस (3-7 Working Days)';
-    const normalizedDelivery = (!rawDelivery || rawDelivery.includes('2-4'))
-      ? defaultDelivery
-      : rawDelivery;
-    setEstimatedDeliveryDate(normalizedDelivery);
+      const isCurrentOwnDelivery = Boolean(
+        currentCourier.toLowerCase().includes('own delivery') ||
+        currentCourier.toLowerCase().includes('फल्सावदिया') ||
+        currentCourier.toLowerCase().includes('लोकल') ||
+        currentCourier.toLowerCase().includes('store delivery') ||
+        courierPartners.find(p => p.name.toLowerCase() === currentCourier.toLowerCase().trim() && p.isLocal)
+      );
 
-    const matched = courierPartners.find(p => p.name.toLowerCase() === currentCourier.toLowerCase());
-    setCourierTrackingUrl(isCurrentOwnDelivery ? '' : (order.courierTrackingUrl || matched?.trackingUrl || ''));
+      // If own delivery, do not set external tracking number or external url
+      setTrackingNumber(isCurrentOwnDelivery ? '' : (order.trackingNumber || ''));
+
+      // Default delivery time: If empty or legacy "2-4", default to "3-7 कार्य दिवस (3-7 Working Days)"
+      const rawDelivery = (order.estimatedDeliveryDate || '').trim();
+      const defaultDelivery = '3-7 कार्य दिवस (3-7 Working Days)';
+      const normalizedDelivery = (!rawDelivery || rawDelivery.includes('2-4'))
+        ? defaultDelivery
+        : rawDelivery;
+      setEstimatedDeliveryDate(normalizedDelivery);
+
+      const matched = courierPartners.find(p => p.name.toLowerCase() === currentCourier.toLowerCase());
+      setCourierTrackingUrl(isCurrentOwnDelivery ? '' : (order.courierTrackingUrl || matched?.trackingUrl || ''));
+    }
+
+    setStatusNote(order.notes || '');
 
     // Reset inline add form
     setShowInlineAddCourier(false);
@@ -398,57 +432,6 @@ const AdminOrdersManager: React.FC = () => {
     }
   };
 
-  // 1-Click Ship via Shiprocket (Ad-hoc order, AWB, pickup request & label generation)
-  const handleShipViaShiprocket = async () => {
-    if (!selectedOrder) return;
-    setIsGeneratingShipment(true);
-    setShipmentFeedback(null);
-
-    const res = await createShipmentForOrder(selectedOrder);
-    setIsGeneratingShipment(false);
-
-    if (res.success && res.shipment) {
-      setShipmentFeedback({
-        type: 'success',
-        text: `Shiprocket पर शिपमेंट तैयार! AWB: ${res.shipment.awbCode} (${res.shipment.courierName})`,
-      });
-      setCourierPartner(res.shipment.courierName);
-      setTrackingNumber(res.shipment.awbCode);
-      setCourierTrackingUrl(res.shipment.trackingUrl);
-      setNewStatus('dispatched');
-
-      try {
-        await updateOrderStatus(selectedOrder.id, 'dispatched', 'Shiprocket द्वारा शिपमेंट तैयार व AWB जनरेट किया गया', {
-          trackingNumber: res.shipment.awbCode,
-          courierPartner: res.shipment.courierName,
-          courierTrackingUrl: res.shipment.trackingUrl,
-          shiprocketOrderId: res.shipment.shiprocketOrderId,
-          shiprocketShipmentId: res.shipment.shipmentId,
-          awbCode: res.shipment.awbCode,
-          shippingLabelUrl: res.shipment.labelUrl,
-        });
-
-        setSelectedOrder(prev => prev ? {
-          ...prev,
-          status: 'dispatched',
-          trackingNumber: res.shipment!.awbCode,
-          courierPartner: res.shipment!.courierName,
-          courierTrackingUrl: res.shipment!.trackingUrl,
-          shiprocketOrderId: res.shipment!.shiprocketOrderId,
-          shiprocketShipmentId: res.shipment!.shipmentId,
-          awbCode: res.shipment!.awbCode,
-          shippingLabelUrl: res.shipment!.labelUrl,
-        } : null);
-      } catch (e: any) {
-        console.warn("Could not sync order updates immediately:", e.message);
-      }
-    } else {
-      setShipmentFeedback({
-        type: 'error',
-        text: res.error || 'Shiprocket से शिपमेंट बनाने में त्रुटि आई। कृपया एडमिन सेटिंग्स में क्रेडेंशियल्स जांचें।',
-      });
-    }
-  };
 
   const handleSaveStatusUpdate = async () => {
     if (!updatingOrderId) return;
@@ -808,12 +791,18 @@ const AdminOrdersManager: React.FC = () => {
                     <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
                       order.status === 'placed' ? 'bg-blue-100 text-blue-800' :
                       order.status === 'confirmed' ? 'bg-amber-100 text-amber-800' :
+                      order.status === 'ready_for_pickup' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
+                      order.status === 'pickup_success' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
                       order.status === 'dispatched' ? 'bg-indigo-100 text-indigo-800' :
                       order.status === 'out_for_delivery' ? 'bg-purple-100 text-purple-800' :
                       order.status === 'delivered' ? 'bg-emerald-100 text-emerald-800' :
                       'bg-red-100 text-red-800'
                     }`}>
-                      {order.status}
+                      {order.status === 'ready_for_pickup'
+                        ? 'पिकअप के लिए तैयार (Ready)'
+                        : order.status === 'pickup_success'
+                        ? 'पिकअप संपन्न (Pickup Success)'
+                        : order.status}
                     </span>
                   </div>
 
@@ -891,7 +880,7 @@ const AdminOrdersManager: React.FC = () => {
                     {order.awbCode ? (
                       <div className="text-[10px] bg-purple-50 text-purple-900 px-2 py-0.5 rounded border border-purple-200 inline-flex items-center gap-1 font-semibold">
                         <Package className="w-3 h-3 text-purple-700" />
-                        <span>AWB: {order.awbCode} ({order.courierPartner || 'Shiprocket'})</span>
+                        <span>AWB: {order.awbCode} ({order.courierPartner || 'कूरियर'})</span>
                       </div>
                     ) : order.isStorePickup ? (
                       <div className="text-[10px] bg-emerald-50 text-emerald-900 px-2 py-0.5 rounded border border-emerald-200 inline-block font-semibold">
@@ -923,94 +912,126 @@ const AdminOrdersManager: React.FC = () => {
                   ))}
                 </div>
 
-                {/* Delivery Partner Assignment Section */}
-                <div className="bg-emerald-50/40 border border-emerald-100/80 p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-white border border-emerald-200 flex items-center justify-center text-[#2D5A27] font-bold shrink-0 shadow-2xs">
-                      <Truck className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">डिलीवरी पार्टनर:</span>
-                        {order.assignedPartnerName ? (
-                          <span className="text-xs font-black text-emerald-950 flex items-center gap-1">
-                            {order.assignedPartnerName}
-                            {order.assignedPartnerPhone && (
-                              <a href={`tel:${order.assignedPartnerPhone}`} className="text-[#2D5A27] font-normal hover:underline ml-1">
-                                (+91 {order.assignedPartnerPhone})
-                              </a>
-                            )}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-amber-700 font-bold">अभी कोई पार्टनर असाइन नहीं है</span>
-                        )}
+                {/* Delivery Partner Assignment Section (Only for Local Delivery orders; for Store Pickup show self pickup confirmation) */}
+                {Boolean(
+                  order.isStorePickup ||
+                  order.deliveryType === 'store_pickup' ||
+                  order.deliveryType === 'STORE_PICKUP' ||
+                  order.deliverySnapshot?.vehicleType === 'pickup' ||
+                  order.deliverySnapshot?.vehicleIcon === 'store' ||
+                  order.deliverySnapshot?.vehicleName?.includes('पिकअप') ||
+                  order.deliverySnapshot?.vehicleName?.includes('दुकान') ||
+                  order.customerDetails?.addressHouse === 'दुकान से स्वयं पिकअप' ||
+                  order.customerDetails?.addressHouse?.includes('दुकान से स्वयं पिकअप')
+                ) ? (
+                  <div className="bg-emerald-50/60 border border-emerald-200/80 p-3 rounded-2xl flex items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-white border border-emerald-200 flex items-center justify-center text-[#2D5A27] font-bold shrink-0 shadow-2xs">
+                        <Store className="w-4 h-4" />
                       </div>
-
-                      {order.assignedPartnerName && (
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border flex items-center gap-1 ${
-                            order.partnerAssignmentStatus === 'delivered' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
-                            order.partnerAssignmentStatus === 'out_for_delivery' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                            order.partnerAssignmentStatus === 'picked_up' ? 'bg-purple-100 text-purple-800 border-purple-200' :
-                            order.partnerAssignmentStatus === 'accepted' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
-                            order.partnerAssignmentStatus === 'declined' ? 'bg-red-100 text-red-800 border-red-200' :
-                            'bg-amber-100 text-amber-800 border-amber-200'
-                          }`}>
-                            {order.partnerAssignmentStatus === 'delivered' ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-700" />
-                                <span>सामान डिलीवर हुआ</span>
-                              </>
-                            ) :
-                             order.partnerAssignmentStatus === 'out_for_delivery' ? (
-                               <>
-                                 <Truck className="w-3 h-3 text-blue-700" />
-                                 <span>रास्ते में है</span>
-                               </>
-                             ) :
-                             order.partnerAssignmentStatus === 'picked_up' ? (
-                               <>
-                                 <Package className="w-3 h-3 text-purple-700" />
-                                 <span>वेयरहाउस से पिकअप</span>
-                               </>
-                             ) :
-                             order.partnerAssignmentStatus === 'accepted' ? (
-                               <>
-                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block" />
-                                 <span>पार्टनर ने स्वीकार किया</span>
-                               </>
-                             ) :
-                             order.partnerAssignmentStatus === 'declined' ? (
-                               <>
-                                 <span className="w-1.5 h-1.5 rounded-full bg-red-600 inline-block" />
-                                 <span>पार्टनर उपलब्ध नहीं</span>
-                               </>
-                             ) : (
-                               <>
-                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
-                                 <span>असाइन किया गया (प्रतीक्षारत)</span>
-                               </>
-                             )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">डिलीवरी का प्रकार:</span>
+                          <span className="text-xs font-black text-emerald-950">दुकान से स्वयं पिकअप (Store Pickup)</span>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
+                            शामगढ़ स्टोर
                           </span>
-                          {order.partnerDeclineReason && (
-                            <span className="text-[10px] text-red-600 font-medium truncate max-w-[200px]">
-                              कारण: {order.partnerDeclineReason}
-                            </span>
-                          )}
                         </div>
-                      )}
+                        <p className="text-[10px] text-emerald-800 mt-0.5">
+                          ग्राहक स्वयं दुकान पर आकर सामान लेंगे। किसी डिलीवरी बॉय की आवश्यकता नहीं है।
+                        </p>
+                      </div>
                     </div>
                   </div>
+                ) : (
+                  <div className="bg-emerald-50/40 border border-emerald-100/80 p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-white border border-emerald-200 flex items-center justify-center text-[#2D5A27] font-bold shrink-0 shadow-2xs">
+                        <Truck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">डिलीवरी पार्टनर:</span>
+                          {order.assignedPartnerName ? (
+                            <span className="text-xs font-black text-emerald-950 flex items-center gap-1">
+                              {order.assignedPartnerName}
+                              {order.assignedPartnerPhone && (
+                                <a href={`tel:${order.assignedPartnerPhone}`} className="text-[#2D5A27] font-normal hover:underline ml-1">
+                                  (+91 {order.assignedPartnerPhone})
+                                </a>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-amber-700 font-bold">अभी कोई पार्टनर असाइन नहीं है</span>
+                          )}
+                        </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleOpenAssignModal(order)}
-                    className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-[#2D5A27] border border-emerald-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all shrink-0 cursor-pointer"
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>{order.assignedPartnerName ? 'रीअसाइन / बदलें' : 'डिलीवरी पार्टनर असाइन करें'}</span>
-                  </button>
-                </div>
+                        {order.assignedPartnerName && (
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                              order.partnerAssignmentStatus === 'delivered' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                              order.partnerAssignmentStatus === 'out_for_delivery' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                              order.partnerAssignmentStatus === 'picked_up' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                              order.partnerAssignmentStatus === 'accepted' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                              order.partnerAssignmentStatus === 'declined' ? 'bg-red-100 text-red-800 border-red-200' :
+                              'bg-amber-100 text-amber-800 border-amber-200'
+                            }`}>
+                              {order.partnerAssignmentStatus === 'delivered' ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-700" />
+                                  <span>सामान डिलीवर हुआ</span>
+                                </>
+                              ) :
+                               order.partnerAssignmentStatus === 'out_for_delivery' ? (
+                                 <>
+                                   <Truck className="w-3 h-3 text-blue-700" />
+                                   <span>रास्ते में है</span>
+                                 </>
+                               ) :
+                               order.partnerAssignmentStatus === 'picked_up' ? (
+                                 <>
+                                   <Package className="w-3 h-3 text-purple-700" />
+                                   <span>वेयरहाउस से पिकअप</span>
+                                 </>
+                               ) :
+                               order.partnerAssignmentStatus === 'accepted' ? (
+                                 <>
+                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block" />
+                                   <span>पार्टनर ने स्वीकार किया</span>
+                                 </>
+                               ) :
+                               order.partnerAssignmentStatus === 'declined' ? (
+                                 <>
+                                   <span className="w-1.5 h-1.5 rounded-full bg-red-600 inline-block" />
+                                   <span>पार्टनर उपलब्ध नहीं</span>
+                                 </>
+                               ) : (
+                                 <>
+                                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
+                                   <span>असाइन किया गया (प्रतीक्षारत)</span>
+                                 </>
+                               )}
+                            </span>
+                            {order.partnerDeclineReason && (
+                              <span className="text-[10px] text-red-600 font-medium truncate max-w-[200px]">
+                                कारण: {order.partnerDeclineReason}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAssignModal(order)}
+                      className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-[#2D5A27] border border-emerald-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all shrink-0 cursor-pointer"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>{order.assignedPartnerName ? 'रीअसाइन / बदलें' : 'डिलीवरी पार्टनर असाइन करें'}</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Courier & Tracking Banner if present */}
                 {order.trackingNumber && (
@@ -1097,30 +1118,111 @@ const AdminOrdersManager: React.FC = () => {
               </div>
 
               <div className="space-y-3 text-xs">
+                {/* Store Pickup Banner badge if pickup order */}
+                {Boolean(
+                  selectedOrder.isStorePickup ||
+                  selectedOrder.deliveryType === 'store_pickup' ||
+                  selectedOrder.deliveryType === 'STORE_PICKUP' ||
+                  selectedOrder.deliverySnapshot?.vehicleType === 'pickup' ||
+                  selectedOrder.deliverySnapshot?.vehicleIcon === 'store' ||
+                  selectedOrder.deliverySnapshot?.vehicleName?.includes('पिकअप') ||
+                  selectedOrder.deliverySnapshot?.vehicleName?.includes('दुकान') ||
+                  selectedOrder.customerDetails?.addressHouse === 'दुकान से स्वयं पिकअप' ||
+                  selectedOrder.customerDetails?.addressHouse?.includes('दुकान से स्वयं पिकअप')
+                ) && (
+                  <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 p-3 rounded-2xl border border-emerald-200/90 flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#2D5A27] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                      <Store className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-extrabold text-emerald-950 text-xs">दुकान से स्वयं पिकअप (Store Pickup)</span>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-200 text-emerald-900 font-bold">₹0</span>
+                      </div>
+                      <p className="text-[10px] text-emerald-800 mt-0.5">
+                        किसान ग्राहक स्वयं दुकान पर आकर सामान प्राप्त करेंगे। कूरियर या डिलीवरी पार्टनर की आवश्यकता नहीं है।
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-[11px] font-bold text-gray-700 mb-1">नई स्थिति चुनें (Select Status) *</label>
-                  <select
-                    value={newStatus}
-                    onChange={(e) => setNewStatus(e.target.value as OrderStatus)}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none focus:border-[#2D5A27]"
-                  >
-                    <option value="placed">ऑर्डर दर्ज (Placed)</option>
-                    <option value="confirmed">स्वीकृत व पैकिंग (Confirmed)</option>
-                    <option value="dispatched">पार्सल रवाना (Shipped / Dispatched)</option>
-                    <option value="out_for_delivery">आउट फॉर डिलीवरी (Out for Delivery)</option>
-                    <option value="delivered">सफलतापूर्वक डिलीवर (Delivered)</option>
-                    <option value="cancelled">रद्द (Cancelled)</option>
-                  </select>
+                  {Boolean(
+                    selectedOrder.isStorePickup ||
+                    selectedOrder.deliveryType === 'store_pickup' ||
+                    selectedOrder.deliveryType === 'STORE_PICKUP' ||
+                    selectedOrder.deliverySnapshot?.vehicleType === 'pickup' ||
+                    selectedOrder.deliverySnapshot?.vehicleIcon === 'store' ||
+                    selectedOrder.deliverySnapshot?.vehicleName?.includes('पिकअप') ||
+                    selectedOrder.deliverySnapshot?.vehicleName?.includes('दुकान') ||
+                    selectedOrder.customerDetails?.addressHouse === 'दुकान से स्वयं पिकअप' ||
+                    selectedOrder.customerDetails?.addressHouse?.includes('दुकान से स्वयं पिकअप')
+                  ) ? (
+                    <select
+                      value={newStatus}
+                      onChange={(e) => setNewStatus(e.target.value as OrderStatus)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none focus:border-[#2D5A27]"
+                    >
+                      <option value="placed">1. Placed (ऑर्डर दर्ज)</option>
+                      <option value="confirmed">2. Confirmed (स्वीकृत)</option>
+                      <option value="ready_for_pickup">3. Ready for Pickup (पिकअप के लिए तैयार)</option>
+                      <option value="pickup_success">4. Pickup Success (सफलतापूर्वक पिकअप किया गया)</option>
+                      <option value="cancelled">5. Cancelled (रद्द)</option>
+                    </select>
+                  ) : (
+                    <select
+                      value={newStatus}
+                      onChange={(e) => setNewStatus(e.target.value as OrderStatus)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 outline-none focus:border-[#2D5A27]"
+                    >
+                      <option value="placed">ऑर्डर दर्ज (Placed)</option>
+                      <option value="confirmed">स्वीकृत व पैकिंग (Confirmed)</option>
+                      <option value="dispatched">पार्सल रवाना (Shipped / Dispatched)</option>
+                      <option value="out_for_delivery">आउट फॉर डिलीवरी (Out for Delivery)</option>
+                      <option value="delivered">सफलतापूर्वक डिलीवर (Delivered)</option>
+                      <option value="cancelled">रद्द (Cancelled)</option>
+                    </select>
+                  )}
                 </div>
 
-                {/* =============================================================== */}
-                {/* MODERN COURIER & DISPATCH SETTINGS CARD */}
-                {/* =============================================================== */}
-                <div className="bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/30 rounded-3xl p-4 sm:p-5 border border-emerald-200/90 shadow-xs space-y-4">
-                  {/* Card Section Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-emerald-100">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#2D5A27] to-[#1e3d1a] text-white flex items-center justify-center shadow-xs shrink-0">
+                {/* Store Pickup: Clean Pickup Schedule Card (NO courier partner or consignment tracking) */}
+                {Boolean(
+                  selectedOrder.isStorePickup ||
+                  selectedOrder.deliveryType === 'store_pickup' ||
+                  selectedOrder.deliveryType === 'STORE_PICKUP' ||
+                  selectedOrder.deliverySnapshot?.vehicleType === 'pickup' ||
+                  selectedOrder.deliverySnapshot?.vehicleIcon === 'store' ||
+                  selectedOrder.deliverySnapshot?.vehicleName?.includes('पिकअप') ||
+                  selectedOrder.deliverySnapshot?.vehicleName?.includes('दुकान') ||
+                  selectedOrder.customerDetails?.addressHouse === 'दुकान से स्वयं पिकअप' ||
+                  selectedOrder.customerDetails?.addressHouse?.includes('दुकान से स्वयं पिकअप')
+                ) ? (
+                  <div className="bg-emerald-50/70 p-3.5 sm:p-4 rounded-2xl border border-emerald-200 text-emerald-950 space-y-2.5 shadow-2xs">
+                    <div className="flex items-center gap-2 font-black text-xs text-emerald-900">
+                      <Clock className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>पिकअप समय व सूचना (Store Pickup Schedule)</span>
+                    </div>
+                    <p className="text-[11px] text-emerald-800 leading-relaxed">
+                      स्टोर का पता: <b>फल्सावदिया कृषि बाजार, शामगढ़ (म.प्र.)</b> • समय: सुबह 8:00 AM से रात 8:00 PM तक
+                    </p>
+                    <input
+                      type="text"
+                      placeholder="पिकअप समय (उदाँ: दुकान से कभी भी पिकअप करें (सुबह 8:00 AM - रात 8:00 PM))"
+                      value={estimatedDeliveryDate}
+                      onChange={(e) => setEstimatedDeliveryDate(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-emerald-300 rounded-xl outline-none focus:border-[#2D5A27] font-bold text-xs text-gray-800 transition-all shadow-2xs"
+                    />
+                  </div>
+                ) : (
+                  /* =============================================================== */
+                  /* MODERN COURIER & DISPATCH SETTINGS CARD FOR LOCAL DELIVERY */
+                  /* =============================================================== */
+                  <div className="bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/30 rounded-3xl p-4 sm:p-5 border border-emerald-200/90 shadow-xs space-y-4">
+                    {/* Card Section Header */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-emerald-100">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#2D5A27] to-[#1e3d1a] text-white flex items-center justify-center shadow-xs shrink-0">
                         <Truck className="w-4.5 h-4.5" />
                       </div>
                       <div>
@@ -1139,99 +1241,6 @@ const AdminOrdersManager: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* SHIPROCKET 1-CLICK DISPATCH HERO CARD */}
-                  <div className="p-3.5 bg-gradient-to-r from-purple-50 via-indigo-50 to-emerald-50 rounded-2xl border border-purple-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-purple-700" />
-                        <span className="text-xs font-black text-purple-950">
-                          Shiprocket ऑटोमेटेड कूरियर सेवा
-                        </span>
-                      </div>
-                      {selectedOrder.awbCode && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          AWB जनरेटेड
-                        </span>
-                      )}
-                    </div>
-
-                    {selectedOrder.awbCode ? (
-                      <div className="space-y-2 pt-1 text-xs">
-                        <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-purple-100">
-                          <div>
-                            <span className="text-[10px] text-gray-400 font-bold block">AWB नंबर</span>
-                            <span className="font-mono font-black text-purple-900">{selectedOrder.awbCode}</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-gray-400 font-bold block">कूरियर पार्टनर</span>
-                            <span className="font-bold text-gray-800">{selectedOrder.courierPartner || 'Shiprocket'}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                          {selectedOrder.shippingLabelUrl && (
-                            <a
-                              href={selectedOrder.shippingLabelUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex-1 py-2 px-3 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-xs"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              <span>शिपिंग लेबल (PDF)</span>
-                            </a>
-                          )}
-                          <a
-                            href={selectedOrder.courierTrackingUrl || `https://shiprocket.co/tracking/${selectedOrder.awbCode}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex-1 py-2 px-3 bg-white hover:bg-gray-50 text-purple-900 border border-purple-200 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            <span>लाइव ट्रैकिंग</span>
-                          </a>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-2 pt-1">
-                        <p className="text-[11px] text-gray-600 leading-tight">
-                          1-क्लिक में ग्राहक के पते ({selectedOrder.customerDetails.addressPincode}) पर Shiprocket से AWB जनरेट करें, पिकअप शेड्यूल करें व लेबल तैयार करें।
-                        </p>
-                        <button
-                          type="button"
-                          disabled={isGeneratingShipment}
-                          onClick={handleShipViaShiprocket}
-                          className="w-full py-2.5 px-4 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
-                        >
-                          {isGeneratingShipment ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span>Shiprocket से AWB बन रहा है...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Truck className="w-4 h-4" />
-                              <span>Shiprocket से AWB जनरेट करें व शिप करें</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    )}
-
-                    {shipmentFeedback && (
-                      <div className={`p-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 border ${
-                        shipmentFeedback.type === 'success' 
-                          ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
-                          : 'bg-red-50 text-red-800 border-red-200'
-                      }`}>
-                        {shipmentFeedback.type === 'success' ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        ) : (
-                          <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
-                        )}
-                        <span>{shipmentFeedback.text}</span>
-                      </div>
-                    )}
-                  </div>
 
                   {/* Courier Partner Selector Pills & Manual Name */}
                   <div className="space-y-2">
@@ -1588,6 +1597,7 @@ const AdminOrdersManager: React.FC = () => {
                     </div>
                   </div>
                 </div>
+              )}
 
                 <div>
                   <label className="block text-[11px] font-bold text-gray-700 mb-1">विशेष टिप्पणी / संदेश (Customer Note)</label>

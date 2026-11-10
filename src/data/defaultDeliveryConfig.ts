@@ -136,6 +136,8 @@ export const getVehicleIcon = (
 export const DEFAULT_DELIVERY_CONFIG: DynamicDeliveryConfig = {
   isEnabled: true,
   isDeliveryActive: true,
+  enableStorePickup: true,
+  enableLocalDelivery: true,
   defaultFixedCharge: 40,
   enableFreeDelivery: false,
   freeDeliveryThreshold: 0,
@@ -270,5 +272,14 @@ export const DEFAULT_DELIVERY_CONFIG: DynamicDeliveryConfig = {
     '326502': 38, // Bhawani Mandi
     '326501': 45, // Jhalawar border
   },
+  tehsilDirectory: [
+    { id: 'tehsil_shamgarh', nameHi: 'शामगढ़', nameEn: 'Shamgarh', district: 'मंदसौर', isActive: true, createdAt: 1700000000000, updatedAt: 1700000000000 },
+    { id: 'tehsil_garoth', nameHi: 'गरोठ', nameEn: 'Garoth', district: 'मंदसौर', isActive: true, createdAt: 1700000000000, updatedAt: 1700000000000 },
+    { id: 'tehsil_suwasra', nameHi: 'सुवासरा', nameEn: 'Suwasra', district: 'मंदसौर', isActive: true, createdAt: 1700000000000, updatedAt: 1700000000000 },
+    { id: 'tehsil_sitamau', nameHi: 'सीतामऊ', nameEn: 'Sitamau', district: 'मंदसौर', isActive: true, createdAt: 1700000000000, updatedAt: 1700000000000 },
+    { id: 'tehsil_bhanpura', nameHi: 'भानपुरा', nameEn: 'Bhanpura', district: 'मंदसौर', isActive: true, createdAt: 1700000000000, updatedAt: 1700000000000 },
+    { id: 'tehsil_mandsaur', nameHi: 'मंदसौर', nameEn: 'Mandsaur', district: 'मंदसौर', isActive: true, createdAt: 1700000000000, updatedAt: 1700000000000 },
+    { id: 'tehsil_other', nameHi: 'अन्य', nameEn: 'Other', district: 'अन्य', isActive: true, createdAt: 1700000000000, updatedAt: 1700000000000 },
+  ],
   lastUpdated: Date.now(),
 };
