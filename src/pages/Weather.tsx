@@ -482,8 +482,7 @@ const Weather: React.FC = () => {
       {weather.hourly && weather.hourly.length > 0 && (
         <div className="space-y-3.5">
           <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#2D5A27]" />
+            <div className="flex items-center">
               <h3 className="font-black text-gray-900 text-sm tracking-tight">
                 प्रति घंटा पूर्वानुमान
               </h3>
@@ -581,8 +580,7 @@ const Weather: React.FC = () => {
       {/* 7-Day Forecast */}
       <div className="space-y-3.5">
         <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#2D5A27]" />
+          <div className="flex items-center">
             <h3 className="font-black text-gray-900 text-sm tracking-tight">
               अगले 7 दिन का पूर्वानुमान
             </h3>

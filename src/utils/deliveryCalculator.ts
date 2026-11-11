@@ -8,7 +8,8 @@ import {
   VehicleConfig,
   WeightSlab,
   DistanceSlab,
-  VillageDeliveryEntry
+  VillageDeliveryEntry,
+  DeliveryRateMatrix
 } from '../types';
 import { DEFAULT_DELIVERY_CONFIG } from '../data/defaultDeliveryConfig';
 import { 
@@ -903,58 +904,242 @@ export const detectDeliveryDistance = (
 };
 
 /**
- * Finds the matching Weight Slab and Vehicle for a given total weight in kg
+ * Resolves delivery charge from the rate matrix with seamless fallback across distance slab ID formats
+ * (e.g. ds_0_10 <-> ds_1, ds_10_30 <-> ds_2 / ds_3, ds_30_50 <-> ds_4, ds_50_100 <-> ds_5, ds_100_plus <-> ds_5).
+ * Returns null if no rate is configured for this vehicle and slab.
+ */
+export const getMatrixRate = (
+  rateMatrix: DeliveryRateMatrix | undefined,
+  vehicleId: string,
+  distanceSlabId: string
+): number | null => {
+  if (!rateMatrix) return null;
+
+  // 1. Direct lookup with exact key
+  const directKey = `${vehicleId}_${distanceSlabId}`;
+  if (typeof rateMatrix[directKey] === 'number' && rateMatrix[directKey] >= 0) {
+    return rateMatrix[directKey];
+  }
+
+  // 2. Format aliases between ds_0_10 and ds_1 notation
+  const SLAB_ALIASES: Record<string, string[]> = {
+    'ds_0_10': ['ds_1'],
+    'ds_10_30': ['ds_2', 'ds_3'],
+    'ds_30_50': ['ds_3', 'ds_4'],
+    'ds_50_100': ['ds_4', 'ds_5'],
+    'ds_100_plus': ['ds_5'],
+    'ds_1': ['ds_0_10'],
+    'ds_2': ['ds_10_30'],
+    'ds_3': ['ds_10_30', 'ds_30_50'],
+    'ds_4': ['ds_30_50', 'ds_50_100'],
+    'ds_5': ['ds_50_100', 'ds_100_plus'],
+  };
+
+  const aliases = SLAB_ALIASES[distanceSlabId] || [];
+  for (const altSlab of aliases) {
+    const altKey = `${vehicleId}_${altSlab}`;
+    if (typeof rateMatrix[altKey] === 'number' && rateMatrix[altKey] >= 0) {
+      return rateMatrix[altKey];
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Canonical helper to format clean, human-readable weight slab ranges.
+ * Removes all nested brackets, duplicates, vehicle short names, and noisy text.
+ * Example: 50.001 kg to 299.9 kg -> "50–300 किग्रा"
+ * Example: 0 kg to 49.9 kg -> "0–50 किग्रा"
+ * Example: 300.001 kg to 499.9 kg -> "300–500 किग्रा"
+ * Example: 500.001 kg to 1000 kg -> "500–1000 किग्रा"
+ * Example: 0.1 kg to 3 kg -> "0.1–3 किग्रा"
+ * Example: 300.001 kg to 99999 kg -> "300+ किग्रा"
+ */
+export const formatWeightSlabLabel = (
+  minKg?: number | string | null,
+  maxKg?: number | string | null,
+  rawLabel?: string | null
+): string => {
+  let minNum = typeof minKg === 'number' ? minKg : parseFloat(minKg as string);
+  let maxNum = typeof maxKg === 'number' ? maxKg : parseFloat(maxKg as string);
+
+  // If min or max is not provided or NaN, try extracting clean numbers from rawLabel
+  if ((isNaN(minNum) || isNaN(maxNum)) && rawLabel) {
+    const cleanPattern = rawLabel.replace(/\(.*$/, '').trim();
+    const matches = cleanPattern.match(/([0-9]+(?:\.[0-9]+)?)\s*[-–]\s*([0-9]+(?:\.[0-9]+)?)/);
+    if (matches) {
+      minNum = parseFloat(matches[1]);
+      maxNum = parseFloat(matches[2]);
+    } else {
+      const plusMatch = cleanPattern.match(/([0-9]+(?:\.[0-9]+)?)\s*\+/);
+      if (plusMatch) {
+        minNum = parseFloat(plusMatch[1]);
+        maxNum = 99999;
+      }
+    }
+  }
+
+  if (!isNaN(minNum) && !isNaN(maxNum)) {
+    if (maxNum >= 5000) {
+      const cleanMin = Math.round(minNum);
+      return `${cleanMin}+ किग्रा`;
+    }
+
+    const formatNum = (n: number) => {
+      if (n === 0) return '0';
+      const rounded = Math.round(n);
+      // For numbers >= 10, round if close to integer (e.g. 49.9 -> 50, 50.001 -> 50, 299.9 -> 300)
+      if (n >= 10 && Math.abs(n - rounded) < 0.15) {
+        return rounded.toString();
+      }
+      // For small weights < 10, round only if practically integer (e.g. 3.001 -> 3)
+      if (n < 10 && Math.abs(n - rounded) < 0.02) {
+        return rounded.toString();
+      }
+      return Number(n.toFixed(1)).toString();
+    };
+
+    const minStr = formatNum(minNum);
+    const maxStr = formatNum(maxNum);
+
+    return `${minStr}–${maxStr} किग्रा`;
+  }
+
+  // Fallback: If numbers cannot be deduced, strip any brackets or nested text from rawLabel
+  if (rawLabel) {
+    const cleaned = rawLabel.split('(')[0].trim();
+    if (cleaned) {
+      return cleaned.includes('किग्रा') ? cleaned : `${cleaned} किग्रा`;
+    }
+  }
+
+  return 'मानक वजन';
+};
+
+export interface MatchedVehicleResult {
+  weightSlab: WeightSlab;
+  vehicle: VehicleConfig;
+  isOverweight: boolean;
+  isServiceable: boolean;
+  errorMessage?: string;
+}
+
+/**
+ * Finds the matching Weight Slab and Vehicle for a given total weight in kg based on active vehicles
  */
 export const findWeightSlabAndVehicle = (
   weightKg: number,
   config: DynamicDeliveryConfig
-): { weightSlab: WeightSlab; vehicle: VehicleConfig } => {
+): MatchedVehicleResult => {
   const safeWeight = Math.max(0.01, weightKg);
   
   // Filter only active vehicles
   const activeVehicles = (config.vehicles || []).filter(v => v.isActive !== false);
-  const activeVehicleIds = new Set(activeVehicles.map(v => v.id));
-  
-  // Get active weight slabs
-  const allWeightSlabs = (config.weightSlabs || []);
-  const activeWeightSlabs = allWeightSlabs.filter(ws => activeVehicleIds.has(ws.vehicleId));
-  const slabsToSearch = activeWeightSlabs.length > 0 ? activeWeightSlabs : allWeightSlabs;
-  
-  const sortedSlabs = [...slabsToSearch].sort((a, b) => a.minWeightKg - b.minWeightKg);
+  if (activeVehicles.length === 0) {
+    const fallbackVehicle: VehicleConfig = {
+      id: 'none',
+      name: 'कोई सक्रिय वाहन नहीं',
+      shortName: 'None',
+      icon: '🚚',
+      description: 'वर्तमान में कोई स्थानीय डिलीवरी वाहन सक्रिय नहीं है',
+      maxCapacityKg: 0,
+      isActive: false,
+      order: 1,
+    };
+    const fallbackSlab: WeightSlab = {
+      id: 'none',
+      minWeightKg: 0,
+      maxWeightKg: 0,
+      vehicleId: 'none',
+      label: 'अनुपलब्ध',
+    };
+    return {
+      weightSlab: fallbackSlab,
+      vehicle: fallbackVehicle,
+      isOverweight: false,
+      isServiceable: false,
+      errorMessage: 'वर्तमान में स्थानीय डिलीवरी के लिए कोई भी वाहन सक्रिय नहीं है। कृपया दुकान से स्वयं पिकअप चुनें।',
+    };
+  }
 
-  let matchedSlab = sortedSlabs.find(
+  const allWeightSlabs = (config.weightSlabs || []);
+  
+  // Collect slabs for active vehicles with guaranteed clean labels (no nested brackets or duplicates)
+  const activeSlabs: WeightSlab[] = [];
+  for (const v of activeVehicles) {
+    const matchingSlabs = allWeightSlabs.filter(ws => ws.vehicleId === v.id);
+    if (matchingSlabs.length > 0) {
+      activeSlabs.push(...matchingSlabs.map(ws => ({
+        ...ws,
+        label: formatWeightSlabLabel(ws.minWeightKg, ws.maxWeightKg, ws.label),
+      })));
+    } else {
+      activeSlabs.push({
+        id: `ws_${v.id}`,
+        minWeightKg: 0,
+        maxWeightKg: v.maxCapacityKg || 50,
+        vehicleId: v.id,
+        label: formatWeightSlabLabel(0, v.maxCapacityKg || 50),
+      });
+    }
+  }
+
+  // Sort slabs by minWeightKg, then maxWeightKg
+  activeSlabs.sort((a, b) => a.minWeightKg - b.minWeightKg || a.maxWeightKg - b.maxWeightKg);
+
+  // Maximum weight capacity across all active vehicles
+  const maxActiveCapacity = Math.max(
+    ...activeSlabs.map(s => s.maxWeightKg),
+    ...activeVehicles.map(v => v.maxCapacityKg || 0)
+  );
+
+  if (safeWeight > maxActiveCapacity) {
+    const largestVehicle = activeVehicles.reduce(
+      (prev, curr) => (curr.maxCapacityKg > prev.maxCapacityKg ? curr : prev),
+      activeVehicles[0]
+    );
+    const rawLargestSlab = activeSlabs.find(s => s.vehicleId === largestVehicle.id) || activeSlabs[activeSlabs.length - 1];
+    const cleanLargestLabel = formatWeightSlabLabel(rawLargestSlab.minWeightKg, rawLargestSlab.maxWeightKg, rawLargestSlab.label);
+    return {
+      weightSlab: {
+        ...rawLargestSlab,
+        label: cleanLargestLabel,
+      },
+      vehicle: largestVehicle,
+      isOverweight: true,
+      isServiceable: false,
+      errorMessage: `कुल ऑर्डर वजन (~${safeWeight.toFixed(2)} किग्रा) सभी सक्रिय डिलीवरी वाहनों की अधिकतम भार क्षमता (${maxActiveCapacity} किग्रा) से अधिक है। कृपया कार्ट से कुछ सामान कम करें या दुकान से पिकअप चुनें।`,
+    };
+  }
+
+  // 1. Direct match: where safeWeight fits between minWeightKg and maxWeightKg
+  let matchedSlab = activeSlabs.find(
     slab => safeWeight >= slab.minWeightKg && safeWeight <= slab.maxWeightKg
   );
 
-  if (!matchedSlab && sortedSlabs.length > 0) {
-    matchedSlab = sortedSlabs[sortedSlabs.length - 1];
-  }
-
+  // 2. If no direct match, find smallest slab where maxWeightKg >= safeWeight
   if (!matchedSlab) {
-    matchedSlab = {
-      id: 'ws_1',
-      minWeightKg: 0,
-      maxWeightKg: 10,
-      vehicleId: 'bike',
-      label: '0–10 किग्रा (Bike)',
-    };
+    matchedSlab = activeSlabs.find(slab => safeWeight <= slab.maxWeightKg);
   }
 
-  let vehicle = (config.vehicles || []).find(v => v.id === matchedSlab!.vehicleId);
-  if (!vehicle) {
-    vehicle = {
-      id: matchedSlab.vehicleId,
-      name: 'डिलीवरी वाहन (Delivery Vehicle)',
-      shortName: 'Vehicle',
-      icon: '🚚',
-      description: 'ऑर्डर डिलीवरी',
-      maxCapacityKg: 100,
-      isActive: true,
-      order: 1,
-    };
+  // 3. If safeWeight is lower than all mins, pick lowest slab
+  if (!matchedSlab && activeSlabs.length > 0) {
+    matchedSlab = activeSlabs[0];
   }
 
-  return { weightSlab: matchedSlab, vehicle };
+  const vehicle = activeVehicles.find(v => v.id === matchedSlab!.vehicleId) || activeVehicles[0];
+  const cleanLabel = formatWeightSlabLabel(matchedSlab!.minWeightKg, matchedSlab!.maxWeightKg, matchedSlab!.label);
+
+  return {
+    weightSlab: {
+      ...matchedSlab!,
+      label: cleanLabel,
+    },
+    vehicle,
+    isOverweight: false,
+    isServiceable: true,
+  };
 };
 
 /**
@@ -965,7 +1150,17 @@ export const findDistanceSlab = (
   config: DynamicDeliveryConfig
 ): DistanceSlab => {
   const safeDist = Math.max(0, distanceKm);
-  const sortedSlabs = [...(config.distanceSlabs || [])].sort((a, b) => a.minDistanceKm - b.minDistanceKm);
+  const slabs = (config.distanceSlabs && config.distanceSlabs.length > 0)
+    ? config.distanceSlabs
+    : [
+        { id: 'ds_0_10', minDistanceKm: 0, maxDistanceKm: 10, label: '0-10 किमी' },
+        { id: 'ds_10_30', minDistanceKm: 10.001, maxDistanceKm: 30, label: '10-30 किमी' },
+        { id: 'ds_30_50', minDistanceKm: 30.001, maxDistanceKm: 50, label: '30-50 किमी' },
+        { id: 'ds_50_100', minDistanceKm: 50.001, maxDistanceKm: 100, label: '50-100 किमी' },
+        { id: 'ds_100_plus', minDistanceKm: 100.001, maxDistanceKm: 99999, label: '100+ किमी' },
+      ];
+
+  const sortedSlabs = [...slabs].sort((a, b) => a.minDistanceKm - b.minDistanceKm);
 
   let matchedSlab = sortedSlabs.find(
     slab => safeDist >= slab.minDistanceKm && safeDist <= slab.maxDistanceKm
@@ -975,20 +1170,16 @@ export const findDistanceSlab = (
     matchedSlab = sortedSlabs[sortedSlabs.length - 1];
   }
 
-  if (!matchedSlab) {
-    matchedSlab = {
-      id: 'ds_1',
-      minDistanceKm: 0,
-      maxDistanceKm: 5,
-      label: '0–5 किमी',
-    };
-  }
-
-  return matchedSlab;
+  return matchedSlab || {
+    id: 'ds_0_10',
+    minDistanceKm: 0,
+    maxDistanceKm: 10,
+    label: '0-10 किमी',
+  };
 };
 
 /**
- * Calculates the complete dynamic delivery fee quote
+ * Calculates the complete dynamic delivery fee quote strictly from Local Delivery Rate Matrix
  */
 export const calculateDynamicDeliveryCharge = (
   totalWeightKg: number,
@@ -1010,88 +1201,116 @@ export const calculateDynamicDeliveryCharge = (
     }
   }
 
-  const safeWeight = Math.max(0.1, Math.round(totalWeightKg * 100) / 100);
-  const safeDistance = Math.max(1, Math.round(distanceKm * 10) / 10);
-  // 1. FIXED STANDARD FALLBACK (When dynamic matrix is toggled off)
-  if (!cfg.isEnabled) {
-    const fixedFee = cfg.defaultFixedCharge ?? 40;
-    const isFree = cfg.enableFreeDelivery && cfg.freeDeliveryThreshold > 0 && cartTotal >= cfg.freeDeliveryThreshold;
-    const standardVehicle: VehicleConfig = {
-      id: 'standard',
-      name: 'स्टैंडर्ड डिलीवरी (Standard Delivery)',
-      shortName: 'Standard',
-      icon: '🚚',
-      description: 'स्टैंडर्ड फिक्स डिलीवरी चार्ज',
-      maxCapacityKg: 50,
+  const safeWeight = Math.max(0.01, Math.round(totalWeightKg * 100) / 100);
+  const safeDistance = Math.max(0.1, Math.round(distanceKm * 10) / 10);
+
+  // 1. Store Pickup Check: Always strictly ₹0 FREE
+  if (deliveryTypeOption === ('store_pickup' as any)) {
+    const pickupVehicle: VehicleConfig = {
+      id: 'store_pickup',
+      name: 'दुकान से स्वयं पिकअप (Store Pickup)',
+      shortName: 'Store Pickup',
+      icon: '🏪',
+      description: 'दुकान से स्वयं पिकअप',
+      maxCapacityKg: 99999,
       isActive: true,
-      order: 1,
+      order: 0,
     };
     return {
       totalWeightKg: safeWeight,
-      distanceKm: safeDistance,
-      vehicle: standardVehicle,
-      vehicleEmoji: '🚚',
-      vehicleNameHindi: 'स्टैंडर्ड डिलीवरी',
-      vehicleType: 'Standard',
+      distanceKm: 0,
+      vehicle: pickupVehicle,
+      vehicleEmoji: '🏪',
+      vehicleNameHindi: 'दुकान से स्वयं पिकअप',
+      vehicleType: 'Store Pickup',
       weightSlab: {
-        id: 'fixed',
+        id: 'ws_pickup',
         minWeightKg: 0,
         maxWeightKg: 99999,
-        vehicleId: 'standard',
-        label: 'स्टैंडर्ड डिलीवरी',
+        vehicleId: 'store_pickup',
+        label: `${safeWeight} किग्रा`,
       },
       distanceSlab: {
-        id: 'fixed',
+        id: 'ds_store',
         minDistanceKm: 0,
-        maxDistanceKm: 99999,
-        label: 'सभी क्षेत्र',
+        maxDistanceKm: 0,
+        label: 'दुकान पर',
       },
-      baseCharge: fixedFee,
-      discount: isFree ? fixedFee : 0,
-      finalDeliveryCharge: isFree ? 0 : fixedFee,
-      isFreeDelivery: isFree,
-      breakdownText: isFree 
-        ? `₹${cfg.freeDeliveryThreshold} से अधिक के ऑर्डर पर मुफ्त डिलीवरी लागू`
-        : `स्टैंडर्ड डिलीवरी शुल्क: ₹${fixedFee}`,
-      calculationNote: isFree ? `ऑर्डर मूल्य ₹${cartTotal} (मुफ्त डिलीवरी लागू)` : `फिक्स डिलीवरी दर लागू`,
+      baseCharge: 0,
+      discount: 0,
+      finalDeliveryCharge: 0,
+      isFreeDelivery: true,
+      breakdownText: 'दुकान से स्वयं पिकअप (₹0 निःशुल्क)',
+      calculationNote: 'किसान फल्सावदिया कृषि बाजार दुकान से अपना ऑर्डर स्वयं पिकअप कर सकेंगे।',
       deliveryType: 'local',
       isServiceable: true,
     };
   }
 
-  // 3. Find matched vehicle and weight slab
-  const { weightSlab, vehicle } = findWeightSlabAndVehicle(safeWeight, cfg);
-
-  // 4. Find matched distance slab
-  const distanceSlab = findDistanceSlab(safeDistance, cfg);
-
-  // 5. Lookup rate in matrix
-  const matrixKey = `${vehicle.id}_${distanceSlab.id}`;
-  let baseCharge = cfg.rateMatrix?.[matrixKey];
-
-  if (typeof baseCharge !== 'number' || baseCharge < 0) {
-    const baseVehicleRate = vehicle.id === 'bike' ? 30 
-      : vehicle.id === 'e_rickshaw' ? 60 
-      : vehicle.id === 'pickup' ? 150 
-      : vehicle.id === 'tempo' ? 250 
-      : 600;
-    const distanceMultiplier = safeDistance <= 5 ? 1 
-      : safeDistance <= 15 ? 1.6 
-      : safeDistance <= 30 ? 2.6 
-      : safeDistance <= 50 ? 4.2 
-      : 6.5;
-    baseCharge = Math.round(baseVehicleRate * distanceMultiplier);
+  // 2. Find matched active vehicle and weight slab
+  const weightMatch = findWeightSlabAndVehicle(safeWeight, cfg);
+  if (!weightMatch.isServiceable) {
+    return {
+      totalWeightKg: safeWeight,
+      distanceKm: safeDistance,
+      vehicle: weightMatch.vehicle,
+      vehicleEmoji: weightMatch.vehicle.icon || '🚚',
+      vehicleNameHindi: weightMatch.vehicle.name,
+      vehicleType: weightMatch.vehicle.shortName || 'Vehicle',
+      weightSlab: weightMatch.weightSlab,
+      distanceSlab: findDistanceSlab(safeDistance, cfg),
+      baseCharge: 0,
+      discount: 0,
+      finalDeliveryCharge: 0,
+      isFreeDelivery: false,
+      breakdownText: weightMatch.errorMessage || 'डिलीवरी सेवा अनुपलब्ध',
+      calculationNote: weightMatch.errorMessage || 'ऑर्डर का वजन सक्रिय वाहनों की क्षमता से अधिक है।',
+      deliveryType: 'local',
+      isServiceable: false,
+    };
   }
 
-  // 6. Check Free Delivery Eligibility
-  const isFreeDelivery = cfg.enableFreeDelivery && 
+  const { weightSlab, vehicle } = weightMatch;
+
+  // 3. Find matched distance slab
+  const distanceSlab = findDistanceSlab(safeDistance, cfg);
+
+  // 4. Lookup rate in matrix
+  const baseCharge = getMatrixRate(cfg.rateMatrix, vehicle.id, distanceSlab.id);
+
+  if (baseCharge === null) {
+    const unconfiguredMsg = `वाहन "${vehicle.name}" के लिए ${distanceSlab.label} (${safeDistance} किमी) की डिलीवरी दर रेट मैट्रिक्स में निर्धारित नहीं है।`;
+    return {
+      totalWeightKg: safeWeight,
+      distanceKm: safeDistance,
+      vehicle,
+      vehicleEmoji: vehicle.icon || '🚚',
+      vehicleNameHindi: vehicle.name,
+      vehicleType: vehicle.shortName || 'Vehicle',
+      weightSlab,
+      distanceSlab,
+      baseCharge: 0,
+      discount: 0,
+      finalDeliveryCharge: 0,
+      isFreeDelivery: false,
+      breakdownText: unconfiguredMsg,
+      calculationNote: unconfiguredMsg,
+      deliveryType: 'local',
+      isServiceable: false,
+    };
+  }
+
+  // 5. Check Free Delivery Eligibility
+  const isFreeDelivery = Boolean(
+    cfg.enableFreeDelivery && 
     cfg.freeDeliveryThreshold > 0 && 
-    cartTotal >= cfg.freeDeliveryThreshold;
+    cartTotal >= cfg.freeDeliveryThreshold
+  );
 
   const discount = isFreeDelivery ? baseCharge : 0;
   const finalDeliveryCharge = isFreeDelivery ? 0 : baseCharge;
 
-  const breakdownText = `${vehicle.icon} ${vehicle.shortName} (${safeWeight} kg) × ${distanceSlab.label} (${safeDistance} km) = ₹${baseCharge}`;
+  const breakdownText = `${vehicle.shortName} (${safeWeight} kg) × ${distanceSlab.label} (${safeDistance} km) = ₹${baseCharge}`;
   const calculationNote = isFreeDelivery 
     ? `ऑर्डर मूल्य (₹${cartTotal}) न्यूनतम ₹${cfg.freeDeliveryThreshold} से अधिक होने पर मुफ़्त डिलीवरी लागू हुई।`
     : `${vehicle.name} (${safeWeight} kg) • दूरी: ${safeDistance} km (${distanceSlab.label})`;
@@ -1103,7 +1322,10 @@ export const calculateDynamicDeliveryCharge = (
     vehicleEmoji: vehicle.icon || '🚚',
     vehicleNameHindi: vehicle.name || 'डिलीवरी वाहन',
     vehicleType: vehicle.shortName || 'वाहन',
-    weightSlab,
+    weightSlab: {
+      ...weightSlab,
+      label: formatWeightSlabLabel(weightSlab.minWeightKg, weightSlab.maxWeightKg, weightSlab.label),
+    },
     distanceSlab,
     baseCharge,
     discount,
@@ -1123,6 +1345,12 @@ export const createOrderDeliverySnapshot = (
   quote: CalculatedDeliveryQuote,
   manualOverride?: { finalCharge: number; reason: string }
 ): OrderDeliverySnapshot => {
+  const cleanWeightLabel = formatWeightSlabLabel(
+    quote.weightSlab?.minWeightKg,
+    quote.weightSlab?.maxWeightKg,
+    quote.weightSlab?.label
+  );
+
   if (manualOverride && typeof manualOverride.finalCharge === 'number') {
     return {
       totalWeightKg: quote.totalWeightKg,
@@ -1134,7 +1362,7 @@ export const createOrderDeliverySnapshot = (
       vehicleNameHindi: quote.vehicleNameHindi || quote.vehicle.name,
       vehicleType: quote.vehicleType || quote.vehicle.shortName || 'Vehicle',
       distanceSlabLabel: quote.distanceSlab.label,
-      weightSlabLabel: quote.weightSlab.label || `${quote.totalWeightKg} kg`,
+      weightSlabLabel: cleanWeightLabel,
       calculatedCharge: quote.baseCharge,
       finalCharge: Math.max(0, manualOverride.finalCharge),
       isFreeDelivery: manualOverride.finalCharge === 0,
@@ -1156,7 +1384,7 @@ export const createOrderDeliverySnapshot = (
     vehicleNameHindi: quote.vehicleNameHindi || quote.vehicle.name,
     vehicleType: quote.vehicleType || quote.vehicle.shortName || 'Vehicle',
     distanceSlabLabel: quote.distanceSlab.label,
-    weightSlabLabel: quote.weightSlab.label || `${quote.totalWeightKg} kg`,
+    weightSlabLabel: cleanWeightLabel,
     calculatedCharge: quote.baseCharge,
     finalCharge: quote.finalDeliveryCharge,
     isFreeDelivery: quote.isFreeDelivery,

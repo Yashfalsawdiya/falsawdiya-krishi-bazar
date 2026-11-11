@@ -488,7 +488,9 @@ app.post('/api/razorpay/create-order', async (req: Request, res: Response): Prom
       calculatedItemsTotal += price * qty;
     }
 
-    const validDeliveryCharges = Math.max(0, Number(deliveryCharges) || 0);
+    const validDeliveryCharges = deliveryType === 'store_pickup'
+      ? 0
+      : Math.max(0, Number(deliveryCharges) || 0);
     const finalAmountInRupees = calculatedItemsTotal + validDeliveryCharges;
     const finalAmountInPaise = Math.round(finalAmountInRupees * 100);
 

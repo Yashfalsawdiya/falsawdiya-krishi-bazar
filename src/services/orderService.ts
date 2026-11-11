@@ -100,8 +100,15 @@ export const createNewOrder = async (orderData: Omit<Order, 'id' | 'orderNumber'
     }
   ];
 
+  const isPickup = orderData.deliveryType === 'store_pickup' || orderData.isStorePickup;
+  const deliveryCharges = isPickup ? 0 : Math.max(0, orderData.deliveryCharges || 0);
+  const totalAmount = orderData.itemsTotal + deliveryCharges;
+
   const fullOrder: Order = {
     ...orderData,
+    deliveryCharges,
+    totalAmount,
+    isStorePickup: isPickup,
     id: orderId,
     orderNumber,
     timeline: initialTimeline,

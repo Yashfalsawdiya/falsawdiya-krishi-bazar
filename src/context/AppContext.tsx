@@ -47,6 +47,7 @@ import {
 } from '../utils/dataSyncManager';
 import { idbSet, idbGet } from '../utils/idbStorage';
 import { sortCategoriesByOrder } from '../utils/categoryUtils';
+import { formatWeightSlabLabel } from '../utils/deliveryCalculator';
 
 export interface AppContent {
   branding: {
@@ -223,6 +224,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const enableStorePickup = saved.enableStorePickup !== false;
     const isDeliveryActive = enableStorePickup && saved.isDeliveryActive !== false;
 
+    const vehicles = (saved.vehicles && saved.vehicles.length > 0) ? saved.vehicles : DEFAULT_DELIVERY_CONFIG.vehicles;
+    
+    // Prune rateMatrix keys that do not belong to currently valid vehicles
+    const rawRateMatrix = saved.rateMatrix || DEFAULT_DELIVERY_CONFIG.rateMatrix;
+    const cleanRateMatrix: Record<string, number> = {};
+    Object.entries(rawRateMatrix).forEach(([key, val]) => {
+      if (vehicles.some(v => key.startsWith(`${v.id}_`))) {
+        cleanRateMatrix[key] = val;
+      }
+    });
+
+    let mergedDistanceSlabs = (saved.distanceSlabs && saved.distanceSlabs.length > 0) 
+      ? saved.distanceSlabs 
+      : DEFAULT_DELIVERY_CONFIG.distanceSlabs;
+
+    if (!mergedDistanceSlabs.some(ds => ds.id === 'ds_100_plus' || ds.id === 'ds_5')) {
+      mergedDistanceSlabs = [
+        ...mergedDistanceSlabs,
+        { id: 'ds_100_plus', minDistanceKm: 100.001, maxDistanceKm: 99999, label: '100+ किमी' },
+      ];
+    }
+
+    const sanitizedVehicles = vehicles.map(v => {
+      let cleanShort = v.shortName || '';
+      if (cleanShort.includes('(')) cleanShort = cleanShort.split('(')[0].trim();
+      return {
+        ...v,
+        shortName: cleanShort || v.name.split('(')[0].trim() || 'Vehicle',
+      };
+    });
+
+    const rawWeightSlabs = (saved.weightSlabs && saved.weightSlabs.length > 0) 
+      ? saved.weightSlabs 
+      : DEFAULT_DELIVERY_CONFIG.weightSlabs;
+
+    const sanitizedWeightSlabs = rawWeightSlabs.map(ws => ({
+      ...ws,
+      label: formatWeightSlabLabel(ws.minWeightKg, ws.maxWeightKg, ws.label),
+    }));
+
     return {
       ...DEFAULT_DELIVERY_CONFIG,
       ...saved,
@@ -230,10 +271,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       enableLocalDelivery: saved.enableLocalDelivery !== false,
       isDeliveryActive,
       storeOrigin: { ...DEFAULT_DELIVERY_CONFIG.storeOrigin, ...(saved.storeOrigin || {}) },
-      vehicles: (saved.vehicles && saved.vehicles.length > 0) ? saved.vehicles : DEFAULT_DELIVERY_CONFIG.vehicles,
-      weightSlabs: (saved.weightSlabs && saved.weightSlabs.length > 0) ? saved.weightSlabs : DEFAULT_DELIVERY_CONFIG.weightSlabs,
-      distanceSlabs: (saved.distanceSlabs && saved.distanceSlabs.length > 0) ? saved.distanceSlabs : DEFAULT_DELIVERY_CONFIG.distanceSlabs,
-      rateMatrix: { ...DEFAULT_DELIVERY_CONFIG.rateMatrix, ...(saved.rateMatrix || {}) },
+      vehicles: sanitizedVehicles,
+      weightSlabs: sanitizedWeightSlabs,
+      distanceSlabs: mergedDistanceSlabs,
+      rateMatrix: cleanRateMatrix,
       pincodeDistances: { ...DEFAULT_DELIVERY_CONFIG.pincodeDistances, ...(saved.pincodeDistances || {}) },
       tehsilDirectory: (saved.tehsilDirectory && saved.tehsilDirectory.length > 0) ? saved.tehsilDirectory : DEFAULT_DELIVERY_CONFIG.tehsilDirectory,
       villageDirectory: (saved.villageDirectory && saved.villageDirectory.length > 0) ? saved.villageDirectory : DEFAULT_DELIVERY_CONFIG.villageDirectory,
@@ -1234,7 +1275,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isDeliveryActive: isOnlineActive,
         lastUpdated: Date.now(),
       };
-      await setDoc(doc(db, 'settings', 'deliveryConfig'), payload, { merge: true });
+      await setDoc(doc(db, 'settings', 'deliveryConfig'), payload);
       const merged = mergeDeliveryConfig(payload);
       setDeliveryConfig(merged);
       localStorage.setItem('agri_cache_delivery_config', JSON.stringify(merged));

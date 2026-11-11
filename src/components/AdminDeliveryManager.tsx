@@ -26,6 +26,7 @@ import {
   getCombinedTehsils, 
   PRIMARY_TEHSILS 
 } from '../data/villageDirectory';
+import { formatWeightSlabLabel } from '../utils/deliveryCalculator';
 
 // Default Distance Slabs matching Screenshot
 const DEFAULT_FALLBACK_DISTANCE_SLABS: DistanceSlab[] = [
@@ -33,6 +34,7 @@ const DEFAULT_FALLBACK_DISTANCE_SLABS: DistanceSlab[] = [
   { id: 'ds_10_30', minDistanceKm: 10.001, maxDistanceKm: 30, label: '10-30 किमी' },
   { id: 'ds_30_50', minDistanceKm: 30.001, maxDistanceKm: 50, label: '30-50 किमी' },
   { id: 'ds_50_100', minDistanceKm: 50.001, maxDistanceKm: 100, label: '50-100 किमी' },
+  { id: 'ds_100_plus', minDistanceKm: 100.001, maxDistanceKm: 99999, label: '100+ किमी' },
 ];
 
 const POPULAR_VEHICLE_EMOJIS = ['🛵', '🏍️', '🛺', '🚜', '🛻', '🚚', '🚛', '🚲', '🚗', '🚐', '📦', '⚡'];
@@ -175,6 +177,11 @@ const AdminDeliveryManager: React.FC = () => {
   const [villageToDelete, setVillageToDelete] = useState<VillageDeliveryEntry | null>(null);
   const [villageModalError, setVillageModalError] = useState<string | null>(null);
 
+  // Vehicle Deletion State
+  const [vehicleToDelete, setVehicleToDelete] = useState<VehicleConfig | null>(null);
+  const [isDeletingVehicle, setIsDeletingVehicle] = useState<boolean>(false);
+  const [vehicleDeleteError, setVehicleDeleteError] = useState<string | null>(null);
+
   // Active Tehsil list derived dynamically from config
   const currentTehsils: TehsilEntry[] = useMemo(() => {
     return getCombinedTehsils(config.tehsilDirectory);
@@ -295,12 +302,16 @@ const AdminDeliveryManager: React.FC = () => {
   // Open Edit Vehicle Modal
   const openEditVehicleModal = (v: VehicleConfig) => {
     const ws = config.weightSlabs.find(w => w.vehicleId === v.id);
+    let cleanShortName = v.shortName || '';
+    if (cleanShortName.includes('(')) cleanShortName = cleanShortName.split('(')[0].trim();
+    if (cleanShortName.includes('किग्रा')) cleanShortName = cleanShortName.replace(/[0-9.]+\s*[-–]\s*[0-9.]+\s*किग्रा/g, '').trim();
+
     setEditingVehicle(v);
     setIsNewVehicleModal(false);
     setVehicleForm({
       id: v.id,
       name: v.name,
-      shortName: v.shortName || '',
+      shortName: cleanShortName || v.name.split('(')[0].trim(),
       icon: v.icon || '🚚',
       description: v.description || '',
       minWeightKg: ws ? ws.minWeightKg : 0,
@@ -325,11 +336,14 @@ const AdminDeliveryManager: React.FC = () => {
       return;
     }
 
+    let cleanShort = (vehicleForm.shortName.trim() || vehicleForm.name.trim()).split('(')[0].trim();
+    if (cleanShort.includes('किग्रा')) cleanShort = cleanShort.replace(/[0-9.]+\s*[-–]\s*[0-9.]+\s*किग्रा/g, '').trim();
+
     const vehicleId = vehicleForm.id || `vehicle_${Date.now()}`;
     const newVehicle: VehicleConfig = {
       id: vehicleId,
       name: vehicleForm.name.trim(),
-      shortName: vehicleForm.shortName.trim() || vehicleForm.name.trim(),
+      shortName: cleanShort || 'Vehicle',
       icon: vehicleForm.icon.trim() || '🚚',
       description: vehicleForm.description.trim() || `${minW} से ${maxW} किग्रा ऑर्डर्स के लिए`,
       maxCapacityKg: isNaN(cap) || cap < maxW ? maxW : cap,
@@ -345,7 +359,7 @@ const AdminDeliveryManager: React.FC = () => {
         updatedVehicles = prev.vehicles.map(v => v.id === vehicleId ? newVehicle : v);
       }
 
-      // Sync weight slab
+      // Sync weight slab with clean label
       const existingWsIndex = prev.weightSlabs.findIndex(w => w.vehicleId === vehicleId);
       const updatedWeightSlabs = [...prev.weightSlabs];
       const newWs: WeightSlab = {
@@ -353,7 +367,7 @@ const AdminDeliveryManager: React.FC = () => {
         vehicleId: vehicleId,
         minWeightKg: minW,
         maxWeightKg: maxW,
-        label: `${minW}–${maxW} किग्रा (${newVehicle.shortName})`,
+        label: formatWeightSlabLabel(minW, maxW),
       };
 
       if (existingWsIndex >= 0) {
@@ -384,31 +398,59 @@ const AdminDeliveryManager: React.FC = () => {
     setIsNewVehicleModal(false);
   };
 
-  // Delete Vehicle
+  // Open Vehicle Delete Confirmation Modal (Replaces blocked window.confirm)
   const handleDeleteVehicle = (vehicleId: string) => {
     const vToDelete = config.vehicles.find(v => v.id === vehicleId);
     if (!vToDelete) return;
+    setVehicleDeleteError(null);
+    setVehicleToDelete(vToDelete);
+  };
+
+  // Permanently delete vehicle from Firebase Database, LocalStorage & IndexedDB
+  const confirmDeleteVehicle = async (vehicleId: string) => {
     if (config.vehicles.length <= 1) {
-      alert('कम से कम एक वाहन होना अनिवार्य है।');
-      return;
-    }
-    if (!confirm(`क्या आप निश्चित रूप से "${vToDelete.name}" वाहन को हटाना चाहते हैं?`)) {
+      setVehicleDeleteError('कम से कम एक वाहन होना अनिवार्य है। आप अंतिम शेष वाहन को नहीं हटा सकते।');
       return;
     }
 
-    setConfig(prev => {
-      const updatedVehicles = prev.vehicles.filter(v => v.id !== vehicleId);
-      const updatedWeightSlabs = prev.weightSlabs.filter(w => w.vehicleId !== vehicleId);
-      return {
-        ...prev,
+    setIsDeletingVehicle(true);
+    setVehicleDeleteError(null);
+
+    try {
+      const updatedVehicles = config.vehicles.filter(v => v.id !== vehicleId);
+      const updatedWeightSlabs = config.weightSlabs.filter(w => w.vehicleId !== vehicleId);
+
+      // Clean up rateMatrix entries for this deleted vehicle
+      const updatedRateMatrix: { [key: string]: number } = {};
+      Object.entries(config.rateMatrix || {}).forEach(([k, val]) => {
+        if (!k.startsWith(`${vehicleId}_`)) {
+          updatedRateMatrix[k] = val;
+        }
+      });
+
+      const updatedConfig: DynamicDeliveryConfig = {
+        ...config,
         vehicles: updatedVehicles,
         weightSlabs: updatedWeightSlabs,
+        rateMatrix: updatedRateMatrix,
+        lastUpdated: Date.now(),
       };
-    });
 
-    if (editingVehicle?.id === vehicleId) {
-      setEditingVehicle(null);
-      setIsNewVehicleModal(false);
+      // Persist permanently to Firestore and sync local storage/context
+      await updateDeliveryConfig(updatedConfig);
+      setConfig(updatedConfig);
+
+      if (editingVehicle?.id === vehicleId) {
+        setEditingVehicle(null);
+        setIsNewVehicleModal(false);
+      }
+
+      setVehicleToDelete(null);
+    } catch (err: any) {
+      console.error('Failed to permanently delete vehicle from Firestore:', err);
+      setVehicleDeleteError(err?.message || 'वाहन हटाने में सर्वर त्रुटि आई। डेटा सुरक्षित है, कृपया पुनः प्रयास करें।');
+    } finally {
+      setIsDeletingVehicle(false);
     }
   };
 
@@ -855,7 +897,7 @@ const AdminDeliveryManager: React.FC = () => {
                 </div>
                 <p className="text-[11px] text-gray-600 font-medium leading-relaxed">
                   {config.enableStorePickup !== false 
-                    ? "पूरे ऐप में ऑनलाइन ऑर्डरिंग चालू है। किसान डिंपल चौराहा (शामगढ़) दुकान से पिकअप कर सकेंगे।"
+                    ? "पूरे ऐप में ऑनलाइन ऑर्डरिंग चालू है। किसान फल्सावदिया कृषि बाजार दुकान से अपना ऑर्डर स्वयं पिकअप कर सकेंगे।"
                     : "पूरे ऐप में ऑनलाइन ऑर्डरिंग बंद है। किसान कार्ट व चेकआउट से कोई भी नया ऑनलाइन ऑर्डर दर्ज नहीं कर सकेंगे।"
                   }
                 </p>
@@ -2419,6 +2461,155 @@ const AdminDeliveryManager: React.FC = () => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Vehicle Deletion Confirmation Modal */}
+      {vehicleToDelete && (
+        <div className="fixed inset-0 z-60 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-gray-100 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-base font-black text-gray-900">
+                    वाहन हटाएं (Delete Vehicle)
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isDeletingVehicle) {
+                        setVehicleToDelete(null);
+                        setVehicleDeleteError(null);
+                      }
+                    }}
+                    disabled={isDeletingVehicle}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="font-black text-gray-900 text-sm">
+                    {vehicleToDelete.name}
+                  </span>
+                  <span className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md font-bold">
+                    {vehicleToDelete.shortName}
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    vehicleToDelete.isActive 
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                      : 'bg-gray-100 text-gray-500 border-gray-200'
+                  }`}>
+                    {vehicleToDelete.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Vehicle Details Card */}
+            {(() => {
+              const weightSlab = config.weightSlabs.find(w => w.vehicleId === vehicleToDelete.id);
+              return (
+                <div className="bg-gray-50 border border-gray-200/80 rounded-2xl p-3 text-xs space-y-1.5">
+                  <div className="flex justify-between items-center text-gray-600">
+                    <span className="font-medium">वजन सीमा (Weight Range):</span>
+                    <span className="font-bold text-gray-900">
+                      {weightSlab ? `${weightSlab.minWeightKg} - ${weightSlab.maxWeightKg} kg` : `0 - ${vehicleToDelete.maxCapacityKg} kg`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-gray-600">
+                    <span className="font-medium">अधिकतम भार क्षमता (Capacity):</span>
+                    <span className="font-bold text-gray-900">{vehicleToDelete.maxCapacityKg} kg</span>
+                  </div>
+                  {vehicleToDelete.description && (
+                    <div className="pt-1 border-t border-gray-200/60 text-[11px] text-gray-500 line-clamp-2">
+                      {vehicleToDelete.description}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Safety Check: If only 1 vehicle exists in the entire system, show blocking notice */}
+            {config.vehicles.length <= 1 ? (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-3 flex items-start gap-2.5 text-xs text-red-800">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-black text-red-900">यह वाहन हटाया नहीं जा सकता</p>
+                  <p className="text-red-700 text-[11px] leading-relaxed">
+                    सिस्टम में कम से कम 1 डिलीवरी वाहन होना अनिवार्य है। डिलीवरी गणना और स्थानीय डिलीवरी सेवा के लिए न्यूनतम एक वाहन आवश्यक है।
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Warning if deleting the last ACTIVE vehicle */}
+                {config.vehicles.filter(v => v.isActive).length === 1 && vehicleToDelete.isActive && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-start gap-2.5 text-xs text-amber-800">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="font-black text-amber-900">चेतावनी: एकमात्र सक्रिय (Active) वाहन</p>
+                      <p className="text-amber-700 text-[11px] leading-relaxed">
+                        यह वर्तमान में एकमात्र सक्रिय वाहन है। इसे हटाने पर होम डिलीवरी के लिए कोई भी सक्रिय वाहन नहीं बचेगा और ग्राहक केवल दुकान से पिकअप कर सकेंगे।
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  क्या आप वाकई वाहन <strong>"{vehicleToDelete.name}"</strong> को हटाना चाहते हैं? यह वाहन और इससे जुड़े सभी <strong>रेट स्लैब (Rate Matrix)</strong> डेटाबेस से स्थायी रूप से हटा दिए जाएंगे।
+                </p>
+              </>
+            )}
+
+            {/* Server / Firebase Error Feedback */}
+            {vehicleDeleteError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2 text-xs text-red-700">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <p className="flex-1 font-medium">{vehicleDeleteError}</p>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setVehicleToDelete(null);
+                  setVehicleDeleteError(null);
+                }}
+                disabled={isDeletingVehicle}
+                className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold text-xs hover:bg-gray-100 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {config.vehicles.length <= 1 ? 'ठीक है, समझ गया' : 'रद्द करें'}
+              </button>
+
+              {config.vehicles.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => confirmDeleteVehicle(vehicleToDelete.id)}
+                  disabled={isDeletingVehicle}
+                  className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isDeletingVehicle ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>हटाया जा रहा है...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>हाँ, वाहन हटाएं</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

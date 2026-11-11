@@ -288,7 +288,7 @@ const CartPage: React.FC = () => {
               <div className="text-[10px] text-gray-600 bg-white/70 p-2 rounded-xl border border-gray-200/50 mt-1 flex items-center gap-1.5 leading-relaxed">
                 <Store className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
                 <span className="break-words">
-                  <strong className="font-bold text-gray-800">फल्सावदिया कृषि बाजार</strong> दुकान से अपना ऑर्डर स्वयं पिकअप करने पर डिलीवरी शुल्क ₹0 है।
+                  <strong className="font-bold text-gray-800">फल्सावदिया कृषि बाजार</strong> से अपना ऑर्डर स्वयं पिकअप करने पर डिलीवरी शुल्क ₹0 है।
                 </span>
               </div>
             </div>

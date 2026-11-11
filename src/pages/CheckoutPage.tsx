@@ -15,7 +15,7 @@ import { getCustomerDetails, saveCustomerDetails } from '../utils/customerStorag
 import { createNewOrder } from '../services/orderService';
 import { initiateRazorpayPayment, fetchRazorpayPublicConfig } from '../services/razorpayService';
 import { OrderItem, RazorpayPublicConfig, OrderDeliverySnapshot, VillageDeliveryEntry } from '../types';
-import { calculateCartWeight, calculateDynamicDeliveryCharge } from '../utils/deliveryCalculator';
+import { calculateCartWeight, calculateDynamicDeliveryCharge, formatWeightSlabLabel } from '../utils/deliveryCalculator';
 import { 
   getCombinedVillageDirectory, 
   findVillageMatch, 
@@ -126,7 +126,7 @@ const CheckoutPage: React.FC = () => {
 
   const deliveryCharge = deliveryMethod === 'store_pickup' 
     ? 0 
-    : (deliveryQuote?.finalDeliveryCharge ?? 0);
+    : (deliveryQuote?.isServiceable ? deliveryQuote.finalDeliveryCharge : 0);
 
   const finalOrderTotal = cartTotal + deliveryCharge;
 
@@ -336,12 +336,16 @@ const CheckoutPage: React.FC = () => {
       }
     }
 
-    // होम डिलीवरी के लिए गाँव डायरेक्टरी सत्यापन
-    if (deliveryMethod === 'local_delivery' && trimmedCity) {
-      if (!matchedVillage) {
+    // होम डिलीवरी के लिए गाँव डायरेक्टरी व रेट मैट्रिक्स सत्यापन
+    if (deliveryMethod === 'local_delivery') {
+      if (!trimmedCity) {
+        errors.addressCity = 'कृपया डिलीवरी के लिए अपना गाँव / शहर दर्ज करें।';
+      } else if (!matchedVillage) {
         errors.addressCity = `गाँव "${trimmedCity}" स्थानीय डिलीवरी सेवा क्षेत्र में नहीं मिला। सूची से अधिकृत गाँव चुनें या पिकअप चुनें।`;
       } else if (matchedVillage.isActive === false) {
         errors.addressCity = `गाँव "${matchedVillage.nameHi}" के लिए डिलीवरी सेवा अस्थायी रूप से बंद है।`;
+      } else if (!deliveryQuote || deliveryQuote.isServiceable === false) {
+        errors.addressCity = deliveryQuote?.calculationNote || 'इस दूरी व वजन के लिए डिलीवरी दर निर्धारित नहीं है। कृपया स्टोर से संपर्क करें या पिकअप चुनें।';
       }
     }
 
@@ -415,14 +419,18 @@ const CheckoutPage: React.FC = () => {
       orderDeliverySnapshot = {
         totalWeightKg: totalCartWeightKg,
         distanceKm: matchedVillage?.distanceKm || 0,
-        vehicleId: deliveryQuote?.vehicle?.id || 'standard',
+        vehicleId: deliveryQuote?.vehicle?.id || 'bike',
         vehicleName: deliveryQuote?.vehicle?.name || 'स्थानीय डिलीवरी वाहन',
         vehicleIcon: deliveryQuote?.vehicle?.id === 'bike' ? 'bike' : 'truck',
-        vehicleEmoji: 'truck',
-        vehicleNameHindi: deliveryQuote?.vehicleNameHindi || deliveryQuote?.vehicle?.name || 'स्थानीय डिलीवरी',
-        vehicleType: deliveryQuote?.vehicleType || 'Local',
+        vehicleEmoji: deliveryQuote?.vehicle?.icon || 'truck',
+        vehicleNameHindi: deliveryQuote?.vehicleNameHindi || deliveryQuote?.vehicle?.name || 'स्थानीय डिलीवरी वाहन',
+        vehicleType: deliveryQuote?.vehicleType || deliveryQuote?.vehicle?.shortName || 'Local',
         distanceSlabLabel: deliveryQuote?.distanceSlab?.label || `${matchedVillage?.distanceKm} किमी`,
-        weightSlabLabel: deliveryQuote?.weightSlab?.label || `${totalCartWeightKg.toFixed(2)} kg`,
+        weightSlabLabel: formatWeightSlabLabel(
+          deliveryQuote?.weightSlab?.minWeightKg,
+          deliveryQuote?.weightSlab?.maxWeightKg,
+          deliveryQuote?.weightSlab?.label
+        ),
         calculatedCharge: deliveryQuote?.baseCharge || 0,
         finalCharge: deliveryCharge,
         isFreeDelivery: Boolean(deliveryQuote?.isFreeDelivery),
@@ -1224,61 +1232,99 @@ const CheckoutPage: React.FC = () => {
                   </div>
 
                   {/* Card 2: Delivery Vehicle & Rate Calculation */}
-                  <div className="bg-white rounded-3xl p-5 border border-gray-200/90 shadow-xs space-y-3.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 shadow-2xs shrink-0">
-                          {deliveryQuote.vehicle?.id === 'bike' ? (
-                            <Bike className="w-6 h-6" />
-                          ) : (
-                            <Truck className="w-6 h-6" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-base font-black text-gray-900">
-                              डिलीवरी वाहन: {deliveryQuote.vehicle?.name || 'डिलीवरी वाहन'}
-                            </h3>
-                            <span className="text-[10px] bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded-full border border-blue-200">
-                              Active
-                            </span>
+                  {deliveryQuote.isServiceable !== false ? (
+                    <div className="bg-white rounded-3xl p-5 border border-gray-200/90 shadow-xs space-y-3.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 shadow-2xs shrink-0">
+                            {deliveryQuote.vehicle?.id === 'bike' ? (
+                              <Bike className="w-6 h-6" />
+                            ) : (
+                              <Truck className="w-6 h-6" />
+                            )}
                           </div>
-                          <p className="text-xs text-gray-500 font-medium mt-0.5">
-                            कुल ऑर्डर वजन: ~{totalCartWeightKg.toFixed(2)} किग्रा (पैकिंग सहित)
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-base font-black text-gray-900">
+                                डिलीवरी वाहन: {deliveryQuote.vehicle?.name || 'डिलीवरी वाहन'}
+                              </h3>
+                              <span className="text-[10px] bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded-full border border-blue-200">
+                                Active
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 font-medium mt-0.5">
+                              कुल ऑर्डर वजन: ~{totalCartWeightKg.toFixed(2)} किग्रा (पैकिंग सहित)
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-base font-black text-[#2D5A27]">
+                            {deliveryQuote.isFreeDelivery ? '₹0 (मुफ़्त)' : `₹${deliveryCharge}`}
+                          </span>
+                          <p className="text-[10px] text-gray-400 font-medium">डिलीवरी शुल्क</p>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-gray-100 pt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
+                        <div className="bg-gray-50 p-2.5 rounded-xl">
+                          <span className="text-gray-400 block text-[10px]">वजन स्लैब</span>
+                          <span className="font-bold text-gray-800">
+                            {formatWeightSlabLabel(
+                              deliveryQuote.weightSlab?.minWeightKg,
+                              deliveryQuote.weightSlab?.maxWeightKg,
+                              deliveryQuote.weightSlab?.label
+                            )}
+                          </span>
+                        </div>
+                        <div className="bg-gray-50 p-2.5 rounded-xl">
+                          <span className="text-gray-400 block text-[10px]">दूरी स्लैब</span>
+                          <span className="font-bold text-gray-800">{deliveryQuote.distanceSlab?.label || `${matchedVillage.distanceKm} किमी`}</span>
+                        </div>
+                        <div className="bg-gray-50 p-2.5 rounded-xl col-span-2 sm:col-span-1">
+                          <span className="text-gray-400 block text-[10px]">डिलीवरी समय</span>
+                          <span className="font-bold text-emerald-700">24-48 घंटे</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-blue-50/70 border border-blue-100/80 rounded-2xl p-3 text-xs text-blue-950 flex items-start gap-2">
+                        <Info className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                        <span className="leading-relaxed font-medium">
+                          {deliveryQuote.calculationNote || 'सामान सीधे दुकान से आपके गाँव तक सुरक्षित पहुँचाया जाएगा। डिलीवरी बॉय ऑर्डर रवाना होने पर फोन पर संपर्क करेगा।'}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50 border-2 border-amber-200 p-5 rounded-3xl space-y-3">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-black text-amber-950">
+                            स्थानीय होम डिलीवरी अनुपलब्ध
+                          </h4>
+                          <p className="text-xs text-amber-900/90 leading-relaxed font-medium">
+                            {deliveryQuote.calculationNote || 'इस वजन या दूरी के लिए रेट मैट्रिक्स में डिलीवरी दर निर्धारित नहीं है।'}
                           </p>
                         </div>
                       </div>
-
-                      <div className="text-right">
-                        <span className="text-base font-black text-[#2D5A27]">
-                          ₹{deliveryCharge}
-                        </span>
-                        <p className="text-[10px] text-gray-400 font-medium">डिलीवरी शुल्क</p>
+                      <div className="pt-2 border-t border-amber-100 flex flex-col sm:flex-row gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setDeliveryMethod('store_pickup')}
+                          className="px-4 py-2.5 bg-[#2D5A27] text-white rounded-xl text-xs font-bold hover:bg-[#23461e] active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <Store className="w-4 h-4" /> दुकान से स्वयं पिकअप चुनें (₹0 निःशुल्क)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleWhatsAppHelp}
+                          className="px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl text-xs font-bold hover:bg-gray-50 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <MessageSquare className="w-4 h-4 text-[#25D366]" /> व्हाट्सएप पर सहायता लें
+                        </button>
                       </div>
                     </div>
-
-                    <div className="border-t border-gray-100 pt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
-                      <div className="bg-gray-50 p-2.5 rounded-xl">
-                        <span className="text-gray-400 block text-[10px]">वजन स्लैब</span>
-                        <span className="font-bold text-gray-800">{deliveryQuote.weightSlab?.label || '0-30 किग्रा'}</span>
-                      </div>
-                      <div className="bg-gray-50 p-2.5 rounded-xl">
-                        <span className="text-gray-400 block text-[10px]">दूरी स्लैब</span>
-                        <span className="font-bold text-gray-800">{deliveryQuote.distanceSlab?.label || `${matchedVillage.distanceKm} किमी`}</span>
-                      </div>
-                      <div className="bg-gray-50 p-2.5 rounded-xl col-span-2 sm:col-span-1">
-                        <span className="text-gray-400 block text-[10px]">डिलीवरी समय</span>
-                        <span className="font-bold text-emerald-700">24-48 घंटे</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-blue-50/70 border border-blue-100/80 rounded-2xl p-3 text-xs text-blue-950 flex items-start gap-2">
-                      <Info className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
-                      <span className="leading-relaxed font-medium">
-                        सामान सीधे दुकान से आपके गाँव तक सुरक्षित पहुँचाया जाएगा। डिलीवरी बॉय ऑर्डर रवाना होने पर फोन पर संपर्क करेगा।
-                      </span>
-                    </div>
-                  </div>
+                  )}
                 </>
               )}
 
@@ -1390,9 +1436,15 @@ const CheckoutPage: React.FC = () => {
                   ₹0 (नि:शुल्क पिकअप)
                 </span>
               ) : deliveryQuote ? (
-                <span className="font-bold text-gray-900">
-                  ₹{deliveryCharge}
-                </span>
+                deliveryQuote.isServiceable !== false ? (
+                  <span className="font-bold text-gray-900">
+                    {deliveryQuote.isFreeDelivery ? '₹0 (मुफ़्त)' : `₹${deliveryCharge}`}
+                  </span>
+                ) : (
+                  <span className="text-red-600 font-bold text-[11px] bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
+                    दर अनुपलब्ध
+                  </span>
+                )
               ) : (
                 <span className="text-gray-400 italic">गाँव चयन प्रतीक्षित</span>
               )}
@@ -1419,10 +1471,10 @@ const CheckoutPage: React.FC = () => {
             disabled={
               isProcessing || 
               !isMasterActive || 
-              (deliveryMethod === 'local_delivery' && (!matchedVillage || matchedVillage.isActive === false))
+              (deliveryMethod === 'local_delivery' && (!matchedVillage || matchedVillage.isActive === false || !deliveryQuote || deliveryQuote.isServiceable === false))
             }
             className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2.5 shadow-lg active:scale-98 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
-              !isMasterActive || (deliveryMethod === 'local_delivery' && (!matchedVillage || matchedVillage.isActive === false))
+              !isMasterActive || (deliveryMethod === 'local_delivery' && (!matchedVillage || matchedVillage.isActive === false || !deliveryQuote || deliveryQuote.isServiceable === false))
                 ? "bg-gray-400 text-white shadow-none"
                 : "bg-[#2D5A27] hover:bg-[#2D5A27]/90 text-white shadow-[#2D5A27]/25"
             }`}
@@ -1441,6 +1493,11 @@ const CheckoutPage: React.FC = () => {
               <>
                 <AlertTriangle className="w-5 h-5" />
                 मान्य गाँव चुनें या पिकअप चुनें
+              </>
+            ) : deliveryMethod === 'local_delivery' && (!deliveryQuote || deliveryQuote.isServiceable === false) ? (
+              <>
+                <AlertTriangle className="w-5 h-5" />
+                डिलीवरी दर अनुपलब्ध (पिकअप चुनें)
               </>
             ) : (
               <>

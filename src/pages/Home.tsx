@@ -854,38 +854,65 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Partner Logos Slider */}
-      <section className="py-4 overflow-hidden">
-        <p className="text-[11px] font-semibold text-gray-500 mb-4 text-center">Popular Brands</p>
+      {/* Popular Brands Showcase Carousel */}
+      <section className="py-3 sm:py-4 overflow-hidden" id="home-popular-brands-section">
+        {/* Section Header with Subtle Green Accent */}
+        <div className="flex items-center justify-center gap-3 mb-3.5">
+          <div className="h-px w-8 sm:w-16 bg-gradient-to-r from-transparent to-emerald-300/80" />
+          <div className="inline-flex items-center px-3.5 py-1 bg-white/90 backdrop-blur-xs border border-emerald-100 rounded-full shadow-2xs">
+            <span className="text-xs sm:text-[13px] font-black text-gray-800 tracking-wider uppercase">
+              Popular Brands
+            </span>
+          </div>
+          <div className="h-px w-8 sm:w-16 bg-gradient-to-l from-transparent to-emerald-300/80" />
+        </div>
+
+        {/* Carousel Container with Edge Gradient Fade */}
         <div className="relative flex overflow-x-hidden">
+          {/* Subtle Left & Right Edge Gradient Fade Masks for Premium Look */}
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-[#FAF8F5] via-[#FAF8F5]/80 to-transparent z-10" />
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[#FAF8F5] via-[#FAF8F5]/80 to-transparent z-10" />
+
           <motion.div 
             animate={{ x: ["0%", "-50%"] }}
             transition={{ 
               x: {
                 repeat: Infinity,
                 repeatType: "loop",
-                duration: 120,
+                duration: 95,
                 ease: "linear",
               },
             }}
-            className="flex gap-6 items-center whitespace-nowrap"
+            className="flex gap-3.5 sm:gap-4.5 items-center whitespace-nowrap py-1.5"
           >
             {[...partners, ...partners].map((partner, idx) => (
-              <div key={`${partner.id}-${idx}`} className="flex flex-col items-center gap-1.5">
-                  <div className="h-14 min-w-[80px] px-4 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center overflow-hidden">
-                    {partner.logo ? (
-                      <SmartImage 
-                        src={partner.logo} 
-                        alt={partner.name} 
-                        className="h-8 w-auto max-w-[120px]"
-                        objectFit="contain"
-                      />
-                    ) : (
-                      <span className="text-[10px] font-black text-[#2D5A27]">{partner.name}</span>
-                    )}
-                  </div>
-                {partner.logo && <span className="text-[9px] font-bold text-gray-500 text-center">{partner.name}</span>}
-              </div>
+              <Link
+                key={`${partner.id}-${idx}`}
+                to={`/products?search=${encodeURIComponent(partner.name)}`}
+                title={`${partner.name} के उत्पाद देखें`}
+                className="group relative flex flex-col justify-between w-[126px] sm:w-[142px] h-[88px] sm:h-[96px] p-2 sm:p-2.5 bg-white rounded-2xl border border-gray-200/80 shadow-2xs hover:shadow-md hover:border-emerald-300 hover:-translate-y-1 active:scale-95 transition-all duration-300 cursor-pointer shrink-0 select-none"
+              >
+                {/* Logo Area (Proper Aspect Ratio, Perfectly Centered, 100% Uncropped) */}
+                <div className="w-full h-11 sm:h-12 flex items-center justify-center px-1 py-0.5">
+                  {partner.logo ? (
+                    <SmartImage 
+                      src={partner.logo} 
+                      alt={partner.name} 
+                      className="w-full h-full"
+                      objectFit="contain"
+                    />
+                  ) : (
+                    <span className="text-[11px] font-black text-[#2D5A27] tracking-tight">{partner.name}</span>
+                  )}
+                </div>
+
+                {/* Company Name Under Logo */}
+                <div className="w-full pt-1 border-t border-gray-100 flex items-center justify-center">
+                  <span className="text-[10px] sm:text-[11px] font-bold text-gray-600 group-hover:text-[#2D5A27] transition-colors truncate max-w-[110px] text-center leading-tight">
+                    {partner.name}
+                  </span>
+                </div>
+              </Link>
             ))}
           </motion.div>
         </div>

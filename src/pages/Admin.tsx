@@ -7,7 +7,7 @@ import {
   Youtube as YoutubeIcon, Layout, Phone, Key, Star, ArrowUp, ArrowDown,
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle,
   Truck, FileText, Facebook, Instagram, Package, CreditCard, Layers, MessageSquare,
-  Zap, Radio, Clock, Send, Eye, EyeOff, SlidersHorizontal, AlertCircle
+  Zap, Radio, Clock, Send, Eye, EyeOff, SlidersHorizontal, AlertCircle, LayoutGrid
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
@@ -29,6 +29,35 @@ import { SafeErrorBoundary } from '../components/SafeErrorBoundary';
 import { AccountingDashboard } from '../components/accounting/AccountingDashboard';
 import { Calculator } from 'lucide-react';
 import { sortCategoriesByOrder } from '../utils/categoryUtils';
+
+type AdminTabType = 'accounting' | 'orders' | 'delivery' | 'features' | 'content' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate' | 'footer';
+
+interface AdminNavSectionItem {
+  id: AdminTabType;
+  titleHi: string;
+  subtitleEn: string;
+  icon: React.ComponentType<{ className?: string }>;
+  tag?: string;
+}
+
+const ADMIN_NAV_SECTIONS: AdminNavSectionItem[] = [
+  { id: 'accounting', titleHi: 'AI मुनीम जी', subtitleEn: '(Accounting)', icon: Calculator, tag: 'AI' },
+  { id: 'orders', titleHi: 'ऑर्डर्स', subtitleEn: '(Orders)', icon: Package },
+  { id: 'delivery', titleHi: 'डिलीवरी सेटिंग्स', subtitleEn: '(Delivery)', icon: Truck },
+  { id: 'content', titleHi: 'कंटेंट', subtitleEn: '(Content)', icon: Layout },
+  { id: 'features', titleHi: 'फ़ीचर्स नियंत्रण', subtitleEn: '(Features)', icon: SlidersHorizontal },
+  { id: 'products', titleHi: 'उत्पाद', subtitleEn: '(Products)', icon: ShoppingBag },
+  { id: 'categories', titleHi: 'श्रेणियाँ', subtitleEn: '(Categories)', icon: ListFilter },
+  { id: 'categoryInfo', titleHi: 'महत्वपूर्ण जानकारी', subtitleEn: '(Category Info)', icon: ShieldCheck },
+  { id: 'encyclopedia', titleHi: 'कीड़े/रोग', subtitleEn: '(Encyclopedia)', icon: Bug },
+  { id: 'helplines', titleHi: 'हेल्पलाइन', subtitleEn: '(Helplines)', icon: Phone },
+  { id: 'featured', titleHi: 'विशेष उत्पाद', subtitleEn: '(Featured)', icon: Star },
+  { id: 'users', titleHi: 'यूज़र्स', subtitleEn: '(Users)', icon: Users },
+  { id: 'razorpay', titleHi: 'Razorpay गेटवे', subtitleEn: '(Payments)', icon: CreditCard },
+  { id: 'invoiceTemplate', titleHi: 'इनवॉइस डिज़ाइन', subtitleEn: '(Invoice PDF)', icon: FileText },
+  { id: 'legalPages', titleHi: 'नीतियां', subtitleEn: '(Legal & Info)', icon: FileText },
+  { id: 'footer', titleHi: 'फुटर', subtitleEn: '(Footer Editor)', icon: Layers },
+];
 
 const Admin: React.FC = () => {
   const { 
@@ -785,154 +814,112 @@ const Admin: React.FC = () => {
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto no-scrollbar md:flex-wrap">
-        <button 
-          onClick={() => setActiveTab('accounting')}
-          className={cn(
-            "flex-1 min-w-[170px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'accounting' 
-              ? "bg-[#2D5A27] text-white shadow-md" 
-              : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <Calculator className="w-4 h-4" /> AI मुनीम जी (Accounting)
-        </button>
-        <button 
-          onClick={() => setActiveTab('orders')}
-          className={cn(
-            "flex-1 min-w-[130px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'orders' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <Package className="w-4 h-4" /> ऑर्डर्स (Orders)
-        </button>
-        <button 
-          onClick={() => setActiveTab('delivery')}
-          className={cn(
-            "flex-1 min-w-[150px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'delivery' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <Truck className="w-4 h-4" /> डिलीवरी सेटिंग्स (Delivery)
-        </button>
-        <button 
-          onClick={() => setActiveTab('content')}
-          className={cn(
-            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'content' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <Layout className="w-4 h-4" /> कंटेंट (Content)
-        </button>
-        <button 
-          onClick={() => setActiveTab('features')}
-          className={cn(
-            "flex-1 min-w-[150px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'features' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <SlidersHorizontal className="w-4 h-4" /> फ़ीचर्स नियंत्रण (Features)
-        </button>
-        <button 
-          onClick={() => setActiveTab('products')}
-          className={cn(
-            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'products' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <ShoppingBag className="w-4 h-4" /> उत्पाद (Products)
-        </button>
-        <button 
-          onClick={() => setActiveTab('categories')}
-          className={cn(
-            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'categories' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <ListFilter className="w-4 h-4" /> श्रेणियाँ (Categories)
-        </button>
-        <button 
-          onClick={() => setActiveTab('categoryInfo')}
-          className={cn(
-            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'categoryInfo' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <ShieldCheck className="w-4 h-4" /> महत्वपूर्ण जानकारी (Category Info)
-        </button>
-        <button 
-          onClick={() => setActiveTab('encyclopedia')}
-          className={cn(
-            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'encyclopedia' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <Bug className="w-4 h-4" /> कीड़े/रोग (Encyclopedia)
-        </button>
-        <button 
-          onClick={() => setActiveTab('helplines')}
-          className={cn(
-            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'helplines' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <Phone className="w-4 h-4" /> हेल्पलाइन (Helplines)
-        </button>
-        <button 
-          onClick={() => setActiveTab('featured')}
-          className={cn(
-            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'featured' ? "bg-amber-500 text-white shadow-md shadow-amber-100" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <Star className="w-4 h-4" /> विशेष उत्पाद (Featured)
-        </button>
-        <button 
-          onClick={() => setActiveTab('users')}
-          className={cn(
-            "flex-1 min-w-[120px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'users' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <Users className="w-4 h-4" /> यूज़र्स (Users)
-        </button>
-        <button 
-          onClick={() => setActiveTab('razorpay')}
-          className={cn(
-            "flex-1 min-w-[130px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'razorpay' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <CreditCard className="w-4 h-4" /> Razorpay गेटवे
-        </button>
-        <button 
-          onClick={() => setActiveTab('invoiceTemplate')}
-          className={cn(
-            "flex-1 min-w-[150px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'invoiceTemplate' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <FileText className="w-4 h-4" /> इनवॉइस डिज़ाइन (Invoice PDF)
-        </button>
-        <button 
-          onClick={() => setActiveTab('legalPages')}
-          className={cn(
-            "flex-1 min-w-[130px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'legalPages' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <FileText className="w-4 h-4" /> नीतियां (Legal & Info)
-        </button>
-        <button 
-          onClick={() => setActiveTab('footer')}
-          className={cn(
-            "flex-1 min-w-[130px] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all",
-            activeTab === 'footer' ? "bg-[#2D5A27] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
-          )}
-        >
-          <Layers className="w-4 h-4" /> फुटर (Footer Editor)
-        </button>
+      {/* Modern Premium Admin Navigation Dashboard Card */}
+      <div className="bg-white rounded-3xl p-4 sm:p-5 border border-gray-200/80 shadow-xs space-y-4">
+        {/* Navigation Card Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#2D5A27] shrink-0 shadow-2xs">
+              <LayoutGrid className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-black text-gray-900 tracking-tight">
+                  एडमिन नेविगेशन डैशबोर्ड
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80">
+                  16 सेक्शंस
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+                प्रबंधन और नियंत्रण के लिए संबंधित सेक्शन का चयन करें
+              </p>
+            </div>
+          </div>
+
+          {/* Active Section Indicator */}
+          <div className="flex items-center gap-2 self-start sm:self-auto bg-gray-50 border border-gray-200/80 rounded-xl px-3.5 py-1.5 text-xs">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              वर्तमान सक्रिय:
+            </span>
+            <span className="font-black text-[#2D5A27]">
+              {ADMIN_NAV_SECTIONS.find(s => s.id === activeTab)?.titleHi || 'ऑर्डर्स'} {ADMIN_NAV_SECTIONS.find(s => s.id === activeTab)?.subtitleEn || '(Orders)'}
+            </span>
+          </div>
+        </div>
+
+        {/* Navigation Grid (4 columns on Desktop/Tablet, 2 columns on Mobile) */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
+          {ADMIN_NAV_SECTIONS.map((section) => {
+            const isActive = activeTab === section.id;
+            const Icon = section.icon;
+
+            return (
+              <button
+                key={section.id}
+                type="button"
+                onClick={() => setActiveTab(section.id)}
+                className={cn(
+                  "group relative flex items-center gap-3 p-3 sm:p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer",
+                  isActive
+                    ? "bg-[#2D5A27] border-[#2D5A27] text-white shadow-sm ring-2 ring-[#2D5A27]/20"
+                    : "bg-white border-gray-200/80 text-gray-700 hover:border-emerald-300 hover:bg-emerald-50/40 hover:shadow-xs"
+                )}
+              >
+                {/* Icon Container */}
+                <div
+                  className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200",
+                    isActive
+                      ? "bg-white/20 text-white shadow-2xs backdrop-blur-xs"
+                      : "bg-emerald-50 text-[#2D5A27] border border-emerald-100/80 group-hover:bg-emerald-100 group-hover:scale-105"
+                  )}
+                >
+                  <Icon className="w-5 h-5" />
+                </div>
+
+                {/* Text Labels */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={cn(
+                        "text-xs font-black truncate block",
+                        isActive ? "text-white" : "text-gray-900 group-hover:text-[#2D5A27]"
+                      )}
+                    >
+                      {section.titleHi}
+                    </span>
+                    {section.tag && (
+                      <span
+                        className={cn(
+                          "text-[9px] font-black px-1.5 py-0.2 rounded font-mono uppercase shrink-0",
+                          isActive
+                            ? "bg-white/25 text-white"
+                            : "bg-emerald-100 text-[#2D5A27]"
+                        )}
+                      >
+                        {section.tag}
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className={cn(
+                      "text-[10px] font-medium truncate block mt-0.5",
+                      isActive ? "text-emerald-100/90" : "text-gray-400 group-hover:text-gray-600"
+                    )}
+                  >
+                    {section.subtitleEn}
+                  </span>
+                </div>
+
+                {/* Active Indicator Pin */}
+                {isActive && (
+                  <div className="w-2 h-2 rounded-full bg-white shrink-0 ml-auto mr-0.5 shadow-xs ring-2 ring-white/30" />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {activeTab === 'products' ? (

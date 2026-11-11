@@ -127,6 +127,15 @@ export const renderInvoiceHtml = (
   const paymentStatusHindi = getPaymentStatusHindi(order.paymentStatus);
   const isPaid = order.paymentStatus === 'paid';
 
+  // Check order's actual shipping method (Store Pickup vs Local Home Delivery)
+  const isStorePickupOrder = Boolean(
+    order.isStorePickup === true ||
+    order.deliveryType === 'store_pickup' ||
+    order.deliveryType === 'STORE_PICKUP' ||
+    order.deliverySnapshot?.vehicleId === 'store_pickup' ||
+    order.deliveryDetails?.vehicleId === 'store_pickup'
+  );
+
   // Products Table Row Generator with explicit cell styling and table layout
   const itemsHtml = order.items
     .map((item, index) => {
@@ -365,11 +374,15 @@ export const renderInvoiceHtml = (
                   <tr>
                     <td style="padding: 5px 0 10px 0; color: #4b5563; font-size: 12px; font-weight: 600; text-align: left; vertical-align: middle;">
                       ${tpl.deliveryLabel}
-                      ${order.deliverySnapshot ? `
+                      ${isStorePickupOrder ? `
+                        <div style="font-size: 10px; color: #6b7280; font-weight: 500; margin-top: 2px; line-height: 1.2;">
+                          दुकान से स्वयं पिकअप (Store Pickup)
+                        </div>
+                      ` : (order.deliverySnapshot ? `
                         <div style="font-size: 10px; color: #6b7280; font-weight: 500; margin-top: 2px; line-height: 1.2;">
                           वाहन: <strong>${order.deliverySnapshot.vehicleNameHindi}</strong> (${order.deliverySnapshot.vehicleType}) • ${order.deliverySnapshot.totalWeightKg} kg • ${order.deliverySnapshot.distanceKm} km
                         </div>
-                      ` : ''}
+                      ` : '')}
                     </td>
                     <td style="padding: 5px 0 10px 0; text-align: right; font-size: 13px; font-weight: 700; color: ${order.deliveryCharges > 0 ? tpl.paidDeliveryColor : tpl.freeDeliveryColor}; vertical-align: middle; white-space: nowrap;">
                       ${order.deliveryCharges > 0 ? `+ ₹${order.deliveryCharges.toLocaleString('en-IN')}` : tpl.freeDeliveryText}
