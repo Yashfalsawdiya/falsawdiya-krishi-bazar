@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { Suspense, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Calculator, 
@@ -21,7 +21,8 @@ import {
   ChevronUp,
   ChevronDown,
   CheckCheck,
-  Tag
+  Tag,
+  Banknote
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -35,6 +36,8 @@ import {
 } from '../utils/shamgarhLandMeasure';
 import { calculatePerKgPrice } from '../utils/perKgCalculator';
 
+const CashCalculator = React.lazy(() => import('../components/calculator/CashCalculator'));
+
 interface HistoryItem {
   equation: string;
   result: string;
@@ -43,8 +46,8 @@ interface HistoryItem {
 const AgriCalculator: React.FC = () => {
   const navigate = useNavigate();
   
-  // Navigation Tabs: normal, bigha, weight, amount, perKg
-  const [activeTab, setActiveTab] = useState<'normal' | 'bigha' | 'weight' | 'amount' | 'perKg'>('normal');
+  // Navigation Tabs: normal, bigha, weight, amount, perKg, cash
+  const [activeTab, setActiveTab] = useState<'normal' | 'bigha' | 'weight' | 'amount' | 'perKg' | 'cash'>('normal');
 
   // ==========================================
   // 1️⃣ Normal Commercial Calculator State & Logic
@@ -777,7 +780,7 @@ const AgriCalculator: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-24 max-w-2xl md:max-w-3xl mx-auto px-1">
+    <div className="space-y-6 pb-24 max-w-2xl md:max-w-4xl mx-auto px-1">
       {/* Header */}
       <div className="flex items-center gap-3.5">
         <button 
@@ -794,7 +797,7 @@ const AgriCalculator: React.FC = () => {
       </div>
 
       {/* Tabs Menu */}
-      <div className="grid grid-cols-2 md:grid-cols-5 bg-gray-100/80 p-1.5 rounded-2xl border border-gray-200/50 gap-1.5 shadow-2xs">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 bg-gray-100/80 p-1.5 rounded-2xl border border-gray-200/50 gap-1.5 shadow-2xs">
         <button 
           onClick={() => setActiveTab('normal')}
           className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl font-black text-xs transition-all uppercase tracking-wide
@@ -837,13 +840,23 @@ const AgriCalculator: React.FC = () => {
         </button>
         <button 
           onClick={() => setActiveTab('perKg')}
-          className={`col-span-2 md:col-span-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl font-black text-xs transition-all uppercase tracking-wide
+          className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl font-black text-xs transition-all uppercase tracking-wide
             ${activeTab === 'perKg' 
               ? 'bg-white text-[#2D5A27] shadow-sm font-extrabold border border-gray-200/40' 
               : 'text-gray-500 hover:text-gray-800 hover:bg-white/40'}`}
         >
           <Tag className="w-4 h-4 shrink-0" />
           <span>प्रति किलो दर</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('cash')}
+          className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl font-black text-xs transition-all uppercase tracking-wide
+            ${activeTab === 'cash' 
+              ? 'bg-white text-[#2D5A27] shadow-sm font-extrabold border border-gray-200/40' 
+              : 'text-gray-500 hover:text-gray-800 hover:bg-white/40'}`}
+        >
+          <Banknote className="w-4 h-4 shrink-0" />
+          <span>कैश काउंटर</span>
         </button>
       </div>
 
@@ -1909,6 +1922,29 @@ const AgriCalculator: React.FC = () => {
                   </div>
                 )}
               </div>
+            </motion.div>
+          )}
+
+          {/* ======================================================== */}
+          {/* 6️⃣ TAB: CASH CALCULATOR (Independent Lazy Component) */}
+          {/* ======================================================== */}
+          {activeTab === 'cash' && (
+            <motion.div
+              key="cash"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.15 }}
+            >
+              <Suspense
+                fallback={
+                  <div className="bg-white rounded-3xl p-8 border border-gray-100 text-center text-xs font-bold text-gray-500">
+                    कैश काउंटर लोड हो रहा है...
+                  </div>
+                }
+              >
+                <CashCalculator />
+              </Suspense>
             </motion.div>
           )}
 
