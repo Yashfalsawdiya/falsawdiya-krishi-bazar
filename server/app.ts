@@ -5,8 +5,7 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { 
   getRemoteFirestoreDoc, 
-  setRemoteFirestoreDoc, 
-  deleteRemoteFirestoreDoc 
+  setRemoteFirestoreDoc 
 } from './firestoreSync.js';
 import {
   renderDeliveryOtpEmailHtml,
@@ -27,6 +26,8 @@ const DATA_DIR = path.join(process.cwd(), 'data');
 const CONFIG_FILE = path.join(DATA_DIR, 'razorpay-config.json');
 const EMAIL_CONFIG_FILE = path.join(DATA_DIR, 'email-otp-config.json');
 const EMAIL_TEMPLATE_FILE = path.join(DATA_DIR, 'delivery-email-template.json');
+const OTP_STORE_FILE = path.join(DATA_DIR, 'delivery-otps.json');
+const OTP_TMP_FALLBACK_FILE = '/tmp/falsawdiya-delivery-otps.json';
 
 try {
   if (!fs.existsSync(DATA_DIR)) {
@@ -265,13 +266,70 @@ export interface ActiveDeliveryOtp {
 const activeOtps = new Map<string, ActiveDeliveryOtp>();
 const OTP_SECRET_SALT = process.env.OTP_SALT || 'falsawdiya-krishi-otp-salt-2026';
 
-// Periodic memory cleanup
+const getOtpStoragePath = (): string => {
+  try {
+    if (fs.existsSync(DATA_DIR)) {
+      fs.accessSync(DATA_DIR, fs.constants.W_OK);
+      return OTP_STORE_FILE;
+    }
+  } catch {
+    // Fallback to /tmp in read-only serverless environments
+  }
+  return OTP_TMP_FALLBACK_FILE;
+};
+
+const loadActiveOtps = () => {
+  try {
+    const filePath = fs.existsSync(OTP_STORE_FILE) ? OTP_STORE_FILE : (fs.existsSync(OTP_TMP_FALLBACK_FILE) ? OTP_TMP_FALLBACK_FILE : null);
+    if (!filePath) return;
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const parsed = JSON.parse(raw);
+    const now = Date.now();
+    if (parsed && typeof parsed === 'object') {
+      for (const [key, record] of Object.entries(parsed)) {
+        const otpRec = record as ActiveDeliveryOtp;
+        if (otpRec && typeof otpRec.expiresAt === 'number' && otpRec.expiresAt > now) {
+          activeOtps.set(key, otpRec);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Server] Could not load persisted delivery OTPs:', err);
+  }
+};
+
+const saveActiveOtps = () => {
+  try {
+    const now = Date.now();
+    const obj: Record<string, ActiveDeliveryOtp> = {};
+    for (const [key, record] of activeOtps.entries()) {
+      if (record.expiresAt > now) {
+        obj[key] = record;
+      } else {
+        activeOtps.delete(key);
+      }
+    }
+    const targetPath = getOtpStoragePath();
+    fs.writeFileSync(targetPath, JSON.stringify(obj), 'utf-8');
+  } catch (err) {
+    console.warn('[Server] Could not persist delivery OTPs to disk:', err);
+  }
+};
+
+loadActiveOtps();
+
+// Periodic memory & disk cleanup
 setInterval(() => {
   const now = Date.now();
+  let removedAny = false;
   for (const [key, record] of activeOtps.entries()) {
     if (record.expiresAt < now) {
       activeOtps.delete(key);
+      removedAny = true;
     }
+  }
+  if (removedAny) {
+    saveActiveOtps();
   }
 }, 5 * 60 * 1000);
 
@@ -1253,16 +1311,7 @@ app.post('/api/delivery/send-otp', async (req: Request, res: Response): Promise<
     }
 
     const now = Date.now();
-    let existing = activeOtps.get(orderId);
-
-    // If not in memory, check Firestore
-    if (!existing) {
-      const remoteOtp = await getRemoteFirestoreDoc<ActiveDeliveryOtp>('delivery_otps', orderId);
-      if (remoteOtp && remoteOtp.expiresAt > now) {
-        existing = remoteOtp;
-        activeOtps.set(orderId, existing);
-      }
-    }
+    const existing = activeOtps.get(orderId);
 
     let otp: string;
     let expiresAt: number;
@@ -1356,11 +1405,9 @@ app.post('/api/delivery/send-otp', async (req: Request, res: Response): Promise<
       emailSent,
     };
 
-    // Save in memory and persist in Firestore
+    // Save in memory and persist safely on server storage
     activeOtps.set(orderId, activeRecord);
-    setRemoteFirestoreDoc('delivery_otps', orderId, activeRecord).catch((err) => {
-      console.warn('[Server] Error persisting OTP to Firestore:', err);
-    });
+    saveActiveOtps();
 
     res.json({
       success: true,
@@ -1412,14 +1459,7 @@ app.post('/api/delivery/verify-otp', async (req: Request, res: Response): Promis
       return;
     }
 
-    let record = activeOtps.get(orderId);
-    if (!record) {
-      const remoteRecord = await getRemoteFirestoreDoc<ActiveDeliveryOtp>('delivery_otps', orderId);
-      if (remoteRecord) {
-        record = remoteRecord;
-        activeOtps.set(orderId, record);
-      }
-    }
+    const record = activeOtps.get(orderId);
 
     if (!record) {
       res.status(400).json({
@@ -1432,7 +1472,7 @@ app.post('/api/delivery/verify-otp', async (req: Request, res: Response): Promis
     const now = Date.now();
     if (record.expiresAt < now) {
       activeOtps.delete(orderId);
-      deleteRemoteFirestoreDoc('delivery_otps', orderId).catch(() => {});
+      saveActiveOtps();
       res.status(400).json({
         success: false,
         error: 'OTP की समय सीमा (Expiry Time) समाप्त हो चुकी है। कृपया ग्राहक को पुनः नया OTP भेजें।'
@@ -1442,7 +1482,7 @@ app.post('/api/delivery/verify-otp', async (req: Request, res: Response): Promis
 
     if (record.attempts >= (emailConfig.maxAttempts || 3)) {
       activeOtps.delete(orderId);
-      deleteRemoteFirestoreDoc('delivery_otps', orderId).catch(() => {});
+      saveActiveOtps();
       res.status(403).json({
         success: false,
         error: `अधिकतम गलत प्रयास (${emailConfig.maxAttempts || 3}) पूरे हो चुके हैं। कृपया पुनः नया OTP भेजें।`
@@ -1455,7 +1495,7 @@ app.post('/api/delivery/verify-otp', async (req: Request, res: Response): Promis
     if (submittedHash !== record.otpHash) {
       record.attempts += 1;
       activeOtps.set(orderId, record);
-      setRemoteFirestoreDoc('delivery_otps', orderId, record).catch(() => {});
+      saveActiveOtps();
 
       const remaining = Math.max(0, (emailConfig.maxAttempts || 3) - record.attempts);
       res.status(400).json({
@@ -1468,7 +1508,7 @@ app.post('/api/delivery/verify-otp', async (req: Request, res: Response): Promis
 
     // OTP Verified Successfully!
     activeOtps.delete(orderId);
-    deleteRemoteFirestoreDoc('delivery_otps', orderId).catch(() => {});
+    saveActiveOtps();
 
     res.json({
       success: true,
@@ -1492,10 +1532,7 @@ app.get('/api/delivery/in-app-otp/:orderId', async (req: Request, res: Response)
       return;
     }
 
-    let record = activeOtps.get(orderId);
-    if (!record) {
-      record = await getRemoteFirestoreDoc<ActiveDeliveryOtp>('delivery_otps', orderId) || undefined;
-    }
+    const record = activeOtps.get(orderId);
 
     if (!record || record.expiresAt < Date.now()) {
       res.json({ success: true, inAppAvailable: false });

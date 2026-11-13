@@ -117,7 +117,7 @@ const AdminDeliveryManager: React.FC = () => {
     description: string;
     minWeightKg: number | string;
     maxWeightKg: number | string;
-    maxCapacityKg: number | string;
+    maxCapacityKg?: number | string;
     isActive: boolean;
   }>({
     id: '',
@@ -127,7 +127,6 @@ const AdminDeliveryManager: React.FC = () => {
     description: '',
     minWeightKg: 0,
     maxWeightKg: 50,
-    maxCapacityKg: 50,
     isActive: true,
   });
 
@@ -294,7 +293,6 @@ const AdminDeliveryManager: React.FC = () => {
       description: '',
       minWeightKg: 0,
       maxWeightKg: 100,
-      maxCapacityKg: 100,
       isActive: true,
     });
   };
@@ -315,8 +313,7 @@ const AdminDeliveryManager: React.FC = () => {
       icon: v.icon || '🚚',
       description: v.description || '',
       minWeightKg: ws ? ws.minWeightKg : 0,
-      maxWeightKg: ws ? ws.maxWeightKg : v.maxCapacityKg,
-      maxCapacityKg: v.maxCapacityKg,
+      maxWeightKg: ws ? ws.maxWeightKg : (v.maxCapacityKg || 50),
       isActive: v.isActive !== false,
     });
   };
@@ -329,7 +326,6 @@ const AdminDeliveryManager: React.FC = () => {
     }
     const minW = parseFloat(String(vehicleForm.minWeightKg));
     const maxW = parseFloat(String(vehicleForm.maxWeightKg));
-    const cap = parseFloat(String(vehicleForm.maxCapacityKg));
 
     if (isNaN(minW) || minW < 0 || isNaN(maxW) || maxW <= minW) {
       alert('कृपया मान्य वजन सीमा (न्यूनतम < अधिकतम) दर्ज करें।');
@@ -346,7 +342,7 @@ const AdminDeliveryManager: React.FC = () => {
       shortName: cleanShort || 'Vehicle',
       icon: vehicleForm.icon.trim() || '🚚',
       description: vehicleForm.description.trim() || `${minW} से ${maxW} किग्रा ऑर्डर्स के लिए`,
-      maxCapacityKg: isNaN(cap) || cap < maxW ? maxW : cap,
+      maxCapacityKg: maxW,
       isActive: vehicleForm.isActive,
       order: editingVehicle ? editingVehicle.order : config.vehicles.length + 1,
     };
@@ -790,7 +786,7 @@ const AdminDeliveryManager: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-gray-500 font-medium mt-0.5">
-              शामगढ़, गरोठ, सुवासरा, भानपुरा, सीतामऊ व आसपास के अधिकृत गाँवों के लिए रेट मैट्रिक्स और ग्राम डायरेक्टरी
+              शामगढ़, गरोठ, सुवासरा, सीतामऊ व आसपास के अधिकृत गाँवों के लिए रेट मैट्रिक्स और ग्राम डायरेक्टरी
             </p>
           </div>
         </div>
@@ -1269,7 +1265,7 @@ const AdminDeliveryManager: React.FC = () => {
                   ग्राम व सड़क दूरी डायरेक्टरी (Village Directory)
                 </h3>
                 <p className="text-xs text-gray-500 font-medium mt-0.5">
-                  डिंपल चौराहा (शामगढ़) से अधिकृत सड़क दूरी और डिलीवरी स्थिति प्रबंधित करें
+                  फल्सावदिया कृषि बाजार से अधिकृत सड़क दूरी और डिलीवरी स्थिति प्रबंधित करें।
                 </p>
               </div>
 
@@ -1407,7 +1403,7 @@ const AdminDeliveryManager: React.FC = () => {
                         सड़क दूरी (Four-Wheeler Road):
                       </span>
                       <span className="text-[11px] text-gray-400 font-medium block">
-                        फल्सावदिया, शामगढ़ से दूरी
+                        फल्सावदिया कृषि बाजार, शामगढ़ से दूरी।
                       </span>
                     </div>
 
@@ -1947,8 +1943,8 @@ const AdminDeliveryManager: React.FC = () => {
                 />
               </div>
 
-              {/* Weight Range Inputs (Min & Max Weight) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Weight Range Inputs (Min & Max Weight Only) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-gray-700 mb-1">
                     न्यूनतम वजन (Min kg) *
@@ -1973,20 +1969,6 @@ const AdminDeliveryManager: React.FC = () => {
                     min="0.1"
                     value={vehicleForm.maxWeightKg}
                     onChange={(e) => setVehicleForm(prev => ({ ...prev, maxWeightKg: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 font-black outline-none focus:bg-white focus:border-[#2D5A27]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                    अधिकतम क्षमता (Capacity kg)
-                  </label>
-                  <input
-                    type="number"
-                    step="1"
-                    min="1"
-                    value={vehicleForm.maxCapacityKg}
-                    onChange={(e) => setVehicleForm(prev => ({ ...prev, maxCapacityKg: e.target.value }))}
                     className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 font-black outline-none focus:bg-white focus:border-[#2D5A27]"
                   />
                 </div>

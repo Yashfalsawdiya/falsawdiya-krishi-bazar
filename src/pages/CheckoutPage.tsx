@@ -654,13 +654,13 @@ const CheckoutPage: React.FC = () => {
               {/* Row 2: House / Farm / Street / Landmark */}
               <div>
                 <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                  मकान / खेत का पता / गली / मोहल्ला / Landmark <span className="text-red-500">*</span>
+                  घर का पता / गली / मोहल्ला <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <MapPin className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="उदा: शिव मंदिर के पास, मेन रोड, फल्सावदिया"
+                    placeholder="उदाः शिव मंदिर के पास, मेन रोड, शामगढ़"
                     value={addressHouse}
                     onChange={(e) => handleFieldChange('addressHouse', e.target.value, setAddressHouse)}
                     className={`w-full pl-9 pr-3 py-2.5 border rounded-xl outline-none text-gray-800 transition-colors ${
@@ -1212,8 +1212,8 @@ const CheckoutPage: React.FC = () => {
                         <p className="font-black text-gray-800">
                           फल्सावदिया कृषि बाजार
                         </p>
-                        <p className="text-[11px] text-gray-500 font-medium">
-                          डिंपल चौराहा, शामगढ़ (मंदसौर, 458883)
+                        <p className="text-[11px] text-gray-500 font-medium leading-relaxed">
+                          डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर – (458883)
                         </p>
                       </div>
 
@@ -1353,7 +1353,7 @@ const CheckoutPage: React.FC = () => {
                           : `गाँव "${addressCity}" में स्थानीय होम डिलीवरी उपलब्ध नहीं है`}
                       </h4>
                       <p className="text-xs text-red-800/90 leading-relaxed font-medium">
-                        होम डिलीवरी वर्तमान में केवल शामगढ़, गरोठ, सुवासरा, भानपुरा, सीतामऊ व आसपास के अधिकृत गाँवों के लिए उपलब्ध है।
+                        होम डिलीवरी वर्तमान में केवल शामगढ़, गरोठ, सुवासरा, सीतामऊ व आसपास के अधिकृत गाँवों के लिए उपलब्ध है।
                       </p>
                     </div>
                   </div>

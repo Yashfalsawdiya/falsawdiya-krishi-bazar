@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { CategoryData, Product, AgriIssue, Helpline } from '../types';
 import { 
@@ -7,7 +7,8 @@ import {
   Youtube as YoutubeIcon, Layout, Phone, Key, Star, ArrowUp, ArrowDown,
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle,
   Truck, FileText, Facebook, Instagram, Package, CreditCard, Layers, MessageSquare,
-  Zap, Radio, Clock, Send, Eye, EyeOff, SlidersHorizontal, AlertCircle, LayoutGrid
+  Zap, Radio, Clock, Send, Eye, EyeOff, SlidersHorizontal, AlertCircle, LayoutGrid,
+  Calculator
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
@@ -15,20 +16,27 @@ import { AppContent } from '../context/AppContext';
 import { ImageSource } from '../types';
 import DualImageInput from '../components/DualImageInput';
 import SmartImage from '../components/SmartImage';
-import AdminPagesManager from '../components/AdminPagesManager';
-import AdminOrdersManager from '../components/AdminOrdersManager';
-import AdminRazorpayManager from '../components/AdminRazorpayManager';
-import AdminInvoiceTemplateManager from '../components/AdminInvoiceTemplateManager';
-import AdminDeliveryManager from '../components/AdminDeliveryManager';
-import AdminDeviceBannerManager from '../components/AdminDeviceBannerManager';
-import AdminYouTubeVideoManager from '../components/AdminYouTubeVideoManager';
-import AdminFooterManager from '../components/AdminFooterManager';
-import AdminFeaturesManager from '../components/AdminFeaturesManager';
 import { DEFAULT_VIDEOS } from '../utils/youtubeUtils';
 import { SafeErrorBoundary } from '../components/SafeErrorBoundary';
-import { AccountingDashboard } from '../components/accounting/AccountingDashboard';
-import { Calculator } from 'lucide-react';
 import { sortCategoriesByOrder } from '../utils/categoryUtils';
+
+const AdminPagesManager = lazy(() => import('../components/AdminPagesManager'));
+const AdminOrdersManager = lazy(() => import('../components/AdminOrdersManager'));
+const AdminRazorpayManager = lazy(() => import('../components/AdminRazorpayManager'));
+const AdminInvoiceTemplateManager = lazy(() => import('../components/AdminInvoiceTemplateManager'));
+const AdminDeliveryManager = lazy(() => import('../components/AdminDeliveryManager'));
+const AdminDeviceBannerManager = lazy(() => import('../components/AdminDeviceBannerManager'));
+const AdminYouTubeVideoManager = lazy(() => import('../components/AdminYouTubeVideoManager'));
+const AdminFooterManager = lazy(() => import('../components/AdminFooterManager'));
+const AdminFeaturesManager = lazy(() => import('../components/AdminFeaturesManager'));
+const AccountingDashboard = lazy(() => import('../components/accounting/AccountingDashboard'));
+
+const AdminTabFallback: React.FC = () => (
+  <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white rounded-3xl border border-gray-100 shadow-sm">
+    <Loader2 className="w-8 h-8 text-[#2D5A27] animate-spin" />
+    <p className="text-xs font-bold text-gray-500">सेक्शन लोड हो रहा है...</p>
+  </div>
+);
 
 type AdminTabType = 'accounting' | 'orders' | 'delivery' | 'features' | 'content' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate' | 'footer';
 
@@ -1802,24 +1810,40 @@ const Admin: React.FC = () => {
         </div>
       ) : activeTab === 'accounting' ? (
         <SafeErrorBoundary fallbackTitle="AI मुनीम जी (Accounting) लोड करने में समस्या आई">
-          <AccountingDashboard />
+          <Suspense fallback={<AdminTabFallback />}>
+            <AccountingDashboard />
+          </Suspense>
         </SafeErrorBoundary>
       ) : activeTab === 'orders' ? (
-        <AdminOrdersManager />
+        <Suspense fallback={<AdminTabFallback />}>
+          <AdminOrdersManager />
+        </Suspense>
       ) : activeTab === 'delivery' ? (
         <SafeErrorBoundary fallbackTitle="डिलीवरी व OTP प्रबंधक लोड करने में समस्या">
-          <AdminDeliveryManager />
+          <Suspense fallback={<AdminTabFallback />}>
+            <AdminDeliveryManager />
+          </Suspense>
         </SafeErrorBoundary>
       ) : activeTab === 'razorpay' ? (
-        <AdminRazorpayManager />
+        <Suspense fallback={<AdminTabFallback />}>
+          <AdminRazorpayManager />
+        </Suspense>
       ) : activeTab === 'invoiceTemplate' ? (
-        <AdminInvoiceTemplateManager />
+        <Suspense fallback={<AdminTabFallback />}>
+          <AdminInvoiceTemplateManager />
+        </Suspense>
       ) : activeTab === 'legalPages' ? (
-        <AdminPagesManager />
+        <Suspense fallback={<AdminTabFallback />}>
+          <AdminPagesManager />
+        </Suspense>
       ) : activeTab === 'footer' ? (
-        <AdminFooterManager />
+        <Suspense fallback={<AdminTabFallback />}>
+          <AdminFooterManager />
+        </Suspense>
       ) : activeTab === 'features' ? (
-        <AdminFeaturesManager />
+        <Suspense fallback={<AdminTabFallback />}>
+          <AdminFeaturesManager />
+        </Suspense>
       ) : (
         <form onSubmit={handleContentSubmit} className="space-y-8">
           {/* Instant Force Push Updates Card */}
@@ -2134,19 +2158,8 @@ const Admin: React.FC = () => {
           </div>
 
           {/* Hero Banners */}
-          <AdminDeviceBannerManager 
-            contentForm={contentForm}
-            setContentForm={setContentForm as React.Dispatch<React.SetStateAction<AppContent>>}
-            onSaveContent={async () => {
-              if (contentForm) {
-                await updateAppContent(contentForm);
-              }
-            }}
-          />
-
-          {/* YouTube Videos Management (Add, Edit, Delete, Reorder, Active/Hidden, Channel URL) */}
-          {contentForm && (
-            <AdminYouTubeVideoManager 
+          <Suspense fallback={<AdminTabFallback />}>
+            <AdminDeviceBannerManager 
               contentForm={contentForm}
               setContentForm={setContentForm as React.Dispatch<React.SetStateAction<AppContent>>}
               onSaveContent={async () => {
@@ -2155,6 +2168,21 @@ const Admin: React.FC = () => {
                 }
               }}
             />
+          </Suspense>
+
+          {/* YouTube Videos Management (Add, Edit, Delete, Reorder, Active/Hidden, Channel URL) */}
+          {contentForm && (
+            <Suspense fallback={<AdminTabFallback />}>
+              <AdminYouTubeVideoManager 
+                contentForm={contentForm}
+                setContentForm={setContentForm as React.Dispatch<React.SetStateAction<AppContent>>}
+                onSaveContent={async () => {
+                  if (contentForm) {
+                    await updateAppContent(contentForm);
+                  }
+                }}
+              />
+            </Suspense>
           )}
 
           {/* Partner Logos */}

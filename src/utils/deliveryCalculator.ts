@@ -1095,8 +1095,12 @@ export const findWeightSlabAndVehicle = (
   );
 
   if (safeWeight > maxActiveCapacity) {
+    const getVehicleMaxWeight = (v: VehicleConfig) => {
+      const slab = activeSlabs.find(s => s.vehicleId === v.id);
+      return Math.max(v.maxCapacityKg || 0, slab?.maxWeightKg || 0);
+    };
     const largestVehicle = activeVehicles.reduce(
-      (prev, curr) => (curr.maxCapacityKg > prev.maxCapacityKg ? curr : prev),
+      (prev, curr) => (getVehicleMaxWeight(curr) > getVehicleMaxWeight(prev) ? curr : prev),
       activeVehicles[0]
     );
     const rawLargestSlab = activeSlabs.find(s => s.vehicleId === largestVehicle.id) || activeSlabs[activeSlabs.length - 1];

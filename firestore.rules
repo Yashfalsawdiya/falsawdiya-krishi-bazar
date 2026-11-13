@@ -49,6 +49,10 @@ service cloud.firestore {
     // Helper Functions
     // ===============================================================
     
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -202,9 +206,9 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Delivery OTP tokens collection (Server/Admin only)
+    // Delivery OTP tokens collection (Strictly Admin only)
     match /delivery_otps/{orderId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isValidId(orderId) && isAdmin();
     }
 
     // Categories Collection
@@ -231,23 +235,57 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Orders Collection (For ecommerce orders & tracking)
+    // Orders Collection (Hardened RBAC + Guest Capability Order Tracking)
     match /orders/{orderId} {
-      // Direct single order tracking allowed by order ID (for customer tracking)
-      allow get: if true;
+      // Authenticated orders are strictly readable only by owner, admin, or assigned delivery partner.
+      // Guest orders (without userId) require knowing the exact cryptographically-random orderId.
+      allow get: if isValidId(orderId) && (
+        isAdmin() ||
+        (isAuthenticated() && (
+          resource.data.get('userId', null) == request.auth.uid ||
+          resource.data.get('assignedPartnerEmail', '') == request.auth.token.get('email', '')
+        )) ||
+        (!('userId' in resource.data) || resource.data.userId == null)
+      );
       // Protected list queries: only owner can list their orders, or admin/delivery partner
       allow list: if isAdmin() || 
                      (isAuthenticated() && resource.data.userId == request.auth.uid) ||
                      (isAuthenticated() && resource.data.assignedPartnerEmail == request.auth.token.get('email', ''));
-      // Any customer or guest can create an order with valid data
-      allow create: if request.resource.data.orderNumber is string &&
+      // Customer or guest can create a valid order without spoofing another user's uid
+      allow create: if isValidId(orderId) &&
+                       request.resource.data.orderNumber is string &&
+                       request.resource.data.orderNumber.size() > 0 &&
+                       request.resource.data.orderNumber.size() <= 64 &&
                        request.resource.data.items is list &&
-                       request.resource.data.totalAmount is number;
-      // Admin, order owner, or assigned delivery partner can update order
-      allow update: if isAdmin() || 
-                       (isAuthenticated() && resource.data.userId == request.auth.uid) ||
-                       (isAuthenticated() && resource.data.assignedPartnerEmail == request.auth.token.get('email', ''));
-      allow delete: if isAdmin();
+                       request.resource.data.items.size() > 0 &&
+                       request.resource.data.items.size() <= 100 &&
+                       request.resource.data.totalAmount is number &&
+                       request.resource.data.totalAmount >= 0 &&
+                       request.resource.data.get('status', 'placed') in ['placed', 'confirmed'] &&
+                       (!('userId' in request.resource.data) ||
+                        request.resource.data.userId == null ||
+                        (isAuthenticated() && request.resource.data.userId == request.auth.uid));
+      // Tiered Update Rules:
+      // 1) Admin: full control
+      // 2) Order Owner: cancellation fields only (when not already delivered/cancelled)
+      // 3) Assigned Delivery Partner: delivery fulfillment progress fields only
+      allow update: if isValidId(orderId) && (
+        isAdmin() ||
+        (isAuthenticated() &&
+         resource.data.get('userId', null) == request.auth.uid &&
+         resource.data.get('status', '') != 'delivered' &&
+         resource.data.get('status', '') != 'cancelled' &&
+         request.resource.data.status == 'cancelled' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paymentStatus', 'refundDetails', 'timeline', 'updatedAt', 'notes'])) ||
+        (isAuthenticated() &&
+         resource.data.get('assignedPartnerEmail', '') == request.auth.token.get('email', '') &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+           'status', 'partnerAssignmentStatus', 'partnerAcceptedAt', 'partnerDeclineReason',
+           'partnerStatusNote', 'deliveryProofOtp', 'deliveryOtpVerifiedAt',
+           'deliveryOtpVerifiedBy', 'deliveryOtpNote', 'timeline', 'updatedAt'
+         ]))
+      );
+      allow delete: if isValidId(orderId) && isAdmin();
     }
 
     // Delivery Partners Collection

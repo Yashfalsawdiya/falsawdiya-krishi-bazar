@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Product, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig, DeliveryEmailTemplateConfig, DeviceType, DeviceBanner, DeviceBannersMap, YouTubeVideoItem, FooterConfig } from '../types';
-import { CATEGORIES } from '../data/mockData';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
 import { DEFAULT_INVOICE_TEMPLATE, mergeInvoiceTemplate } from '../data/defaultInvoiceTemplate';
 import { DEFAULT_DELIVERY_EMAIL_TEMPLATE, mergeDeliveryEmailTemplate } from '../data/defaultDeliveryEmailTemplate';
@@ -185,7 +184,7 @@ const preCacheImage = (src: any, isBanner: boolean = false) => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<CategoryData[]>(CATEGORIES);
+  const [categories, setCategories] = useState<CategoryData[]>([]);
   const [agriIssues, setAgriIssues] = useState<AgriIssue[]>([]);
   const [helplines, setHelplines] = useState<Helpline[]>([]);
   const [appContent, setAppContent] = useState<AppContent | null>(null);

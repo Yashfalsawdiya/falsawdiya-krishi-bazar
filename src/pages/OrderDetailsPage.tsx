@@ -1224,11 +1224,11 @@ const OrderDetailsPage: React.FC = () => {
             <div className="flex justify-between items-start">
               <div>
                 <span>डिलीवरी / पिकअप शुल्क:</span>
-                {order.deliverySnapshot && (
+                {(isStorePickupOrder || order.deliverySnapshot) && (
                   <p className="text-[10px] text-gray-500 font-medium">
-                    {order.deliveryCharges === 0 
-                      ? 'दुकान से स्वयं पिकअप (डिंपल चौराहा, शामगढ़)' 
-                      : `${order.deliverySnapshot.vehicleNameHindi} • ${order.deliverySnapshot.totalWeightKg} kg`}
+                    {isStorePickupOrder || order.deliveryCharges === 0 
+                      ? 'दुकान से स्वयं पिकअप' 
+                      : `${order.deliverySnapshot?.vehicleNameHindi || 'स्थानीय डिलीवरी'} • ${order.deliverySnapshot?.totalWeightKg || 0} kg`}
                   </p>
                 )}
               </div>

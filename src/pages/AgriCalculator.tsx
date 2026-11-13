@@ -20,7 +20,8 @@ import {
   MapPin,
   ChevronUp,
   ChevronDown,
-  CheckCheck
+  CheckCheck,
+  Tag
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -32,6 +33,7 @@ import {
   calculateSprayerRequirements,
   PumpCapacityOption
 } from '../utils/shamgarhLandMeasure';
+import { calculatePerKgPrice } from '../utils/perKgCalculator';
 
 interface HistoryItem {
   equation: string;
@@ -41,8 +43,8 @@ interface HistoryItem {
 const AgriCalculator: React.FC = () => {
   const navigate = useNavigate();
   
-  // Navigation Tabs: normal, bigha, weight, amount
-  const [activeTab, setActiveTab] = useState<'normal' | 'bigha' | 'weight' | 'amount'>('normal');
+  // Navigation Tabs: normal, bigha, weight, amount, perKg
+  const [activeTab, setActiveTab] = useState<'normal' | 'bigha' | 'weight' | 'amount' | 'perKg'>('normal');
 
   // ==========================================
   // 1️⃣ Normal Commercial Calculator State & Logic
@@ -755,8 +757,27 @@ const AgriCalculator: React.FC = () => {
     setPumpCapacity(15);
   };
 
+  // ==========================================
+  // 5️⃣ Per KG Price Calculator State & Logic (Pack ➜ ₹/KG)
+  // ==========================================
+  const [packTotalPrice, setPackTotalPrice] = useState<string>('');
+  const [packWeightKg, setPackWeightKg] = useState<string>('');
+  const [packWeightGram, setPackWeightGram] = useState<string>('');
+
+  const { result: perKgResult, error: perKgError } = calculatePerKgPrice(
+    packTotalPrice,
+    packWeightKg,
+    packWeightGram
+  );
+
+  const clearPerKgCalc = () => {
+    setPackTotalPrice('');
+    setPackWeightKg('');
+    setPackWeightGram('');
+  };
+
   return (
-    <div className="space-y-6 pb-24 max-w-2xl mx-auto px-1">
+    <div className="space-y-6 pb-24 max-w-2xl md:max-w-3xl mx-auto px-1">
       {/* Header */}
       <div className="flex items-center gap-3.5">
         <button 
@@ -773,7 +794,7 @@ const AgriCalculator: React.FC = () => {
       </div>
 
       {/* Tabs Menu */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 bg-gray-100/80 p-1.5 rounded-2xl border border-gray-200/50 gap-1.5 shadow-2xs">
+      <div className="grid grid-cols-2 md:grid-cols-5 bg-gray-100/80 p-1.5 rounded-2xl border border-gray-200/50 gap-1.5 shadow-2xs">
         <button 
           onClick={() => setActiveTab('normal')}
           className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl font-black text-xs transition-all uppercase tracking-wide
@@ -813,6 +834,16 @@ const AgriCalculator: React.FC = () => {
         >
           <Coins className="w-4 h-4 shrink-0" />
           <span className="flex items-center gap-1">वजन <ArrowRight className="w-3 h-3" /> ₹</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('perKg')}
+          className={`col-span-2 md:col-span-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl font-black text-xs transition-all uppercase tracking-wide
+            ${activeTab === 'perKg' 
+              ? 'bg-white text-[#2D5A27] shadow-sm font-extrabold border border-gray-200/40' 
+              : 'text-gray-500 hover:text-gray-800 hover:bg-white/40'}`}
+        >
+          <Tag className="w-4 h-4 shrink-0" />
+          <span>प्रति किलो दर</span>
         </button>
       </div>
 
@@ -1703,6 +1734,183 @@ const AgriCalculator: React.FC = () => {
             </motion.div>
           )}
 
+          {/* ======================================================== */}
+          {/* 5️⃣ TAB: PER KG PRICE CALCULATOR (Pack ➜ ₹/KG) */}
+          {/* ======================================================== */}
+          {activeTab === 'perKg' && (
+            <motion.div
+              key="perKg"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.15 }}
+              className="space-y-5"
+            >
+              {/* Form Input fields */}
+              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-5">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <h3 className="font-extrabold text-gray-800 text-sm flex items-center gap-1.5">
+                    <Tag className="w-4.5 h-4.5 text-[#2D5A27]" />
+                    पैक से प्रति किलो दर गणना (Per KG Price)
+                  </h3>
+                  <button
+                    onClick={clearPerKgCalc}
+                    className="text-xs text-red-600 font-bold hover:underline"
+                  >
+                    साफ़ करें (Clear)
+                  </button>
+                </div>
+
+                {perKgError && (
+                  <div className="bg-red-50 text-red-700 text-xs font-bold p-3 rounded-xl border border-red-100">
+                    {perKgError}
+                  </div>
+                )}
+
+                {/* Field 1: Total Pack Price (₹) */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-gray-500 uppercase tracking-wider">
+                    कुल पैक मूल्य (Total Pack Price)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                      <span className="text-gray-500 font-black text-sm">₹</span>
+                    </div>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={packTotalPrice}
+                      onChange={(e) => setPackTotalPrice(e.target.value)}
+                      placeholder="जैसे 3200 (कुल कीमत)"
+                      min="0"
+                      step="any"
+                      className="block w-full pl-8 pr-4 py-3.5 bg-gray-50/70 border border-gray-200/80 rounded-2xl text-base font-bold focus:outline-none focus:ring-2 focus:ring-[#2D5A27] focus:bg-white transition-all placeholder:text-gray-400 placeholder:font-medium"
+                    />
+                  </div>
+                </div>
+
+                {/* Fields 2 & 3: Combined Weight (KG + Additional Gram) */}
+                <div className="space-y-3">
+                  <div className="flex flex-wrap justify-between items-center gap-1.5">
+                    <label className="block text-xs font-black text-gray-500 uppercase tracking-wider">
+                      कुल वजन दर्ज करें (KG + Gram)
+                    </label>
+                    <span className="text-[10px] bg-emerald-50 text-[#2D5A27] px-2.5 py-0.5 rounded-full font-bold border border-emerald-200/70">
+                      दोनों साथ जुड़ेंगे
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Kilograms (KG) Field */}
+                    <div className="space-y-1.5">
+                      <div className="relative">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={packWeightKg}
+                          onChange={(e) => setPackWeightKg(e.target.value)}
+                          placeholder="0"
+                          step="any"
+                          min="0"
+                          className="block w-full pr-12 pl-4 py-3 bg-gray-50/70 border border-gray-200/80 rounded-2xl text-base font-bold text-center focus:outline-none focus:ring-2 focus:ring-[#2D5A27] focus:bg-white transition-all placeholder:text-gray-400"
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
+                          <span className="text-gray-400 font-bold text-xs">KG</span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-400 font-medium text-center">वजन (KG)</p>
+                    </div>
+
+                    {/* Additional Grams Field */}
+                    <div className="space-y-1.5">
+                      <div className="relative">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={packWeightGram}
+                          onChange={(e) => setPackWeightGram(e.target.value)}
+                          placeholder="0"
+                          step="any"
+                          min="0"
+                          className="block w-full pr-12 pl-4 py-3 bg-gray-50/70 border border-gray-200/80 rounded-2xl text-base font-bold text-center focus:outline-none focus:ring-2 focus:ring-[#2D5A27] focus:bg-white transition-all placeholder:text-gray-400"
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
+                          <span className="text-gray-400 font-bold text-xs">g</span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-400 font-medium text-center">अतिरिक्त वजन (Gram)</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Per KG Price Result Card */}
+              <div className="bg-[#2D5A27] text-white rounded-3xl p-6 shadow-md relative overflow-hidden space-y-4">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+
+                <h4 className="text-xs font-black uppercase tracking-widest text-white/70 flex items-center gap-1.5">
+                  <Info className="w-4 h-4 text-amber-300" />
+                  प्रति किलो दर परिणाम (Calculated Unit Rate)
+                </h4>
+
+                {perKgResult ? (
+                  <div className="space-y-4 pt-1">
+                    {/* Main Highlight: Per KG Price */}
+                    <div className="text-center space-y-1">
+                      <p className="text-3xl sm:text-4xl font-black text-amber-300 font-mono tracking-tight">
+                        ₹ {perKgResult.perKgPrice} <span className="text-lg sm:text-xl font-extrabold text-amber-200">/ किग्रा</span>
+                      </p>
+                      <p className="text-[11px] font-bold text-white/75 uppercase tracking-wider">
+                        प्रति किलो कीमत (Price per KG)
+                      </p>
+                    </div>
+
+                    {/* Two Detail Boxes */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Box 1: Per Gram & 100g Reference */}
+                      <div className="bg-white/10 rounded-2xl p-4 border border-white/5 text-center space-y-1">
+                        <p className="text-[10px] font-black text-white/60 uppercase tracking-wider">
+                          प्रति ग्राम कीमत (Per Gram)
+                        </p>
+                        <p className="text-xl sm:text-2xl font-black text-white font-mono">
+                          ₹ {perKgResult.perGramPrice} <span className="text-xs text-white/80">/ ग्राम</span>
+                        </p>
+                        <p className="text-[11px] font-semibold text-amber-200/90">
+                          100 ग्राम की कीमत: ₹ {perKgResult.per100GramPrice}
+                        </p>
+                      </div>
+
+                      {/* Box 2: Total Weight */}
+                      <div className="bg-white/10 rounded-2xl p-4 border border-white/5 text-center space-y-1">
+                        <p className="text-[10px] font-black text-white/60 uppercase tracking-wider">
+                          कुल तौल वजन (Total Weight)
+                        </p>
+                        <p className="text-xl sm:text-2xl font-black text-white font-mono">
+                          {perKgResult.totalWeightKg} <span className="text-xs text-white/80">KG</span>
+                        </p>
+                        <p className="text-[11px] font-semibold text-white/75 font-mono">
+                          ({perKgResult.totalGrams.toLocaleString('en-IN')} g)
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Summary Line */}
+                    <div className="bg-black/20 p-3 rounded-xl border border-white/5 flex items-center justify-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-amber-300 shrink-0" />
+                      <p className="text-[11px] font-semibold text-center leading-relaxed">
+                        ₹{perKgResult.totalPrice} के {perKgResult.totalWeightKg} KG पैक का प्रति किलो भाव{' '}
+                        <span className="text-amber-300 font-black">₹{perKgResult.perKgPrice}</span> है।
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-white/60 italic text-xs font-medium">
+                    कृपया कुल पैक मूल्य और वजन (KG या Gram) दर्ज करें। प्रति किलो दर यहाँ आ जाएगी।
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
 
         </AnimatePresence>
       </div>

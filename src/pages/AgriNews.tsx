@@ -18,7 +18,6 @@ import {
   Copy,
   Check,
   Share2,
-  Key,
   CheckCircle2,
   ExternalLink
 } from 'lucide-react';
@@ -38,7 +37,6 @@ const AgriNews: React.FC = () => {
   const { loading: appLoading } = useAppContext();
   const { 
     apiKey: effectiveApiKey, 
-    requireApiKey, 
     isApiKeyModalOpen, 
     apiKeyModalMessage, 
     openApiKeyModal, 
@@ -392,43 +390,21 @@ ${translateText(item.source || "Krishi Jagran")}
       ) : (
         <div className="space-y-4">
           {filteredAndSortedNews.length === 0 ? (
-            !effectiveApiKey ? (
-              <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-                <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-200">
-                  <Key className="w-8 h-8 text-amber-600" />
-                </div>
-                <h3 className="text-base font-bold text-gray-800 mb-2">
-                  {isHindi ? 'API Key आवश्यक है' : 'API Key Required'}
-                </h3>
-                <p className="text-xs text-gray-500 max-w-sm mx-auto mb-6">
-                  {isHindi 
-                    ? 'ताज़ा कृषि समाचार देखने के लिए कृपया अपनी Gemini API Key जोड़ें।' 
-                    : 'Please add your Gemini API Key to browse latest agriculture news.'}
-                </p>
-                <button
-                  onClick={() => requireApiKey(isHindi ? "ताज़ा कृषि समाचार लोड करने के लिए कृपया अपनी Gemini API Key जोड़ें।" : "Please add your Gemini API Key to load fresh agriculture news.")}
-                  className="px-6 py-3 bg-[#2D5A27] text-white text-xs font-bold rounded-2xl shadow-md active:scale-95 transition-transform inline-flex items-center gap-2 cursor-pointer"
-                >
-                  <Key className="w-4 h-4" /> {isHindi ? 'अपनी API Key दर्ज करें' : 'Enter your API Key'}
-                </button>
-              </div>
-            ) : (
-              <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-                <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-xs font-bold text-gray-600 mb-1">
-                  {isHindi ? 'हालिया दिनों में कोई प्रमाणित समाचार उपलब्ध नहीं है।' : 'No verified news available for recent days.'}
-                </p>
-                <p className="text-[11px] text-gray-400 max-w-xs mx-auto mb-4">
-                  {isHindi ? 'नवीनतम खबरों की लाइव खोज करने के लिए पुनः प्रयास बटन दबाएं।' : 'Tap retry to search for latest agricultural news reports.'}
-                </p>
-                <button 
-                  onClick={() => loadNews(true)} 
-                  className="px-5 py-2.5 bg-[#2D5A27] text-white text-[11px] font-black rounded-full shadow-sm hover:bg-[#1E3F1A] active:scale-95 transition-all cursor-pointer"
-                >
-                  {isHindi ? 'पुनः प्रयास करें (Sync)' : 'Retry (Sync)'}
-                </button>
-              </div>
-            )
+            <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+              <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-xs font-bold text-gray-600 mb-1">
+                {isHindi ? 'हालिया दिनों में कोई प्रमाणित समाचार उपलब्ध नहीं है।' : 'No verified news available for recent days.'}
+              </p>
+              <p className="text-[11px] text-gray-400 max-w-xs mx-auto mb-4">
+                {isHindi ? 'नवीनतम खबरों की लाइव खोज करने के लिए पुनः प्रयास बटन दबाएं।' : 'Tap retry to search for latest agricultural news reports.'}
+              </p>
+              <button 
+                onClick={() => loadNews(true)} 
+                className="px-5 py-2.5 bg-[#2D5A27] text-white text-[11px] font-black rounded-full shadow-sm hover:bg-[#1E3F1A] active:scale-95 transition-all cursor-pointer"
+              >
+                {isHindi ? 'पुनः प्रयास करें (Sync)' : 'Retry (Sync)'}
+              </button>
+            </div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
               {filteredAndSortedNews.map((item, idx) => {
