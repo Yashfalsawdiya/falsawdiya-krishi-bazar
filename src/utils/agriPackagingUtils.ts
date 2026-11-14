@@ -1,4 +1,13 @@
-import { AccountingProduct, PackagingVariant, SizeUnit, PackagingType, StockBatch } from '../types/accounting';
+import {
+  AccountingProduct,
+  PackagingVariant,
+  SizeUnit,
+  PackagingType,
+  StockBatch,
+  CustomLooseRateOption,
+  LooseRateCategory,
+  POSLooseRateSettings,
+} from '../types/accounting';
 
 /**
  * Normalizes any package size into base units (ml for liquids, g for solids/powders).
@@ -453,31 +462,188 @@ export function formatPackEquivalent(packCount: number, sizeValue?: number, size
 /**
  * Supported units and denominators for loose sale rate inputs.
  */
+export const POS_LOOSE_RATE_CACHE_KEY = 'fkb_pos_loose_rate_settings_v1';
+
 export interface LooseRateUnitOption {
   label: string; // "10 g", "100 g", "1 kg", "1 g" or "10 ml", "100 ml", "1 L", "1 ml"
   multiplier: number; // 10, 100, 1000, 1
   baseUnit: 'g' | 'ml';
+  isCustom?: boolean;
+  id?: string;
 }
 
-export function getLooseRateOptions(baseUnit: 'g' | 'ml' | string): LooseRateUnitOption[] {
-  const isLiquid = baseUnit === 'ml' || baseUnit === 'Ltr' || baseUnit === 'l' || baseUnit === 'लीटर' || baseUnit === 'मिली';
+export function getDefaultLooseRateOptions(baseUnit: 'g' | 'ml' | string): LooseRateUnitOption[] {
+  const isLiquid =
+    baseUnit === 'ml' ||
+    baseUnit === 'L' ||
+    baseUnit === 'Ltr' ||
+    baseUnit === 'l' ||
+    baseUnit === 'लीटर' ||
+    baseUnit === 'मिली';
+
   if (isLiquid) {
     return [
-      { label: '10 ml', multiplier: 10, baseUnit: 'ml' },
-      { label: '100 ml', multiplier: 100, baseUnit: 'ml' },
-      { label: '1 L', multiplier: 1000, baseUnit: 'ml' },
-      { label: '1 ml', multiplier: 1, baseUnit: 'ml' },
+      { label: '1 L', multiplier: 1000, baseUnit: 'ml', isCustom: false },
+      { label: '500 ml', multiplier: 500, baseUnit: 'ml', isCustom: false },
+      { label: '250 ml', multiplier: 250, baseUnit: 'ml', isCustom: false },
+      { label: '100 ml', multiplier: 100, baseUnit: 'ml', isCustom: false },
+      { label: '50 ml', multiplier: 50, baseUnit: 'ml', isCustom: false },
+      { label: '10 ml', multiplier: 10, baseUnit: 'ml', isCustom: false },
+      { label: '1 ml', multiplier: 1, baseUnit: 'ml', isCustom: false },
     ];
   }
+
   return [
-    { label: '1 kg', multiplier: 1000, baseUnit: 'g' },
-    { label: '500 g', multiplier: 500, baseUnit: 'g' },
-    { label: '100 g', multiplier: 100, baseUnit: 'g' },
-    { label: '50 g', multiplier: 50, baseUnit: 'g' },
-    { label: '10 g', multiplier: 10, baseUnit: 'g' },
-    { label: '1 g', multiplier: 1, baseUnit: 'g' },
+    { label: '1 kg', multiplier: 1000, baseUnit: 'g', isCustom: false },
+    { label: '500 g', multiplier: 500, baseUnit: 'g', isCustom: false },
+    { label: '250 g', multiplier: 250, baseUnit: 'g', isCustom: false },
+    { label: '100 g', multiplier: 100, baseUnit: 'g', isCustom: false },
+    { label: '50 g', multiplier: 50, baseUnit: 'g', isCustom: false },
+    { label: '10 g', multiplier: 10, baseUnit: 'g', isCustom: false },
+    { label: '1 g', multiplier: 1, baseUnit: 'g', isCustom: false },
   ];
 }
+
+export function getCachedLooseRateSettings(): POSLooseRateSettings {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return { liquid: [], solid: [], updatedAt: 0 };
+  }
+  try {
+    const raw = window.localStorage.getItem(POS_LOOSE_RATE_CACHE_KEY);
+    if (!raw) return { liquid: [], solid: [], updatedAt: 0 };
+    const parsed = JSON.parse(raw);
+    return {
+      liquid: Array.isArray(parsed?.liquid) ? parsed.liquid : [],
+      solid: Array.isArray(parsed?.solid) ? parsed.solid : [],
+      updatedAt: typeof parsed?.updatedAt === 'number' ? parsed.updatedAt : 0,
+      updatedBy: typeof parsed?.updatedBy === 'string' ? parsed.updatedBy : undefined,
+    };
+  } catch {
+    return { liquid: [], solid: [], updatedAt: 0 };
+  }
+}
+
+export function getLooseRateOptions(
+  baseUnit: 'g' | 'ml' | string,
+  customSettings?: POSLooseRateSettings | null
+): LooseRateUnitOption[] {
+  const defaults = getDefaultLooseRateOptions(baseUnit);
+  const isLiquid = defaults[0]?.baseUnit === 'ml';
+  const settings = customSettings || getCachedLooseRateSettings();
+  const customList = isLiquid ? (settings.liquid || []) : (settings.solid || []);
+
+  const merged: LooseRateUnitOption[] = [...defaults];
+  const seenMultipliers = new Set(defaults.map(d => Math.round(d.multiplier * 1000)));
+  const seenLabels = new Set(defaults.map(d => d.label.trim().toLowerCase()));
+
+  for (const item of customList) {
+    if (!item || typeof item.multiplier !== 'number' || item.multiplier <= 0 || !item.label) continue;
+    const normMult = Math.round(item.multiplier * 1000);
+    const normLabel = item.label.trim().toLowerCase();
+    if (seenMultipliers.has(normMult) || seenLabels.has(normLabel)) continue;
+    seenMultipliers.add(normMult);
+    seenLabels.add(normLabel);
+    merged.push({
+      id: item.id,
+      label: item.label.trim(),
+      multiplier: item.multiplier,
+      baseUnit: isLiquid ? 'ml' : 'g',
+      isCustom: true,
+    });
+  }
+
+  return merged.sort((a, b) => {
+    if (b.multiplier !== a.multiplier) return b.multiplier - a.multiplier;
+    return (a.isCustom ? 1 : 0) - (b.isCustom ? 1 : 0);
+  });
+}
+
+export function validateAndBuildCustomLooseRateOption(params: {
+  category: LooseRateCategory;
+  rawValue: string | number;
+  unit: string;
+  existingCustomOptions: CustomLooseRateOption[];
+  editingId?: string;
+}): { valid: true; option: CustomLooseRateOption } | { valid: false; error: string } {
+  const { category, rawValue, unit, existingCustomOptions, editingId } = params;
+  const trimmedStr = String(rawValue ?? '').trim();
+
+  if (!trimmedStr) {
+    return { valid: false, error: 'कृपया एक मान्य संख्या दर्ज करें।' };
+  }
+
+  const numericValue = Number(trimmedStr);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return { valid: false, error: 'मान 0 से बड़ा होना आवश्यक है (0 या नकारात्मक मान मान्य नहीं है)।' };
+  }
+
+  if (numericValue > 100000) {
+    return { valid: false, error: 'इतना बड़ा मान मान्य नहीं है (अधिकतम 1,00,000 तक)।' };
+  }
+
+  const allowedUnits = category === 'liquid' ? ['ml', 'L'] : ['g', 'kg'];
+  if (!allowedUnits.includes(unit)) {
+    return {
+      valid: false,
+      error: category === 'liquid'
+        ? 'Liquid (तरल) श्रेणी में केवल ml या L यूनिट ही मान्य है।'
+        : 'Solid/Powder (पाउडर/ठोस) श्रेणी में केवल g या kg यूनिट ही मान्य है।',
+    };
+  }
+
+  const cleanValue = Number(numericValue.toFixed(3));
+  const isLarge = unit === 'L' || unit === 'kg';
+  const multiplier = Math.round((isLarge ? cleanValue * 1000 : cleanValue) * 1000) / 1000;
+
+  if (!Number.isFinite(multiplier) || multiplier <= 0) {
+    return { valid: false, error: 'अमान्य मात्रा मान।' };
+  }
+
+  const label = `${cleanValue} ${unit}`;
+  const normLabel = label.toLowerCase();
+  const normMult = Math.round(multiplier * 1000);
+
+  const defaults = getDefaultLooseRateOptions(category === 'liquid' ? 'ml' : 'g');
+  const dupDefault = defaults.find(
+    d => Math.round(d.multiplier * 1000) === normMult || d.label.toLowerCase() === normLabel
+  );
+  if (dupDefault) {
+    return {
+      valid: false,
+      error: `"${label}" (${dupDefault.label} के समतुल्य) पहले से डिफ़ॉल्ट विकल्पों में मौजूद है।`,
+    };
+  }
+
+  const dupCustom = existingCustomOptions.find(
+    c => c.id !== editingId && (Math.round(c.multiplier * 1000) === normMult || c.label.toLowerCase() === normLabel)
+  );
+  if (dupCustom) {
+    return {
+      valid: false,
+      error: `"${label}" (${dupCustom.label} के समतुल्य) पहले से आपके कस्टम विकल्पों में मौजूद है।`,
+    };
+  }
+
+  const now = Date.now();
+  const existingItem = editingId ? existingCustomOptions.find(c => c.id === editingId) : undefined;
+
+  return {
+    valid: true,
+    option: {
+      id: editingId || `cust_${category}_${now}_${Math.random().toString(36).slice(2, 6)}`,
+      category,
+      value: cleanValue,
+      unit: unit as CustomLooseRateOption['unit'],
+      label,
+      multiplier,
+      baseUnit: category === 'liquid' ? 'ml' : 'g',
+      isCustom: true,
+      createdAt: existingItem?.createdAt || now,
+      updatedAt: now,
+    },
+  };
+}
+
 
 export interface ProductPhysicalCategoryResult {
   physicalType: 'liquid' | 'solid' | 'seed';

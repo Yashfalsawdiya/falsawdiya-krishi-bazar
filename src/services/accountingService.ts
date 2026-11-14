@@ -3,7 +3,7 @@ import {
   query, where, orderBy, limit, onSnapshot, writeBatch, Timestamp,
   runTransaction, DocumentReference
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import {
   AccountingProduct,
   AccountingSale,
@@ -19,8 +19,11 @@ import {
   LooseStockPool,
   StockMovementLog,
   AccountingAuditLog,
-  MonthlyPOSExportMeta
+  MonthlyPOSExportMeta,
+  POSLooseRateSettings,
+  CustomLooseRateOption
 } from '../types/accounting';
+import { POS_LOOSE_RATE_CACHE_KEY, getCachedLooseRateSettings } from '../utils/agriPackagingUtils';
 
 export const DEFAULT_EXPENSE_CATEGORIES: AccountingExpenseCategory[] = [
   { id: 'supplier_payment', name: 'Supplier Payment', hindiName: 'सप्लायर भुगतान (थोक खरीद)', icon: 'Truck', isSystem: true },
@@ -1445,4 +1448,102 @@ export async function getAIFinancialInsights(reportData: any): Promise<any> {
     };
   }
 }
+
+// ----------------------------------------------------
+// POS LOOSE QUANTITY RATE DROPDOWN SETTINGS
+// ----------------------------------------------------
+
+const POS_LOOSE_RATE_SETTINGS_DOC_PATH = 'accounting_settings/pos_loose_rate_options';
+
+function sanitizeCustomOptionList(
+  rawList: unknown,
+  category: 'liquid' | 'solid'
+): CustomLooseRateOption[] {
+  if (!Array.isArray(rawList)) return [];
+  const allowedUnits = category === 'liquid' ? ['ml', 'L'] : ['g', 'kg'];
+  const expectedBase: 'ml' | 'g' = category === 'liquid' ? 'ml' : 'g';
+
+  return rawList
+    .filter((item): item is CustomLooseRateOption => {
+      if (!item || typeof item !== 'object') return false;
+      const val = Number((item as any).value);
+      const mult = Number((item as any).multiplier);
+      const unit = String((item as any).unit || '');
+      const label = String((item as any).label || '').trim();
+      return (
+        Number.isFinite(val) &&
+        val > 0 &&
+        Number.isFinite(mult) &&
+        mult > 0 &&
+        allowedUnits.includes(unit) &&
+        label.length > 0
+      );
+    })
+    .map((item) => ({
+      id: String(item.id || `cust_${category}_${Date.now()}`),
+      category,
+      value: Number(item.value),
+      unit: item.unit,
+      label: String(item.label).trim(),
+      multiplier: Number(item.multiplier),
+      baseUnit: expectedBase,
+      isCustom: true as const,
+      createdAt: typeof item.createdAt === 'number' ? item.createdAt : Date.now(),
+      updatedAt: typeof item.updatedAt === 'number' ? item.updatedAt : Date.now(),
+    }));
+}
+
+export function cachePOSLooseRateSettingsLocally(settings: POSLooseRateSettings): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(POS_LOOSE_RATE_CACHE_KEY, JSON.stringify(settings));
+  } catch (err) {
+    console.warn('Could not cache POS loose rate settings in localStorage:', err);
+  }
+}
+
+export async function fetchPOSLooseRateSettings(): Promise<POSLooseRateSettings> {
+  const cached = getCachedLooseRateSettings();
+  try {
+    const docRef = doc(db, 'accounting_settings', 'pos_loose_rate_options');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const normalized: POSLooseRateSettings = {
+        liquid: sanitizeCustomOptionList(data?.liquid, 'liquid'),
+        solid: sanitizeCustomOptionList(data?.solid, 'solid'),
+        updatedAt: typeof data?.updatedAt === 'number' ? data.updatedAt : Date.now(),
+        updatedBy: typeof data?.updatedBy === 'string' ? data.updatedBy : undefined,
+      };
+      cachePOSLooseRateSettingsLocally(normalized);
+      return normalized;
+    }
+    return cached;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.GET, POS_LOOSE_RATE_SETTINGS_DOC_PATH);
+    return cached;
+  }
+}
+
+export async function savePOSLooseRateSettings(
+  settings: POSLooseRateSettings
+): Promise<POSLooseRateSettings> {
+  const payload: POSLooseRateSettings = {
+    liquid: sanitizeCustomOptionList(settings.liquid, 'liquid'),
+    solid: sanitizeCustomOptionList(settings.solid, 'solid'),
+    updatedAt: Date.now(),
+    updatedBy: auth.currentUser?.email || settings.updatedBy || 'admin',
+  };
+
+  try {
+    const docRef = doc(db, 'accounting_settings', 'pos_loose_rate_options');
+    await setDoc(docRef, payload);
+    cachePOSLooseRateSettingsLocally(payload);
+    return payload;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, POS_LOOSE_RATE_SETTINGS_DOC_PATH);
+    throw err;
+  }
+}
+
 

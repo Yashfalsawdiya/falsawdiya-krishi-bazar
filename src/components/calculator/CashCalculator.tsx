@@ -1026,29 +1026,29 @@ const CashCalculator: React.FC = () => {
             )}
           </div>
 
-          {/* Summary & Sticky Actions Card (#2D5A27 Green Card) */}
-          <div className="bg-[#2D5A27] text-white rounded-3xl p-5 sm:p-6 shadow-md relative overflow-hidden space-y-4">
-            <div className="absolute top-0 right-0 w-36 h-36 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+          {/* Summary & Sticky Actions Card (White Card) */}
+          <div className="bg-white text-gray-900 rounded-3xl p-5 sm:p-6 border border-gray-200 shadow-sm relative overflow-hidden space-y-4">
+            <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-50/60 rounded-full blur-2xl pointer-events-none" />
 
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-widest text-white/75">
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-600">
                   कुल नकद राशि (Grand Total)
                 </p>
-                <p className="text-3xl sm:text-4xl font-black text-amber-300 font-mono mt-0.5">
+                <p className="text-3xl sm:text-4xl font-black text-[#2D5A27] font-mono mt-0.5">
                   ₹ {formatIndianCurrency(summary.grandTotal)}
                 </p>
               </div>
 
               <div className="text-right space-y-1">
-                <div className="inline-flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-xl border border-white/10 text-xs font-black">
+                <div className="inline-flex items-center gap-1.5 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200/80 text-xs font-black text-[#2D5A27]">
                   <span>{summary.totalNotes}</span>
-                  <span className="text-white/80 font-bold">कुल नोट</span>
+                  <span className="text-emerald-800/80 font-bold">कुल नोट</span>
                 </div>
-                <p className="text-[11px] font-semibold text-white/80">
+                <p className="text-[11px] font-semibold text-gray-600">
                   नोट राशि: ₹{formatIndianCurrency(summary.noteAmount)}
                   {summary.adjustmentNet !== 0 && (
-                    <span className="ml-2 text-amber-200 font-bold">
+                    <span className="ml-2 text-[#2D5A27] font-bold">
                       ({summary.adjustmentNet >= 0 ? '+' : '-'}₹
                       {formatIndianCurrency(Math.abs(summary.adjustmentNet))})
                     </span>
@@ -1058,7 +1058,7 @@ const CashCalculator: React.FC = () => {
             </div>
 
             {settings.showAmountInWords && (
-              <div className="bg-black/20 px-3.5 py-2.5 rounded-2xl border border-white/10 text-xs font-semibold text-white/95 italic">
+              <div className="bg-gray-50 px-3.5 py-2.5 rounded-2xl border border-gray-200/80 text-xs font-semibold text-gray-700 italic">
                 {numberToIndianWordsEn(summary.grandTotal)}
               </div>
             )}
@@ -1068,7 +1068,7 @@ const CashCalculator: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSaveEntry}
-                className="flex items-center justify-center gap-1.5 py-3 px-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs sm:text-sm shadow-sm active:scale-95 transition-all cursor-pointer"
+                className="flex items-center justify-center gap-1.5 py-3 px-3 rounded-2xl bg-[#2D5A27] hover:bg-[#20401B] text-white font-black text-xs sm:text-sm shadow-sm active:scale-95 transition-all cursor-pointer"
               >
                 <Save className="w-4 h-4 shrink-0" />
                 <span>सेव (Save)</span>
@@ -1089,16 +1089,16 @@ const CashCalculator: React.FC = () => {
                     grandTotal: summary.grandTotal,
                   })
                 }
-                className="flex items-center justify-center gap-1.5 py-3 px-3 rounded-2xl bg-white hover:bg-gray-100 text-[#1B4316] font-black text-xs sm:text-sm shadow-sm active:scale-95 transition-all cursor-pointer"
+                className="flex items-center justify-center gap-1.5 py-3 px-3 rounded-2xl bg-gray-50 hover:bg-gray-100 text-slate-800 border border-gray-200 font-black text-xs sm:text-sm shadow-sm active:scale-95 transition-all cursor-pointer"
               >
-                <Share2 className="w-4 h-4 shrink-0" />
+                <Share2 className="w-4 h-4 shrink-0 text-[#2D5A27]" />
                 <span>शेयर (Share)</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleClearCounterClick}
-                className="flex items-center justify-center gap-1.5 py-3 px-3 rounded-2xl bg-white/10 hover:bg-red-500/80 text-white border border-white/20 font-black text-xs sm:text-sm active:scale-95 transition-all cursor-pointer"
+                className="flex items-center justify-center gap-1.5 py-3 px-3 rounded-2xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-black text-xs sm:text-sm active:scale-95 transition-all cursor-pointer"
               >
                 <Trash2 className="w-4 h-4 shrink-0" />
                 <span>साफ़ करें</span>

@@ -220,6 +220,7 @@
         "order": { "type": "number" }
       },
       "required": ["name", "number", "category"]
+    },
     "DeliveryPartner": {
       "title": "DeliveryPartner",
       "description": "Delivery boy and driver partner records for order fulfillment.",
@@ -242,6 +243,18 @@
         "updatedAt": { "type": "number" }
       },
       "required": ["name", "phone", "email", "vehicleType"]
+    },
+    "POSLooseRateSettings": {
+      "title": "POSLooseRateSettings",
+      "description": "Admin-managed custom loose quantity selling rate dropdown options for Liquid and Solid/Powder POS items.",
+      "type": "object",
+      "properties": {
+        "liquid": { "type": "array" },
+        "solid": { "type": "array" },
+        "updatedAt": { "type": "number" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["liquid", "solid", "updatedAt"]
     }
   },
   "firestore": {
@@ -280,6 +293,10 @@
     "/deliveryPartners/{partnerId}": {
       "schema": "DeliveryPartner",
       "description": "Collection of delivery partner profiles and assignments."
+    },
+    "/accounting_settings/pos_loose_rate_options": {
+      "schema": "POSLooseRateSettings",
+      "description": "Admin-only custom loose rate dropdown options for POS billing."
     }
   }
 }

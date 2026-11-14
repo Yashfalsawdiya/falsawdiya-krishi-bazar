@@ -5,13 +5,14 @@ import {
   CheckCircle2, Printer, Percent, ArrowRight, RefreshCw, 
   Phone, MapPin, IndianRupee, CreditCard, Wallet, UserPlus, X, FileText,
   ChevronDown, User, Smartphone, BookOpen, Scale, Banknote, Download,
-  Droplet, Layers, Check, Sparkles, Calendar, Receipt, RotateCcw, AlertTriangle, Sprout, Hash, Package
+  Droplet, Layers, Check, Calendar, Receipt, RotateCcw, AlertTriangle, Sprout, Hash, Settings, Share2
 } from 'lucide-react';
 import { 
   AccountingProduct, 
   AccountingCustomer, 
   AccountingSale,
-  PackagingVariant 
+  PackagingVariant,
+  POSLooseRateSettings
 } from '../../types/accounting';
 import { 
   fetchAccountingProducts, 
@@ -23,7 +24,8 @@ import {
   fetchAccountingSaleById,
   fetchAccountingSaleByInvoiceNo,
   fetchAccountingSaleByInvoiceNoAndDate,
-  resetTestAccountingData
+  resetTestAccountingData,
+  fetchPOSLooseRateSettings
 } from '../../services/accountingService';
 import { 
   getProductVariants, 
@@ -31,6 +33,7 @@ import {
   formatBaseUnitDisplay,
   formatPackEquivalent,
   getLooseRateOptions,
+  getCachedLooseRateSettings,
   calculateLooseMetrics,
   formatSaleItemInvoiceTitle,
   formatPackagingVariantString,
@@ -39,6 +42,8 @@ import {
 import { PrintableSalesInvoice } from './PrintableSalesInvoice';
 import { downloadSalesInvoicePDF } from '../../utils/salesInvoicePdfGenerator';
 import { POSMonthlyHistory } from './POSMonthlyHistory';
+import { POSBillShareModal } from './POSBillShareModal';
+import { POSLooseRateSettingsManager } from './POSLooseRateSettings';
 
 interface Props {
   onSaleCreated?: (saleId: string) => void;
@@ -49,6 +54,8 @@ interface Props {
 export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleComplete, onOpenCustomerKhata }) => {
   const [products, setProducts] = useState<AccountingProduct[]>([]);
   const [customers, setCustomers] = useState<AccountingCustomer[]>([]);
+  const [looseRateSettings, setLooseRateSettings] = useState<POSLooseRateSettings>(() => getCachedLooseRateSettings());
+  const [showLooseRateSettingsModal, setShowLooseRateSettingsModal] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -104,18 +111,11 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
   
-  // Loose & Spray/Bigha Dose Modal State
+  // Loose Dispensing Modal State
   const [looseModalProduct, setLooseModalProduct] = useState<AccountingProduct | null>(null);
   const [looseSelectedVariant, setLooseSelectedVariant] = useState<PackagingVariant | null>(null);
-  const [looseMode, setLooseMode] = useState<'direct' | 'pump' | 'bigha'>('direct');
   const [looseDirectQty, setLooseDirectQty] = useState<string>('50');
   const [looseDirectUnit, setLooseDirectUnit] = useState<string>('g');
-  const [looseTankSize, setLooseTankSize] = useState<string>('15');
-  const [loosePumpCount, setLoosePumpCount] = useState<string>('3');
-  const [looseDosePerPump, setLooseDosePerPump] = useState<string>('35');
-  const [looseBighaCount, setLooseBighaCount] = useState<string>('5');
-  const [looseDosePerBigha, setLooseDosePerBigha] = useState<string>('5');
-  const [looseBighaUnit, setLooseBighaUnit] = useState<string>('kg');
   const [looseCustomPrice, setLooseCustomPrice] = useState<string>('');
   const [looseModalRateUnit, setLooseModalRateUnit] = useState<string>('10 g');
   const [looseModalRateMultiplier, setLooseModalRateMultiplier] = useState<number>(10);
@@ -185,6 +185,9 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
   // Success / Print Modal
   const [completedSale, setCompletedSale] = useState<AccountingSale | null>(null);
+  const [completedSaleOutstanding, setCompletedSaleOutstanding] = useState<number>(0);
+  const [completedSaleHasCustomer, setCompletedSaleHasCustomer] = useState<boolean>(false);
+  const [showCompletedShareModal, setShowCompletedShareModal] = useState<boolean>(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [activeTab, setActiveTab] = useState<'billing' | 'history'>('billing');
@@ -209,12 +212,14 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
   const loadData = async () => {
     setLoading(true);
     try {
-      const [prods, custs] = await Promise.all([
+      const [prods, custs, rateSettings] = await Promise.all([
         fetchAccountingProducts(),
         fetchAccountingCustomers(),
+        fetchPOSLooseRateSettings(),
       ]);
       setProducts(prods);
       setCustomers(custs);
+      setLooseRateSettings(rateSettings);
       await refreshBillPreview();
     } catch (err) {
       console.error('Error loading POS data:', err);
@@ -478,7 +483,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
       if (item.cartItemId !== cartItemId) return item;
 
       const isLiquid = item.looseUnit === 'ml' || item.looseUnit === 'L' || item.looseUnit === 'Ltr' || item.unit === 'ml' || item.unit === 'Ltr';
-      const options = getLooseRateOptions(isLiquid ? 'ml' : 'g');
+      const options = getLooseRateOptions(isLiquid ? 'ml' : 'g', looseRateSettings);
       const chosenOpt = options.find(o => o.label === newUnitLabel) || options[0];
 
       // Current selling price per base unit
@@ -587,7 +592,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
   const handleModalRateUnitChange = (newUnitLabel: string) => {
     if (!looseModalProduct) return;
     const catInfo = detectProductPhysicalCategory(looseModalProduct);
-    const opts = getLooseRateOptions(catInfo.baseUnit);
+    const opts = getLooseRateOptions(catInfo.baseUnit, looseRateSettings);
     const newOpt = opts.find(o => o.label === newUnitLabel) || opts[0];
 
     const currentPricePerBase = looseModalRateMultiplier > 0
@@ -600,7 +605,28 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     setLooseCustomPrice(String(convertedRateAmt));
   };
 
-  // Open Loose / Spray Dose Modal
+  // Sync live custom rate dropdown updates and keep open modal selection safe
+  const handleLooseRateSettingsUpdated = (updated: POSLooseRateSettings) => {
+    setLooseRateSettings(updated);
+    if (looseModalProduct) {
+      const catInfo = detectProductPhysicalCategory(looseModalProduct);
+      const opts = getLooseRateOptions(catInfo.baseUnit, updated);
+      const stillExists = opts.find(o => o.label === looseModalRateUnit);
+      if (!stillExists && opts.length > 0) {
+        const currentPricePerBase = looseModalRateMultiplier > 0
+          ? (Number(looseCustomPrice) || 0) / looseModalRateMultiplier
+          : (Number(looseCustomPrice) || 0);
+        const fallbackOpt =
+          opts.find(o => o.label === (catInfo.baseUnit === 'ml' ? '100 ml' : '10 g')) || opts[0];
+        const convertedRateAmt = Math.round(currentPricePerBase * fallbackOpt.multiplier * 100) / 100;
+        setLooseModalRateUnit(fallbackOpt.label);
+        setLooseModalRateMultiplier(fallbackOpt.multiplier);
+        setLooseCustomPrice(String(convertedRateAmt));
+      }
+    }
+  };
+
+  // Open Loose Dispensing Modal
   const openLooseDoseModal = (p: AccountingProduct) => {
     setLooseModalProduct(p);
     const catInfo = detectProductPhysicalCategory(p);
@@ -627,7 +653,6 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
     const defaultUnit = catInfo.defaultUnit;
     setLooseDirectUnit(defaultUnit);
-    setLooseBighaUnit(catInfo.physicalType === 'liquid' ? (defaultUnit === 'L' ? 'L' : 'ml') : (defaultUnit === 'kg' ? 'kg' : 'g'));
 
     if (defaultUnit === 'kg') {
       setLooseDirectQty('25');
@@ -639,28 +664,8 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
       setLooseDirectQty('50');
     }
 
-    setLooseMode('direct');
-
-    // Tank & Pump settings
-    setLooseTankSize('15');
-    setLoosePumpCount('3');
-    const defaultPumpDose = p.standardDoseInfo?.verifiedDosePer20LTank || (catInfo.physicalType === 'liquid' ? 35 : 25);
-    setLooseDosePerPump(String(defaultPumpDose));
-
-    // Bigha settings
-    setLooseBighaCount('5');
-    if (p.standardDoseInfo?.verifiedDosePerBigha) {
-      setLooseDosePerBigha(String(p.standardDoseInfo.verifiedDosePerBigha));
-      if (p.standardDoseInfo.doseBighaUnit) {
-        setLooseBighaUnit(p.standardDoseInfo.doseBighaUnit === 'Ltr' ? 'L' : p.standardDoseInfo.doseBighaUnit);
-      }
-    } else {
-      const defaultBighaDose = catInfo.physicalType === 'liquid' ? '250' : (defaultUnit === 'kg' ? '5' : '500');
-      setLooseDosePerBigha(defaultBighaDose);
-    }
-
     // Rate Options
-    const rateOptions = getLooseRateOptions(catInfo.baseUnit);
+    const rateOptions = getLooseRateOptions(catInfo.baseUnit, looseRateSettings);
     let defaultRateOpt = rateOptions[0];
     if (defaultUnit === 'kg') {
       defaultRateOpt = rateOptions.find(o => o.label === '1 kg') || rateOptions[0];
@@ -682,54 +687,12 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
   const handleConfirmLooseSale = () => {
     if (!looseModalProduct) return;
     const p = looseModalProduct;
-    const catInfo = detectProductPhysicalCategory(p);
 
-    let displayQty = 0;
-    let displayUnit = '';
-    let requestedBaseQty = 0;
-    let label = '';
-
-    if (looseMode === 'pump') {
-      const pumps = Number(loosePumpCount) || 1;
-      const dose = Number(looseDosePerPump) || (catInfo.physicalType === 'liquid' ? 35 : 25);
-      const baseDoseQty = pumps * dose;
-      requestedBaseQty = baseDoseQty;
-
-      if (catInfo.physicalType === 'liquid') {
-        if (baseDoseQty >= 1000 && baseDoseQty % 1000 === 0) {
-          displayQty = baseDoseQty / 1000;
-          displayUnit = 'L';
-        } else {
-          displayQty = baseDoseQty;
-          displayUnit = 'ml';
-        }
-      } else {
-        if (baseDoseQty >= 1000 && baseDoseQty % 1000 === 0) {
-          displayQty = baseDoseQty / 1000;
-          displayUnit = 'kg';
-        } else {
-          displayQty = baseDoseQty;
-          displayUnit = 'g';
-        }
-      }
-      label = `डोज: ${pumps} पंप (${displayQty} ${displayUnit})`;
-    } else if (looseMode === 'bigha') {
-      const bighas = Number(looseBighaCount) || 1;
-      const dose = Number(looseDosePerBigha) || 1;
-      const totalInBighaUnit = Math.round(bighas * dose * 100) / 100;
-      displayQty = totalInBighaUnit;
-      displayUnit = looseBighaUnit;
-
-      const isLargeUnit = displayUnit === 'kg' || displayUnit === 'L' || displayUnit === 'Ltr';
-      requestedBaseQty = isLargeUnit ? totalInBighaUnit * 1000 : totalInBighaUnit;
-      label = `डोज: ${bighas} बीघा (${displayQty} ${displayUnit})`;
-    } else {
-      displayQty = Number(looseDirectQty) || 0;
-      displayUnit = looseDirectUnit;
-      const isLargeUnit = displayUnit === 'kg' || displayUnit === 'L' || displayUnit === 'Ltr';
-      requestedBaseQty = isLargeUnit ? displayQty * 1000 : displayQty;
-      label = `खुला बिक्री (${displayQty} ${displayUnit})`;
-    }
+    const displayQty = Number(looseDirectQty) || 0;
+    const displayUnit = looseDirectUnit;
+    const isLargeUnit = displayUnit === 'kg' || displayUnit === 'L' || displayUnit === 'Ltr';
+    const requestedBaseQty = isLargeUnit ? displayQty * 1000 : displayQty;
+    const label = `खुला बिक्री (${displayQty} ${displayUnit})`;
 
     if (requestedBaseQty <= 0) {
       alert('कृपया मान्य मात्रा दर्ज करें।');
@@ -1026,6 +989,13 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
       const saleId = await createOfflineSale(salePayload);
       const savedSale = await fetchAccountingSaleById(saleId);
 
+      const postSaleOutstanding = selectedCustomer
+        ? (selectedCustomer.currentOutstanding || 0) + udhariRemaining
+        : udhariRemaining;
+      setCompletedSaleOutstanding(postSaleOutstanding);
+      setCompletedSaleHasCustomer(Boolean(selectedCustomer));
+      setShowCompletedShareModal(false);
+
       setCompletedSale(
         savedSale || {
           ...salePayload,
@@ -1078,7 +1048,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     try {
       const res = await downloadSalesInvoicePDF(
         completedSale,
-        selectedCustomer?.currentOutstanding || 0
+        completedSaleOutstanding
       );
       if (!res.success && res.error) {
         alert('PDF जनरेट करने में त्रुटि: ' + res.error);
@@ -1174,7 +1144,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
               <button
                 onClick={loadData}
                 disabled={loading}
-                className="p-2 text-gray-500 hover:text-emerald-700 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors"
+                className="p-2 text-gray-500 hover:text-emerald-700 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors cursor-pointer"
                 title="डेटा रिफ्रेश करें"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -1182,7 +1152,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
               <button
                 id="pos-reset-test-data-btn"
                 onClick={() => setShowResetConfirmModal(true)}
-                className="px-3 py-2 text-xs font-bold text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-colors flex items-center gap-1 shadow-2xs"
+                className="px-3 py-2 text-xs font-bold text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
                 title="टेस्टिंग डेटा रीसेट करें"
               >
                 <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
@@ -1896,17 +1866,29 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                                         className="w-full h-7 pl-4 pr-1 font-bold text-gray-900 bg-white border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs"
                                       />
                                     </div>
-                                    <select
-                                      value={item.looseRateUnit || (item.looseUnit === 'g' ? '10 g' : '10 ml')}
-                                      onChange={e => updateLooseRateUnit(item.cartItemId, e.target.value)}
-                                      className="h-7 px-1 text-[11px] font-bold text-blue-900 bg-blue-50 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
-                                    >
-                                      {getLooseRateOptions(item.looseUnit || 'g').map(opt => (
-                                        <option key={opt.label} value={opt.label}>
-                                          / {opt.label}
-                                        </option>
-                                      ))}
-                                    </select>
+                                    {(() => {
+                                      const rowOptions = getLooseRateOptions(item.looseUnit || 'g', looseRateSettings);
+                                      const currentLabel = item.looseRateUnit || (item.looseUnit === 'g' || item.looseUnit === 'kg' ? '10 g' : '10 ml');
+                                      const hasCurrent = rowOptions.some(o => o.label === currentLabel);
+                                      return (
+                                        <select
+                                          value={currentLabel}
+                                          onChange={e => updateLooseRateUnit(item.cartItemId, e.target.value)}
+                                          className="h-7 px-1 text-[11px] font-bold text-blue-900 bg-blue-50 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
+                                        >
+                                          {!hasCurrent && (
+                                            <option value={currentLabel}>
+                                              / {currentLabel}
+                                            </option>
+                                          )}
+                                          {rowOptions.map(opt => (
+                                            <option key={opt.label} value={opt.label}>
+                                              / {opt.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      );
+                                    })()}
                                   </div>
                                   <span className="text-[9px] text-blue-700 font-medium block mt-0.5">
                                     (₹{(item.sellingPricePerBaseUnit || item.originalSellingPrice || 0).toFixed(2)}/{item.looseUnit || 'g'})
@@ -2249,54 +2231,18 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
         </div>
       )}
 
-      {/* LOOSE & SPRAY PUMP / BIGHA DOSE CALCULATOR MODAL */}
+      {/* LOOSE DISPENSING CALCULATOR MODAL */}
       {looseModalProduct && (() => {
         const catInfo = detectProductPhysicalCategory(looseModalProduct);
         const variants = getProductVariants(looseModalProduct);
         const isLiquid = catInfo.physicalType === 'liquid';
         const isSeed = catInfo.physicalType === 'seed';
 
-        // Calculation variables
-        let reqDisplayQty = 0;
-        let reqDisplayUnit = '';
-        let reqBaseQty = 0;
-
-        if (looseMode === 'pump') {
-          const pumps = Number(loosePumpCount) || 1;
-          const dose = Number(looseDosePerPump) || (isLiquid ? 35 : 25);
-          const totalDose = pumps * dose;
-          reqBaseQty = totalDose;
-          if (isLiquid) {
-            if (totalDose >= 1000 && totalDose % 1000 === 0) {
-              reqDisplayQty = totalDose / 1000;
-              reqDisplayUnit = 'L';
-            } else {
-              reqDisplayQty = totalDose;
-              reqDisplayUnit = 'ml';
-            }
-          } else {
-            if (totalDose >= 1000 && totalDose % 1000 === 0) {
-              reqDisplayQty = totalDose / 1000;
-              reqDisplayUnit = 'kg';
-            } else {
-              reqDisplayQty = totalDose;
-              reqDisplayUnit = 'g';
-            }
-          }
-        } else if (looseMode === 'bigha') {
-          const bighas = Number(looseBighaCount) || 1;
-          const dose = Number(looseDosePerBigha) || 1;
-          const totalVal = Math.round(bighas * dose * 100) / 100;
-          reqDisplayQty = totalVal;
-          reqDisplayUnit = looseBighaUnit;
-          const isLarge = reqDisplayUnit === 'kg' || reqDisplayUnit === 'L' || reqDisplayUnit === 'Ltr';
-          reqBaseQty = isLarge ? totalVal * 1000 : totalVal;
-        } else {
-          reqDisplayQty = Number(looseDirectQty) || 0;
-          reqDisplayUnit = looseDirectUnit;
-          const isLarge = reqDisplayUnit === 'kg' || reqDisplayUnit === 'L' || reqDisplayUnit === 'Ltr';
-          reqBaseQty = isLarge ? reqDisplayQty * 1000 : reqDisplayQty;
-        }
+        // Direct loose quantity calculation
+        const reqDisplayQty = Number(looseDirectQty) || 0;
+        const reqDisplayUnit = looseDirectUnit;
+        const isLarge = reqDisplayUnit === 'kg' || reqDisplayUnit === 'L' || reqDisplayUnit === 'Ltr';
+        const reqBaseQty = isLarge ? reqDisplayQty * 1000 : reqDisplayQty;
 
         const rateAmt = Number(looseCustomPrice) || 0;
         const mult = looseModalRateMultiplier || 1;
@@ -2305,9 +2251,6 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
         const lineCost = Math.round(reqBaseQty * (looseModalCostPerBase || 0) * 100) / 100;
         const lineProfit = Math.round((lineTotal - lineCost) * 100) / 100;
         const profitMargin = lineTotal > 0 ? Math.round((lineProfit / lineTotal) * 100) : 0;
-
-        const openStock = looseModalProduct.looseStock?.availableBaseQty || 0;
-        const willNeedPackOpen = reqBaseQty > openStock;
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
@@ -2332,7 +2275,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                       </span>
                     </div>
                     <p className="text-[11px] text-gray-500">
-                      स्मार्ट खुला / स्प्रे / बीघा डोज बिक्री
+                      मास्टर दर पर सीधी खुली मात्रा बिक्री
                     </p>
                   </div>
                 </div>
@@ -2380,370 +2323,107 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                 </div>
               )}
 
-              {/* Rate and Dispensing Info */}
-              <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-2xl flex items-center justify-between text-xs">
-                <div>
+              {/* Rate and Dispensing Info + Compact Settings Trigger */}
+              <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-2xl flex items-center justify-between gap-2 text-xs">
+                <div className="min-w-0">
                   <span className="text-[11px] text-emerald-800 font-medium block">खुली बिक्री (Loose Dispensing):</span>
-                  <span className="text-xs font-bold text-emerald-950">
+                  <span className="text-xs font-bold text-emerald-950 block truncate">
                     मास्टर दर पर कस्टम मात्रा बिलिंग
                   </span>
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-gray-500 block">खुली दर (Selling Rate):</span>
-                  <span className="text-xs font-bold text-gray-800">
-                    ₹{looseCustomPrice || 0} / {looseModalRateUnit}
-                  </span>
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <div className="text-right">
+                    <span className="text-[10px] text-gray-500 block">खुली दर (Selling Rate):</span>
+                    <span className="text-xs font-bold text-gray-800">
+                      ₹{looseCustomPrice || 0} / {looseModalRateUnit}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowLooseRateSettingsModal(true)}
+                    className="px-2.5 py-1.5 bg-white hover:bg-emerald-100/80 text-emerald-800 border border-emerald-300 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer shrink-0"
+                    title="दर विकल्प सेटिंग्स (Loose Quantity Settings)"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                    <span>सेटिंग्स</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Mode Switch Tabs (3 Modes) */}
-              <div className="grid grid-cols-3 gap-1 p-1 bg-gray-100 rounded-2xl text-xs font-bold">
-                <button
-                  type="button"
-                  onClick={() => setLooseMode('direct')}
-                  className={`py-2 px-1 text-center rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-                    looseMode === 'direct' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <Package className="w-3.5 h-3.5 text-gray-700 shrink-0" />
-                  <span>सीधी खुली मात्रा</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLooseMode('pump')}
-                  className={`py-2 px-1 text-center rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-                    looseMode === 'pump' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  <span>पंप डोज</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLooseMode('bigha')}
-                  className={`py-2 px-1 text-center rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-                    looseMode === 'bigha' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <Sprout className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>प्रति बीघा डोज</span>
-                </button>
-              </div>
-
-              {/* MODE 1: Direct Quantity */}
-              {looseMode === 'direct' && (
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="font-bold text-gray-700 block">
-                        मात्रा यूनिट चुनें (Select Unit):
-                      </label>
-                      {/* Dynamic Unit Switcher */}
-                      <div className="flex gap-1">
-                        {catInfo.availableUnits.map(u => (
-                          <button
-                            key={u}
-                            type="button"
-                            onClick={() => {
-                              setLooseDirectUnit(u);
-                              if (u === 'kg') setLooseDirectQty('25');
-                              else if (u === 'L') setLooseDirectQty('1');
-                              else if (u === 'ml') setLooseDirectQty('100');
-                              else if (u === 'packet') setLooseDirectQty('1');
-                              else setLooseDirectQty('50');
-                            }}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-                              looseDirectUnit === u
-                                ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                                : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
-                            }`}
-                          >
-                            {u}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0.1"
-                        step={looseDirectUnit === 'kg' || looseDirectUnit === 'L' ? '0.5' : '1'}
-                        placeholder={`उदा. ${looseDirectUnit === 'kg' ? '5' : looseDirectUnit === 'L' ? '1' : '100'} ${looseDirectUnit}`}
-                        value={looseDirectQty}
-                        onChange={e => setLooseDirectQty(e.target.value)}
-                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-xs">
-                        {looseDirectUnit}
-                      </span>
-                    </div>
-
-                    {/* Quick Preset Buttons tailored to unit */}
-                    <div className="flex gap-1.5 mt-2 flex-wrap">
-                      {(looseDirectUnit === 'kg'
-                        ? ['0.5', '1', '2', '5', '10', '25', '50']
-                        : looseDirectUnit === 'L'
-                        ? ['0.25', '0.5', '1', '2', '5']
-                        : looseDirectUnit === 'packet'
-                        ? ['1', '2', '5', '10']
-                        : ['10', '25', '50', '100', '250', '500']
-                      ).map(val => (
+              {/* Direct Loose Quantity Controls */}
+              <div className="space-y-3 text-xs">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="font-bold text-gray-700 block">
+                      मात्रा यूनिट चुनें (Select Unit):
+                    </label>
+                    {/* Dynamic Unit Switcher */}
+                    <div className="flex gap-1">
+                      {catInfo.availableUnits.map(u => (
                         <button
-                          key={val}
+                          key={u}
                           type="button"
-                          onClick={() => setLooseDirectQty(val)}
+                          onClick={() => {
+                            setLooseDirectUnit(u);
+                            if (u === 'kg') setLooseDirectQty('25');
+                            else if (u === 'L') setLooseDirectQty('1');
+                            else if (u === 'ml') setLooseDirectQty('100');
+                            else if (u === 'packet') setLooseDirectQty('1');
+                            else setLooseDirectQty('50');
+                          }}
                           className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-                            looseDirectQty === val
-                              ? 'bg-blue-600 text-white border-blue-600'
+                            looseDirectUnit === u
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
                               : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
                           }`}
                         >
-                          {val} {looseDirectUnit}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* MODE 2: Spray Tank Dose Calculator */}
-              {looseMode === 'pump' && (
-                <div className="space-y-3 text-xs">
-                  {/* Tank Size Selection */}
-                  <div>
-                    <label className="font-bold text-gray-700 block mb-1">
-                      टंकी का साइज़ (Spray Tank Capacity):
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                      {[
-                        { size: '16', label: '15-16 L Knapsack' },
-                        { size: '20', label: '20 L Battery' },
-                        { size: '200', label: '200 L Drum' },
-                        { size: '500', label: '500 L Tractor' },
-                      ].map(t => (
-                        <button
-                          key={t.size}
-                          type="button"
-                          onClick={() => {
-                            setLooseTankSize(t.size);
-                            if (t.size === '200') {
-                              setLooseDosePerPump(isLiquid ? '350' : '250');
-                            } else if (t.size === '500') {
-                              setLooseDosePerPump(isLiquid ? '850' : '650');
-                            } else {
-                              const std = looseModalProduct.standardDoseInfo?.verifiedDosePer20LTank || (isLiquid ? 35 : 25);
-                              setLooseDosePerPump(String(std));
-                            }
-                          }}
-                          className={`p-2 rounded-xl text-center border font-bold text-[11px] transition-all cursor-pointer ${
-                            looseTankSize === t.size
-                              ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                              : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                          }`}
-                        >
-                          {t.label}
+                          {u}
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">
-                        पंपों की संख्या (Tanks) *
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="उदा. 3"
-                        value={loosePumpCount}
-                        onChange={e => setLoosePumpCount(e.target.value)}
-                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                      />
-                      <div className="flex gap-1 mt-1.5 flex-wrap">
-                        {['1', '2', '3', '4', '5', '10'].map(cnt => (
-                          <button
-                            key={cnt}
-                            type="button"
-                            onClick={() => setLoosePumpCount(cnt)}
-                            className={`px-2 py-0.5 rounded text-[11px] font-bold border cursor-pointer ${
-                              loosePumpCount === cnt
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-gray-100 text-gray-600 border-gray-200'
-                            }`}
-                          >
-                            {cnt}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">
-                        प्रति पंप डोज ({catInfo.baseUnit}) *
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder={isLiquid ? 'उदा. 35' : 'उदा. 25'}
-                        value={looseDosePerPump}
-                        onChange={e => setLooseDosePerPump(e.target.value)}
-                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                      />
-                      {looseModalProduct.standardDoseInfo?.verifiedDosePer20LTank && (
-                        <button
-                          type="button"
-                          onClick={() => setLooseDosePerPump(String(looseModalProduct.standardDoseInfo?.verifiedDosePer20LTank))}
-                          className="text-[10px] text-emerald-700 font-bold block mt-1 hover:underline cursor-pointer"
-                        >
-                          सत्यापित डोज: {looseModalProduct.standardDoseInfo.verifiedDosePer20LTank} {catInfo.baseUnit}
-                        </button>
-                      )}
-                    </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0.1"
+                      step={looseDirectUnit === 'kg' || looseDirectUnit === 'L' ? '0.5' : '1'}
+                      placeholder={`उदा. ${looseDirectUnit === 'kg' ? '5' : looseDirectUnit === 'L' ? '1' : '100'} ${looseDirectUnit}`}
+                      value={looseDirectQty}
+                      onChange={e => setLooseDirectQty(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-xs">
+                      {looseDirectUnit}
+                    </span>
                   </div>
 
-                  {/* Calculation Summary Box */}
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs space-y-1">
-                    <div className="font-bold text-amber-900 flex items-center justify-between">
-                      <span>कुल दवा की मात्रा (Total Volume):</span>
-                      <span className="text-sm font-black text-amber-950">
-                        {reqBaseQty} {catInfo.baseUnit}
-                        {reqBaseQty >= 1000 && ` (${(reqBaseQty / 1000).toFixed(2)} ${isLiquid ? 'L' : 'kg'})`}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-amber-800">
-                      {loosePumpCount} पंप × {looseDosePerPump} {catInfo.baseUnit} (टंकी क्षमता: {looseTankSize} लीटर)
-                    </p>
+                  {/* Quick Preset Buttons tailored to unit */}
+                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                    {(looseDirectUnit === 'kg'
+                      ? ['0.5', '1', '2', '5', '10', '25', '50']
+                      : looseDirectUnit === 'L'
+                      ? ['0.25', '0.5', '1', '2', '5']
+                      : looseDirectUnit === 'packet'
+                      ? ['1', '2', '5', '10']
+                      : ['10', '25', '50', '100', '250', '500']
+                    ).map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setLooseDirectQty(val)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                          looseDirectQty === val
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                        }`}
+                      >
+                        {val} {looseDirectUnit}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              )}
-
-              {/* MODE 3: Per Bigha Dose Calculator */}
-              {looseMode === 'bigha' && (
-                <div className="space-y-3 text-xs">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">
-                        खेत का रकबा (बीघा / Bigha) *
-                      </label>
-                      <input
-                        type="number"
-                        min="0.5"
-                        step="0.5"
-                        placeholder="उदा. 5"
-                        value={looseBighaCount}
-                        onChange={e => setLooseBighaCount(e.target.value)}
-                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                      />
-                      <div className="flex gap-1 mt-1.5 flex-wrap">
-                        {['1', '2', '3', '5', '10', '20'].map(cnt => (
-                          <button
-                            key={cnt}
-                            type="button"
-                            onClick={() => setLooseBighaCount(cnt)}
-                            className={`px-2 py-0.5 rounded text-[11px] font-bold border cursor-pointer ${
-                              looseBighaCount === cnt
-                                ? 'bg-emerald-700 text-white border-emerald-700'
-                                : 'bg-gray-100 text-gray-600 border-gray-200'
-                            }`}
-                          >
-                            {cnt}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="font-bold text-gray-700 block">
-                          डोज यूनिट *
-                        </label>
-                        <div className="flex gap-1">
-                          {(isLiquid ? ['ml', 'L'] : ['g', 'kg']).map(u => (
-                            <button
-                              key={u}
-                              type="button"
-                              onClick={() => {
-                                setLooseBighaUnit(u);
-                                if (u === 'kg') setLooseDosePerBigha('5');
-                                else if (u === 'g') setLooseDosePerBigha('500');
-                                else if (u === 'L') setLooseDosePerBigha('1');
-                                else setLooseDosePerBigha('250');
-                              }}
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer ${
-                                looseBighaUnit === u
-                                  ? 'bg-emerald-700 text-white border-emerald-700'
-                                  : 'bg-gray-100 text-gray-600 border-gray-200'
-                              }`}
-                            >
-                              {u}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <input
-                        type="number"
-                        min="0.1"
-                        step={looseBighaUnit === 'kg' || looseBighaUnit === 'L' ? '0.5' : '10'}
-                        placeholder={looseBighaUnit === 'kg' ? 'उदा. 5' : 'उदा. 500'}
-                        value={looseDosePerBigha}
-                        onChange={e => setLooseDosePerBigha(e.target.value)}
-                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                      />
-                      <div className="flex gap-1 mt-1.5 flex-wrap">
-                        {(looseBighaUnit === 'kg'
-                          ? ['1', '2', '5', '10', '25']
-                          : looseBighaUnit === 'L'
-                          ? ['0.5', '1', '2']
-                          : ['100', '250', '500']
-                        ).map(val => (
-                          <button
-                            key={val}
-                            type="button"
-                            onClick={() => setLooseDosePerBigha(val)}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer ${
-                              looseDosePerBigha === val
-                                ? 'bg-emerald-700 text-white border-emerald-700'
-                                : 'bg-gray-100 text-gray-600 border-gray-200'
-                            }`}
-                          >
-                            {val}
-                          </button>
-                        ))}
-                      </div>
-                      {looseModalProduct.standardDoseInfo?.verifiedDosePerBigha && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLooseDosePerBigha(String(looseModalProduct.standardDoseInfo?.verifiedDosePerBigha));
-                            if (looseModalProduct.standardDoseInfo?.doseBighaUnit) {
-                              setLooseBighaUnit(looseModalProduct.standardDoseInfo.doseBighaUnit === 'Ltr' ? 'L' : looseModalProduct.standardDoseInfo.doseBighaUnit);
-                            }
-                          }}
-                          className="text-[10px] text-emerald-800 font-bold block mt-1 hover:underline cursor-pointer"
-                        >
-                          सत्यापित डोज: {looseModalProduct.standardDoseInfo.verifiedDosePerBigha} {looseModalProduct.standardDoseInfo.doseBighaUnit || 'यूनिट'}/बीघा
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Bigha Calculation Summary Box */}
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs space-y-1">
-                    <div className="font-bold text-emerald-900 flex items-center justify-between">
-                      <span>कुल खेत डोज (Total Dose):</span>
-                      <span className="text-sm font-black text-emerald-950">
-                        {reqDisplayQty} {reqDisplayUnit}
-                        {reqDisplayUnit !== catInfo.baseUnit && ` (${reqBaseQty} ${catInfo.baseUnit})`}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-emerald-800">
-                      {looseBighaCount} बीघा × {looseDosePerBigha} {looseBighaUnit}/बीघा
-                    </p>
-                  </div>
-                </div>
-              )}
+              </div>
 
               {/* SELLING RATE & UNIT SELECTOR */}
               <div className="space-y-1 text-xs">
@@ -2767,7 +2447,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                     onChange={e => handleModalRateUnitChange(e.target.value)}
                     className="px-3 py-2.5 bg-blue-50 border border-blue-200 text-blue-900 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
                   >
-                    {getLooseRateOptions(catInfo.baseUnit).map(opt => (
+                    {getLooseRateOptions(catInfo.baseUnit, looseRateSettings).map(opt => (
                       <option key={opt.label} value={opt.label}>
                         / {opt.label}
                       </option>
@@ -2812,7 +2492,10 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   <button
                     type="button"
-                    onClick={() => setLooseModalProduct(null)}
+                    onClick={() => {
+                      setShowLooseRateSettingsModal(false);
+                      setLooseModalProduct(null);
+                    }}
                     className="py-2.5 px-4 bg-gray-100 text-gray-700 rounded-xl font-bold text-xs hover:bg-gray-200 transition-colors cursor-pointer"
                   >
                     रद्द करें
@@ -2831,6 +2514,18 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
           </div>
         );
       })()}
+
+      {/* LOOSE QUANTITY RATE SETTINGS NESTED MODAL */}
+      {showLooseRateSettingsModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-gray-50 rounded-3xl p-4 sm:p-5 max-w-4xl w-full shadow-2xl max-h-[90vh] overflow-y-auto border border-gray-200">
+            <POSLooseRateSettingsManager
+              onSettingsUpdated={handleLooseRateSettingsUpdated}
+              onClose={() => setShowLooseRateSettingsModal(false)}
+            />
+          </div>
+        </div>
+      )}
       </>
       )}
 
@@ -2901,11 +2596,18 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 pt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
+              <button
+                onClick={() => setShowCompletedShareModal(true)}
+                className="py-3 px-2 bg-[#2D5A27] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-[#20401B] transition-colors shadow-xs cursor-pointer"
+                title="बिल शेयर करें (WhatsApp / Image / PDF / SMS)"
+              >
+                <Share2 className="w-3.5 h-3.5 shrink-0" /> शेयर करें
+              </button>
               <button
                 onClick={handleDownloadPdf}
                 disabled={isDownloadingPdf}
-                className="py-3 px-2 bg-gray-100 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-gray-200 transition-colors border border-gray-200 disabled:opacity-50"
+                className="py-3 px-2 bg-gray-100 text-gray-800 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-gray-200 transition-colors border border-gray-200 disabled:opacity-50 cursor-pointer"
                 title="PDF डाउनलोड करें"
               >
                 <Download className="w-3.5 h-3.5 text-gray-500 shrink-0" /> {isDownloadingPdf ? 'PDF...' : 'PDF'}
@@ -2913,15 +2615,19 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
               <button
                 onClick={() => {
                   setCompletedSale(null);
+                  setShowCompletedShareModal(false);
                   setActiveTab('history');
                 }}
-                className="py-3 px-2 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-colors border border-emerald-200"
+                className="py-3 px-2 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-colors border border-emerald-200 cursor-pointer"
               >
                 <Calendar className="w-3.5 h-3.5" /> इतिहास
               </button>
               <button
-                onClick={() => setCompletedSale(null)}
-                className="py-3 px-2 bg-emerald-600 text-white rounded-xl font-bold text-xs hover:bg-emerald-700 transition-colors"
+                onClick={() => {
+                  setCompletedSale(null);
+                  setShowCompletedShareModal(false);
+                }}
+                className="py-3 px-2 bg-emerald-600 text-white rounded-xl font-bold text-xs hover:bg-emerald-700 transition-colors cursor-pointer"
               >
                 अगला बिल
               </button>
@@ -2929,6 +2635,14 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
           </div>
         </div>
       )}
+
+      {/* COMPLETED SALE SHARE MODAL */}
+      <POSBillShareModal
+        sale={showCompletedShareModal ? completedSale : null}
+        customerOutstanding={completedSaleOutstanding}
+        includeOutstandingInText={completedSaleHasCustomer}
+        onClose={() => setShowCompletedShareModal(false)}
+      />
 
       {/* CONTROLLED ADMIN TEST DATA RESET CONFIRMATION MODAL */}
       {showResetConfirmModal && (

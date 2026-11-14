@@ -262,15 +262,43 @@ function buildInvoiceHtml(
 }
 
 /**
- * Directly downloads the Sales Invoice as a crisp, single-page A4 PDF file.
+ * Formats YYYY-MM-DD or timestamp into DD-MM-YYYY for clean Indian filenames & display.
  */
-export async function downloadSalesInvoicePDF(
+export function formatBillDateDdMmYyyy(dateStr?: string, timestamp?: number): string {
+  if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
+    const [yyyy, mm, dd] = dateStr.trim().split('-');
+    return `${dd}-${mm}-${yyyy}`;
+  }
+  const d = timestamp ? new Date(timestamp) : new Date();
+  if (!isNaN(d.getTime())) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  }
+  return '00-00-0000';
+}
+
+/**
+ * Generates an OS-safe, searchable filename:
+ * e.g. Bill_No_12_Date_06-11-2026.pdf / Bill_No_FKB-0012_Date_06-11-2026.png
+ */
+export function buildSalesInvoiceFileName(sale: AccountingSale, ext: 'pdf' | 'png' | 'jpg'): string {
+  const rawInv = String(sale.invoiceNo || '0').trim().replace(/^#+/, '');
+  const safeInv = rawInv.replace(/[/\\?%*:|"<>#\s]+/g, '-') || '0';
+  const safeDate = formatBillDateDdMmYyyy(sale.date, sale.timestamp);
+  return `Bill_No_${safeInv}_Date_${safeDate}.${ext}`;
+}
+
+/**
+ * Renders the Sales Invoice HTML in an isolated offscreen iframe and returns a crisp 2x HTMLCanvasElement.
+ */
+export async function renderSalesInvoiceCanvas(
   sale: AccountingSale,
   customerOutstanding: number = 0,
-  customLogoUrl?: string
-): Promise<{ success: boolean; fileName: string; error?: string }> {
-  const fileName = `फल्सावदिया_बिल_${sale.invoiceNo}.pdf`;
-
+  customLogoUrl?: string,
+  meta?: InvoiceHtmlMeta
+): Promise<HTMLCanvasElement> {
   // Pre-load logo as Base64 to ensure instant, zero-CORS rasterization in html2canvas
   let logoDataUrl = '/icon-192.png';
   try {
@@ -323,7 +351,7 @@ export async function downloadSalesInvoicePDF(
         </head>
         <body style="background-color: #ffffff; margin: 0; padding: 0;">
           <div id="invoice-render-target" style="width: 794px; background-color: #ffffff;">
-            ${buildInvoiceHtml(sale, customerOutstanding, undefined, logoDataUrl)}
+            ${buildInvoiceHtml(sale, customerOutstanding, meta, logoDataUrl)}
           </div>
         </body>
       </html>
@@ -368,6 +396,26 @@ export async function downloadSalesInvoicePDF(
       },
     });
 
+    return canvas;
+  } finally {
+    if (iframe.parentNode) {
+      iframe.parentNode.removeChild(iframe);
+    }
+  }
+}
+
+/**
+ * Generates a Sales Invoice PDF Blob (reusable for both Download & Web Share API).
+ */
+export async function generateSalesInvoicePdfBlob(
+  sale: AccountingSale,
+  customerOutstanding: number = 0,
+  customLogoUrl?: string
+): Promise<{ success: boolean; blob?: Blob; fileName: string; error?: string }> {
+  const fileName = buildSalesInvoiceFileName(sale, 'pdf');
+
+  try {
+    const canvas = await renderSalesInvoiceCanvas(sale, customerOutstanding, customLogoUrl);
     const imgData = canvas.toDataURL('image/jpeg', 0.98);
 
     // Initialize A4 PDF (210mm x 297mm)
@@ -402,17 +450,37 @@ export async function downloadSalesInvoicePDF(
       }
     }
 
-    // Save PDF
-    pdf.save(fileName);
-    return { success: true, fileName };
+    const blob = pdf.output('blob');
+    return { success: true, blob, fileName };
   } catch (err: any) {
     console.error('Error generating sales invoice PDF:', err);
     return { success: false, fileName, error: err.message || 'PDF जनरेट करने में असमर्थ' };
-  } finally {
-    if (iframe.parentNode) {
-      iframe.parentNode.removeChild(iframe);
-    }
   }
+}
+
+/**
+ * Directly downloads the Sales Invoice as a crisp, single-page A4 PDF file.
+ */
+export async function downloadSalesInvoicePDF(
+  sale: AccountingSale,
+  customerOutstanding: number = 0,
+  customLogoUrl?: string
+): Promise<{ success: boolean; fileName: string; error?: string }> {
+  const res = await generateSalesInvoicePdfBlob(sale, customerOutstanding, customLogoUrl);
+  if (!res.success || !res.blob) {
+    return { success: false, fileName: res.fileName, error: res.error };
+  }
+
+  const url = URL.createObjectURL(res.blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = res.fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+
+  return { success: true, fileName: res.fileName };
 }
 
 export interface ExportMonthlyPOSBillsPdfOptions {

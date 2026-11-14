@@ -3,7 +3,7 @@ import {
   Calendar, FileText, Download, Trash2, Search, Filter, 
   Eye, CheckCircle2, AlertTriangle, AlertCircle, RefreshCw, 
   Printer, ArrowUpDown, ChevronDown, Check, ShieldCheck,
-  CreditCard, Wallet, IndianRupee, Layers, ExternalLink, X, Lightbulb
+  CreditCard, Wallet, IndianRupee, Layers, ExternalLink, X, Lightbulb, Share2
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { AccountingSale, MonthlyPOSExportMeta } from '../../types/accounting';
@@ -20,6 +20,7 @@ import {
   downloadSalesInvoicePDF 
 } from '../../utils/salesInvoicePdfGenerator';
 import { PrintableSalesInvoice } from './PrintableSalesInvoice';
+import { POSBillShareModal } from './POSBillShareModal';
 import { formatSaleItemInvoiceTitle } from '../../utils/agriPackagingUtils';
 
 interface POSMonthlyHistoryProps {
@@ -63,6 +64,7 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
 
   // Single Bill Invoice Modal State
   const [viewingSale, setViewingSale] = useState<AccountingSale | null>(null);
+  const [sharingSale, setSharingSale] = useState<AccountingSale | null>(null);
   const [isPrintingSingle, setIsPrintingSingle] = useState<boolean>(false);
   const [isDownloadingSinglePdf, setIsDownloadingSinglePdf] = useState<boolean>(false);
 
@@ -747,15 +749,22 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
                           <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => setViewingSale(sale)}
-                              className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg font-bold text-xs flex items-center gap-1 transition-colors border border-emerald-200"
+                              className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg font-bold text-xs flex items-center gap-1 transition-colors border border-emerald-200 cursor-pointer"
                               title="बिल देखें व प्रिंट करें"
                             >
                               <Eye className="w-3.5 h-3.5" /> बिल देखें
                             </button>
                             <button
+                              onClick={() => setSharingSale(sale)}
+                              className="p-1.5 bg-[#2D5A27]/10 hover:bg-[#2D5A27]/20 text-[#2D5A27] rounded-lg transition-colors border border-emerald-200 cursor-pointer"
+                              title="बिल शेयर करें (WhatsApp / Image / PDF / SMS)"
+                            >
+                              <Share2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
                               onClick={() => handleDownloadSinglePdf(sale)}
                               disabled={isDownloadingSinglePdf}
-                              className="p-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors border border-gray-200"
+                              className="p-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors border border-gray-200 cursor-pointer"
                               title="PDF डाउनलोड करें"
                             >
                               <Download className="w-3.5 h-3.5 text-emerald-700" />
@@ -828,8 +837,16 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
                           <Eye className="w-3.5 h-3.5" /> बिल देखें
                         </button>
                         <button
+                          onClick={() => setSharingSale(sale)}
+                          className="p-1.5 bg-emerald-50 text-[#2D5A27] rounded-lg border border-emerald-200"
+                          title="बिल शेयर करें"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           onClick={() => handleDownloadSinglePdf(sale)}
                           className="p-1.5 bg-gray-100 text-gray-700 rounded-lg border border-gray-200"
+                          title="PDF डाउनलोड करें"
                         >
                           <Download className="w-3.5 h-3.5 text-emerald-700" />
                         </button>
@@ -1069,16 +1086,23 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
 
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
+                  onClick={() => setSharingSale(viewingSale)}
+                  className="flex-1 sm:flex-none py-2.5 px-4 bg-[#2D5A27] hover:bg-[#20401B] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                  title="WhatsApp / Image / PDF / SMS से शेयर करें"
+                >
+                  <Share2 className="w-4 h-4 shrink-0" /> शेयर करें
+                </button>
+                <button
                   onClick={() => handleDownloadSinglePdf(viewingSale)}
                   disabled={isDownloadingSinglePdf}
-                  className="flex-1 sm:flex-none py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-gray-200 disabled:opacity-50 transition-colors"
+                  className="flex-1 sm:flex-none py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-gray-200 disabled:opacity-50 transition-colors cursor-pointer"
                   title="PDF डाउनलोड करें"
                 >
                   <Download className="w-4 h-4 text-gray-500 shrink-0" /> {isDownloadingSinglePdf ? 'PDF बन रहा है...' : 'PDF'}
                 </button>
                 <button
                   onClick={() => setViewingSale(null)}
-                  className="py-2.5 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl text-xs font-bold transition-colors"
+                  className="py-2.5 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   बंद करें
                 </button>
@@ -1087,6 +1111,14 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL 5: POS BILL SHARE MODAL */}
+      <POSBillShareModal
+        sale={sharingSale}
+        customerOutstanding={0}
+        includeOutstandingInText={false}
+        onClose={() => setSharingSale(null)}
+      />
 
       {/* ACTIVE PRINT PORTAL FOR SINGLE INVOICE PRINT */}
       {typeof document !== 'undefined' && isPrintingSingle && viewingSale && createPortal(

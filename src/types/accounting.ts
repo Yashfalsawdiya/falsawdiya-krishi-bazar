@@ -468,3 +468,28 @@ export interface MonthlyPOSExportMeta {
   exportedBy?: string;
 }
 
+export type LooseRateCategory = 'liquid' | 'solid';
+export type LiquidRateUnit = 'ml' | 'L';
+export type SolidRateUnit = 'g' | 'kg';
+
+export interface CustomLooseRateOption {
+  id: string;
+  category: LooseRateCategory;
+  value: number;
+  unit: LiquidRateUnit | SolidRateUnit;
+  label: string;
+  multiplier: number;
+  baseUnit: 'ml' | 'g';
+  isCustom: true;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface POSLooseRateSettings {
+  liquid: CustomLooseRateOption[];
+  solid: CustomLooseRateOption[];
+  updatedAt: number;
+  updatedBy?: string;
+}
+
+
