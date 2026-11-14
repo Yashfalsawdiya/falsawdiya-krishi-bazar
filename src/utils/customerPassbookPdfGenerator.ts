@@ -190,16 +190,54 @@ function buildCustomerPassbookHtml(
   `;
 }
 
+export const MAX_PASSBOOK_IMAGE_ENTRIES = 30;
+
+export function isPassbookEligibleForImageShare(
+  ledgerEntries: CustomerLedgerEntry[]
+): boolean {
+  const count = Array.isArray(ledgerEntries) ? ledgerEntries.length : 0;
+  return count <= MAX_PASSBOOK_IMAGE_ENTRIES;
+}
+
+function sanitizeFileSegment(raw: string, spaceReplacement: string = '_'): string {
+  return raw
+    .trim()
+    .replace(/[/\\?%*:|"<>#]+/g, '')
+    .replace(/\s+/g, spaceReplacement)
+    .replace(/^[_-]+|[_-]+$/g, '');
+}
+
 /**
- * Downloads the Customer Ledger Passbook as a clean, crisp A4 PDF file.
- * Handles fonts, logo rasterization, and responsive cross-platform download.
+ * Generates an OS-safe, easily searchable passbook filename across WhatsApp, mobile, and desktop:
+ * e.g. `(Khata Sankhya-3)-Yash-Shamgarh.pdf` or `(Khata Sankhya-3)-Yash-Shamgarh.png`
  */
-export async function downloadCustomerPassbookPDF(
-  options: DownloadCustomerPassbookPdfOptions
-): Promise<{ success: boolean; fileName: string; error?: string }> {
+export function buildCustomerPassbookFileName(
+  customer: AccountingCustomer,
+  ext: 'pdf' | 'png' | 'jpg'
+): string {
+  const rawAccount = customer.accountNumber?.trim()
+    ? customer.accountNumber.trim().replace(/^#+/, '')
+    : customer.id
+    ? customer.id.slice(0, 6).toUpperCase()
+    : 'NA';
+  const safeAccount = sanitizeFileSegment(rawAccount, '_') || 'NA';
+  const safeName = sanitizeFileSegment(customer.name || 'Kisan', '_') || 'Kisan';
+  const safeVillage = customer.village?.trim()
+    ? sanitizeFileSegment(customer.village.trim(), '_')
+    : '';
+
+  const villagePart = safeVillage ? `-${safeVillage}` : '';
+  return `(Khata Sankhya-${safeAccount})-${safeName}${villagePart}.${ext}`;
+}
+
+/**
+ * Renders the Customer Ledger Passbook HTML in an isolated offscreen iframe
+ * and returns a crisp 2x HTMLCanvasElement.
+ */
+export async function renderCustomerPassbookCanvas(
+  options: Omit<DownloadCustomerPassbookPdfOptions, 'fileName'>
+): Promise<HTMLCanvasElement> {
   const { customer, ledgerEntries, logoSource } = options;
-  const safeName = (customer.name || 'किसान').replace(/[\s/\\?%*:|"<>]+/g, '_');
-  const fileName = options.fileName || `फल्सावदिया_पासबुक_${safeName}_#${customer.id.slice(0, 6).toUpperCase()}.pdf`;
 
   // Pre-load logo to Base64 to prevent canvas CORS security errors
   let logoDataUrl = '/icon-192.png';
@@ -297,6 +335,57 @@ export async function downloadCustomerPassbookPDF(
       },
     });
 
+    return canvas;
+  } finally {
+    if (iframe.parentNode) {
+      iframe.parentNode.removeChild(iframe);
+    }
+  }
+}
+
+export interface GeneratedPassbookImage {
+  blob: Blob;
+  dataUrl: string;
+  fileName: string;
+}
+
+/**
+ * Generates a crisp PNG image Blob + preview DataURL for the Customer Ledger Passbook.
+ */
+export async function generateCustomerPassbookImage(
+  customer: AccountingCustomer,
+  ledgerEntries: CustomerLedgerEntry[],
+  logoSource?: any
+): Promise<GeneratedPassbookImage> {
+  const fileName = buildCustomerPassbookFileName(customer, 'png');
+  const canvas = await renderCustomerPassbookCanvas({ customer, ledgerEntries, logoSource });
+  const dataUrl = canvas.toDataURL('image/png', 1.0);
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('पासबुक इमेज तैयार नहीं हो सकी।'))),
+      'image/png',
+      1.0
+    );
+  });
+
+  return {
+    blob,
+    dataUrl,
+    fileName,
+  };
+}
+
+/**
+ * Generates the Customer Ledger Passbook as an A4 PDF Blob (reusable for Share & Download).
+ */
+export async function generateCustomerPassbookPdfBlob(
+  options: DownloadCustomerPassbookPdfOptions
+): Promise<{ success: boolean; blob?: Blob; fileName: string; error?: string }> {
+  const { customer, ledgerEntries, logoSource } = options;
+  const fileName = options.fileName || buildCustomerPassbookFileName(customer, 'pdf');
+
+  try {
+    const canvas = await renderCustomerPassbookCanvas({ customer, ledgerEntries, logoSource });
     const imgData = canvas.toDataURL('image/jpeg', 0.98);
 
     // Initialize A4 PDF (210mm x 297mm)
@@ -331,15 +420,34 @@ export async function downloadCustomerPassbookPDF(
       }
     }
 
-    // Direct save triggers native browser / mobile download
-    pdf.save(fileName);
-    return { success: true, fileName };
+    const blob = pdf.output('blob');
+    return { success: true, blob, fileName };
   } catch (err: any) {
     console.error('Error generating customer passbook PDF:', err);
     return { success: false, fileName, error: err.message || 'पासबुक PDF जनरेट करने में असमर्थ' };
-  } finally {
-    if (iframe.parentNode) {
-      iframe.parentNode.removeChild(iframe);
-    }
   }
+}
+
+/**
+ * Downloads the Customer Ledger Passbook as a clean, crisp A4 PDF file.
+ * Handles fonts, logo rasterization, and responsive cross-platform download.
+ */
+export async function downloadCustomerPassbookPDF(
+  options: DownloadCustomerPassbookPdfOptions
+): Promise<{ success: boolean; fileName: string; error?: string }> {
+  const res = await generateCustomerPassbookPdfBlob(options);
+  if (!res.success || !res.blob) {
+    return { success: false, fileName: res.fileName, error: res.error };
+  }
+
+  const url = URL.createObjectURL(res.blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = res.fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+
+  return { success: true, fileName: res.fileName };
 }

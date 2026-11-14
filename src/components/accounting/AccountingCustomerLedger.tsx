@@ -29,6 +29,7 @@ import { useAppContext } from '../../context/AppContext';
 import { PrintableSalesInvoice } from './PrintableSalesInvoice';
 import { downloadSalesInvoicePDF } from '../../utils/salesInvoicePdfGenerator';
 import { downloadCustomerPassbookPDF } from '../../utils/customerPassbookPdfGenerator';
+import { CustomerPassbookShareModal } from './CustomerPassbookShareModal';
 import { formatSaleItemInvoiceTitle } from '../../utils/agriPackagingUtils';
 
 interface Props {
@@ -67,8 +68,9 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId, o
   const [selectedSale, setSelectedSale] = useState<AccountingSale | null>(null);
   const [loadingSale, setLoadingSale] = useState(false);
 
-  // Passbook Print Modal
+  // Passbook Print & Share Modals
   const [showPassbookModal, setShowPassbookModal] = useState(false);
+  const [showPassbookShareModal, setShowPassbookShareModal] = useState(false);
 
   // Active Print Document & PDF Generation State
   const [activePrintDoc, setActivePrintDoc] = useState<'invoice' | 'passbook' | null>(null);
@@ -817,12 +819,20 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                   <IndianRupee className="w-4 h-4" /> ₹ उधारी भुगतान जमा करें (Receive Payment)
                 </button>
 
-                <button
-                  onClick={handlePrintPassbook}
-                  className="py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all"
-                >
-                  <Printer className="w-3.5 h-3.5 text-gray-600" /> पासबुक प्रिंट
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => setShowPassbookShareModal(true)}
+                    className="py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-[#1B4316] border border-emerald-200 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-[#2D5A27]" /> पासबुक शेयर करें
+                  </button>
+                  <button
+                    onClick={handlePrintPassbook}
+                    className="py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-gray-600" /> पासबुक प्रिंट
+                  </button>
+                </div>
               </div>
 
               {/* Passbook Ledger Transactions Table */}
@@ -1484,7 +1494,14 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                 <Printer className="w-5 h-5 text-emerald-700" />
                 ग्राहक खाता बही पासबुक (Customer Ledger Passbook)
               </h3>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowPassbookShareModal(true)}
+                  className="px-3.5 py-2 bg-[#2D5A27] hover:bg-[#1f411b] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  पासबुक शेयर करें
+                </button>
                 <button
                   onClick={handleDownloadPassbookPdf}
                   disabled={isDownloadingPassbookPdf}
@@ -1638,6 +1655,16 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL: CUSTOMER PASSBOOK SHARE (WhatsApp, HD Image <= 30 entries, PDF, SMS & Copy) */}
+      {showPassbookShareModal && selectedCustomer && (
+        <CustomerPassbookShareModal
+          customer={selectedCustomer}
+          ledgerEntries={ledgerEntries}
+          logoSource={appContent?.branding?.logo || '/icon-192.png'}
+          onClose={() => setShowPassbookShareModal(false)}
+        />
       )}
       {/* GLOBAL DEDICATED PRINT PORTALS (Mounted directly on document.body for pristine A4 output) */}
       {typeof document !== 'undefined' && activePrintDoc === 'invoice' && selectedSale && createPortal(
