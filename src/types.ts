@@ -436,6 +436,9 @@ export interface ShippingDeliveryPolicyPageData {
   freeDeliveryThreshold: string;
   standardDeliveryFee: string;
   heavyItemNote: string;
+  transparentFeeSummary?: string;
+  transparentFeeNote?: string;
+  vehicleWeightNote?: string;
   trackingInfo: string;
   sections: PageSectionItem[];
 }

@@ -5,14 +5,16 @@ import {
   CheckCircle2, Printer, Percent, ArrowRight, RefreshCw, 
   Phone, MapPin, IndianRupee, CreditCard, Wallet, UserPlus, X, FileText,
   ChevronDown, User, Smartphone, BookOpen, Scale, Banknote, Download,
-  Droplet, Layers, Check, Calendar, Receipt, RotateCcw, AlertTriangle, Sprout, Hash, Settings, Share2
+  Droplet, Layers, Check, Calendar, Receipt, RotateCcw, AlertTriangle, Sprout, Hash, Settings, Share2, Boxes
 } from 'lucide-react';
 import { 
   AccountingProduct, 
   AccountingCustomer, 
   AccountingSale,
   PackagingVariant,
-  POSLooseRateSettings
+  POSLooseRateSettings,
+  StockManagementConfig,
+  BatchAllocation
 } from '../../types/accounting';
 import { 
   fetchAccountingProducts, 
@@ -22,10 +24,11 @@ import {
   calculateBargainingAllocation,
   getNextPOSInvoiceNoPreview,
   fetchAccountingSaleById,
-  fetchAccountingSaleByInvoiceNo,
   fetchAccountingSaleByInvoiceNoAndDate,
   resetTestAccountingData,
-  fetchPOSLooseRateSettings
+  fetchPOSLooseRateSettings,
+  fetchStockManagementConfig,
+  getCachedStockManagementConfig
 } from '../../services/accountingService';
 import { 
   getProductVariants, 
@@ -34,11 +37,18 @@ import {
   formatPackEquivalent,
   getLooseRateOptions,
   getCachedLooseRateSettings,
-  calculateLooseMetrics,
   formatSaleItemInvoiceTitle,
   formatPackagingVariantString,
-  detectProductPhysicalCategory
+  detectProductPhysicalCategory,
+  calculateExpiryAlert
 } from '../../utils/agriPackagingUtils';
+import {
+  allocateFefoBatches,
+  calculateProductHealthSummary,
+  calculateVariantStockSummary,
+  formatBatchDateDisplay,
+  stripUndefinedDeep
+} from '../../utils/batchInventoryUtils';
 import { PrintableSalesInvoice } from './PrintableSalesInvoice';
 import { downloadSalesInvoicePDF } from '../../utils/salesInvoicePdfGenerator';
 import { POSMonthlyHistory } from './POSMonthlyHistory';
@@ -55,6 +65,8 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
   const [products, setProducts] = useState<AccountingProduct[]>([]);
   const [customers, setCustomers] = useState<AccountingCustomer[]>([]);
   const [looseRateSettings, setLooseRateSettings] = useState<POSLooseRateSettings>(() => getCachedLooseRateSettings());
+  const [stockConfig, setStockConfig] = useState<StockManagementConfig>(() => getCachedStockManagementConfig());
+  const [stockAlertBanner, setStockAlertBanner] = useState<string | null>(null);
   const [showLooseRateSettingsModal, setShowLooseRateSettingsModal] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -104,6 +116,9 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
     batchNumber?: string;
     expiryDate?: string;
+    selectedBatchId?: string;
+    batchAllocations?: BatchAllocation[];
+    hasNearExpiryAllocation?: boolean;
   }
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -212,14 +227,16 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
   const loadData = async () => {
     setLoading(true);
     try {
-      const [prods, custs, rateSettings] = await Promise.all([
+      const [prods, custs, rateSettings, sConfig] = await Promise.all([
         fetchAccountingProducts(),
         fetchAccountingCustomers(),
         fetchPOSLooseRateSettings(),
+        fetchStockManagementConfig(),
       ]);
       setProducts(prods);
       setCustomers(custs);
       setLooseRateSettings(rateSettings);
+      setStockConfig(sConfig);
       await refreshBillPreview();
     } catch (err) {
       console.error('Error loading POS data:', err);
@@ -281,10 +298,126 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     ).slice(0, 10);
   }, [customers, customerSearchQuery]);
 
+  // Stock Reservation Helpers (Accounts for pack + loose items already in Cart)
+  const getVariantBasePerPack = (prod: AccountingProduct, variant?: PackagingVariant | null): number => {
+    if (!variant) {
+      const catInfo = detectProductPhysicalCategory(prod);
+      return normalizeToBaseUnit(1, prod.unit || catInfo.baseUnit);
+    }
+    if (variant.baseQuantity && variant.baseQuantity > 0) return variant.baseQuantity;
+    if (variant.sizeValue && variant.sizeUnit) return normalizeToBaseUnit(variant.sizeValue, variant.sizeUnit);
+    return normalizeToBaseUnit(1, prod.unit || 'g');
+  };
+
+  const getRemainingProductStock = (prod: AccountingProduct, excludeCartItemId?: string) => {
+    const variants = getProductVariants(prod);
+    const remainingPacks: Record<string, number> = {};
+    const blockExpired = stockConfig.blockExpiredSale !== false;
+    const defaultLow = stockConfig.defaultLowStockThreshold ?? 10;
+    const warnDays = stockConfig.expiryWarningDays ?? 122;
+
+    if (variants.length > 0) {
+      for (const v of variants) {
+        if (stockConfig.enabled) {
+          const summary = calculateVariantStockSummary(prod, v, defaultLow, warnDays);
+          remainingPacks[v.id] = blockExpired ? summary.saleablePacks : summary.totalPhysicalPacks;
+        } else {
+          remainingPacks[v.id] = v.currentStockPacks ?? (variants.length === 1 ? prod.currentStock || 0 : 0);
+        }
+      }
+    }
+    remainingPacks['__base__'] = prod.currentStock || 0;
+
+    const rawLooseBase = prod.looseStock?.availableBaseQty || 0;
+    const isOpenLooseExpired =
+      stockConfig.enabled &&
+      blockExpired &&
+      rawLooseBase > 0 &&
+      Boolean(prod.looseStock?.activeBatchExpiryDate) &&
+      !calculateExpiryAlert(prod.looseStock!.activeBatchExpiryDate!).isSaleable;
+
+    let remainingLooseBase = isOpenLooseExpired ? 0 : rawLooseBase;
+
+    for (const it of cartItems) {
+      if (it.productId !== prod.id || it.cartItemId === excludeCartItemId) continue;
+      if (it.saleType === 'loose') {
+        const rawQty = Number(it.looseQuantity ?? it.quantity) || 0;
+        const unitLower = String(it.looseUnit || it.unit || '').toLowerCase();
+        const isLarge = unitLower === 'kg' || unitLower === 'l' || unitLower === 'ltr' || unitLower === 'लीटर' || unitLower === 'किलो';
+        const reqBaseQty = it.looseBaseQty && it.looseBaseQty > 0 ? it.looseBaseQty : (isLarge ? rawQty * 1000 : rawQty);
+
+        if (remainingLooseBase >= reqBaseQty) {
+          remainingLooseBase -= reqBaseQty;
+        } else if (stockConfig.autoOpenPackOnLooseSale !== false) {
+          const shortage = reqBaseQty - remainingLooseBase;
+          const prefVarId = it.openedPackFromVariantId || it.variantId;
+          const srcVar = variants.find(v => v.id === prefVarId) || (variants.length === 1 ? variants[0] : undefined);
+          const basePerPack = srcVar ? getVariantBasePerPack(prod, srcVar) : 0;
+          if (srcVar && basePerPack > 0) {
+            const packsNeeded = Math.ceil(shortage / basePerPack);
+            remainingPacks[srcVar.id] = (remainingPacks[srcVar.id] ?? 0) - packsNeeded;
+            remainingLooseBase = remainingLooseBase + packsNeeded * basePerPack - reqBaseQty;
+          } else {
+            remainingLooseBase -= reqBaseQty;
+          }
+        } else {
+          remainingLooseBase -= reqBaseQty;
+        }
+      } else {
+        const key = it.variantId || (variants.length === 1 ? variants[0].id : '__base__');
+        remainingPacks[key] = (remainingPacks[key] ?? 0) - it.quantity;
+      }
+    }
+
+    return { remainingPacks, remainingLooseBase, isOpenLooseExpired };
+  };
+
+  const getLooseMaxAvailableBase = (
+    prod: AccountingProduct,
+    selectedVariant?: PackagingVariant | null,
+    excludeCartItemId?: string
+  ): number => {
+    const { remainingPacks, remainingLooseBase, isOpenLooseExpired } = getRemainingProductStock(prod, excludeCartItemId);
+    if (isOpenLooseExpired) return 0;
+    const availLoose = Math.max(0, remainingLooseBase);
+    if (stockConfig.autoOpenPackOnLooseSale !== false && selectedVariant) {
+      const availPacks = Math.max(0, remainingPacks[selectedVariant.id] ?? 0);
+      const basePerPack = getVariantBasePerPack(prod, selectedVariant);
+      return availLoose + availPacks * basePerPack;
+    }
+    return availLoose;
+  };
+
   // Add Item to Cart (Pack / Packaging Variant - SELECTED PACKAGING = DEFAULT SALE UNIT)
   const addItemToCart = (p: AccountingProduct, variant?: PackagingVariant) => {
     const variants = getProductVariants(p);
     const chosenVariant = variant || (variants.length === 1 ? variants[0] : null);
+
+    if (stockConfig.enabled && !stockConfig.allowNegativeStock) {
+      const { remainingPacks } = getRemainingProductStock(p);
+      const stockKey = chosenVariant?.id || (variants.length === 1 ? variants[0].id : '__base__');
+      const avail = remainingPacks[stockKey] ?? 0;
+      if (avail <= 0) {
+        const vLabel = chosenVariant?.label || (chosenVariant ? `${chosenVariant.sizeValue} ${chosenVariant.sizeUnit}` : p.unit);
+        if (chosenVariant && stockConfig.blockExpiredSale !== false) {
+          const sum = calculateVariantStockSummary(
+            p,
+            chosenVariant,
+            stockConfig.defaultLowStockThreshold ?? 10,
+            stockConfig.expiryWarningDays ?? 122
+          );
+          if (sum.batchedExpiredPacks > 0 && sum.saleablePacks <= 0) {
+            setStockAlertBanner(
+              `एक्सपायर्ड स्टॉक: "${p.hindiName || p.name}" (${vLabel}) के सभी ${sum.batchedExpiredPacks} पैक एक्सपायर हो चुके हैं — बिक्री बंद है।`
+            );
+            return;
+          }
+        }
+        setStockAlertBanner(`स्टॉक समाप्त: "${p.hindiName || p.name}" (${vLabel}) का और स्टॉक उपलब्ध नहीं है।`);
+        return;
+      }
+    }
+    setStockAlertBanner(null);
 
     const variantId = chosenVariant ? chosenVariant.id : undefined;
     // CRITICAL: Ensure unique cartItemId per variant so different pack sizes are NEVER merged!
@@ -323,14 +456,30 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
       }) || (chosenVariant ? (chosenVariant.label || `${chosenVariant.sizeValue} ${chosenVariant.sizeUnit} (${packagingType})`) : `${p.name} (${packagingType})`);
 
       // Purchase Cost & Selling Price per PACK (NOT per ml or per gram!)
-      const costPrice = chosenVariant ? (chosenVariant.costPrice || p.costPrice || 0) : (p.costPrice || 0);
+      let costPrice = chosenVariant ? (chosenVariant.costPrice || p.costPrice || 0) : (p.costPrice || 0);
       const originalSellingPrice = chosenVariant ? (chosenVariant.sellingPrice || p.defaultSellingPrice || p.costPrice || 0) : (p.defaultSellingPrice || p.costPrice || 0);
       const currentStock = chosenVariant ? (chosenVariant.currentStockPacks ?? p.currentStock ?? 0) : (p.currentStock || 0);
 
       // Packaging unit (e.g. "Bottle", "Packet", "Bag")
       const displayUnit = packagingType;
 
-      const firstBatch = p.batches && p.batches.length > 0 ? p.batches[0] : undefined;
+      let previewBatchNumber = p.batches && p.batches.length > 0 ? p.batches[0]?.batchNumber : undefined;
+      let previewExpiryDate = p.batches && p.batches.length > 0 ? p.batches[0]?.expiryDate : undefined;
+      if (stockConfig.enabled && chosenVariant) {
+        const fefoInit = allocateFefoBatches({
+          product: p,
+          variant: chosenVariant,
+          requestedPacks: 1,
+          allowNegativeStock: Boolean(stockConfig.allowNegativeStock),
+          blockExpiredSale: stockConfig.blockExpiredSale !== false,
+          expiryWarningDays: stockConfig.expiryWarningDays ?? 122,
+        });
+        if (fefoInit.allocations.length > 0) {
+          costPrice = fefoInit.weightedUnitCost;
+          previewBatchNumber = fefoInit.batchNumbersSummary;
+          previewExpiryDate = fefoInit.primaryExpiryDate;
+        }
+      }
 
       return [
         ...prev,
@@ -356,8 +505,8 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
           packSize: packSizeValue,
           packUnit: packSizeUnit,
           packBaseQty,
-          batchNumber: firstBatch?.batchNumber,
-          expiryDate: firstBatch?.expiryDate,
+          batchNumber: previewBatchNumber,
+          expiryDate: previewExpiryDate,
           saleType: 'pack',
         },
       ];
@@ -366,6 +515,21 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
   // Switch a pack item in cart to loose sale with proportional pricing
   const switchToLooseSale = (cartItemId: string, targetLooseQty?: number) => {
+    const targetItem = cartItems.find(it => it.cartItemId === cartItemId);
+    if (targetItem && stockConfig.enabled && !stockConfig.allowNegativeStock) {
+      const prod = products.find(p => p.id === targetItem.productId);
+      if (prod) {
+        const variants = getProductVariants(prod);
+        const srcVar = variants.find(v => v.id === targetItem.variantId) || variants[0] || null;
+        const maxAvailBase = getLooseMaxAvailableBase(prod, srcVar, cartItemId);
+        if (maxAvailBase <= 0) {
+          setStockAlertBanner(`खुला स्टॉक समाप्त: "${targetItem.hindiName || targetItem.name}" का कोई स्टॉक उपलब्ध नहीं है।`);
+          return;
+        }
+      }
+    }
+    setStockAlertBanner(null);
+
     setCartItems(prev => prev.map(item => {
       if (item.cartItemId !== cartItemId) return item;
 
@@ -406,6 +570,18 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
         }
       }
 
+      if (stockConfig.enabled && !stockConfig.allowNegativeStock) {
+        const prod = products.find(p => p.id === item.productId);
+        if (prod) {
+          const variants = getProductVariants(prod);
+          const srcVar = variants.find(v => v.id === item.variantId) || variants[0] || null;
+          const maxAvailBase = getLooseMaxAvailableBase(prod, srcVar, cartItemId);
+          if (looseQty > maxAvailBase && maxAvailBase > 0) {
+            looseQty = maxAvailBase;
+          }
+        }
+      }
+
       return {
         ...item,
         saleType: 'loose',
@@ -431,12 +607,38 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
   // Update loose quantity for an item in loose mode
   const updateLooseQty = (cartItemId: string, newLooseQty: number) => {
     if (newLooseQty <= 0) return;
+
+    const currentItem = cartItems.find(it => it.cartItemId === cartItemId);
+    let clampedQty = newLooseQty;
+    if (currentItem && stockConfig.enabled && !stockConfig.allowNegativeStock) {
+      const prod = products.find(p => p.id === currentItem.productId);
+      if (prod) {
+        const variants = getProductVariants(prod);
+        const srcVar = variants.find(v => v.id === (currentItem.openedPackFromVariantId || currentItem.variantId)) || variants[0] || null;
+        const isLargeUnit = currentItem.looseUnit === 'kg' || currentItem.looseUnit === 'L' || currentItem.looseUnit === 'Ltr' || currentItem.looseUnit === 'लीटर' || currentItem.looseUnit === 'किलो';
+        const unitMultiplier = isLargeUnit ? 1000 : 1;
+        const reqBase = newLooseQty * unitMultiplier;
+        const maxBase = getLooseMaxAvailableBase(prod, srcVar, cartItemId);
+        if (reqBase > maxBase) {
+          const catInfo = detectProductPhysicalCategory(prod);
+          setStockAlertBanner(`खुला स्टॉक सीमा: "${currentItem.hindiName || currentItem.name}" के लिए अधिकतम ${formatBaseUnitDisplay(maxBase, catInfo.baseUnit)} उपलब्ध है।`);
+          const maxDisplay = unitMultiplier > 0 ? Math.floor((maxBase / unitMultiplier) * 100) / 100 : maxBase;
+          if (maxDisplay <= 0) return;
+          clampedQty = maxDisplay;
+        } else {
+          setStockAlertBanner(null);
+        }
+      }
+    } else {
+      setStockAlertBanner(null);
+    }
+
     setCartItems(prev => prev.map(item => {
       if (item.cartItemId !== cartItemId) return item;
 
       const isLargeUnit = item.looseUnit === 'kg' || item.looseUnit === 'L' || item.looseUnit === 'Ltr' || item.looseUnit === 'लीटर' || item.looseUnit === 'किलो';
       const unitMultiplier = isLargeUnit ? 1000 : 1;
-      const looseBaseQty = newLooseQty * unitMultiplier;
+      const looseBaseQty = clampedQty * unitMultiplier;
 
       const costPerBase = item.costPerBaseUnit || 0;
       const pricePerBase = item.sellingPricePerBaseUnit || 0;
@@ -446,8 +648,8 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
       return {
         ...item,
-        quantity: newLooseQty,
-        looseQuantity: newLooseQty,
+        quantity: clampedQty,
+        looseQuantity: clampedQty,
         looseBaseQty,
         costPrice: effectiveCost,
         originalSellingPrice: effectivePrice,
@@ -577,7 +779,20 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     }
     if (!packBase || packBase <= 0) packBase = catInfo.baseUnit === 'ml' ? 500 : 1000;
 
-    const fullCost = variant.costPrice || looseModalProduct.costPrice || 0;
+    let fullCost = variant.costPrice || looseModalProduct.costPrice || 0;
+    if (stockConfig.enabled) {
+      const fefoCostCheck = allocateFefoBatches({
+        product: looseModalProduct,
+        variant,
+        requestedPacks: 1,
+        allowNegativeStock: Boolean(stockConfig.allowNegativeStock),
+        blockExpiredSale: stockConfig.blockExpiredSale !== false,
+        expiryWarningDays: stockConfig.expiryWarningDays ?? 122,
+      });
+      if (fefoCostCheck.allocations.length > 0 && fefoCostCheck.weightedUnitCost > 0) {
+        fullCost = fefoCostCheck.weightedUnitCost;
+      }
+    }
     const costPerBase = packBase > 0 ? Number((fullCost / packBase).toFixed(6)) : (looseModalProduct.looseStock?.costPerBaseUnit || 0);
     setLooseModalCostPerBase(costPerBase);
 
@@ -644,7 +859,20 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     }
     if (!packBase || packBase <= 0) packBase = catInfo.baseUnit === 'ml' ? 500 : 1000;
 
-    const fullCost = firstVariant?.costPrice || p.costPrice || 0;
+    let fullCost = firstVariant?.costPrice || p.costPrice || 0;
+    if (stockConfig.enabled && firstVariant) {
+      const fefoCostCheck = allocateFefoBatches({
+        product: p,
+        variant: firstVariant,
+        requestedPacks: 1,
+        allowNegativeStock: Boolean(stockConfig.allowNegativeStock),
+        blockExpiredSale: stockConfig.blockExpiredSale !== false,
+        expiryWarningDays: stockConfig.expiryWarningDays ?? 122,
+      });
+      if (fefoCostCheck.allocations.length > 0 && fefoCostCheck.weightedUnitCost > 0) {
+        fullCost = fefoCostCheck.weightedUnitCost;
+      }
+    }
     const costPerBase = packBase > 0 ? Number((fullCost / packBase).toFixed(6)) : (p.looseStock?.costPerBaseUnit || 0);
     setLooseModalCostPerBase(costPerBase);
 
@@ -695,9 +923,32 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     const label = `खुला बिक्री (${displayQty} ${displayUnit})`;
 
     if (requestedBaseQty <= 0) {
-      alert('कृपया मान्य मात्रा दर्ज करें।');
+      setStockAlertBanner('कृपया मान्य मात्रा दर्ज करें।');
       return;
     }
+
+    const selectedVariant = looseSelectedVariant;
+    const variants = getProductVariants(p);
+    const openedPackVariant = selectedVariant || variants[0];
+
+    if (stockConfig.enabled && !stockConfig.allowNegativeStock) {
+      const stockInfo = getRemainingProductStock(p);
+      if (stockInfo.isOpenLooseExpired) {
+        setStockAlertBanner(
+          `खुला स्टॉक एक्सपायर्ड: "${p.hindiName || p.name}" का खुला स्टॉक एक्सपायरी तिथि पार कर चुका है — पहले Stock पैनल में इसे निस्तारित (Write-Off) करें।`
+        );
+        return;
+      }
+      const maxAvailBase = getLooseMaxAvailableBase(p, openedPackVariant);
+      if (requestedBaseQty > maxAvailBase) {
+        const catInfo = detectProductPhysicalCategory(p);
+        setStockAlertBanner(
+          `खुला स्टॉक अपर्याप्त: "${p.hindiName || p.name}" के लिए अधिकतम ${formatBaseUnitDisplay(maxAvailBase, catInfo.baseUnit)} उपलब्ध है।`
+        );
+        return;
+      }
+    }
+    setStockAlertBanner(null);
 
     const rateAmt = Number(looseCustomPrice) || 0;
     const multiplier = looseModalRateMultiplier || 1;
@@ -711,8 +962,6 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     const effectiveCostPrice = Math.round(costPerBaseUnit * displayMultiplier * 10000) / 10000;
 
     const cartItemId = `${p.id}_loose_${Date.now()}`;
-    const selectedVariant = looseSelectedVariant;
-    const openedPackVariant = selectedVariant || (p.packagingVariants && p.packagingVariants[0]);
 
     setCartItems(prev => [
       ...prev,
@@ -754,7 +1003,29 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
       removeItemFromCart(cartItemId);
       return;
     }
-    setCartItems(prev => prev.map(it => it.cartItemId === cartItemId ? { ...it, quantity: qty, packCount: it.saleType !== 'loose' ? qty : undefined } : it));
+
+    const currentItem = cartItems.find(it => it.cartItemId === cartItemId);
+    let finalQty = qty;
+    if (currentItem && currentItem.saleType !== 'loose' && stockConfig.enabled && !stockConfig.allowNegativeStock && qty > currentItem.quantity) {
+      const prod = products.find(p => p.id === currentItem.productId);
+      if (prod) {
+        const variants = getProductVariants(prod);
+        const { remainingPacks } = getRemainingProductStock(prod, cartItemId);
+        const stockKey = currentItem.variantId || (variants.length === 1 ? variants[0].id : '__base__');
+        const maxAllowed = Math.max(0, remainingPacks[stockKey] ?? 0);
+        if (qty > maxAllowed) {
+          setStockAlertBanner(`स्टॉक सीमा: "${currentItem.hindiName || currentItem.name}" (${currentItem.variantLabel || currentItem.unit}) के केवल ${maxAllowed} पैक स्टॉक में उपलब्ध हैं।`);
+          finalQty = Math.max(1, maxAllowed);
+          if (maxAllowed <= 0) return;
+        } else {
+          setStockAlertBanner(null);
+        }
+      }
+    } else {
+      setStockAlertBanner(null);
+    }
+
+    setCartItems(prev => prev.map(it => it.cartItemId === cartItemId ? { ...it, quantity: finalQty, packCount: it.saleType !== 'loose' ? finalQty : undefined } : it));
   };
 
   const updateItemPrice = (cartItemId: string, price: number) => {
@@ -822,10 +1093,152 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
     return (isNaN(val) || val <= 0) ? subtotalBeforeBargain : val;
   }, [cartItems.length, subtotalBeforeBargain, isFinalAmountManuallyEdited, customFinalTotalInput]);
 
+  const updateCartItemBatchSelection = (cartItemId: string, selectedBatchId: string) => {
+    setCartItems(prev =>
+      prev.map(it =>
+        it.cartItemId === cartItemId
+          ? { ...it, selectedBatchId: selectedBatchId || undefined }
+          : it
+      )
+    );
+  };
+
+  // Live FEFO Batch & Cost computation across all cart items when Stock Management is ON
+  const effectiveCartItems = useMemo(() => {
+    if (!stockConfig.enabled) return cartItems;
+
+    const reservedByVariant = new Map<
+      string,
+      { packsByBatch: Record<string, number>; unbatchedPacks: number }
+    >();
+    const reservedLooseByProduct = new Map<string, number>();
+
+    const blockExpired = stockConfig.blockExpiredSale !== false;
+    const warnDays = stockConfig.expiryWarningDays ?? 122;
+
+    return cartItems.map((item) => {
+      const prod = products.find((p) => p.id === item.productId);
+      if (!prod) return item;
+
+      const variants = getProductVariants(prod);
+
+      if (item.saleType === 'loose') {
+        const rawQty = Number(item.looseQuantity ?? item.quantity) || 0;
+        const unitLower = String(item.looseUnit || item.unit || '').toLowerCase();
+        const isLarge =
+          unitLower === 'kg' ||
+          unitLower === 'l' ||
+          unitLower === 'ltr' ||
+          unitLower === 'लीटर' ||
+          unitLower === 'किलो';
+        const reqBaseQty =
+          item.looseBaseQty && item.looseBaseQty > 0
+            ? item.looseBaseQty
+            : isLarge
+            ? rawQty * 1000
+            : rawQty;
+
+        const usedPriorLoose = reservedLooseByProduct.get(prod.id) || 0;
+        const openAvail = Math.max(0, (prod.looseStock?.availableBaseQty || 0) - usedPriorLoose);
+
+        if (openAvail >= reqBaseQty) {
+          reservedLooseByProduct.set(prod.id, usedPriorLoose + reqBaseQty);
+          return {
+            ...item,
+            batchNumber: prod.looseStock?.lastOpenedBatchNumber || item.batchNumber,
+            expiryDate: prod.looseStock?.activeBatchExpiryDate || item.expiryDate,
+          };
+        }
+
+        const shortage = Math.max(0, reqBaseQty - openAvail);
+        const prefVarId = item.openedPackFromVariantId || item.variantId;
+        const srcVar =
+          variants.find((v) => v.id === prefVarId) || (variants.length === 1 ? variants[0] : undefined);
+        const basePerPack = srcVar ? getVariantBasePerPack(prod, srcVar) : 0;
+
+        if (stockConfig.autoOpenPackOnLooseSale !== false && srcVar && basePerPack > 0) {
+          const packsNeeded = Math.ceil(shortage / basePerPack);
+          const key = `${prod.id}::${srcVar.id}`;
+          const res = reservedByVariant.get(key) || { packsByBatch: {}, unbatchedPacks: 0 };
+
+          const fefo = allocateFefoBatches({
+            product: prod,
+            variant: srcVar,
+            requestedPacks: packsNeeded,
+            manualBatchId: item.selectedBatchId,
+            allowNegativeStock: Boolean(stockConfig.allowNegativeStock),
+            blockExpiredSale: blockExpired,
+            expiryWarningDays: warnDays,
+            reservedPacksByBatch: res.packsByBatch,
+            reservedUnbatchedPacks: res.unbatchedPacks,
+          });
+
+          for (const al of fefo.allocations) {
+            res.packsByBatch[al.batchId] = (res.packsByBatch[al.batchId] || 0) + al.packsUsed;
+          }
+          res.unbatchedPacks += fefo.unbatchedPacksUsed;
+          reservedByVariant.set(key, res);
+
+          const remainingAfterOpen = openAvail + packsNeeded * basePerPack - reqBaseQty;
+          reservedLooseByProduct.set(
+            prod.id,
+            Math.max(0, (prod.looseStock?.availableBaseQty || 0) - remainingAfterOpen)
+          );
+
+          return {
+            ...item,
+            batchNumber: fefo.batchNumbersSummary || prod.looseStock?.lastOpenedBatchNumber || item.batchNumber,
+            expiryDate: fefo.primaryExpiryDate || prod.looseStock?.activeBatchExpiryDate || item.expiryDate,
+            batchAllocations: fefo.allocations.length > 0 ? fefo.allocations : undefined,
+            hasNearExpiryAllocation: fefo.hasNearExpiryAllocation,
+          };
+        }
+
+        return item;
+      }
+
+      // Pack sale
+      const targetVar =
+        variants.find((v) => v.id === item.variantId) ||
+        (variants.length === 1 ? variants[0] : undefined);
+      if (!targetVar) return item;
+
+      const key = `${prod.id}::${targetVar.id}`;
+      const res = reservedByVariant.get(key) || { packsByBatch: {}, unbatchedPacks: 0 };
+
+      const fefo = allocateFefoBatches({
+        product: prod,
+        variant: targetVar,
+        requestedPacks: item.quantity,
+        manualBatchId: item.selectedBatchId,
+        allowNegativeStock: Boolean(stockConfig.allowNegativeStock),
+        blockExpiredSale: blockExpired,
+        expiryWarningDays: warnDays,
+        reservedPacksByBatch: res.packsByBatch,
+        reservedUnbatchedPacks: res.unbatchedPacks,
+      });
+
+      for (const al of fefo.allocations) {
+        res.packsByBatch[al.batchId] = (res.packsByBatch[al.batchId] || 0) + al.packsUsed;
+      }
+      res.unbatchedPacks += fefo.unbatchedPacksUsed;
+      reservedByVariant.set(key, res);
+
+      return {
+        ...item,
+        costPrice: fefo.allocations.length > 0 ? fefo.weightedUnitCost : item.costPrice,
+        batchNumber: fefo.batchNumbersSummary || item.batchNumber,
+        expiryDate: fefo.primaryExpiryDate || item.expiryDate,
+        batchAllocations: fefo.allocations.length > 0 ? fefo.allocations : undefined,
+        hasNearExpiryAllocation: fefo.hasNearExpiryAllocation,
+      };
+    });
+  }, [cartItems, products, stockConfig]);
+
   // Proportional Allocation Calculations
   const allocation = useMemo(() => {
-    return calculateBargainingAllocation(cartItems, negotiatedTotalNumber);
-  }, [cartItems, negotiatedTotalNumber]);
+    return calculateBargainingAllocation(effectiveCartItems, negotiatedTotalNumber);
+  }, [effectiveCartItems, negotiatedTotalNumber]);
 
   // Auto calculate Split amounts
   const calculatedFinalTotal = allocation.finalTotal;
@@ -944,9 +1357,9 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
         customerPhone: selectedCustomer?.phone || '',
         customerVillage: selectedCustomer?.village || '',
         items: allocation.allocatedItems.map(it => {
-          const matchingCartItem = cartItems.find(c => c.cartItemId === (it as any).cartItemId);
+          const matchingCartItem = effectiveCartItems.find(c => c.cartItemId === (it as any).cartItemId);
           const isPack = (matchingCartItem?.saleType || it.saleType) !== 'loose';
-          return {
+          return stripUndefinedDeep({
             ...it,
             saleType: matchingCartItem?.saleType || it.saleType || 'pack',
             variantId: matchingCartItem?.variantId || it.variantId,
@@ -971,7 +1384,11 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
             looseRateDenominator: matchingCartItem?.looseRateDenominator || it.looseRateDenominator,
             costPerBaseUnit: matchingCartItem?.costPerBaseUnit || it.costPerBaseUnit,
             sellingPricePerBaseUnit: matchingCartItem?.sellingPricePerBaseUnit || it.sellingPricePerBaseUnit,
-          };
+            batchNumber: matchingCartItem?.batchNumber || it.batchNumber,
+            expiryDate: matchingCartItem?.expiryDate || it.expiryDate,
+            selectedBatchId: matchingCartItem?.selectedBatchId,
+            batchAllocations: matchingCartItem?.batchAllocations,
+          });
         }),
         subtotal: allocation.subtotal,
         bargainingDiscount: allocation.bargainingDiscount,
@@ -1017,13 +1434,18 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
       setBillNote('');
       setManualBillNumber('');
       setDuplicateWarning(null);
+      setStockAlertBanner(null);
       
       // Refresh inventory & customers in background
       loadData();
       if (onSaleCreated) onSaleCreated(saleId);
       if (onSaleComplete) onSaleComplete();
     } catch (err: any) {
-      alert('बिल सेव करने में त्रुटि: ' + err.message);
+      const msg = err?.message || String(err);
+      setStockAlertBanner('बिल सेव करने में त्रुटि: ' + msg);
+      if (msg.includes('स्टॉक') || msg.includes('खत्म') || msg.includes('अपर्याप्त')) {
+        loadData();
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -1076,6 +1498,17 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
         {/* Tab Selector & Actions */}
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Live Stock Status Pill when Enabled */}
+          {stockConfig.enabled && (
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100/80 border border-emerald-300 text-emerald-900 rounded-xl text-xs font-extrabold shadow-2xs"
+              title="स्टॉक मात्रा प्रबंधन सक्रिय है - हर बिक्री पर स्टॉक स्वतः घटेगा"
+            >
+              <Boxes className="w-4 h-4 text-emerald-700" />
+              <span>लाइव स्टॉक: ON</span>
+            </div>
+          )}
+
           {/* Next Bill Number Preview Badge */}
           <div 
             id="pos-next-bill-badge"
@@ -1175,6 +1608,22 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
         </div>
       )}
 
+      {stockAlertBanner && (
+        <div className="bg-red-50 border border-red-200 text-red-900 p-3.5 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold shadow-xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{stockAlertBanner}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStockAlertBanner(null)}
+            className="text-red-400 hover:text-red-700 p-1 rounded-lg hover:bg-red-100 shrink-0 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {activeTab === 'history' ? (
         <POSMonthlyHistory
           onBackToBilling={() => setActiveTab('billing')}
@@ -1252,24 +1701,81 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                     .filter(it => it.productId === prod.id)
                     .reduce((sum, it) => sum + it.quantity, 0);
 
+                  const isStockEnforced = stockConfig.enabled && !stockConfig.allowNegativeStock;
+                  const stockState = stockConfig.enabled ? getRemainingProductStock(prod) : null;
+                  const health = stockConfig.enabled
+                    ? calculateProductHealthSummary(
+                        prod,
+                        stockConfig.defaultLowStockThreshold ?? 10,
+                        stockConfig.expiryWarningDays ?? 122
+                      )
+                    : null;
+                  const singleVariant = variants[0];
+                  const singleSummary = health?.variantSummaries[0];
+                  const singleRemPacks = stockState
+                    ? Math.max(0, stockState.remainingPacks[singleVariant?.id || '__base__'] ?? 0)
+                    : 0;
+                  const singleMinAlert = singleVariant?.minStockAlertPacks ?? prod.minStockAlert ?? (stockConfig.defaultLowStockThreshold ?? 10);
+                  const isSingleAllExpired =
+                    isStockEnforced &&
+                    stockConfig.blockExpiredSale !== false &&
+                    !hasMultipleVariants &&
+                    singleRemPacks <= 0 &&
+                    (singleSummary?.batchedExpiredPacks || 0) > 0;
+                  const remLooseBase = stockState ? Math.max(0, stockState.remainingLooseBase) : 0;
+                  const isOpenLooseExpired = Boolean(stockState?.isOpenLooseExpired);
+                  const totalLooseCapacity = stockState && !isOpenLooseExpired
+                    ? remLooseBase + (stockConfig.autoOpenPackOnLooseSale !== false
+                        ? variants.reduce((sum, v) => sum + Math.max(0, stockState.remainingPacks[v.id] ?? 0) * getVariantBasePerPack(prod, v), 0)
+                        : 0)
+                    : 0;
+                  const isSingleOutOfStock = isStockEnforced && !hasMultipleVariants && singleRemPacks <= 0;
+
                   return (
                     <div
                       key={prod.id}
                       className={`p-3 rounded-2xl border transition-all ${
                         prodCartCount > 0
                           ? 'border-emerald-500 bg-emerald-50/40 shadow-sm'
+                          : isSingleOutOfStock && totalLooseCapacity <= 0
+                          ? 'border-red-200/80 bg-red-50/30 opacity-85'
                           : 'border-gray-100 bg-white hover:border-gray-300'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <h4 className="font-bold text-gray-900 text-xs sm:text-sm truncate">
                               {prod.hindiName || prod.name}
                             </h4>
                             {prodCartCount > 0 && (
                               <span className="bg-[#2D5A27] text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
                                 {prodCartCount} बिल में
+                              </span>
+                            )}
+                            {stockConfig.enabled && !hasMultipleVariants && (
+                              <span
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
+                                  isSingleAllExpired
+                                    ? 'bg-red-100 text-red-800 border-red-300'
+                                    : singleRemPacks <= 0
+                                    ? 'bg-red-50 text-red-700 border-red-200'
+                                    : singleRemPacks <= singleMinAlert
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                }`}
+                              >
+                                {isSingleAllExpired
+                                  ? `एक्सपायर्ड (${singleSummary?.batchedExpiredPacks})`
+                                  : singleRemPacks <= 0
+                                  ? 'स्टॉक: 0 (खत्म)'
+                                  : `स्टॉक: ${singleRemPacks}`}
+                              </span>
+                            )}
+                            {stockConfig.enabled && !hasMultipleVariants && (singleSummary?.nearExpiryBatchesCount || 0) > 0 && (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                                <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
+                                निकट एक्सपायरी
                               </span>
                             )}
                           </div>
@@ -1294,10 +1800,21 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                           {!hasMultipleVariants && (
                             <button
                               type="button"
+                              disabled={isSingleOutOfStock}
                               onClick={() => addItemToCart(prod, variants[0])}
-                              className="text-xs bg-[#2D5A27] text-white px-2.5 py-1 rounded-xl hover:bg-[#23461e] active:scale-95 transition-all font-bold flex items-center gap-1 ml-auto"
+                              className={`text-xs px-2.5 py-1 rounded-xl font-bold flex items-center gap-1 ml-auto transition-all ${
+                                isSingleOutOfStock
+                                  ? 'bg-red-100 text-red-700 border border-red-200 cursor-not-allowed'
+                                  : 'bg-[#2D5A27] text-white hover:bg-[#23461e] active:scale-95 cursor-pointer'
+                              }`}
                             >
-                              <Plus className="w-3.5 h-3.5" /> जोड़ें
+                              {isSingleOutOfStock ? (
+                                <span>{isSingleAllExpired ? 'एक्सपायर्ड' : 'स्टॉक खत्म'}</span>
+                              ) : (
+                                <>
+                                  <Plus className="w-3.5 h-3.5" /> जोड़ें
+                                </>
+                              )}
                             </button>
                           )}
                         </div>
@@ -1313,19 +1830,51 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                           <div className="flex flex-wrap gap-1.5">
                             {variants.map(v => {
                               const vInCart = cartItems.find(it => it.cartItemId === `${prod.id}_${v.id}_pack`);
+                              const vSummary = health?.variantSummaries.find(s => s.variantId === v.id);
+                              const vRemPacks = stockState ? Math.max(0, stockState.remainingPacks[v.id] ?? 0) : 0;
+                              const vMinAlert = v.minStockAlertPacks ?? (stockConfig.defaultLowStockThreshold ?? 10);
+                              const vAllExpired =
+                                isStockEnforced &&
+                                stockConfig.blockExpiredSale !== false &&
+                                vRemPacks <= 0 &&
+                                (vSummary?.batchedExpiredPacks || 0) > 0;
+                              const vOut = isStockEnforced && vRemPacks <= 0;
                               return (
                                 <button
                                   key={v.id}
                                   type="button"
+                                  disabled={vOut}
                                   onClick={() => addItemToCart(prod, v)}
                                   className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1.5 ${
-                                    vInCart
-                                      ? 'bg-[#2D5A27] text-white border-[#2D5A27]'
-                                      : 'bg-emerald-50/70 text-emerald-900 border-emerald-200 hover:bg-emerald-100'
+                                    vOut
+                                      ? 'bg-red-50/70 text-red-500 border-red-200 cursor-not-allowed opacity-75'
+                                      : vInCart
+                                      ? 'bg-[#2D5A27] text-white border-[#2D5A27] cursor-pointer'
+                                      : 'bg-emerald-50/70 text-emerald-900 border-emerald-200 hover:bg-emerald-100 cursor-pointer'
                                   }`}
                                 >
                                   <span>{v.label || `${v.sizeValue} ${v.sizeUnit}`}</span>
                                   <span className="font-extrabold">₹{v.sellingPrice || prod.defaultSellingPrice}</span>
+                                  {stockConfig.enabled && (
+                                    <span
+                                      className={`px-1 rounded text-[9px] font-bold ${
+                                        vInCart
+                                          ? 'bg-white/20 text-white'
+                                          : vAllExpired
+                                          ? 'bg-red-200 text-red-900'
+                                          : vRemPacks <= 0
+                                          ? 'bg-red-100 text-red-700'
+                                          : vRemPacks <= vMinAlert
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : 'bg-emerald-100 text-emerald-800'
+                                      }`}
+                                    >
+                                      {vAllExpired ? 'एक्सपायर्ड' : vRemPacks <= 0 ? 'खत्म' : `${vRemPacks} शेष`}
+                                    </span>
+                                  )}
+                                  {stockConfig.enabled && !vOut && (vSummary?.nearExpiryBatchesCount || 0) > 0 && (
+                                    <AlertTriangle className={`w-3 h-3 shrink-0 ${vInCart ? 'text-amber-200' : 'text-amber-600'}`} />
+                                  )}
                                   {vInCart && (
                                     <span className="bg-white/20 text-white px-1 rounded text-[9px]">
                                       ×{vInCart.quantity}
@@ -1340,14 +1889,34 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
 
                       {/* LOOSE SALE / DOSE QUICK BUTTON */}
                       {allowLoose && (
-                        <div className="mt-2 pt-1.5 border-t border-gray-100 flex items-center justify-between">
+                        <div className="mt-2 pt-1.5 border-t border-gray-100 flex items-center justify-between gap-2">
                           <button
                             type="button"
+                            disabled={isStockEnforced && totalLooseCapacity <= 0}
                             onClick={() => openLooseDoseModal(prod)}
-                            className="text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100 transition-colors inline-block"
+                            className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-colors inline-flex items-center gap-1 ${
+                              isStockEnforced && totalLooseCapacity <= 0
+                                ? 'border-red-200 bg-red-50 text-red-500 cursor-not-allowed'
+                                : 'border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100 cursor-pointer'
+                            }`}
                           >
-                            <span>खुला बिक्री (Loose Sale)</span>
+                            <span>
+                              {isOpenLooseExpired
+                                ? 'खुला बैच एक्सपायर्ड'
+                                : isStockEnforced && totalLooseCapacity <= 0
+                                ? 'खुला स्टॉक खत्म'
+                                : 'खुला बिक्री (Loose Sale)'}
+                            </span>
                           </button>
+                          {stockConfig.enabled && isOpenLooseExpired ? (
+                            <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">
+                              खुला स्टॉक एक्सपायर
+                            </span>
+                          ) : stockConfig.enabled && remLooseBase > 0 ? (
+                            <span className="text-[10px] font-bold text-blue-700 bg-blue-50/80 border border-blue-200 px-2 py-0.5 rounded-md">
+                              खुला शेष: {formatBaseUnitDisplay(remLooseBase, catInfo.baseUnit)}
+                            </span>
+                          ) : null}
                         </div>
                       )}
                     </div>
@@ -1650,11 +2219,31 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                 </div>
               ) : (
                   <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
-                    {cartItems.map((item, idx) => {
+                    {effectiveCartItems.map((item, idx) => {
                       const allocItem = allocation.allocatedItems[idx];
                       const lineTotal = item.quantity * item.originalSellingPrice;
                       const isLoose = item.saleType === 'loose';
                       const isPack = !isLoose;
+
+                      const cartProd = products.find(p => p.id === item.productId);
+                      const cartProdVariants = cartProd ? getProductVariants(cartProd) : [];
+                      const cartTargetVariant = cartProd
+                        ? (cartProdVariants.find(v => v.id === item.variantId) || (cartProdVariants.length === 1 ? cartProdVariants[0] : undefined))
+                        : undefined;
+                      const eligibleBatchesForRow =
+                        stockConfig.enabled && cartProd && cartTargetVariant
+                          ? calculateVariantStockSummary(
+                              cartProd,
+                              cartTargetVariant,
+                              stockConfig.defaultLowStockThreshold ?? 10,
+                              stockConfig.expiryWarningDays ?? 122
+                            ).batches.filter(
+                              b =>
+                                b.status !== 'expired_written_off' &&
+                                (b.remainingPackQuantity || 0) > 0 &&
+                                (stockConfig.blockExpiredSale === false || b.alert.isSaleable)
+                            )
+                          : [];
 
                       // Equivalent quantity calculation for packs (e.g. 500 ml or 1.5 L)
                       const equivalentQtyStr = (isPack && item.packSizeValue)
@@ -1691,12 +2280,48 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                                   </span>
                                 )}
 
-                                {item.batchNumber && (
+                                {stockConfig.enabled && item.batchAllocations && item.batchAllocations.length > 0 ? (
+                                  <span
+                                    className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                                      item.hasNearExpiryAllocation
+                                        ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                        : 'bg-teal-50 text-teal-800 border-teal-200'
+                                    }`}
+                                  >
+                                    {item.hasNearExpiryAllocation && <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />}
+                                    <span>
+                                      {item.selectedBatchId ? 'चयनित बैच: ' : 'FEFO बैच: '}
+                                      {item.batchAllocations
+                                        .map(a => `${a.batchNumber || 'बैच'} (${a.packsUsed}${a.expiryDate ? ` · ${formatBatchDateDisplay(a.expiryDate)}` : ''})`)
+                                        .join(' + ')}
+                                    </span>
+                                  </span>
+                                ) : item.batchNumber ? (
                                   <span className="text-[9px] text-gray-500 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
                                     बैच: {item.batchNumber}
                                   </span>
-                                )}
+                                ) : null}
                               </div>
+
+                              {/* Optional Manual Batch Override when Stock ON & >1 eligible batch exists */}
+                              {stockConfig.enabled && isPack && eligibleBatchesForRow.length > 1 && (
+                                <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-[10px] font-bold text-gray-500">बैच बदलें:</span>
+                                  <select
+                                    value={item.selectedBatchId || ''}
+                                    onChange={e => updateCartItemBatchSelection(item.cartItemId, e.target.value)}
+                                    className="text-[10px] font-bold bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-gray-800 focus:ring-1 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                                  >
+                                    <option value="">ऑटो FEFO (सबसे पहले एक्सपायर)</option>
+                                    {eligibleBatchesForRow.map(b => (
+                                      <option key={b.id} value={b.id}>
+                                        {b.batchNumber || 'बिना बैच नं.'} · {b.remainingPackQuantity} शेष · ₹{b.effectivePurchaseCost}
+                                        {b.expiryDate ? ` · Exp: ${formatBatchDateDisplay(b.expiryDate, b.expiryDisplay)}` : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
 
                               {/* Pricing & Cost Transparency Display */}
                               <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500 flex-wrap">
@@ -1741,7 +2366,18 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                             {/* Quantity (मात्रा) */}
                             <div className="col-span-5">
                               <label className="text-[10px] font-bold text-gray-500 block mb-0.5">मात्रा (Qty):</label>
-                              {isPack ? (
+                              {isPack ? (() => {
+                                const cartProd = products.find(p => p.id === item.productId);
+                                const isEnforced = stockConfig.enabled && !stockConfig.allowNegativeStock;
+                                let maxPackForRow = Infinity;
+                                if (stockConfig.enabled && cartProd) {
+                                  const cartProdVars = getProductVariants(cartProd);
+                                  const { remainingPacks } = getRemainingProductStock(cartProd, item.cartItemId);
+                                  const sKey = item.variantId || (cartProdVars.length === 1 ? cartProdVars[0].id : '__base__');
+                                  maxPackForRow = Math.max(0, remainingPacks[sKey] ?? 0);
+                                }
+                                const plusDisabled = isEnforced && item.quantity >= maxPackForRow;
+                                return (
                                 <div>
                                   <div className="flex items-center gap-1">
                                     <button
@@ -1754,6 +2390,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                                     <input
                                       type="number"
                                       min="1"
+                                      max={isEnforced && maxPackForRow !== Infinity ? Math.max(1, maxPackForRow) : undefined}
                                       step="1"
                                       value={item.quantity}
                                       onChange={e => updateItemQty(item.cartItemId, Math.max(1, parseInt(e.target.value) || 1))}
@@ -1761,8 +2398,13 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                                     />
                                     <button
                                       type="button"
+                                      disabled={plusDisabled}
                                       onClick={() => updateItemQty(item.cartItemId, item.quantity + 1)}
-                                      className="w-7 h-7 bg-emerald-50 hover:bg-emerald-100 active:scale-95 text-emerald-800 rounded-lg font-bold flex items-center justify-center text-sm transition-transform"
+                                      className={`w-7 h-7 rounded-lg font-bold flex items-center justify-center text-sm transition-transform ${
+                                        plusDisabled
+                                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                          : 'bg-emerald-50 hover:bg-emerald-100 active:scale-95 text-emerald-800 cursor-pointer'
+                                      }`}
                                     >
                                       +
                                     </button>
@@ -1778,8 +2420,16 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                                         : `${item.quantity} ${item.unit} = ${equivalentQtyStr}`}
                                     </div>
                                   )}
+                                  {stockConfig.enabled && maxPackForRow !== Infinity && (
+                                    <div className={`text-[10px] font-semibold mt-0.5 ${
+                                      maxPackForRow - item.quantity <= 0 ? 'text-amber-700' : 'text-gray-500'
+                                    }`}>
+                                      स्टॉक सीमा: {maxPackForRow} {item.unit} (बिल बाद शेष: {Math.max(0, maxPackForRow - item.quantity)})
+                                    </div>
+                                  )}
                                 </div>
-                              ) : (() => {
+                                );
+                              })() : (() => {
                                   const isLargeUnit = item.looseUnit === 'kg' || item.looseUnit === 'L' || item.looseUnit === 'Ltr' || item.looseUnit === 'लीटर' || item.looseUnit === 'किलो';
                                   const stepVal = isLargeUnit ? 1 : 10;
                                   const quickPills = isLargeUnit ? [1, 2, 5, 10, 25] : [25, 50, 100, 250, 500];
@@ -2252,6 +2902,40 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
         const lineProfit = Math.round((lineTotal - lineCost) * 100) / 100;
         const profitMargin = lineTotal > 0 ? Math.round((lineProfit / lineTotal) * 100) : 0;
 
+        const modalStockState = stockConfig.enabled ? getRemainingProductStock(looseModalProduct) : null;
+        const isModalLooseExpired = Boolean(modalStockState?.isOpenLooseExpired);
+        const availModalLooseBase = modalStockState ? Math.max(0, modalStockState.remainingLooseBase) : 0;
+        const activeModalVariant = looseSelectedVariant || variants[0] || null;
+        const maxModalBaseAllowed = stockConfig.enabled
+          ? getLooseMaxAvailableBase(looseModalProduct, activeModalVariant)
+          : Infinity;
+        const isLooseStockExceeded =
+          stockConfig.enabled &&
+          !stockConfig.allowNegativeStock &&
+          (isModalLooseExpired || reqBaseQty > maxModalBaseAllowed);
+
+        const activeVarBasePerPack = activeModalVariant ? getVariantBasePerPack(looseModalProduct, activeModalVariant) : 0;
+        const autoOpenShortage = Math.max(0, reqBaseQty - availModalLooseBase);
+        const autoOpenPacksNeeded =
+          stockConfig.enabled &&
+          stockConfig.autoOpenPackOnLooseSale !== false &&
+          !isModalLooseExpired &&
+          autoOpenShortage > 0 &&
+          activeVarBasePerPack > 0
+            ? Math.ceil(autoOpenShortage / activeVarBasePerPack)
+            : 0;
+        const looseFefoPreview =
+          autoOpenPacksNeeded > 0 && activeModalVariant
+            ? allocateFefoBatches({
+                product: looseModalProduct,
+                variant: activeModalVariant,
+                requestedPacks: autoOpenPacksNeeded,
+                allowNegativeStock: Boolean(stockConfig.allowNegativeStock),
+                blockExpiredSale: stockConfig.blockExpiredSale !== false,
+                expiryWarningDays: stockConfig.expiryWarningDays ?? 122,
+              })
+            : null;
+
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto border border-gray-200">
@@ -2300,6 +2984,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                   <div className="flex gap-1.5 flex-wrap">
                     {variants.map(v => {
                       const isSelected = looseSelectedVariant?.id === v.id;
+                      const vRemPacks = modalStockState ? Math.max(0, modalStockState.remainingPacks[v.id] ?? 0) : 0;
                       return (
                         <button
                           key={v.id}
@@ -2316,6 +3001,19 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                           <span className={isSelected ? 'text-emerald-100' : 'text-gray-500'}>
                             · ₹{v.costPrice || 0}
                           </span>
+                          {stockConfig.enabled && (
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                isSelected
+                                  ? 'bg-white/20 text-white'
+                                  : vRemPacks <= 0
+                                  ? 'bg-red-50 text-red-600'
+                                  : 'bg-emerald-50 text-emerald-700'
+                              }`}
+                            >
+                              {vRemPacks} पैक
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -2487,7 +3185,41 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                       अनुमानित लाभ: ₹{lineProfit} ({profitMargin}%)
                     </span>
                   </div>
+                  {stockConfig.enabled && (
+                    <div className="flex items-center justify-between pt-1 border-t border-gray-200 text-[11px]">
+                      <span className="text-blue-700 font-semibold">
+                        उपलब्ध खुला: {formatBaseUnitDisplay(availModalLooseBase, catInfo.baseUnit)}
+                      </span>
+                      <span className={`font-bold ${isLooseStockExceeded ? 'text-red-600' : 'text-emerald-700'}`}>
+                        अधिकतम बिल योग्य: {formatBaseUnitDisplay(maxModalBaseAllowed === Infinity ? 0 : maxModalBaseAllowed, catInfo.baseUnit)}
+                      </span>
+                    </div>
+                  )}
                 </div>
+
+                {isModalLooseExpired ? (
+                  <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-[11px] font-bold text-red-800 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>
+                      खुला स्टॉक ({looseModalProduct.looseStock?.lastOpenedBatchNumber || 'बैच'}) एक्सपायरी तिथि पार कर चुका है — पहले Stock पैनल में इसे निस्तारित करें।
+                    </span>
+                  </div>
+                ) : isLooseStockExceeded ? (
+                  <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-[11px] font-bold text-red-800 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>
+                      स्टॉक अपर्याप्त! अधिकतम {formatBaseUnitDisplay(maxModalBaseAllowed, catInfo.baseUnit)} ही बिल किया जा सकता है।
+                    </span>
+                  </div>
+                ) : autoOpenPacksNeeded > 0 && looseFefoPreview ? (
+                  <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-[11px] font-bold text-blue-900 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-blue-700 shrink-0" />
+                    <span>
+                      {autoOpenPacksNeeded} सीलबंद पैक स्वतः खुलेगा (FEFO बैच: {looseFefoPreview.batchNumbersSummary || 'उपलब्ध'}
+                      {looseFefoPreview.primaryExpiryDate ? ` · Exp: ${formatBatchDateDisplay(looseFefoPreview.primaryExpiryDate)}` : ''})
+                    </span>
+                  </div>
+                ) : null}
 
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   <button
@@ -2502,8 +3234,9 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                   </button>
                   <button
                     type="button"
+                    disabled={isLooseStockExceeded || reqBaseQty <= 0}
                     onClick={handleConfirmLooseSale}
-                    className="py-2.5 px-4 bg-[#2D5A27] text-white rounded-xl font-bold text-xs hover:bg-[#23461e] active:scale-95 transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="py-2.5 px-4 bg-[#2D5A27] text-white rounded-xl font-bold text-xs hover:bg-[#23461e] active:scale-95 transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Check className="w-4 h-4" />
                     बिल में जोड़ें

@@ -49,7 +49,7 @@ interface AdminNavSectionItem {
 }
 
 const ADMIN_NAV_SECTIONS: AdminNavSectionItem[] = [
-  { id: 'accounting', titleHi: 'AI मुनीम जी', subtitleEn: '(Accounting)', icon: Calculator, tag: 'AI' },
+  { id: 'accounting', titleHi: 'कृषि बिलिंग', subtitleEn: '(Accounting)', icon: Calculator },
   { id: 'orders', titleHi: 'ऑर्डर्स', subtitleEn: '(Orders)', icon: Package },
   { id: 'delivery', titleHi: 'डिलीवरी सेटिंग्स', subtitleEn: '(Delivery)', icon: Truck },
   { id: 'content', titleHi: 'कंटेंट', subtitleEn: '(Content)', icon: Layout },
@@ -1809,7 +1809,7 @@ const Admin: React.FC = () => {
           </div>
         </div>
       ) : activeTab === 'accounting' ? (
-        <SafeErrorBoundary fallbackTitle="AI मुनीम जी (Accounting) लोड करने में समस्या आई">
+        <SafeErrorBoundary fallbackTitle="कृषि बिलिंग (Accounting) लोड करने में समस्या आई">
           <Suspense fallback={<AdminTabFallback />}>
             <AccountingDashboard />
           </Suspense>

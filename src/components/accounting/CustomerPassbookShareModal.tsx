@@ -15,6 +15,7 @@ import {
   Eye,
   CheckCircle2,
   AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { AccountingCustomer, CustomerLedgerEntry } from '../../types/accounting';
 import {
@@ -141,6 +142,26 @@ export const CustomerPassbookShareModal: React.FC<CustomerPassbookShareModalProp
       cancelled = true;
     };
   }, [customer, ledgerEntries, logoSource, canShareImage]);
+
+  const handleRetryImage = async () => {
+    if (!canShareImage) return;
+    setImageLoading(true);
+    setImageError(null);
+    try {
+      const res = await generateCustomerPassbookImage(
+        customer,
+        ledgerEntries,
+        logoSource || '/icon-192.png'
+      );
+      setGeneratedImage(res);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'पासबुक इमेज बनाने में त्रुटि हुई। कृपया PDF विकल्प का उपयोग करें।';
+      setImageError(msg);
+    } finally {
+      setImageLoading(false);
+    }
+  };
 
   const notifyPdfRequired = () => {
     setHighlightPdfBox(true);
@@ -422,8 +443,16 @@ export const CustomerPassbookShareModal: React.FC<CustomerPassbookShareModalProp
               <span>HD पासबुक इमेज तैयार हो रही है...</span>
             </div>
           ) : imageError ? (
-            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-semibold">
-              {imageError}
+            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-semibold flex flex-col items-center justify-center gap-2 text-center">
+              <span>{imageError}</span>
+              <button
+                type="button"
+                onClick={handleRetryImage}
+                className="px-3.5 py-1.5 bg-white hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>पुनः प्रयास करें</span>
+              </button>
             </div>
           ) : generatedImage ? (
             <div className="rounded-xl border border-gray-200 overflow-hidden bg-gray-50 max-h-64 overflow-y-auto">

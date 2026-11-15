@@ -6,7 +6,6 @@ import {
   MapPin, 
   ShieldCheck, 
   PackageCheck, 
-  AlertCircle, 
   PhoneCall, 
   FileText, 
   RotateCcw, 
@@ -41,6 +40,9 @@ export const ShippingDeliveryPolicy: React.FC = () => {
     introText: isEnglish ? (rawShipData === defaultShipping ? rawShipData.introText : translateText(rawShipData.introText)) : rawShipData.introText,
     coverageAreaText: isEnglish ? (rawShipData === defaultShipping ? rawShipData.coverageAreaText : translateText(rawShipData.coverageAreaText || '')) : rawShipData.coverageAreaText,
     standardDeliveryTime: isEnglish ? (rawShipData === defaultShipping ? rawShipData.standardDeliveryTime : translateText(rawShipData.standardDeliveryTime || '')) : rawShipData.standardDeliveryTime,
+    transparentFeeSummary: isEnglish && rawShipData !== defaultShipping && rawShipData.transparentFeeSummary ? translateText(rawShipData.transparentFeeSummary) : rawShipData.transparentFeeSummary,
+    transparentFeeNote: isEnglish && rawShipData !== defaultShipping && rawShipData.transparentFeeNote ? translateText(rawShipData.transparentFeeNote) : rawShipData.transparentFeeNote,
+    vehicleWeightNote: isEnglish && rawShipData !== defaultShipping && rawShipData.vehicleWeightNote ? translateText(rawShipData.vehicleWeightNote) : rawShipData.vehicleWeightNote,
     sections: (rawShipData.sections || []).map(sec => ({
       ...sec,
       title: isEnglish ? (rawShipData === defaultShipping ? sec.title : translateText(sec.title)) : sec.title,
@@ -124,13 +126,13 @@ export const ShippingDeliveryPolicy: React.FC = () => {
         >
           <div className="flex items-center gap-2 text-amber-800 font-bold text-xs">
             <PackageCheck className="w-4 h-4" />
-            <span>मुफ्त डिलीवरी सीमा (Free Delivery)</span>
+            <span>{isEnglish ? 'Transparent Delivery Fee' : 'पारदर्शी डिलीवरी शुल्क'}</span>
           </div>
           <p className="text-xs font-semibold text-gray-800">
-            {shipData.freeDeliveryThreshold || '₹999 या अधिक के ऑर्डर पर मुफ्त डिलीवरी'}
+            {shipData.transparentFeeSummary || (isEnglish ? 'Calculated based on village distance and total weight' : 'गाँव की दूरी और कुल वजन के आधार पर गणना')}
           </p>
           <p className="text-[11px] text-gray-600">
-            {shipData.standardDeliveryFee || 'सामान्य ऑर्डर पर न्यूनतम शुल्क ₹30 - ₹50'}
+            {shipData.transparentFeeNote || (isEnglish ? 'The complete delivery fee is displayed clearly on the Checkout screen before confirming your order.' : 'ऑर्डर कन्फर्म करने से पहले पूरा डिलीवरी शुल्क Checkout स्क्रीन पर दिखाया जाता है।')}
           </p>
         </motion.div>
       </div>
@@ -161,21 +163,26 @@ export const ShippingDeliveryPolicy: React.FC = () => {
         </motion.div>
       )}
 
-      {/* Heavy item and Tracking Notice */}
+      {/* Vehicle & Weight Based Delivery and Tracking Notice */}
       <div className="space-y-3">
-        {shipData.heavyItemNote && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-amber-50/60 rounded-2xl p-4 border border-amber-200 text-xs text-amber-950 flex items-start gap-2.5"
-          >
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold">भारी सामग्री (Heavy Goods): </span>
-              <span>{shipData.heavyItemNote}</span>
-            </div>
-          </motion.div>
-        )}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-50/60 rounded-2xl p-4 border border-amber-200 text-xs text-amber-950 flex items-start gap-2.5"
+        >
+          <Truck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold">
+              {isEnglish ? 'Vehicle & Weight Based Delivery: ' : 'वाहन व वजन आधारित डिलीवरी: '}
+            </span>
+            <span>
+              {shipData.vehicleWeightNote ||
+                (isEnglish
+                  ? 'Home delivery charges are finalized upfront at Checkout based on your village distance and total order weight (kg). For bulk or large orders, delivery timing and vehicle arrangement are confirmed via phone call.'
+                  : 'होम डिलीवरी का शुल्क आपके गाँव की दूरी और ऑर्डर के कुल वजन (किग्रा) के अनुसार Checkout पर पहले ही तय होता है। थोक या बड़े ऑर्डर के लिए डिलीवरी समय व वाहन की पुष्टि कॉल द्वारा की जाती है।')}
+            </span>
+          </div>
+        </motion.div>
 
         {shipData.trackingInfo && (
           <motion.div

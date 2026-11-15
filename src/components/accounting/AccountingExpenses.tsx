@@ -3,8 +3,10 @@ import {
   Receipt, Plus, Trash2, Calendar, Coffee, Fuel, 
   Truck, Users, Zap, Home, Package, Wrench, Tag, 
   PlusCircle, IndianRupee, Search, X,
-  Wallet, Smartphone, Banknote
+  Wallet, Smartphone, Banknote, Share2,
+  AlertTriangle, Loader2, CheckCircle2, AlertCircle
 } from 'lucide-react';
+import { useAppContext } from '../../context/AppContext';
 import { 
   AccountingExpense, 
   AccountingExpenseCategory 
@@ -16,13 +18,29 @@ import {
   fetchExpenseCategories, 
   addCustomExpenseCategory 
 } from '../../services/accountingService';
+import { ExpenseExportModal } from './ExpenseExportModal';
+import {
+  extractExpenseMonthKey,
+  formatMonthKeyLabels,
+  getAvailableExpenseMonths,
+} from '../../utils/expenseExportGenerator';
 
-export const AccountingExpenses: React.FC = () => {
+interface AccountingExpensesProps {
+  onExpenseChange?: () => void;
+}
+
+export const AccountingExpenses: React.FC<AccountingExpensesProps> = ({ onExpenseChange }) => {
+  const { isAdmin } = useAppContext();
   const [expenses, setExpenses] = useState<AccountingExpense[]>([]);
   const [categories, setCategories] = useState<AccountingExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | 'all'>('month');
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // New Expense Modal
   const [showAddModal, setShowAddModal] = useState(false);
@@ -38,6 +56,13 @@ export const AccountingExpenses: React.FC = () => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatHindi, setNewCatHindi] = useState('');
+
+  // Delete Confirmation & Inline Notification State
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<AccountingExpense | null>(null);
+  const [isDeletingExpense, setIsDeletingExpense] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [statusToast, setStatusToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -59,13 +84,30 @@ export const AccountingExpenses: React.FC = () => {
     loadData();
   }, []);
 
+  const availableMonths = useMemo(() => {
+    const months = getAvailableExpenseMonths(expenses);
+    if (!months.some(m => m.monthKey === selectedMonthKey)) {
+      const labels = formatMonthKeyLabels(selectedMonthKey);
+      return [
+        {
+          monthKey: selectedMonthKey,
+          year: labels.year,
+          month: labels.month,
+          labelHindi: labels.labelHindi,
+          labelEn: labels.labelEn,
+          count: 0,
+          totalAmount: 0,
+        },
+        ...months,
+      ];
+    }
+    return months;
+  }, [expenses, selectedMonthKey]);
+
   // Filtered Expenses
   const filteredExpenses = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     const now = new Date();
-    
-    // First day of this month
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
     
     // 7 days ago
     const weekAgoDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -77,10 +119,10 @@ export const AccountingExpenses: React.FC = () => {
 
       if (dateFilter === 'today') return exp.date === today;
       if (dateFilter === 'week') return exp.date >= weekAgoDate;
-      if (dateFilter === 'month') return exp.date >= startOfMonth;
+      if (dateFilter === 'month') return extractExpenseMonthKey(exp) === selectedMonthKey;
       return true;
     });
-  }, [expenses, dateFilter, categoryFilter]);
+  }, [expenses, dateFilter, selectedMonthKey, categoryFilter]);
 
   // Aggregate Metrics
   const totalExpenseAmount = useMemo(() => {
@@ -116,8 +158,9 @@ export const AccountingExpenses: React.FC = () => {
   // Handle Save Expense
   const handleSaveExpense = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (expenseAmount <= 0) {
-      alert('कृपया वैध खर्च राशि दर्ज करें।');
+      setFormError('कृपया वैध खर्च राशि दर्ज करें।');
       return;
     }
 
@@ -138,12 +181,14 @@ export const AccountingExpenses: React.FC = () => {
       });
 
       await loadData();
+      onExpenseChange?.();
       setShowAddModal(false);
       setExpenseAmount(0);
       setRecipientName('');
       setDescription('');
+      setStatusToast({ type: 'success', text: 'नया खर्च सफलतापूर्वक सुरक्षित हो गया।' });
     } catch (err: any) {
-      alert('खर्च सुरक्षित करने में त्रुटि: ' + err.message);
+      setFormError('खर्च सुरक्षित करने में त्रुटि: ' + (err?.message || 'अज्ञात त्रुटि'));
     } finally {
       setIsSubmitting(false);
     }
@@ -164,23 +209,84 @@ export const AccountingExpenses: React.FC = () => {
       setShowCategoryModal(false);
       setNewCatName('');
       setNewCatHindi('');
+      setStatusToast({ type: 'success', text: `नई श्रेणी "${created.hindiName}" जोड़ी गई।` });
     } catch (err: any) {
-      alert('कैटेगरी बनाने में त्रुटि: ' + err.message);
+      setStatusToast({
+        type: 'error',
+        text: 'कैटेगरी बनाने में त्रुटि: ' + (err?.message || 'अज्ञात त्रुटि'),
+      });
     }
   };
 
-  const handleDeleteExpense = async (id: string, name: string) => {
-    if (!window.confirm(`क्या आप इस खर्च (${name}) को डिलीट करना चाहते हैं?`)) return;
+  const handleRequestDeleteExpense = (exp: AccountingExpense) => {
+    if (!isAdmin) {
+      setStatusToast({ type: 'error', text: 'केवल एडमिन ही खर्च हटा सकते हैं।' });
+      return;
+    }
+    setDeleteError(null);
+    setDeleteConfirmTarget(exp);
+  };
+
+  const handleConfirmDeleteExpense = async () => {
+    if (!deleteConfirmTarget) return;
+    if (!isAdmin) {
+      setDeleteError('केवल एडमिन ही खर्च हटा सकते हैं।');
+      return;
+    }
+
+    const targetId = deleteConfirmTarget.id;
+    setIsDeletingExpense(true);
+    setDeleteError(null);
     try {
-      await deleteAccountingExpense(id);
-      await loadData();
+      await deleteAccountingExpense(targetId);
+      // Immediately update local state so list & monthly totals refresh instantaneously
+      setExpenses(prev => prev.filter(item => item.id !== targetId));
+      setDeleteConfirmTarget(null);
+      setStatusToast({ type: 'success', text: 'खर्च रिकॉर्ड सफलतापूर्वक हटा दिया गया।' });
+      onExpenseChange?.();
     } catch (err: any) {
-      alert('डिलीट करने में त्रुटि: ' + err.message);
+      let readableMsg = err?.message || 'खर्च हटाने में त्रुटि हुई। कृपया पुनः प्रयास करें।';
+      try {
+        const parsed = JSON.parse(readableMsg);
+        if (parsed?.error) readableMsg = parsed.error;
+      } catch {
+        // Not JSON error string; use raw message
+      }
+      setDeleteError(`खर्च हटाने में असफल: ${readableMsg}`);
+    } finally {
+      setIsDeletingExpense(false);
     }
   };
 
   return (
     <div className="space-y-6">
+      {/* Inline Status Toast (Success / Error) */}
+      {statusToast && (
+        <div
+          className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 text-xs font-bold ${
+            statusToast.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              : 'bg-rose-50 border-rose-200 text-rose-900'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {statusToast.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            )}
+            <span>{statusToast.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStatusToast(null)}
+            className="text-gray-400 hover:text-gray-700 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Top Banner */}
       <div className="bg-white p-5 sm:p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -195,7 +301,13 @@ export const AccountingExpenses: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
+          >
+            <Share2 className="w-4 h-4" /> एक्सपोर्ट / शेयर
+          </button>
           <button
             onClick={() => setShowCategoryModal(true)}
             className="p-3 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-2xl text-xs font-bold flex items-center gap-1"
@@ -203,7 +315,9 @@ export const AccountingExpenses: React.FC = () => {
             <Tag className="w-4 h-4" /> + नई कैटेगरी
           </button>
           <button
+            type="button"
             onClick={() => {
+              setFormError(null);
               setExpenseAmount(0);
               setShowAddModal(true);
             }}
@@ -221,7 +335,17 @@ export const AccountingExpenses: React.FC = () => {
             <IndianRupee className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs text-gray-500 font-bold">कुल खर्च ({dateFilter === 'today' ? 'आज' : dateFilter === 'week' ? 'इस सप्ताह' : 'इस माह'})</p>
+            <p className="text-xs text-gray-500 font-bold">
+              कुल खर्च (
+              {dateFilter === 'today'
+                ? 'आज'
+                : dateFilter === 'week'
+                ? 'इस सप्ताह'
+                : dateFilter === 'month'
+                ? formatMonthKeyLabels(selectedMonthKey).labelHindi
+                : 'सभी समय'}
+              )
+            </p>
             <h3 className="text-xl font-extrabold text-rose-600">₹{totalExpenseAmount.toLocaleString()}</h3>
             <p className="text-[10px] text-gray-400">{filteredExpenses.length} प्रविष्टियां</p>
           </div>
@@ -288,18 +412,18 @@ export const AccountingExpenses: React.FC = () => {
         <div className="lg:col-span-8 space-y-4">
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
             {/* Filter Tabs */}
-            <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
-              <div className="flex gap-1 bg-gray-100 p-1 rounded-2xl text-xs font-bold">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-1">
+              <div className="flex gap-1 bg-gray-100 p-1 rounded-2xl text-xs font-bold overflow-x-auto">
                 {[
                   { id: 'today', label: 'आज (Today)' },
                   { id: 'week', label: 'इस सप्ताह' },
-                  { id: 'month', label: 'इस माह (Month)' },
+                  { id: 'month', label: 'माह अनुसार' },
                   { id: 'all', label: 'सभी' },
                 ].map(d => (
                   <button
                     key={d.id}
                     onClick={() => setDateFilter(d.id as any)}
-                    className={`px-3 py-1.5 rounded-xl transition-all ${
+                    className={`px-3 py-1.5 rounded-xl transition-all whitespace-nowrap ${
                       dateFilter === d.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
                     }`}
                   >
@@ -308,16 +432,33 @@ export const AccountingExpenses: React.FC = () => {
                 ))}
               </div>
 
-              <select
-                value={categoryFilter}
-                onChange={e => setCategoryFilter(e.target.value)}
-                className="p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold"
-              >
-                <option value="all">सभी श्रेणियां</option>
-                {categories.map(c => (
-                  <option key={c.id} value={c.id}>{c.hindiName}</option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2 flex-wrap">
+                {dateFilter === 'month' && (
+                  <select
+                    value={selectedMonthKey}
+                    onChange={e => setSelectedMonthKey(e.target.value)}
+                    aria-label="माह चुनें"
+                    className="p-2 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-bold focus:outline-none"
+                  >
+                    {availableMonths.map(m => (
+                      <option key={m.monthKey} value={m.monthKey}>
+                        {m.labelHindi} ({m.count})
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <select
+                  value={categoryFilter}
+                  onChange={e => setCategoryFilter(e.target.value)}
+                  className="p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold"
+                >
+                  <option value="all">सभी श्रेणियां</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>{c.hindiName}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Expenses List */}
@@ -354,16 +495,20 @@ export const AccountingExpenses: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <span className="font-extrabold text-sm text-rose-600">
+                      <span className="font-extrabold text-sm text-rose-600 tabular-nums">
                         ₹{exp.amount?.toLocaleString()}
                       </span>
-                      <button
-                        onClick={() => handleDeleteExpense(exp.id, exp.categoryNameHindi)}
-                        className="p-1 text-gray-400 hover:text-red-600 rounded"
-                        title="हटाएं"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleRequestDeleteExpense(exp)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          title="खर्च हटाएं"
+                          aria-label="खर्च हटाएं"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -388,6 +533,12 @@ export const AccountingExpenses: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveExpense} className="space-y-3 text-xs">
+              {formError && (
+                <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{formError}</span>
+                </div>
+              )}
               <div>
                 <label className="font-bold text-gray-700 block mb-1">खर्च की श्रेणी (Category) *</label>
                 <select
@@ -515,6 +666,103 @@ export const AccountingExpenses: React.FC = () => {
                 श्रेणी जोड़ें
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EXPENSE REPORT EXPORT & SHARE */}
+      {showExportModal && (
+        <ExpenseExportModal
+          expenses={expenses}
+          categories={categories}
+          initialMonthKey={selectedMonthKey}
+          initialCategoryId={categoryFilter}
+          onClose={() => setShowExportModal(false)}
+        />
+      )}
+
+      {/* MODAL: DELETE EXPENSE CONFIRMATION */}
+      {deleteConfirmTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-gray-100 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-extrabold text-gray-900">
+                  खर्च रिकॉर्ड हटाने की पुष्टि
+                </h3>
+                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                  क्या आप इस खर्च को हटाना चाहते हैं? यह कार्रवाई वापस नहीं की जा सकेगी।
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={isDeletingExpense}
+                onClick={() => {
+                  setDeleteConfirmTarget(null);
+                  setDeleteError(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer disabled:opacity-40"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-gray-50 border border-gray-200/80 rounded-2xl flex items-center justify-between gap-3 text-xs">
+              <div className="min-w-0">
+                <p className="font-bold text-gray-900 truncate">
+                  {deleteConfirmTarget.categoryNameHindi || deleteConfirmTarget.categoryName}
+                </p>
+                <p className="text-[11px] text-gray-500 truncate mt-0.5">
+                  {deleteConfirmTarget.date} · {deleteConfirmTarget.paymentMode === 'cash' ? 'नकद' : 'ऑनलाइन'}
+                  {deleteConfirmTarget.recipientName ? ` · ${deleteConfirmTarget.recipientName}` : ''}
+                </p>
+              </div>
+              <span className="text-sm font-extrabold text-rose-600 tabular-nums shrink-0">
+                ₹{deleteConfirmTarget.amount?.toLocaleString()}
+              </span>
+            </div>
+
+            {deleteError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-bold flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2.5 pt-1">
+              <button
+                type="button"
+                disabled={isDeletingExpense}
+                onClick={() => {
+                  setDeleteConfirmTarget(null);
+                  setDeleteError(null);
+                }}
+                className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+              >
+                रद्द करें
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingExpense}
+                onClick={handleConfirmDeleteExpense}
+                className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer disabled:opacity-60"
+              >
+                {isDeletingExpense ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>हटाया जा रहा है...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>हाँ, खर्च हटाएं</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

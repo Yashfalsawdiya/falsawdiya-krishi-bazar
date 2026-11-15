@@ -255,6 +255,22 @@
         "updatedBy": { "type": "string" }
       },
       "required": ["liquid", "solid", "updatedAt"]
+    },
+    "StockManagementConfig": {
+      "title": "StockManagementConfig",
+      "description": "Master ON/OFF configuration for pack-size-wise, batch-wise expiry tracking, and loose stock quantity management.",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "allowNegativeStock": { "type": "boolean" },
+        "autoOpenPackOnLooseSale": { "type": "boolean" },
+        "defaultLowStockThreshold": { "type": "number" },
+        "expiryWarningDays": { "type": "number" },
+        "blockExpiredSale": { "type": "boolean" },
+        "updatedAt": { "type": "number" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["enabled", "updatedAt"]
     }
   },
   "firestore": {
@@ -297,6 +313,10 @@
     "/accounting_settings/pos_loose_rate_options": {
       "schema": "POSLooseRateSettings",
       "description": "Admin-only custom loose rate dropdown options for POS billing."
+    },
+    "/accounting_settings/stock_management_config": {
+      "schema": "StockManagementConfig",
+      "description": "Admin-only master toggle and rules for stock quantity tracking and POS deduction."
     }
   }
 }

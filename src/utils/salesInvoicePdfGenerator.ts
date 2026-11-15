@@ -1,8 +1,8 @@
-import html2canvas from 'html2canvas-pro';
 import { jsPDF } from 'jspdf';
 import { AccountingSale } from '../types/accounting';
 import { formatSaleItemInvoiceTitle } from './agriPackagingUtils';
 import { loadLogoBase64 } from './invoiceGenerator';
+import { renderHtmlToSafeCanvas } from './canvasRenderUtils';
 
 export interface GenerateInvoicePdfOptions {
   sale: AccountingSale;
@@ -291,7 +291,8 @@ export function buildSalesInvoiceFileName(sale: AccountingSale, ext: 'pdf' | 'pn
 }
 
 /**
- * Renders the Sales Invoice HTML in an isolated offscreen iframe and returns a crisp 2x HTMLCanvasElement.
+ * Renders the Sales Invoice HTML using the safe offscreen DIV pipeline (no nested hidden iframes)
+ * and returns an opaque white-flattened, pixel-validated crisp HTMLCanvasElement.
  */
 export async function renderSalesInvoiceCanvas(
   sale: AccountingSale,
@@ -299,7 +300,7 @@ export async function renderSalesInvoiceCanvas(
   customLogoUrl?: string,
   meta?: InvoiceHtmlMeta
 ): Promise<HTMLCanvasElement> {
-  // Pre-load logo as Base64 to ensure instant, zero-CORS rasterization in html2canvas
+  // Pre-load logo as Base64 (with 2.5s timeout fallback) to ensure zero-CORS rasterization
   let logoDataUrl = '/icon-192.png';
   try {
     logoDataUrl = await loadLogoBase64(customLogoUrl || '/icon-192.png');
@@ -307,101 +308,12 @@ export async function renderSalesInvoiceCanvas(
     console.warn('Failed to convert logo to base64, using fallback:', err);
   }
 
-  // Create an isolated offscreen iframe so parent Tailwind v4 stylesheets (containing oklch)
-  // are never evaluated by html2canvas
-  const iframe = document.createElement('iframe');
-  iframe.style.position = 'fixed';
-  iframe.style.left = '-9999px';
-  iframe.style.top = '0';
-  iframe.style.width = '794px';
-  iframe.style.height = '1123px';
-  iframe.style.border = 'none';
-  iframe.style.visibility = 'hidden';
-  iframe.style.zIndex = '-99999';
-  document.body.appendChild(iframe);
-
-  try {
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!iframeDoc) {
-      throw new Error('प्रिंटिंग फ्रेम तैयार नहीं किया जा सका।');
-    }
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <base href="${typeof window !== 'undefined' ? window.location.origin : ''}">
-          <link rel="preconnect" href="https://fonts.googleapis.com">
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-          <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-          <style>
-            * { box-sizing: border-box; margin: 0; padding: 0; }
-            body { 
-              font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; 
-              background-color: #ffffff; 
-              color: #111827; 
-              letter-spacing: normal;
-              word-spacing: normal;
-              text-rendering: optimizeLegibility;
-              -webkit-font-smoothing: antialiased;
-            }
-            table { border-collapse: collapse; }
-          </style>
-        </head>
-        <body style="background-color: #ffffff; margin: 0; padding: 0;">
-          <div id="invoice-render-target" style="width: 794px; background-color: #ffffff;">
-            ${buildInvoiceHtml(sale, customerOutstanding, meta, logoDataUrl)}
-          </div>
-        </body>
-      </html>
-    `;
-
-    iframeDoc.open();
-    iframeDoc.write(htmlContent);
-    iframeDoc.close();
-
-    // Wait for fonts & layout
-    if (iframeDoc.fonts && iframeDoc.fonts.ready) {
-      await iframeDoc.fonts.ready;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-
-    const renderTarget = iframeDoc.getElementById('invoice-render-target') || iframeDoc.body;
-
-    const canvas = await html2canvas(renderTarget, {
-      scale: 2, // 2x resolution for crisp Hindi font and numbers
-      useCORS: true,
-      allowTaint: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-      width: 794,
-      windowWidth: 794,
-      onclone: (clonedDoc, clonedElement) => {
-        // Strip any style tags or stylesheet links that might contain unsupported oklch
-        const allStyles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-        allStyles.forEach(s => {
-          if (s.textContent && s.textContent.includes('oklch')) {
-            s.remove();
-          }
-        });
-
-        if (clonedElement) {
-          clonedElement.style.position = 'static';
-          clonedElement.style.left = '0px';
-          clonedElement.style.top = '0px';
-          clonedElement.style.display = 'block';
-          clonedElement.style.visibility = 'visible';
-        }
-      },
-    });
-
-    return canvas;
-  } finally {
-    if (iframe.parentNode) {
-      iframe.parentNode.removeChild(iframe);
-    }
-  }
+  return await renderHtmlToSafeCanvas({
+    html: buildInvoiceHtml(sale, customerOutstanding, meta, logoDataUrl),
+    width: 794,
+    scale: 2,
+    timeoutMs: 12000,
+  });
 }
 
 /**
@@ -516,24 +428,7 @@ export async function exportMonthlyPOSBillsPDF(
   const sortedSales = [...sales].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
   const totalAmount = sortedSales.reduce((sum, s) => sum + (s.finalTotal || 0), 0);
 
-  // Create isolated offscreen iframe
-  const iframe = document.createElement('iframe');
-  iframe.style.position = 'fixed';
-  iframe.style.left = '-9999px';
-  iframe.style.top = '0';
-  iframe.style.width = '794px';
-  iframe.style.height = '1123px';
-  iframe.style.border = 'none';
-  iframe.style.visibility = 'hidden';
-  iframe.style.zIndex = '-99999';
-  document.body.appendChild(iframe);
-
   try {
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!iframeDoc) {
-      throw new Error('प्रिंटिंग फ्रेम तैयार नहीं किया जा सका।');
-    }
-
     // Initialize A4 PDF (210mm x 297mm)
     const pdf = new jsPDF({
       orientation: 'portrait',
@@ -561,77 +456,20 @@ export async function exportMonthlyPOSBillsPDF(
         onProgress(i + 1, sortedSales.length, sale.invoiceNo);
       }
 
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <base href="${typeof window !== 'undefined' ? window.location.origin : ''}">
-            <link rel="preconnect" href="https://fonts.googleapis.com">
-            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-            <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-            <style>
-              * { box-sizing: border-box; margin: 0; padding: 0; }
-              body { 
-                font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; 
-                background-color: #ffffff; 
-                color: #111827; 
-                letter-spacing: normal;
-                word-spacing: normal;
-                text-rendering: optimizeLegibility;
-                -webkit-font-smoothing: antialiased;
-              }
-              table { border-collapse: collapse; }
-            </style>
-          </head>
-          <body style="background-color: #ffffff; margin: 0; padding: 0;">
-            <div id="invoice-render-target" style="width: 794px; background-color: #ffffff;">
-              ${buildInvoiceHtml(sale, 0, {
-                pageNum: i + 1,
-                totalPages: sortedSales.length,
-                monthTitle: monthLabel,
-              }, logoDataUrl)}
-            </div>
-          </body>
-        </html>
-      `;
-
-      iframeDoc.open();
-      iframeDoc.write(htmlContent);
-      iframeDoc.close();
-
-      // Wait for fonts & layout
-      if (iframeDoc.fonts && iframeDoc.fonts.ready) {
-        await iframeDoc.fonts.ready;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      const renderTarget = iframeDoc.getElementById('invoice-render-target') || iframeDoc.body;
-
-      const canvas = await html2canvas(renderTarget, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff',
+      const canvas = await renderHtmlToSafeCanvas({
+        html: buildInvoiceHtml(
+          sale,
+          0,
+          {
+            pageNum: i + 1,
+            totalPages: sortedSales.length,
+            monthTitle: monthLabel,
+          },
+          logoDataUrl
+        ),
         width: 794,
-        windowWidth: 794,
-        onclone: (clonedDoc, clonedElement) => {
-          const allStyles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-          allStyles.forEach((s) => {
-            if (s.textContent && s.textContent.includes('oklch')) {
-              s.remove();
-            }
-          });
-
-          if (clonedElement) {
-            clonedElement.style.position = 'static';
-            clonedElement.style.left = '0px';
-            clonedElement.style.top = '0px';
-            clonedElement.style.display = 'block';
-            clonedElement.style.visibility = 'visible';
-          }
-        },
+        scale: 2,
+        timeoutMs: 12000,
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -672,10 +510,6 @@ export async function exportMonthlyPOSBillsPDF(
       count: 0,
       totalAmount: 0,
     };
-  } finally {
-    if (iframe.parentNode) {
-      iframe.parentNode.removeChild(iframe);
-    }
   }
 }
 

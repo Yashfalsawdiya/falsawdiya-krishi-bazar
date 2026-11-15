@@ -179,7 +179,7 @@ export function triggerBlobDownload(blob: Blob, fileName: string): void {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+  window.setTimeout(() => URL.revokeObjectURL(url), 15000);
 }
 
 export async function shareFileOrDownloadFallback(

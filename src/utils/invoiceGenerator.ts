@@ -58,6 +58,44 @@ export const getPaymentStatusHindi = (status: string) => {
 export const loadLogoBase64 = async (logoSource?: string | ImageSource): Promise<string> => {
   const url = getHighResImageURL(logoSource) || '/icon-192.png';
   return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result: string) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timerId);
+      resolve(result);
+    };
+
+    const loadFallbackLocalIcon = () => {
+      if (url === '/icon-192.png') {
+        finish('/icon-192.png');
+        return;
+      }
+      const fallbackImg = new Image();
+      fallbackImg.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = fallbackImg.naturalWidth || 192;
+          canvas.height = fallbackImg.naturalHeight || 192;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(fallbackImg, 0, 0);
+            finish(canvas.toDataURL('image/png'));
+            return;
+          }
+        } catch {
+          // ignore
+        }
+        finish('/icon-192.png');
+      };
+      fallbackImg.onerror = () => finish('/icon-192.png');
+      fallbackImg.src = '/icon-192.png';
+    };
+
+    const timerId = window.setTimeout(() => {
+      finish('/icon-192.png');
+    }, 2500);
+
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
@@ -68,39 +106,17 @@ export const loadLogoBase64 = async (logoSource?: string | ImageSource): Promise
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL('image/png'));
+          finish(canvas.toDataURL('image/png'));
           return;
         }
       } catch (e) {
-        console.warn('Canvas conversion to base64 failed, using raw url', e);
+        console.warn('Canvas conversion to base64 failed, using local icon fallback:', e);
+        loadFallbackLocalIcon();
+        return;
       }
-      resolve(url);
+      loadFallbackLocalIcon();
     };
-    img.onerror = () => {
-      if (url !== '/icon-192.png') {
-        const fallbackImg = new Image();
-        fallbackImg.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = fallbackImg.naturalWidth || 192;
-            canvas.height = fallbackImg.naturalHeight || 192;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(fallbackImg, 0, 0);
-              resolve(canvas.toDataURL('image/png'));
-              return;
-            }
-          } catch {
-            // ignore
-          }
-          resolve('/icon-192.png');
-        };
-        fallbackImg.onerror = () => resolve('/icon-192.png');
-        fallbackImg.src = '/icon-192.png';
-      } else {
-        resolve('/icon-192.png');
-      }
-    };
+    img.onerror = loadFallbackLocalIcon;
     img.src = url;
   });
 };

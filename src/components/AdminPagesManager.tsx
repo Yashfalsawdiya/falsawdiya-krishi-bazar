@@ -1810,11 +1810,11 @@ const ShippingPolicyEditor: React.FC<{
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">मुफ्त डिलीवरी न्यूनतम सीमा (Free Delivery Threshold)</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">पारदर्शी डिलीवरी शुल्क - मुख्य लाइन</label>
             <input
               type="text"
-              value={data.freeDeliveryThreshold || ''}
-              onChange={e => onChange({ ...data, freeDeliveryThreshold: e.target.value })}
+              value={data.transparentFeeSummary ?? 'गाँव की दूरी और कुल वजन के आधार पर गणना'}
+              onChange={e => onChange({ ...data, transparentFeeSummary: e.target.value })}
               className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 font-semibold text-emerald-700"
             />
           </div>
@@ -1822,20 +1822,20 @@ const ShippingPolicyEditor: React.FC<{
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">सामान्य डिलीवरी शुल्क (Delivery Fee)</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">पारदर्शी डिलीवरी शुल्क - Checkout नोट</label>
             <input
               type="text"
-              value={data.standardDeliveryFee || ''}
-              onChange={e => onChange({ ...data, standardDeliveryFee: e.target.value })}
+              value={data.transparentFeeNote ?? 'ऑर्डर कन्फर्म करने से पहले पूरा डिलीवरी शुल्क Checkout स्क्रीन पर दिखाया जाता है।'}
+              onChange={e => onChange({ ...data, transparentFeeNote: e.target.value })}
               className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">भारी पार्सल नोट (Heavy Item Note)</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">वाहन व वजन आधारित डिलीवरी नोट</label>
             <input
               type="text"
-              value={data.heavyItemNote || ''}
-              onChange={e => onChange({ ...data, heavyItemNote: e.target.value })}
+              value={data.vehicleWeightNote ?? 'होम डिलीवरी का शुल्क आपके गाँव की दूरी और ऑर्डर के कुल वजन (किग्रा) के अनुसार Checkout पर पहले ही तय होता है। थोक या बड़े ऑर्डर के लिए डिलीवरी समय व वाहन की पुष्टि कॉल द्वारा की जाती है।'}
+              onChange={e => onChange({ ...data, vehicleWeightNote: e.target.value })}
               className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 text-amber-800"
             />
           </div>

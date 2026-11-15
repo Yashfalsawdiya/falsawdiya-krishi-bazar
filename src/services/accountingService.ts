@@ -21,9 +21,24 @@ import {
   AccountingAuditLog,
   MonthlyPOSExportMeta,
   POSLooseRateSettings,
-  CustomLooseRateOption
+  CustomLooseRateOption,
+  StockManagementConfig
 } from '../types/accounting';
-import { POS_LOOSE_RATE_CACHE_KEY, getCachedLooseRateSettings } from '../utils/agriPackagingUtils';
+import {
+  POS_LOOSE_RATE_CACHE_KEY,
+  getCachedLooseRateSettings,
+  normalizeToBaseUnit,
+  calculateExpiryAlert,
+  getProductVariants,
+} from '../utils/agriPackagingUtils';
+import {
+  allocateFefoBatches,
+  calculateProductHealthSummary,
+  calculateVariantStockSummary,
+  sanitizeBatchForFirestore,
+  stripUndefinedDeep,
+  syncProductVariantsWithBatches,
+} from '../utils/batchInventoryUtils';
 
 export const DEFAULT_EXPENSE_CATEGORIES: AccountingExpenseCategory[] = [
   { id: 'supplier_payment', name: 'Supplier Payment', hindiName: 'सप्लायर भुगतान (थोक खरीद)', icon: 'Truck', isSystem: true },
@@ -171,11 +186,15 @@ export async function fetchAccountingProducts(): Promise<AccountingProduct[]> {
 export async function saveAccountingProduct(product: Omit<AccountingProduct, 'id' | 'createdAt' | 'updatedAt'>, id?: string): Promise<string> {
   const now = Date.now();
   const prodRef = id ? doc(db, 'accounting_products', id) : doc(collection(db, 'accounting_products'));
-  const payload = {
+  const normalizedBatches = Array.isArray(product.batches)
+    ? product.batches.map(b => ({ ...b, productId: prodRef.id }))
+    : undefined;
+  const payload = stripUndefinedDeep({
     ...product,
+    ...(normalizedBatches !== undefined ? { batches: normalizedBatches } : {}),
     updatedAt: now,
     ...(id ? {} : { createdAt: now }),
-  };
+  });
   await setDoc(prodRef, payload, { merge: true });
   return prodRef.id;
 }
@@ -185,22 +204,438 @@ export async function deleteAccountingProduct(productId: string): Promise<void> 
 }
 
 /**
- * Opens one or more sealed packs of a specific packaging variant
+ * Adds a new Batch or updates an existing Batch for a product variant,
+ * recomputes variant & product saleable stock, and logs an audit movement.
+ */
+export async function upsertProductBatch(params: {
+  productId: string;
+  variantId: string;
+  batchId?: string; // Provide to edit existing batch
+  addQtyToExistingBatchId?: string; // Provide to restock/add packs into existing batch
+  batchNumber?: string;
+  manufacturingDate?: string;
+  mfgDisplay?: string;
+  expiryDate?: string;
+  expiryDisplay?: string;
+  purchasePricePerPack?: number;
+  quantityPacks: number; // Opening qty (for new), target remaining qty (for edit), or delta qty (for addQtyToExistingBatchId)
+  notes?: string;
+  supplierId?: string;
+  purchaseInvoiceNo?: string;
+  purchaseDate?: string;
+  movementType?: StockMovementLog['type'];
+  reason?: string;
+}): Promise<StockBatch> {
+  const {
+    productId,
+    variantId,
+    batchId,
+    addQtyToExistingBatchId,
+    batchNumber,
+    manufacturingDate,
+    mfgDisplay,
+    expiryDate,
+    expiryDisplay,
+    purchasePricePerPack,
+    quantityPacks,
+    notes,
+    supplierId,
+    purchaseInvoiceNo,
+    purchaseDate,
+    movementType = 'opening',
+    reason,
+  } = params;
+
+  const prodRef = doc(db, 'accounting_products', productId);
+  const prodSnap = await getDoc(prodRef);
+  if (!prodSnap.exists()) throw new Error('उत्पाद नहीं मिला');
+
+  const prod = { id: prodSnap.id, ...prodSnap.data() } as AccountingProduct;
+  const variants = getProductVariants(prod);
+  const targetVar = variants.find(v => v.id === variantId) || variants[0];
+  if (!targetVar) throw new Error('पैकेजिंग वेरिएंट नहीं मिला');
+
+  const now = Date.now();
+  const dateStr = new Date(now).toISOString().split('T')[0];
+
+  // Capture existing unbatched counts before batch array changes so legacy unbatched packs are preserved
+  const unbatchedOverride: Record<string, number> = {};
+  for (const v of variants) {
+    unbatchedOverride[v.id] = calculateVariantStockSummary(prod, v).unbatchedPacks;
+  }
+
+  const existingBatches: StockBatch[] = Array.isArray(prod.batches)
+    ? prod.batches.map(b => ({ ...b }))
+    : [];
+
+  const safeQty = Math.max(0, Number(quantityPacks) || 0);
+  let savedBatch: StockBatch;
+  let qtyDelta = 0;
+
+  const targetEditId = addQtyToExistingBatchId || batchId;
+  const existingIdx = targetEditId ? existingBatches.findIndex(b => b.id === targetEditId) : -1;
+
+  if (existingIdx !== -1 && addQtyToExistingBatchId) {
+    const prev = existingBatches[existingIdx];
+    qtyDelta = safeQty;
+    const nextRem = (prev.remainingPackQuantity || 0) + safeQty;
+    savedBatch = sanitizeBatchForFirestore({
+      ...prev,
+      initialPackQuantity: (prev.initialPackQuantity || 0) + safeQty,
+      remainingPackQuantity: nextRem,
+      purchasePricePerPack:
+        purchasePricePerPack !== undefined ? purchasePricePerPack : prev.purchasePricePerPack,
+      status: nextRem > 0 ? 'active' : 'exhausted',
+      updatedAt: now,
+    });
+    existingBatches[existingIdx] = savedBatch;
+  } else if (existingIdx !== -1 && batchId) {
+    const prev = existingBatches[existingIdx];
+    qtyDelta = safeQty - (prev.remainingPackQuantity || 0);
+    const updatedInit = Math.max(prev.initialPackQuantity || 0, safeQty);
+    savedBatch = sanitizeBatchForFirestore({
+      ...prev,
+      batchNumber: batchNumber !== undefined ? batchNumber : prev.batchNumber,
+      manufacturingDate: manufacturingDate !== undefined ? manufacturingDate : prev.manufacturingDate,
+      mfgDisplay: mfgDisplay !== undefined ? mfgDisplay : prev.mfgDisplay,
+      expiryDate: expiryDate !== undefined ? expiryDate : prev.expiryDate,
+      expiryDisplay: expiryDisplay !== undefined ? expiryDisplay : prev.expiryDisplay,
+      purchasePricePerPack:
+        purchasePricePerPack !== undefined ? purchasePricePerPack : prev.purchasePricePerPack,
+      initialPackQuantity: updatedInit,
+      remainingPackQuantity: safeQty,
+      notes: notes !== undefined ? notes : prev.notes,
+      status: prev.status === 'expired_written_off' && safeQty === 0
+        ? 'expired_written_off'
+        : safeQty > 0
+        ? 'active'
+        : 'exhausted',
+      dismissedWarnings: [], // Reset dismissed warnings if admin edited metadata
+      updatedAt: now,
+    });
+    existingBatches[existingIdx] = savedBatch;
+  } else {
+    const newId = `batch_${now}_${Math.random().toString(36).slice(2, 6)}`;
+    qtyDelta = safeQty;
+    savedBatch = sanitizeBatchForFirestore({
+      id: newId,
+      productId,
+      variantId: targetVar.id,
+      batchNumber,
+      manufacturingDate,
+      mfgDisplay,
+      expiryDate,
+      expiryDisplay,
+      purchasePricePerPack,
+      initialPackQuantity: safeQty,
+      remainingPackQuantity: safeQty,
+      status: safeQty > 0 ? 'active' : 'exhausted',
+      notes,
+      supplierId,
+      purchaseInvoiceNo,
+      purchaseDate: purchaseDate || dateStr,
+      createdAt: now,
+      updatedAt: now,
+    });
+    existingBatches.push(savedBatch);
+  }
+
+  const synced = syncProductVariantsWithBatches(
+    prod,
+    variants,
+    existingBatches,
+    122,
+    unbatchedOverride
+  );
+
+  const wb = writeBatch(db);
+  wb.update(
+    prodRef,
+    stripUndefinedDeep({
+      batches: synced.cleanedBatches,
+      packagingVariants: synced.updatedVariants,
+      currentStock: synced.totalSaleablePacks,
+      updatedAt: now,
+    })
+  );
+
+  if (qtyDelta !== 0 || !batchId) {
+    const updatedVar = synced.updatedVariants.find(v => v.id === targetVar.id);
+    const movRef = doc(collection(db, 'accounting_stock_movements'));
+    const movLog: StockMovementLog = stripUndefinedDeep({
+      id: movRef.id,
+      timestamp: now,
+      date: dateStr,
+      productId,
+      productName: prod.hindiName || prod.name,
+      variantId: targetVar.id,
+      variantLabel: targetVar.label,
+      batchId: savedBatch.id,
+      batchNumber: savedBatch.batchNumber,
+      expiryDate: savedBatch.expiryDate,
+      purchaseCostPerPack: savedBatch.purchasePricePerPack ?? targetVar.costPrice,
+      type: movementType,
+      quantityChangePacks: qtyDelta,
+      balancePacksAfter: updatedVar?.currentStockPacks ?? synced.totalSaleablePacks,
+      reason:
+        reason ||
+        (batchId
+          ? `बैच ${savedBatch.batchNumber || '(बिना नं.)'} अपडेट किया गया`
+          : `नया बैच ${savedBatch.batchNumber || '(बिना नं.)'} जोड़ा गया (${safeQty} ${targetVar.label})`),
+    });
+    wb.set(movRef, movLog);
+  }
+
+  await wb.commit();
+  return savedBatch;
+}
+
+/**
+ * Adjusts remaining quantity on a specific batch OR writes off an expired batch cleanly.
+ */
+export async function adjustBatchOrWriteOff(params: {
+  productId: string;
+  batchId: string;
+  adjustType: 'add' | 'subtract' | 'set' | 'write_off_expired';
+  quantity?: number;
+  reason?: string;
+  movementType?: StockMovementLog['type'];
+}): Promise<void> {
+  const { productId, batchId, adjustType, quantity = 0, reason, movementType } = params;
+  const prodRef = doc(db, 'accounting_products', productId);
+  const prodSnap = await getDoc(prodRef);
+  if (!prodSnap.exists()) throw new Error('उत्पाद नहीं मिला');
+
+  const prod = { id: prodSnap.id, ...prodSnap.data() } as AccountingProduct;
+  const variants = getProductVariants(prod);
+  const existingBatches = Array.isArray(prod.batches) ? prod.batches.map(b => ({ ...b })) : [];
+  const idx = existingBatches.findIndex(b => b.id === batchId);
+  if (idx === -1) throw new Error('बैच रिकॉर्ड नहीं मिला');
+
+  const targetBatch = existingBatches[idx];
+  const unbatchedOverride: Record<string, number> = {};
+  for (const v of variants) {
+    unbatchedOverride[v.id] = calculateVariantStockSummary(prod, v).unbatchedPacks;
+  }
+
+  const now = Date.now();
+  const dateStr = new Date(now).toISOString().split('T')[0];
+  const prevRem = targetBatch.remainingPackQuantity || 0;
+  const safeQty = Math.max(0, Number(quantity) || 0);
+  let nextRem = prevRem;
+  let nextStatus: StockBatch['status'] = targetBatch.status || 'active';
+
+  if (adjustType === 'write_off_expired') {
+    nextRem = 0;
+    nextStatus = 'expired_written_off';
+  } else if (adjustType === 'set') {
+    nextRem = safeQty;
+    nextStatus = nextRem > 0 ? 'active' : 'exhausted';
+  } else if (adjustType === 'add') {
+    nextRem = prevRem + safeQty;
+    nextStatus = nextRem > 0 ? 'active' : 'exhausted';
+  } else if (adjustType === 'subtract') {
+    nextRem = Math.max(0, prevRem - safeQty);
+    nextStatus = nextRem > 0 ? 'active' : 'exhausted';
+  }
+
+  existingBatches[idx] = sanitizeBatchForFirestore({
+    ...targetBatch,
+    remainingPackQuantity: nextRem,
+    initialPackQuantity: Math.max(targetBatch.initialPackQuantity || 0, nextRem),
+    status: nextStatus,
+    updatedAt: now,
+  });
+
+  const synced = syncProductVariantsWithBatches(prod, variants, existingBatches, 122, unbatchedOverride);
+  const matchedVar = synced.updatedVariants.find(v => v.id === targetBatch.variantId) || synced.updatedVariants[0];
+
+  const wb = writeBatch(db);
+  wb.update(
+    prodRef,
+    stripUndefinedDeep({
+      batches: synced.cleanedBatches,
+      packagingVariants: synced.updatedVariants,
+      currentStock: synced.totalSaleablePacks,
+      updatedAt: now,
+    })
+  );
+
+  const delta = nextRem - prevRem;
+  const movRef = doc(collection(db, 'accounting_stock_movements'));
+  const movLog: StockMovementLog = stripUndefinedDeep({
+    id: movRef.id,
+    timestamp: now,
+    date: dateStr,
+    productId,
+    productName: prod.hindiName || prod.name,
+    variantId: matchedVar?.id,
+    variantLabel: matchedVar?.label,
+    batchId: targetBatch.id,
+    batchNumber: targetBatch.batchNumber,
+    expiryDate: targetBatch.expiryDate,
+    purchaseCostPerPack: targetBatch.purchasePricePerPack ?? matchedVar?.costPrice,
+    type:
+      movementType ||
+      (adjustType === 'write_off_expired' ? 'expired_writeoff' : 'weighing_adjustment'),
+    quantityChangePacks: delta,
+    balancePacksAfter: matchedVar?.currentStockPacks ?? synced.totalSaleablePacks,
+    reason:
+      reason ||
+      (adjustType === 'write_off_expired'
+        ? `एक्सपायर्ड बैच (${targetBatch.batchNumber || 'बिना नं.'}) राइट-ऑफ़ (${Math.abs(delta)} पैक)`
+        : `बैच (${targetBatch.batchNumber || 'बिना नं.'}) स्टॉक समायोजन`),
+  });
+  wb.set(movRef, movLog);
+  await wb.commit();
+}
+
+/**
+ * Dismisses a completeness warning on a specific batch (or all batches of a product)
+ * while still recording which keys admin acknowledged.
+ */
+export async function dismissBatchWarning(params: {
+  productId: string;
+  batchId: string;
+  warningKey: string;
+}): Promise<void> {
+  const { productId, batchId, warningKey } = params;
+  const prodRef = doc(db, 'accounting_products', productId);
+  const prodSnap = await getDoc(prodRef);
+  if (!prodSnap.exists()) return;
+
+  const prod = prodSnap.data() as AccountingProduct;
+  const batches = Array.isArray(prod.batches) ? [...prod.batches] : [];
+  const idx = batches.findIndex(b => b.id === batchId);
+  if (idx === -1) return;
+
+  const existing = new Set(batches[idx].dismissedWarnings || []);
+  existing.add(warningKey);
+  batches[idx] = sanitizeBatchForFirestore({
+    ...batches[idx],
+    dismissedWarnings: Array.from(existing),
+    updatedAt: Date.now(),
+  });
+
+  await updateDoc(prodRef, stripUndefinedDeep({ batches, updatedAt: Date.now() }));
+}
+
+/**
+ * Converts legacy unbatched packs of a variant into an official tracked StockBatch cleanly.
+ */
+export async function convertUnbatchedStockToBatch(params: {
+  productId: string;
+  variantId: string;
+  batchNumber?: string;
+  manufacturingDate?: string;
+  mfgDisplay?: string;
+  expiryDate?: string;
+  expiryDisplay?: string;
+  purchasePricePerPack?: number;
+}): Promise<StockBatch> {
+  const { productId, variantId, ...batchDetails } = params;
+  const prodRef = doc(db, 'accounting_products', productId);
+  const prodSnap = await getDoc(prodRef);
+  if (!prodSnap.exists()) throw new Error('उत्पाद नहीं मिला');
+
+  const prod = { id: prodSnap.id, ...prodSnap.data() } as AccountingProduct;
+  const variants = getProductVariants(prod);
+  const targetVar = variants.find(v => v.id === variantId);
+  if (!targetVar) throw new Error('पैकेजिंग वेरिएंट नहीं मिला');
+
+  const summary = calculateVariantStockSummary(prod, targetVar);
+  const qtyToConvert = summary.unbatchedPacks;
+  if (qtyToConvert <= 0) {
+    throw new Error('इस साइज में कोई बिना-बैच (Unbatched) स्टॉक शेष नहीं है।');
+  }
+
+  const now = Date.now();
+  const dateStr = new Date(now).toISOString().split('T')[0];
+
+  const unbatchedOverride: Record<string, number> = {};
+  for (const v of variants) {
+    unbatchedOverride[v.id] = v.id === variantId ? 0 : calculateVariantStockSummary(prod, v).unbatchedPacks;
+  }
+
+  const newBatch = sanitizeBatchForFirestore({
+    id: `batch_${now}_${Math.random().toString(36).slice(2, 6)}`,
+    productId,
+    variantId,
+    batchNumber: batchDetails.batchNumber,
+    manufacturingDate: batchDetails.manufacturingDate,
+    mfgDisplay: batchDetails.mfgDisplay,
+    expiryDate: batchDetails.expiryDate,
+    expiryDisplay: batchDetails.expiryDisplay,
+    purchasePricePerPack: batchDetails.purchasePricePerPack ?? targetVar.costPrice,
+    initialPackQuantity: qtyToConvert,
+    remainingPackQuantity: qtyToConvert,
+    status: 'active',
+    purchaseDate: dateStr,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const existingBatches = Array.isArray(prod.batches) ? [...prod.batches, newBatch] : [newBatch];
+  const synced = syncProductVariantsWithBatches(prod, variants, existingBatches, 122, unbatchedOverride);
+
+  const wb = writeBatch(db);
+  wb.update(
+    prodRef,
+    stripUndefinedDeep({
+      batches: synced.cleanedBatches,
+      packagingVariants: synced.updatedVariants,
+      currentStock: synced.totalSaleablePacks,
+      updatedAt: now,
+    })
+  );
+
+  const movRef = doc(collection(db, 'accounting_stock_movements'));
+  wb.set(
+    movRef,
+    stripUndefinedDeep({
+      id: movRef.id,
+      timestamp: now,
+      date: dateStr,
+      productId,
+      productName: prod.hindiName || prod.name,
+      variantId: targetVar.id,
+      variantLabel: targetVar.label,
+      batchId: newBatch.id,
+      batchNumber: newBatch.batchNumber,
+      expiryDate: newBatch.expiryDate,
+      purchaseCostPerPack: newBatch.purchasePricePerPack,
+      type: 'opening',
+      quantityChangePacks: 0,
+      balancePacksAfter: synced.updatedVariants.find(v => v.id === variantId)?.currentStockPacks ?? qtyToConvert,
+      reason: `बिना-बैच के ${qtyToConvert} पैक को बैच ${newBatch.batchNumber || '(बिना नं.)'} में बदला गया`,
+    })
+  );
+
+  await wb.commit();
+  return newBatch;
+}
+
+/**
+ * Opens one or more sealed packs of a specific packaging variant (FEFO or selected Batch)
  * and transfers the volume/weight into the product's loose stock pool.
  */
 export async function openSealedPack(
   productId: string,
   variantId: string,
-  packsToOpen = 1
+  packsToOpen = 1,
+  manualBatchId?: string
 ): Promise<{ success: boolean; looseAdded: number; message: string }> {
   const prodRef = doc(db, 'accounting_products', productId);
-  const prodSnap = await getDoc(prodRef);
+  const [prodSnap, stockConfig] = await Promise.all([
+    getDoc(prodRef),
+    fetchStockManagementConfig(),
+  ]);
   if (!prodSnap.exists()) {
     throw new Error('उत्पाद नहीं मिला (Product not found)');
   }
 
-  const prod = prodSnap.data() as AccountingProduct;
-  const variants = prod.packagingVariants ? [...prod.packagingVariants] : [];
+  const prod = { id: prodSnap.id, ...prodSnap.data() } as AccountingProduct;
+  const variants = getProductVariants(prod);
   const targetVarIndex = variants.findIndex(v => v.id === variantId);
 
   if (targetVarIndex === -1) {
@@ -208,9 +643,64 @@ export async function openSealedPack(
   }
 
   const targetVar = { ...variants[targetVarIndex] };
-  if ((targetVar.currentStockPacks || 0) < packsToOpen) {
-    throw new Error(`सीलबंद पैकेट उपलब्ध नहीं हैं। वर्तमान स्टॉक: ${targetVar.currentStockPacks || 0}`);
+  const summary = calculateVariantStockSummary(
+    prod,
+    targetVar,
+    stockConfig.defaultLowStockThreshold ?? 10,
+    stockConfig.expiryWarningDays ?? 122
+  );
+
+  if (summary.saleablePacks < packsToOpen) {
+    throw new Error(
+      summary.batchedExpiredPacks > 0 && summary.saleablePacks === 0
+        ? `इस साइज (${targetVar.label}) के सभी ${summary.batchedExpiredPacks} पैक एक्सपायर्ड हो चुके हैं — इन्हें खुले स्टॉक में नहीं खोला जा सकता।`
+        : `सीलबंद बिक्री योग्य पैकेट अपर्याप्त हैं। उपलब्ध: ${summary.saleablePacks}`
+    );
   }
+
+  const alloc = allocateFefoBatches({
+    product: prod,
+    variant: targetVar,
+    requestedPacks: packsToOpen,
+    manualBatchId,
+    allowNegativeStock: false,
+    blockExpiredSale: stockConfig.blockExpiredSale !== false,
+    expiryWarningDays: stockConfig.expiryWarningDays ?? 122,
+  });
+
+  if (alloc.errorReason) {
+    throw new Error(alloc.errorReason);
+  }
+
+  // Apply batch deductions
+  const unbatchedOverride: Record<string, number> = {};
+  for (const v of variants) {
+    const s = calculateVariantStockSummary(prod, v);
+    unbatchedOverride[v.id] = v.id === targetVar.id
+      ? Math.max(0, s.unbatchedPacks - alloc.unbatchedPacksUsed)
+      : s.unbatchedPacks;
+  }
+
+  const nextBatches = Array.isArray(prod.batches) ? prod.batches.map(b => ({ ...b })) : [];
+  for (const a of alloc.allocations) {
+    const bIdx = nextBatches.findIndex(b => b.id === a.batchId);
+    if (bIdx !== -1) {
+      nextBatches[bIdx].remainingPackQuantity = Math.max(
+        0,
+        (nextBatches[bIdx].remainingPackQuantity || 0) - a.packsUsed
+      );
+      nextBatches[bIdx].updatedAt = Date.now();
+    }
+  }
+
+  const synced = syncProductVariantsWithBatches(
+    prod,
+    variants,
+    nextBatches,
+    stockConfig.expiryWarningDays ?? 122,
+    unbatchedOverride
+  );
+  const updatedVar = synced.updatedVariants.find(v => v.id === targetVar.id) || targetVar;
 
   // Calculate base quantity (ml or g)
   let baseQtyPerPack = targetVar.baseQuantity;
@@ -222,42 +712,52 @@ export async function openSealedPack(
   }
 
   const totalBaseQtyToAdd = baseQtyPerPack * packsToOpen;
-  const isLiquid = targetVar.sizeUnit === 'ml' || targetVar.sizeUnit === 'Ltr' || prod.unit === 'Ltr' || prod.unit === 'Ml';
+  const isLiquid =
+    targetVar.sizeUnit === 'ml' ||
+    targetVar.sizeUnit === 'Ltr' ||
+    prod.unit === 'Ltr' ||
+    prod.unit === 'Ml';
   const detectedBaseUnit: 'ml' | 'g' = isLiquid ? 'ml' : 'g';
 
-  // 1. Decrement variant stock
-  targetVar.currentStockPacks = Math.max(0, (targetVar.currentStockPacks || 0) - packsToOpen);
-  variants[targetVarIndex] = targetVar;
-
-  // 2. Calculate new loose pool balance & per-base-unit cost/rate
   const currentLoose = prod.looseStock?.availableBaseQty || 0;
   const newLooseQty = currentLoose + totalBaseQtyToAdd;
 
-  const costPerBaseUnit = baseQtyPerPack > 0 ? (targetVar.costPrice / baseQtyPerPack) : (prod.costPrice / (baseQtyPerPack || 1));
-  const sellingPerBaseUnit = baseQtyPerPack > 0 ? (targetVar.sellingPrice / baseQtyPerPack) : (prod.defaultSellingPrice / (baseQtyPerPack || 1));
+  const packCostForCalc = alloc.weightedUnitCost > 0 ? alloc.weightedUnitCost : targetVar.costPrice;
+  const costPerBaseUnit =
+    baseQtyPerPack > 0 ? packCostForCalc / baseQtyPerPack : prod.costPrice / (baseQtyPerPack || 1);
+  const sellingPerBaseUnit =
+    baseQtyPerPack > 0
+      ? targetVar.sellingPrice / baseQtyPerPack
+      : prod.defaultSellingPrice / (baseQtyPerPack || 1);
 
-  const newLooseStock: LooseStockPool = {
+  const primaryAlloc = alloc.allocations[0];
+  const newLooseStock: LooseStockPool = stripUndefinedDeep({
     availableBaseQty: newLooseQty,
     baseUnit: detectedBaseUnit,
-    costPerBaseUnit: Math.round(costPerBaseUnit * 1000) / 1000,
-    sellingPricePerBaseUnit: Math.round(sellingPerBaseUnit * 1000) / 1000,
+    costPerBaseUnit: Math.round(costPerBaseUnit * 10000) / 10000,
+    sellingPricePerBaseUnit: Math.round(sellingPerBaseUnit * 10000) / 10000,
     lastOpenedFromVariantId: targetVar.id,
-    updatedAt: Date.now(),
-  };
-
-  const totalSealedStock = variants.reduce((acc, v) => acc + (v.currentStockPacks || 0), 0);
-
-  const batch = writeBatch(db);
-  batch.update(prodRef, {
-    packagingVariants: variants,
-    currentStock: totalSealedStock,
-    looseStock: newLooseStock,
+    lastOpenedBatchNumber: primaryAlloc?.batchNumber || prod.looseStock?.lastOpenedBatchNumber,
+    activeBatchId: primaryAlloc?.batchId || prod.looseStock?.activeBatchId,
+    activeBatchExpiryDate: primaryAlloc?.expiryDate || prod.looseStock?.activeBatchExpiryDate,
     updatedAt: Date.now(),
   });
 
-  // 3. Log stock movement
+  const wb = writeBatch(db);
+  wb.update(
+    prodRef,
+    stripUndefinedDeep({
+      batches: synced.cleanedBatches,
+      packagingVariants: synced.updatedVariants,
+      currentStock: synced.totalSaleablePacks,
+      looseStock: newLooseStock,
+      updatedAt: Date.now(),
+    })
+  );
+
+  // Log stock movement
   const movRef = doc(collection(db, 'accounting_stock_movements'));
-  const movLog: StockMovementLog = {
+  const movLog: StockMovementLog = stripUndefinedDeep({
     id: movRef.id,
     timestamp: Date.now(),
     date: new Date().toISOString().split('T')[0],
@@ -265,26 +765,30 @@ export async function openSealedPack(
     productName: prod.hindiName || prod.name,
     variantId: targetVar.id,
     variantLabel: targetVar.label,
+    batchId: primaryAlloc?.batchId,
+    batchNumber: alloc.batchNumbersSummary,
+    expiryDate: primaryAlloc?.expiryDate,
+    purchaseCostPerPack: alloc.weightedUnitCost,
     type: 'pack_opened',
     quantityChangePacks: -packsToOpen,
     quantityChangeBaseUnit: totalBaseQtyToAdd,
-    balancePacksAfter: targetVar.currentStockPacks,
+    balancePacksAfter: updatedVar.currentStockPacks,
     balanceBaseUnitAfter: newLooseQty,
-    reason: `${packsToOpen} सीलबंद पैकेट (${targetVar.label}) खोलकर ${totalBaseQtyToAdd} ${detectedBaseUnit} खुले स्टॉक में जमा किया गया।`,
-  };
-  batch.set(movRef, movLog);
+    reason: `${packsToOpen} सीलबंद पैकेट (${targetVar.label}${alloc.batchNumbersSummary ? ` · बैच: ${alloc.batchNumbersSummary}` : ''}) खोलकर ${totalBaseQtyToAdd} ${detectedBaseUnit} खुले स्टॉक में जमा किया गया।`,
+  });
+  wb.set(movRef, movLog);
 
-  await batch.commit();
+  await wb.commit();
 
   return {
     success: true,
     looseAdded: totalBaseQtyToAdd,
-    message: `${targetVar.label} का ${packsToOpen} पैकेट सफलतापूर्वक खुला। अब कुल ${newLooseQty} ${detectedBaseUnit} खुला स्टॉक उपलब्ध है।`,
+    message: `${targetVar.label} का ${packsToOpen} पैकेट सफलतापूर्वक खुला${alloc.batchNumbersSummary ? ` (बैच: ${alloc.batchNumbersSummary})` : ''}। अब कुल ${newLooseQty} ${detectedBaseUnit} खुला स्टॉक उपलब्ध है।`,
   };
 }
 
 /**
- * Stock adjustment for physical verification, weighing tolerance losses, or damage write-offs.
+ * Stock adjustment for physical verification, opening stock, purchase, weighing tolerance losses, or damage write-offs.
  */
 export async function adjustProductStock(params: {
   productId: string;
@@ -293,8 +797,17 @@ export async function adjustProductStock(params: {
   adjustType: 'set' | 'add' | 'subtract';
   quantity: number;
   reason: string;
+  movementType?: StockMovementLog['type'];
 }): Promise<void> {
-  const { productId, variantId, isLooseStock, adjustType, quantity, reason } = params;
+  const {
+    productId,
+    variantId,
+    isLooseStock,
+    adjustType,
+    quantity,
+    reason,
+    movementType = 'weighing_adjustment',
+  } = params;
   const prodRef = doc(db, 'accounting_products', productId);
   const prodSnap = await getDoc(prodRef);
   if (!prodSnap.exists()) throw new Error('उत्पाद नहीं मिला');
@@ -302,35 +815,67 @@ export async function adjustProductStock(params: {
   const prod = prodSnap.data() as AccountingProduct;
   const batch = writeBatch(db);
   const now = Date.now();
+  const safeQty = Math.max(0, Number(quantity) || 0);
 
   let packsChange: number | undefined;
   let baseUnitChange: number | undefined;
   let finalPacks: number | undefined;
   let finalBaseQty: number | undefined;
+  let variantLabel: string | undefined;
 
   if (isLooseStock) {
     const currentLoose = prod.looseStock?.availableBaseQty || 0;
     let newLoose = currentLoose;
-    if (adjustType === 'set') newLoose = Math.max(0, quantity);
-    else if (adjustType === 'add') newLoose = currentLoose + quantity;
-    else if (adjustType === 'subtract') newLoose = Math.max(0, currentLoose - quantity);
+    if (adjustType === 'set') newLoose = Math.max(0, safeQty);
+    else if (adjustType === 'add') newLoose = currentLoose + safeQty;
+    else if (adjustType === 'subtract') newLoose = Math.max(0, currentLoose - safeQty);
 
     baseUnitChange = newLoose - currentLoose;
     finalBaseQty = newLoose;
 
-    batch.update(prodRef, {
-      'looseStock.availableBaseQty': newLoose,
-      'looseStock.updatedAt': now,
-      updatedAt: now,
-    });
+    const firstVar = prod.packagingVariants?.[0];
+    const baseUnit: 'ml' | 'g' =
+      prod.looseStock?.baseUnit ||
+      (prod.productType === 'liquid' || firstVar?.sizeUnit === 'ml' || firstVar?.sizeUnit === 'Ltr'
+        ? 'ml'
+        : 'g');
+
+    if (prod.looseStock) {
+      batch.update(prodRef, {
+        'looseStock.availableBaseQty': newLoose,
+        'looseStock.updatedAt': now,
+        updatedAt: now,
+      });
+    } else {
+      const basePerPack = firstVar
+        ? firstVar.baseQuantity || normalizeToBaseUnit(firstVar.sizeValue, firstVar.sizeUnit)
+        : 1000;
+      const costPerBase = basePerPack > 0 ? (firstVar?.costPrice || prod.costPrice || 0) / basePerPack : 0;
+      const sellPerBase =
+        basePerPack > 0 ? (firstVar?.sellingPrice || prod.defaultSellingPrice || 0) / basePerPack : 0;
+
+      const createdLoose: LooseStockPool = {
+        availableBaseQty: newLoose,
+        baseUnit,
+        costPerBaseUnit: Math.round(costPerBase * 10000) / 10000,
+        sellingPricePerBaseUnit: Math.round(sellPerBase * 10000) / 10000,
+        lastOpenedFromVariantId: firstVar?.id,
+        updatedAt: now,
+      };
+      batch.update(prodRef, {
+        looseStock: createdLoose,
+        updatedAt: now,
+      });
+    }
   } else if (variantId && prod.packagingVariants && prod.packagingVariants.length > 0) {
     const variants = prod.packagingVariants.map(v => {
       if (v.id === variantId) {
+        variantLabel = v.label || `${v.sizeValue} ${v.sizeUnit}`;
         const cur = v.currentStockPacks || 0;
         let nxt = cur;
-        if (adjustType === 'set') nxt = Math.max(0, quantity);
-        else if (adjustType === 'add') nxt = cur + quantity;
-        else if (adjustType === 'subtract') nxt = Math.max(0, cur - quantity);
+        if (adjustType === 'set') nxt = Math.max(0, safeQty);
+        else if (adjustType === 'add') nxt = cur + safeQty;
+        else if (adjustType === 'subtract') nxt = Math.max(0, cur - safeQty);
 
         packsChange = nxt - cur;
         finalPacks = nxt;
@@ -349,9 +894,9 @@ export async function adjustProductStock(params: {
     // Legacy top-level stock adjustment
     const cur = prod.currentStock || 0;
     let nxt = cur;
-    if (adjustType === 'set') nxt = Math.max(0, quantity);
-    else if (adjustType === 'add') nxt = cur + quantity;
-    else if (adjustType === 'subtract') nxt = Math.max(0, cur - quantity);
+    if (adjustType === 'set') nxt = Math.max(0, safeQty);
+    else if (adjustType === 'add') nxt = cur + safeQty;
+    else if (adjustType === 'subtract') nxt = Math.max(0, cur - safeQty);
 
     packsChange = nxt - cur;
     finalPacks = nxt;
@@ -364,36 +909,163 @@ export async function adjustProductStock(params: {
 
   // Record Audit Trail
   const movRef = doc(collection(db, 'accounting_stock_movements'));
-  const movLog: StockMovementLog = {
+  const movLog: StockMovementLog = stripUndefinedDeep({
     id: movRef.id,
     timestamp: now,
-    date: new Date().toISOString().split('T')[0],
+    date: new Date(now).toISOString().split('T')[0],
     productId,
     productName: prod.hindiName || prod.name,
     variantId,
-    type: 'weighing_adjustment',
+    variantLabel,
+    type: movementType,
     quantityChangePacks: packsChange,
     quantityChangeBaseUnit: baseUnitChange,
     balancePacksAfter: finalPacks,
     balanceBaseUnitAfter: finalBaseQty,
     reason: reason || 'स्टॉक एडजस्टमेंट (मैनुअल सत्यापन)',
-  };
+  });
   batch.set(movRef, movLog);
 
   await batch.commit();
 }
 
+/**
+ * Records stock movement audit logs when a product's stock quantities are initialized or updated from the Product modal.
+ */
+export async function recordProductStockMovementsBatch(
+  entries: Array<Omit<StockMovementLog, 'id' | 'timestamp' | 'date'>>
+): Promise<void> {
+  if (!entries || entries.length === 0) return;
+  const now = Date.now();
+  const dateStr = new Date(now).toISOString().split('T')[0];
+
+  for (let i = 0; i < entries.length; i += 350) {
+    const chunk = entries.slice(i, i + 350);
+    const batch = writeBatch(db);
+    for (const entry of chunk) {
+      const movRef = doc(collection(db, 'accounting_stock_movements'));
+      const log: StockMovementLog = stripUndefinedDeep({
+        ...entry,
+        id: movRef.id,
+        timestamp: now,
+        date: dateStr,
+      });
+      batch.set(movRef, log);
+    }
+    await batch.commit();
+  }
+}
+
+/**
+ * Resets all legacy/existing product pack, batch & loose stock quantities to 0 cleanly
+ * so Admin can start fresh Opening Stock & Batch entry without old residual numbers.
+ */
+export async function resetAllProductStockToZero(): Promise<number> {
+  const products = await fetchAccountingProducts();
+  const now = Date.now();
+  let updatedCount = 0;
+
+  for (let i = 0; i < products.length; i += 300) {
+    const chunk = products.slice(i, i + 300);
+    const batch = writeBatch(db);
+
+    for (const p of chunk) {
+      const prodRef = doc(db, 'accounting_products', p.id);
+      const updatedVariants = (p.packagingVariants || []).map(v =>
+        stripUndefinedDeep({
+          ...v,
+          currentStockPacks: 0,
+          unbatchedPacks: undefined,
+        })
+      );
+      const updatePayload: Record<string, any> = {
+        currentStock: 0,
+        batches: [],
+        updatedAt: now,
+      };
+      if (p.packagingVariants) {
+        updatePayload.packagingVariants = updatedVariants;
+      }
+      if (p.looseStock) {
+        updatePayload.looseStock = stripUndefinedDeep({
+          ...p.looseStock,
+          availableBaseQty: 0,
+          activeBatchId: undefined,
+          activeBatchExpiryDate: undefined,
+          lastOpenedBatchNumber: undefined,
+          updatedAt: now,
+        });
+      }
+      batch.update(prodRef, updatePayload);
+      updatedCount++;
+    }
+
+    await batch.commit();
+  }
+
+  return updatedCount;
+}
+
 export async function fetchStockMovements(productId?: string, limitCount = 50): Promise<StockMovementLog[]> {
   try {
-    let q = query(collection(db, 'accounting_stock_movements'), orderBy('timestamp', 'desc'), limit(limitCount));
     if (productId) {
-      q = query(collection(db, 'accounting_stock_movements'), where('productId', '==', productId), orderBy('timestamp', 'desc'), limit(limitCount));
+      const q = query(
+        collection(db, 'accounting_stock_movements'),
+        where('productId', '==', productId),
+        limit(Math.max(limitCount, 100))
+      );
+      const snap = await getDocs(q);
+      return snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as StockMovementLog))
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        .slice(0, limitCount);
     }
+    const q = query(
+      collection(db, 'accounting_stock_movements'),
+      orderBy('timestamp', 'desc'),
+      limit(limitCount)
+    );
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as StockMovementLog));
   } catch (err) {
     console.error('Error fetching stock movements:', err);
     return [];
+  }
+}
+
+export async function deleteStockMovement(movementId: string): Promise<void> {
+  const path = `accounting_stock_movements/${movementId}`;
+  try {
+    await deleteDoc(doc(db, 'accounting_stock_movements', movementId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
+  }
+}
+
+export async function clearStockMovements(productId?: string): Promise<number> {
+  const path = 'accounting_stock_movements';
+  try {
+    const q = productId
+      ? query(collection(db, path), where('productId', '==', productId))
+      : query(collection(db, path));
+    const snap = await getDocs(q);
+    if (snap.empty) return 0;
+
+    let deletedCount = 0;
+    const docs = snap.docs;
+    for (let i = 0; i < docs.length; i += 400) {
+      const chunk = docs.slice(i, i + 400);
+      const wb = writeBatch(db);
+      for (const d of chunk) {
+        wb.delete(d.ref);
+        deletedCount++;
+      }
+      await wb.commit();
+    }
+    return deletedCount;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
+    return 0;
   }
 }
 
@@ -813,6 +1485,7 @@ export async function getNextPOSInvoiceNoPreview(): Promise<string> {
 export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'createdAt'>): Promise<string> {
   const now = Date.now();
   const counterRef = doc(db, 'accounting_settings', 'pos_sequence');
+  const stockConfigRef = doc(db, 'accounting_settings', 'stock_management_config');
   const saleRef = doc(collection(db, 'accounting_sales'));
 
   let assignedInvoiceNo = '';
@@ -822,8 +1495,12 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
     // PHASE 1: ALL READ OPERATIONS FIRST (Mandatory Firestore rule)
     // =========================================================================
 
-    // 1. Read the counter atomically
-    const counterSnap = await transaction.get(counterRef);
+    // 1. Read sequence counter & stock management config atomically
+    const [counterSnap, stockConfigSnap] = await Promise.all([
+      transaction.get(counterRef),
+      transaction.get(stockConfigRef),
+    ]);
+
     let lastSeq = 0;
     if (counterSnap.exists()) {
       const cData = counterSnap.data();
@@ -832,8 +1509,39 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
       }
     }
 
+    const stockConfig: StockManagementConfig = stockConfigSnap.exists()
+      ? {
+          enabled: Boolean(stockConfigSnap.data()?.enabled),
+          allowNegativeStock: Boolean(stockConfigSnap.data()?.allowNegativeStock),
+          autoOpenPackOnLooseSale:
+            stockConfigSnap.data()?.autoOpenPackOnLooseSale === undefined
+              ? true
+              : Boolean(stockConfigSnap.data()?.autoOpenPackOnLooseSale),
+          defaultLowStockThreshold:
+            typeof stockConfigSnap.data()?.defaultLowStockThreshold === 'number'
+              ? stockConfigSnap.data()?.defaultLowStockThreshold
+              : 10,
+          expiryWarningDays:
+            typeof stockConfigSnap.data()?.expiryWarningDays === 'number'
+              ? stockConfigSnap.data()?.expiryWarningDays
+              : 122,
+          blockExpiredSale:
+            stockConfigSnap.data()?.blockExpiredSale === undefined
+              ? true
+              : Boolean(stockConfigSnap.data()?.blockExpiredSale),
+          updatedAt: Number(stockConfigSnap.data()?.updatedAt) || now,
+        }
+      : {
+          enabled: false,
+          allowNegativeStock: false,
+          autoOpenPackOnLooseSale: true,
+          defaultLowStockThreshold: 10,
+          expiryWarningDays: 122,
+          blockExpiredSale: true,
+          updatedAt: 0,
+        };
+
     // Determine invoice number:
-    // If invoiceNo is empty or is placeholder (e.g. FKB-TEMP), generate strictly sequential FKB number
     const isPlaceholder = !saleData.invoiceNo || saleData.invoiceNo.trim() === '' || saleData.invoiceNo.startsWith('FKB-TEMP');
     let shouldUpdateCounter = false;
     let nextSeq = lastSeq;
@@ -853,11 +1561,476 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
       custRead = { ref: custRef, snap: custSnap };
     }
 
+    // 3. If Stock Quantity Management is ON, read each unique product doc ONCE
+    interface WorkingProductState {
+      ref: DocumentReference;
+      data: AccountingProduct;
+      variants: PackagingVariant[];
+      batches: StockBatch[];
+      unbatchedMap: Record<string, number>;
+      hasStoredVariants: boolean;
+      looseStock?: LooseStockPool;
+      currentStock: number;
+      modified: boolean;
+    }
+    const workingProducts = new Map<string, WorkingProductState>();
+    const movementsToWrite: StockMovementLog[] = [];
+    const authoritativeItems: AccountingSaleItem[] = (saleData.items || []).map(it => ({ ...it }));
+
+    if (stockConfig.enabled && Array.isArray(authoritativeItems)) {
+      const uniqueProductIds = Array.from(
+        new Set(authoritativeItems.map(it => it.productId).filter((id): id is string => Boolean(id)))
+      );
+
+      const prodSnaps = await Promise.all(
+        uniqueProductIds.map(async pid => {
+          const pRef = doc(db, 'accounting_products', pid);
+          const pSnap = await transaction.get(pRef);
+          return { pid, pRef, pSnap };
+        })
+      );
+
+      for (const { pid, pRef, pSnap } of prodSnaps) {
+        if (!pSnap.exists()) continue;
+        const pData = { id: pSnap.id, ...pSnap.data() } as AccountingProduct;
+        const storedVariants = Array.isArray(pData.packagingVariants)
+          ? pData.packagingVariants.map(v => ({ ...v }))
+          : [];
+        const storedBatches = Array.isArray(pData.batches)
+          ? pData.batches.map(b => ({ ...b }))
+          : [];
+        const unbatchedMap: Record<string, number> = {};
+        for (const v of storedVariants) {
+          unbatchedMap[v.id] = calculateVariantStockSummary(
+            { ...pData, packagingVariants: storedVariants, batches: storedBatches },
+            v,
+            stockConfig.defaultLowStockThreshold ?? 10,
+            stockConfig.expiryWarningDays ?? 122
+          ).unbatchedPacks;
+        }
+        workingProducts.set(pid, {
+          ref: pRef,
+          data: pData,
+          variants: storedVariants,
+          batches: storedBatches,
+          unbatchedMap,
+          hasStoredVariants: storedVariants.length > 0,
+          looseStock: pData.looseStock ? { ...pData.looseStock } : undefined,
+          currentStock: pData.currentStock || 0,
+          modified: false,
+        });
+      }
+
+      const saleDateStr = saleData.date || new Date(now).toISOString().split('T')[0];
+      const blockExpired = stockConfig.blockExpiredSale !== false;
+      const warnDays = stockConfig.expiryWarningDays ?? 122;
+
+      for (let itemIdx = 0; itemIdx < authoritativeItems.length; itemIdx++) {
+        const item = authoritativeItems[itemIdx];
+        if (!item.productId) continue;
+        const wp = workingProducts.get(item.productId);
+        if (!wp) continue;
+
+        const productLabel = item.hindiName || item.name || wp.data.hindiName || wp.data.name;
+
+        if (item.saleType === 'loose') {
+          // LOOSE SALE DEDUCTION + BATCH EXPIRY GUARD + FEFO AUTO-OPEN
+          const rawQty = Number(item.looseQuantity ?? item.quantity) || 0;
+          const unitLower = String(item.looseUnit || item.unit || '').toLowerCase();
+          const isLargeUnit =
+            unitLower === 'kg' ||
+            unitLower === 'l' ||
+            unitLower === 'ltr' ||
+            unitLower === 'लीटर' ||
+            unitLower === 'किलो';
+          const computedBaseQty =
+            item.looseBaseQty && item.looseBaseQty > 0
+              ? Number(item.looseBaseQty)
+              : isLargeUnit
+              ? rawQty * 1000
+              : rawQty;
+          const reqBaseQty = Math.max(0, computedBaseQty);
+
+          if (reqBaseQty <= 0) continue;
+
+          const baseUnit: 'ml' | 'g' =
+            wp.looseStock?.baseUnit ||
+            (unitLower === 'ml' || unitLower === 'l' || unitLower === 'ltr' || wp.data.productType === 'liquid'
+              ? 'ml'
+              : 'g');
+
+          if (!wp.looseStock) {
+            wp.looseStock = {
+              availableBaseQty: 0,
+              baseUnit,
+              costPerBaseUnit: item.costPerBaseUnit || 0,
+              sellingPricePerBaseUnit: item.sellingPricePerBaseUnit || 0,
+              lastOpenedFromVariantId: item.openedPackFromVariantId || item.variantId,
+              updatedAt: now,
+            };
+          }
+
+          // Check open loose batch expiry if any qty sits in open pool
+          if (
+            blockExpired &&
+            (wp.looseStock.availableBaseQty || 0) > 0 &&
+            wp.looseStock.activeBatchExpiryDate
+          ) {
+            const looseAlert = calculateExpiryAlert(wp.looseStock.activeBatchExpiryDate);
+            if (!looseAlert.isSaleable) {
+              throw new Error(
+                `खुला स्टॉक एक्सपायर्ड: "${productLabel}" का खुला स्टॉक${wp.looseStock.lastOpenedBatchNumber ? ` (बैच: ${wp.looseStock.lastOpenedBatchNumber})` : ''} एक्सपायरी तिथि पार कर चुका है — बिक्री प्रतिबंधित है।`
+              );
+            }
+          }
+
+          let currentLooseAvail = wp.looseStock.availableBaseQty || 0;
+
+          if (currentLooseAvail < reqBaseQty) {
+            const shortage = reqBaseQty - currentLooseAvail;
+            const preferredVariantId = item.openedPackFromVariantId || item.variantId;
+            let sourceVariantIdx = preferredVariantId
+              ? wp.variants.findIndex(v => v.id === preferredVariantId)
+              : -1;
+            if (sourceVariantIdx === -1 && wp.variants.length === 1) {
+              sourceVariantIdx = 0;
+            }
+
+            const sourceVar = sourceVariantIdx !== -1 ? wp.variants[sourceVariantIdx] : null;
+            const basePerPack = sourceVar
+              ? sourceVar.baseQuantity && sourceVar.baseQuantity > 0
+                ? sourceVar.baseQuantity
+                : normalizeToBaseUnit(sourceVar.sizeValue, sourceVar.sizeUnit)
+              : 0;
+
+            const sourceSummary = sourceVar
+              ? calculateVariantStockSummary(
+                  { ...wp.data, packagingVariants: wp.variants, batches: wp.batches },
+                  sourceVar,
+                  stockConfig.defaultLowStockThreshold ?? 10,
+                  warnDays
+                )
+              : null;
+
+            if (
+              stockConfig.autoOpenPackOnLooseSale !== false &&
+              sourceVar &&
+              sourceSummary &&
+              basePerPack > 0 &&
+              sourceSummary.saleablePacks > 0
+            ) {
+              const packsNeeded = Math.ceil(shortage / basePerPack);
+              const availPacks = sourceSummary.saleablePacks;
+
+              if (availPacks < packsNeeded && !stockConfig.allowNegativeStock) {
+                const maxPossibleBase = currentLooseAvail + availPacks * basePerPack;
+                throw new Error(
+                  `खुला स्टॉक अपर्याप्त: "${productLabel}" के लिए ${reqBaseQty} ${baseUnit} चाहिए, लेकिन केवल ${maxPossibleBase} ${baseUnit} बिक्री योग्य स्टॉक उपलब्ध है (${currentLooseAvail} ${baseUnit} खुला + ${availPacks} × ${sourceVar.label})।`
+                );
+              }
+
+              const actualPacksToOpen = packsNeeded;
+              const openAlloc = allocateFefoBatches({
+                product: { ...wp.data, packagingVariants: wp.variants, batches: wp.batches },
+                variant: sourceVar,
+                requestedPacks: actualPacksToOpen,
+                manualBatchId: item.selectedBatchId,
+                allowNegativeStock: Boolean(stockConfig.allowNegativeStock),
+                blockExpiredSale: blockExpired,
+                expiryWarningDays: warnDays,
+              });
+
+              if (openAlloc.errorReason && !stockConfig.allowNegativeStock) {
+                throw new Error(openAlloc.errorReason);
+              }
+
+              // Deduct opened batches
+              for (const al of openAlloc.allocations) {
+                const bIdx = wp.batches.findIndex(b => b.id === al.batchId);
+                if (bIdx !== -1) {
+                  wp.batches[bIdx].remainingPackQuantity = Math.max(
+                    0,
+                    (wp.batches[bIdx].remainingPackQuantity || 0) - al.packsUsed
+                  );
+                  wp.batches[bIdx].updatedAt = now;
+                }
+              }
+              wp.unbatchedMap[sourceVar.id] = Math.max(
+                0,
+                (wp.unbatchedMap[sourceVar.id] || 0) - openAlloc.unbatchedPacksUsed
+              );
+
+              // Sync variant saleable packs after opening
+              const syncedAfterOpen = syncProductVariantsWithBatches(
+                wp.data,
+                wp.variants,
+                wp.batches,
+                warnDays,
+                wp.unbatchedMap
+              );
+              wp.variants = syncedAfterOpen.updatedVariants;
+              wp.batches = syncedAfterOpen.cleanedBatches;
+              wp.currentStock = syncedAfterOpen.totalSaleablePacks;
+
+              const addedBase = actualPacksToOpen * basePerPack;
+              currentLooseAvail += addedBase;
+
+              const openedPackCost = openAlloc.weightedUnitCost > 0 ? openAlloc.weightedUnitCost : sourceVar.costPrice;
+              wp.looseStock.lastOpenedFromVariantId = sourceVar.id;
+              if (openAlloc.allocations.length > 0) {
+                wp.looseStock.activeBatchId = openAlloc.allocations[0].batchId;
+                wp.looseStock.lastOpenedBatchNumber = openAlloc.batchNumbersSummary;
+                wp.looseStock.activeBatchExpiryDate = openAlloc.primaryExpiryDate;
+              }
+              if (basePerPack > 0) {
+                wp.looseStock.costPerBaseUnit = Math.round((openedPackCost / basePerPack) * 10000) / 10000;
+                wp.looseStock.sellingPricePerBaseUnit =
+                  Math.round((sourceVar.sellingPrice / basePerPack) * 10000) / 10000;
+              }
+
+              const updatedSourceVar = wp.variants[sourceVariantIdx];
+              const openMovRef = doc(collection(db, 'accounting_stock_movements'));
+              movementsToWrite.push(
+                stripUndefinedDeep({
+                  id: openMovRef.id,
+                  timestamp: now,
+                  date: saleDateStr,
+                  productId: item.productId,
+                  productName: productLabel,
+                  variantId: sourceVar.id,
+                  variantLabel: sourceVar.label,
+                  batchId: openAlloc.allocations[0]?.batchId,
+                  batchNumber: openAlloc.batchNumbersSummary,
+                  expiryDate: openAlloc.primaryExpiryDate,
+                  purchaseCostPerPack: openedPackCost,
+                  type: 'pack_opened',
+                  quantityChangePacks: -actualPacksToOpen,
+                  quantityChangeBaseUnit: addedBase,
+                  balancePacksAfter: updatedSourceVar?.currentStockPacks ?? 0,
+                  balanceBaseUnitAfter: currentLooseAvail,
+                  reason: `POS खुली बिक्री (बिल #${assignedInvoiceNo}) हेतु ${actualPacksToOpen} पैक (${sourceVar.label}${openAlloc.batchNumbersSummary ? ` · बैच: ${openAlloc.batchNumbersSummary}` : ''}) खोला गया`,
+                  referenceId: saleRef.id,
+                })
+              );
+            } else if (!stockConfig.allowNegativeStock) {
+              throw new Error(
+                sourceSummary && sourceSummary.batchedExpiredPacks > 0 && sourceSummary.saleablePacks === 0
+                  ? `खुला व सीलबंद स्टॉक एक्सपायर्ड: "${productLabel}" के बचे हुए पैक एक्सपायर्ड हैं — बिक्री प्रतिबंधित है।`
+                  : `खुला स्टॉक अपर्याप्त: "${productLabel}" के लिए ${reqBaseQty} ${baseUnit} चाहिए, जबकि वर्तमान खुला स्टॉक ${currentLooseAvail} ${baseUnit}${
+                      sourceVar ? ` और "${sourceVar.label}" बिक्री योग्य स्टॉक 0` : ''
+                    } है।`
+              );
+            }
+          }
+
+          const newLooseAfterSale = stockConfig.allowNegativeStock
+            ? currentLooseAvail - reqBaseQty
+            : Math.max(0, currentLooseAvail - reqBaseQty);
+          wp.looseStock.availableBaseQty = Math.round(newLooseAfterSale * 100) / 100;
+          wp.looseStock.updatedAt = now;
+          wp.modified = true;
+
+          if (wp.looseStock.lastOpenedBatchNumber && !item.batchNumber) {
+            item.batchNumber = wp.looseStock.lastOpenedBatchNumber;
+          }
+          if (wp.looseStock.activeBatchExpiryDate && !item.expiryDate) {
+            item.expiryDate = wp.looseStock.activeBatchExpiryDate;
+          }
+
+          const looseMovRef = doc(collection(db, 'accounting_stock_movements'));
+          movementsToWrite.push(
+            stripUndefinedDeep({
+              id: looseMovRef.id,
+              timestamp: now + 1,
+              date: saleDateStr,
+              productId: item.productId,
+              productName: productLabel,
+              variantId: item.openedPackFromVariantId || item.variantId,
+              variantLabel: item.variantLabel || `${rawQty} ${item.looseUnit || baseUnit}`,
+              batchId: wp.looseStock.activeBatchId,
+              batchNumber: wp.looseStock.lastOpenedBatchNumber || item.batchNumber,
+              expiryDate: wp.looseStock.activeBatchExpiryDate || item.expiryDate,
+              type: 'loose_sale',
+              quantityChangeBaseUnit: -reqBaseQty,
+              balanceBaseUnitAfter: wp.looseStock.availableBaseQty,
+              reason: `POS खुली बिक्री (${rawQty} ${item.looseUnit || baseUnit}) · बिल #${assignedInvoiceNo}`,
+              referenceId: saleRef.id,
+            })
+          );
+        } else {
+          // SEALED PACK SALE DEDUCTION (BATCH-AWARE FEFO OR MANUAL BATCH)
+          const qtyPacks = Number(item.packCount ?? item.quantity) || 0;
+          if (qtyPacks <= 0) continue;
+
+          let targetVarIdx = -1;
+          if (wp.hasStoredVariants) {
+            if (item.variantId) {
+              targetVarIdx = wp.variants.findIndex(v => v.id === item.variantId);
+            }
+            if (targetVarIdx === -1 && item.variantLabel) {
+              targetVarIdx = wp.variants.findIndex(v => v.label === item.variantLabel);
+            }
+            if (targetVarIdx === -1 && wp.variants.length === 1) {
+              targetVarIdx = 0;
+            }
+          }
+
+          if (targetVarIdx !== -1) {
+            const targetVar = wp.variants[targetVarIdx];
+            const alloc = allocateFefoBatches({
+              product: { ...wp.data, packagingVariants: wp.variants, batches: wp.batches },
+              variant: targetVar,
+              requestedPacks: qtyPacks,
+              manualBatchId: item.selectedBatchId,
+              allowNegativeStock: Boolean(stockConfig.allowNegativeStock),
+              blockExpiredSale: blockExpired,
+              expiryWarningDays: warnDays,
+            });
+
+            if (alloc.errorReason && !stockConfig.allowNegativeStock) {
+              throw new Error(alloc.errorReason);
+            }
+
+            // Deduct from batches
+            for (const al of alloc.allocations) {
+              const bIdx = wp.batches.findIndex(b => b.id === al.batchId);
+              if (bIdx !== -1) {
+                wp.batches[bIdx].remainingPackQuantity = Math.max(
+                  0,
+                  (wp.batches[bIdx].remainingPackQuantity || 0) - al.packsUsed
+                );
+                wp.batches[bIdx].updatedAt = now;
+              }
+            }
+
+            // Deduct unbatched / negative shortfall
+            const totalUnbatchedDeduct = alloc.unbatchedPacksUsed + (stockConfig.allowNegativeStock ? alloc.shortfallPacks : 0);
+            wp.unbatchedMap[targetVar.id] = stockConfig.allowNegativeStock
+              ? (wp.unbatchedMap[targetVar.id] || 0) - totalUnbatchedDeduct
+              : Math.max(0, (wp.unbatchedMap[targetVar.id] || 0) - totalUnbatchedDeduct);
+
+            const synced = syncProductVariantsWithBatches(
+              wp.data,
+              wp.variants,
+              wp.batches,
+              warnDays,
+              wp.unbatchedMap
+            );
+            wp.variants = synced.updatedVariants;
+            wp.batches = synced.cleanedBatches;
+            wp.currentStock = synced.totalSaleablePacks;
+            wp.modified = true;
+
+            // Attach authoritative batch allocations & exact batch COGS to sale item
+            if (alloc.allocations.length > 0) {
+              item.batchAllocations = alloc.allocations;
+              item.batchNumber = alloc.batchNumbersSummary;
+              if (alloc.primaryExpiryDate) {
+                item.expiryDate = alloc.primaryExpiryDate;
+              }
+              const qtyForCost = Number(item.quantity) || qtyPacks;
+              item.costPrice = alloc.weightedUnitCost;
+              item.totalCost = Math.round(alloc.weightedUnitCost * qtyForCost * 100) / 100;
+              item.lineGrossProfit = Math.round((item.totalEffectiveAmount - item.totalCost) * 100) / 100;
+              item.lineMarginPercent =
+                item.totalEffectiveAmount > 0
+                  ? Math.round((item.lineGrossProfit / item.totalEffectiveAmount) * 1000) / 10
+                  : 0;
+              item.isBelowCost = item.effectiveSellingPrice < item.costPrice;
+            }
+
+            const updatedTargetVar = wp.variants[targetVarIdx];
+            if (alloc.allocations.length > 0) {
+              alloc.allocations.forEach((al, idxOffset) => {
+                const movRef = doc(collection(db, 'accounting_stock_movements'));
+                movementsToWrite.push(
+                  stripUndefinedDeep({
+                    id: movRef.id,
+                    timestamp: now + idxOffset,
+                    date: saleDateStr,
+                    productId: item.productId,
+                    productName: productLabel,
+                    variantId: targetVar.id,
+                    variantLabel: item.variantLabel || targetVar.label,
+                    batchId: al.batchId,
+                    batchNumber: al.batchNumber,
+                    expiryDate: al.expiryDate,
+                    purchaseCostPerPack: al.unitCost,
+                    type: 'pack_sale',
+                    quantityChangePacks: -al.packsUsed,
+                    balancePacksAfter: updatedTargetVar?.currentStockPacks ?? 0,
+                    reason: `POS बिक्री (बिल #${assignedInvoiceNo}) · बैच: ${al.batchNumber || 'बिना नं.'}`,
+                    referenceId: saleRef.id,
+                  })
+                );
+              });
+            } else {
+              const movRef = doc(collection(db, 'accounting_stock_movements'));
+              movementsToWrite.push(
+                stripUndefinedDeep({
+                  id: movRef.id,
+                  timestamp: now,
+                  date: saleDateStr,
+                  productId: item.productId,
+                  productName: productLabel,
+                  variantId: targetVar.id,
+                  variantLabel: item.variantLabel || targetVar.label,
+                  type: 'pack_sale',
+                  quantityChangePacks: -qtyPacks,
+                  balancePacksAfter: updatedTargetVar?.currentStockPacks ?? 0,
+                  reason: `POS बिक्री (बिल #${assignedInvoiceNo})`,
+                  referenceId: saleRef.id,
+                })
+              );
+            }
+          } else {
+            // Legacy product without stored packagingVariants array
+            const avail = wp.currentStock || 0;
+            if (!stockConfig.allowNegativeStock && avail < qtyPacks) {
+              throw new Error(
+                `स्टॉक अपर्याप्त: "${productLabel}" का केवल ${avail} स्टॉक उपलब्ध है, बिल में ${qtyPacks} दर्ज है।`
+              );
+            }
+            const nextStock = stockConfig.allowNegativeStock
+              ? avail - qtyPacks
+              : Math.max(0, avail - qtyPacks);
+            wp.currentStock = nextStock;
+            wp.modified = true;
+
+            const movRef = doc(collection(db, 'accounting_stock_movements'));
+            movementsToWrite.push(
+              stripUndefinedDeep({
+                id: movRef.id,
+                timestamp: now,
+                date: saleDateStr,
+                productId: item.productId,
+                productName: productLabel,
+                variantId: item.variantId,
+                variantLabel: item.variantLabel || item.unit,
+                type: 'pack_sale',
+                quantityChangePacks: -qtyPacks,
+                balancePacksAfter: nextStock,
+                reason: `POS बिक्री (बिल #${assignedInvoiceNo})`,
+                referenceId: saleRef.id,
+              })
+            );
+          }
+        }
+      }
+    }
+
+    // Recompute authoritative COGS & Gross Profit if batch allocations adjusted unit costs
+    const finalTotalCOGS =
+      Math.round(authoritativeItems.reduce((sum, it) => sum + (Number(it.totalCost) || 0), 0) * 100) / 100;
+    const finalGrossProfit = Math.round((saleData.finalTotal - finalTotalCOGS) * 100) / 100;
+    const finalGrossMarginPercent =
+      saleData.finalTotal > 0 ? Math.round((finalGrossProfit / saleData.finalTotal) * 1000) / 10 : 0;
+
     // =========================================================================
     // PHASE 2: ALL WRITE OPERATIONS AFTER ALL READS HAVE COMPLETED
     // =========================================================================
 
-    // 3. Update sequence counter atomically (WRITE)
+    // 4. Update sequence counter atomically (WRITE)
     if (shouldUpdateCounter) {
       transaction.set(counterRef, {
         lastSequence: nextSeq,
@@ -866,18 +2039,20 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
       }, { merge: true });
     }
 
-    // 4. Write Sale Document (WRITE)
-    // Product quantity in saleData.items records strictly what was billed to the customer
-    // No automatic stock deduction or inventory mutation occurs
-    const fullSale: AccountingSale = {
+    // 5. Write Sale Document (WRITE)
+    const fullSale: AccountingSale = stripUndefinedDeep({
       ...saleData,
+      items: authoritativeItems,
+      totalCOGS: finalTotalCOGS,
+      grossProfit: finalGrossProfit,
+      grossMarginPercent: finalGrossMarginPercent,
       id: saleRef.id,
       invoiceNo: assignedInvoiceNo,
       createdAt: now,
-    };
+    });
     transaction.set(saleRef, fullSale);
 
-    // 5. Update Customer Udhari Ledger (if sale involves udhari)
+    // 6. Update Customer Udhari Ledger (if sale involves udhari)
     if (custRead && custRead.snap.exists()) {
       const custData = custRead.snap.data() as AccountingCustomer;
       const currentOutstanding = custData.currentOutstanding || 0;
@@ -910,6 +2085,30 @@ export async function createOfflineSale(saleData: Omit<AccountingSale, 'id' | 'c
         note: `बिल #${assignedInvoiceNo} पर उधारी (Total: ₹${saleData.finalTotal}, Paid: ₹${saleData.cashPaid + saleData.onlinePaid})`,
       };
       transaction.set(ledgerRef, ledgerEntry);
+    }
+
+    // 7. Write Product Stock Updates & Stock Movement Audit Logs (only when enabled & modified)
+    if (stockConfig.enabled) {
+      for (const wp of workingProducts.values()) {
+        if (!wp.modified) continue;
+        const prodUpdate: Record<string, any> = {
+          currentStock: wp.currentStock,
+          batches: wp.batches,
+          updatedAt: now,
+        };
+        if (wp.hasStoredVariants) {
+          prodUpdate.packagingVariants = wp.variants;
+        }
+        if (wp.looseStock) {
+          prodUpdate.looseStock = wp.looseStock;
+        }
+        transaction.update(wp.ref, stripUndefinedDeep(prodUpdate));
+      }
+
+      for (const mov of movementsToWrite) {
+        const movRef = doc(db, 'accounting_stock_movements', mov.id);
+        transaction.set(movRef, stripUndefinedDeep(mov));
+      }
     }
   });
 
@@ -1035,41 +2234,272 @@ export async function deleteOfflineSale(saleId: string, restoreStock = true): Pr
   if (!saleSnap.exists()) return;
 
   const saleData = saleSnap.data() as AccountingSale;
-  const batch = writeBatch(db);
+  const now = Date.now();
+  const dateStr = new Date(now).toISOString().split('T')[0];
 
-  // Restore stock if requested
-  if (restoreStock && saleData.items) {
-    for (const item of saleData.items) {
-      if (item.productId) {
-        const prodRef = doc(db, 'accounting_products', item.productId);
-        const prodSnap = await getDoc(prodRef);
-        if (prodSnap.exists()) {
-          const currentStock = prodSnap.data().currentStock || 0;
-          batch.update(prodRef, {
-            currentStock: currentStock + item.quantity,
-            updatedAt: Date.now(),
-          });
+  await runTransaction(db, async (transaction) => {
+    const stockConfigRef = doc(db, 'accounting_settings', 'stock_management_config');
+    const stockConfigSnap = await transaction.get(stockConfigRef);
+    const stockEnabled = stockConfigSnap.exists() && Boolean(stockConfigSnap.data()?.enabled);
+    const warnDays =
+      stockConfigSnap.exists() && typeof stockConfigSnap.data()?.expiryWarningDays === 'number'
+        ? stockConfigSnap.data()?.expiryWarningDays
+        : 122;
+
+    let custSnap: any = null;
+    const custRef = saleData.customerId ? doc(db, 'accounting_customers', saleData.customerId) : null;
+    if (custRef && saleData.udhariAmount > 0) {
+      custSnap = await transaction.get(custRef);
+    }
+
+    const prodUpdates = new Map<
+      string,
+      {
+        ref: DocumentReference;
+        data: AccountingProduct;
+        variants: PackagingVariant[];
+        batches: StockBatch[];
+        unbatchedMap: Record<string, number>;
+        hasStoredVariants: boolean;
+        looseStock?: LooseStockPool;
+        currentStock: number;
+      }
+    >();
+    const reversalMovements: StockMovementLog[] = [];
+
+    if (restoreStock && stockEnabled && Array.isArray(saleData.items)) {
+      const uniquePids = Array.from(
+        new Set(saleData.items.map(it => it.productId).filter((id): id is string => Boolean(id)))
+      );
+      const snaps = await Promise.all(
+        uniquePids.map(async pid => {
+          const ref = doc(db, 'accounting_products', pid);
+          const snap = await transaction.get(ref);
+          return { pid, ref, snap };
+        })
+      );
+
+      for (const { pid, ref, snap } of snaps) {
+        if (!snap.exists()) continue;
+        const pData = { id: snap.id, ...snap.data() } as AccountingProduct;
+        const vars = Array.isArray(pData.packagingVariants)
+          ? pData.packagingVariants.map(v => ({ ...v }))
+          : [];
+        const storedBatches = Array.isArray(pData.batches)
+          ? pData.batches.map(b => ({ ...b }))
+          : [];
+        const unbatchedMap: Record<string, number> = {};
+        for (const v of vars) {
+          unbatchedMap[v.id] = calculateVariantStockSummary(
+            { ...pData, packagingVariants: vars, batches: storedBatches },
+            v,
+            10,
+            warnDays
+          ).unbatchedPacks;
+        }
+        prodUpdates.set(pid, {
+          ref,
+          data: pData,
+          variants: vars,
+          batches: storedBatches,
+          unbatchedMap,
+          hasStoredVariants: vars.length > 0,
+          looseStock: pData.looseStock ? { ...pData.looseStock } : undefined,
+          currentStock: pData.currentStock || 0,
+        });
+      }
+
+      for (const item of saleData.items) {
+        if (!item.productId) continue;
+        const wp = prodUpdates.get(item.productId);
+        if (!wp) continue;
+
+        const productLabel = item.hindiName || item.name || wp.data.hindiName || wp.data.name;
+
+        if (item.saleType === 'loose') {
+          const rawQty = Number(item.looseQuantity ?? item.quantity) || 0;
+          const unitLower = String(item.looseUnit || item.unit || '').toLowerCase();
+          const isLargeUnit = unitLower === 'kg' || unitLower === 'l' || unitLower === 'ltr';
+          const restoreBaseQty =
+            item.looseBaseQty && item.looseBaseQty > 0
+              ? Number(item.looseBaseQty)
+              : isLargeUnit
+              ? rawQty * 1000
+              : rawQty;
+
+          if (restoreBaseQty > 0) {
+            const baseUnit: 'ml' | 'g' =
+              wp.looseStock?.baseUnit ||
+              (unitLower === 'ml' || unitLower === 'l' || unitLower === 'ltr' ? 'ml' : 'g');
+            if (!wp.looseStock) {
+              wp.looseStock = {
+                availableBaseQty: restoreBaseQty,
+                baseUnit,
+                costPerBaseUnit: item.costPerBaseUnit || 0,
+                sellingPricePerBaseUnit: item.sellingPricePerBaseUnit || 0,
+                lastOpenedBatchNumber: item.batchNumber,
+                activeBatchExpiryDate: item.expiryDate,
+                updatedAt: now,
+              };
+            } else {
+              wp.looseStock.availableBaseQty =
+                Math.round(((wp.looseStock.availableBaseQty || 0) + restoreBaseQty) * 100) / 100;
+              wp.looseStock.updatedAt = now;
+            }
+
+            const movRef = doc(collection(db, 'accounting_stock_movements'));
+            reversalMovements.push(
+              stripUndefinedDeep({
+                id: movRef.id,
+                timestamp: now,
+                date: dateStr,
+                productId: item.productId,
+                productName: productLabel,
+                variantId: item.openedPackFromVariantId || item.variantId,
+                variantLabel: item.variantLabel,
+                batchNumber: item.batchNumber,
+                type: 'sale_reversal',
+                quantityChangeBaseUnit: restoreBaseQty,
+                balanceBaseUnitAfter: wp.looseStock.availableBaseQty,
+                reason: `बिल #${saleData.invoiceNo} रद्द/डिलीट होने पर खुला स्टॉक वापस जोड़ा गया`,
+                referenceId: saleId,
+              })
+            );
+          }
+        } else {
+          const qtyPacks = Number(item.packCount ?? item.quantity) || 0;
+          if (qtyPacks <= 0) continue;
+
+          let idx = -1;
+          if (wp.hasStoredVariants) {
+            if (item.variantId) idx = wp.variants.findIndex(v => v.id === item.variantId);
+            if (idx === -1 && item.variantLabel) idx = wp.variants.findIndex(v => v.label === item.variantLabel);
+            if (idx === -1 && wp.variants.length === 1) idx = 0;
+          }
+
+          if (idx !== -1) {
+            const targetVar = wp.variants[idx];
+            let restoredViaBatches = 0;
+
+            if (Array.isArray(item.batchAllocations) && item.batchAllocations.length > 0) {
+              for (const al of item.batchAllocations) {
+                const bIdx = wp.batches.findIndex(b => b.id === al.batchId);
+                if (bIdx !== -1) {
+                  wp.batches[bIdx].remainingPackQuantity =
+                    (wp.batches[bIdx].remainingPackQuantity || 0) + al.packsUsed;
+                  wp.batches[bIdx].status = 'active';
+                  wp.batches[bIdx].updatedAt = now;
+                  restoredViaBatches += al.packsUsed;
+
+                  const movRef = doc(collection(db, 'accounting_stock_movements'));
+                  reversalMovements.push(
+                    stripUndefinedDeep({
+                      id: movRef.id,
+                      timestamp: now,
+                      date: dateStr,
+                      productId: item.productId,
+                      productName: productLabel,
+                      variantId: targetVar.id,
+                      variantLabel: item.variantLabel || targetVar.label,
+                      batchId: al.batchId,
+                      batchNumber: al.batchNumber,
+                      expiryDate: al.expiryDate,
+                      type: 'sale_reversal',
+                      quantityChangePacks: al.packsUsed,
+                      balancePacksAfter:
+                        (targetVar.currentStockPacks || 0) + restoredViaBatches,
+                      reason: `बिल #${saleData.invoiceNo} रद्द होने पर बैच (${al.batchNumber || 'बिना नं.'}) में ${al.packsUsed} स्टॉक वापस`,
+                      referenceId: saleId,
+                    })
+                  );
+                }
+              }
+            }
+
+            const remainingUnbatchedRestore = Math.max(0, qtyPacks - restoredViaBatches);
+            if (remainingUnbatchedRestore > 0) {
+              wp.unbatchedMap[targetVar.id] =
+                (wp.unbatchedMap[targetVar.id] || 0) + remainingUnbatchedRestore;
+
+              const movRef = doc(collection(db, 'accounting_stock_movements'));
+              reversalMovements.push(
+                stripUndefinedDeep({
+                  id: movRef.id,
+                  timestamp: now,
+                  date: dateStr,
+                  productId: item.productId,
+                  productName: productLabel,
+                  variantId: targetVar.id,
+                  variantLabel: item.variantLabel || targetVar.label,
+                  type: 'sale_reversal',
+                  quantityChangePacks: remainingUnbatchedRestore,
+                  balancePacksAfter: (targetVar.currentStockPacks || 0) + qtyPacks,
+                  reason: `बिल #${saleData.invoiceNo} रद्द होने पर पैक स्टॉक वापस जोड़ा गया`,
+                  referenceId: saleId,
+                })
+              );
+            }
+
+            const synced = syncProductVariantsWithBatches(
+              wp.data,
+              wp.variants,
+              wp.batches,
+              warnDays,
+              wp.unbatchedMap
+            );
+            wp.variants = synced.updatedVariants;
+            wp.batches = synced.cleanedBatches;
+            wp.currentStock = synced.totalSaleablePacks;
+          } else {
+            wp.currentStock = (wp.currentStock || 0) + qtyPacks;
+            const movRef = doc(collection(db, 'accounting_stock_movements'));
+            reversalMovements.push(
+              stripUndefinedDeep({
+                id: movRef.id,
+                timestamp: now,
+                date: dateStr,
+                productId: item.productId,
+                productName: productLabel,
+                variantLabel: item.variantLabel || item.unit,
+                type: 'sale_reversal',
+                quantityChangePacks: qtyPacks,
+                balancePacksAfter: wp.currentStock,
+                reason: `बिल #${saleData.invoiceNo} रद्द/डिलीट होने पर स्टॉक वापस जोड़ा गया`,
+                referenceId: saleId,
+              })
+            );
+          }
         }
       }
     }
-  }
 
-  // If customer udhari was charged, reverse it
-  if (saleData.customerId && saleData.udhariAmount > 0) {
-    const custRef = doc(db, 'accounting_customers', saleData.customerId);
-    const custSnap = await getDoc(custRef);
-    if (custSnap.exists()) {
+    // Writes
+    for (const wp of prodUpdates.values()) {
+      const updatePayload: Record<string, any> = {
+        currentStock: wp.currentStock,
+        batches: wp.batches,
+        updatedAt: now,
+      };
+      if (wp.hasStoredVariants) updatePayload.packagingVariants = wp.variants;
+      if (wp.looseStock) updatePayload.looseStock = wp.looseStock;
+      transaction.update(wp.ref, stripUndefinedDeep(updatePayload));
+    }
+
+    for (const mov of reversalMovements) {
+      transaction.set(doc(db, 'accounting_stock_movements', mov.id), stripUndefinedDeep(mov));
+    }
+
+    if (custRef && custSnap && custSnap.exists() && saleData.udhariAmount > 0) {
       const custData = custSnap.data() as AccountingCustomer;
       const newOutstanding = Math.max(0, (custData.currentOutstanding || 0) - saleData.udhariAmount);
-      batch.update(custRef, {
+      transaction.update(custRef, {
         currentOutstanding: newOutstanding,
-        updatedAt: Date.now(),
+        updatedAt: now,
       });
     }
-  }
 
-  batch.delete(saleRef);
-  await batch.commit();
+    transaction.delete(saleRef);
+  });
 }
 
 // ----------------------------------------------------
@@ -1251,7 +2681,18 @@ export async function saveAccountingExpense(expense: Omit<AccountingExpense, 'id
 }
 
 export async function deleteAccountingExpense(expenseId: string): Promise<void> {
-  await deleteDoc(doc(db, 'accounting_expenses', expenseId));
+  if (!expenseId || !expenseId.trim()) {
+    throw new Error('अमान्य खर्च आईडी।');
+  }
+  if (!auth.currentUser) {
+    throw new Error('केवल लॉगिन किए हुए एडमिन ही खर्च हटा सकते हैं।');
+  }
+  const path = `accounting_expenses/${expenseId}`;
+  try {
+    await deleteDoc(doc(db, 'accounting_expenses', expenseId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
+  }
 }
 
 export async function fetchExpenseCategories(): Promise<AccountingExpenseCategory[]> {
@@ -1344,12 +2785,13 @@ export async function fetchAccountingReport(
   endDate: string
 ): Promise<any> {
   try {
-    const [sales, expenses, products, customers, ledgerPayments] = await Promise.all([
+    const [sales, expenses, products, customers, ledgerPayments, stockConfig] = await Promise.all([
       fetchAccountingSales(500),
       fetchAccountingExpenses(),
       fetchAccountingProducts(),
       fetchAccountingCustomers(),
       fetchCustomerLedgerPayments(),
+      fetchStockManagementConfig(),
     ]);
 
     // Filter sales and expenses by date range
@@ -1385,8 +2827,22 @@ export async function fetchAccountingReport(
     const totalCustomerOutstanding = customers.reduce((acc, c) => acc + (c.currentOutstanding || 0), 0);
     const totalSupplierOutstanding = 0;
 
-    const totalInventoryValuation = products.reduce((acc, p) => acc + ((p.currentStock || 0) * (p.costPrice || 0)), 0);
-    const lowStockCount = products.filter(p => (p.currentStock || 0) <= (p.minStockAlert || 5)).length;
+    let totalInventoryValuation = 0;
+    let lowStockCount = 0;
+
+    if (stockConfig.enabled) {
+      const defaultThreshold = stockConfig.defaultLowStockThreshold ?? 10;
+      const warnDays = stockConfig.expiryWarningDays ?? 122;
+      for (const p of products) {
+        const health = calculateProductHealthSummary(p, defaultThreshold, warnDays);
+        totalInventoryValuation += health.totalValuation;
+        if (health.hasLowStockVariant) {
+          lowStockCount++;
+        }
+      }
+      totalInventoryValuation = Math.round(totalInventoryValuation);
+    }
+
     const totalProductsCount = products.length;
 
     return {
@@ -1546,4 +3002,125 @@ export async function savePOSLooseRateSettings(
   }
 }
 
+// ----------------------------------------------------
+// STOCK QUANTITY MANAGEMENT MASTER TOGGLE CONFIG
+// ----------------------------------------------------
 
+const STOCK_MGMT_CONFIG_DOC_PATH = 'accounting_settings/stock_management_config';
+const STOCK_MGMT_CONFIG_CACHE_KEY = 'fkb_stock_management_config_v1';
+
+export const DEFAULT_STOCK_MANAGEMENT_CONFIG: StockManagementConfig = {
+  enabled: false,
+  allowNegativeStock: false,
+  autoOpenPackOnLooseSale: true,
+  defaultLowStockThreshold: 10,
+  expiryWarningDays: 122,
+  blockExpiredSale: true,
+  updatedAt: 0,
+};
+
+function normalizeStockConfigPayload(data: any): StockManagementConfig {
+  return {
+    enabled: Boolean(data?.enabled),
+    allowNegativeStock: Boolean(data?.allowNegativeStock),
+    autoOpenPackOnLooseSale:
+      data?.autoOpenPackOnLooseSale === undefined
+        ? true
+        : Boolean(data?.autoOpenPackOnLooseSale),
+    defaultLowStockThreshold:
+      typeof data?.defaultLowStockThreshold === 'number' && data.defaultLowStockThreshold >= 0
+        ? data.defaultLowStockThreshold
+        : 10,
+    expiryWarningDays:
+      typeof data?.expiryWarningDays === 'number' && data.expiryWarningDays > 0
+        ? data.expiryWarningDays
+        : 122,
+    blockExpiredSale:
+      data?.blockExpiredSale === undefined ? true : Boolean(data?.blockExpiredSale),
+    updatedAt: typeof data?.updatedAt === 'number' ? data.updatedAt : 0,
+    updatedBy: typeof data?.updatedBy === 'string' ? data.updatedBy : undefined,
+  };
+}
+
+export function getCachedStockManagementConfig(): StockManagementConfig {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return { ...DEFAULT_STOCK_MANAGEMENT_CONFIG };
+  }
+  try {
+    const raw = window.localStorage.getItem(STOCK_MGMT_CONFIG_CACHE_KEY);
+    if (!raw) return { ...DEFAULT_STOCK_MANAGEMENT_CONFIG };
+    const parsed = JSON.parse(raw);
+    return normalizeStockConfigPayload(parsed);
+  } catch {
+    return { ...DEFAULT_STOCK_MANAGEMENT_CONFIG };
+  }
+}
+
+export function cacheStockManagementConfigLocally(config: StockManagementConfig): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(STOCK_MGMT_CONFIG_CACHE_KEY, JSON.stringify(config));
+  } catch (err) {
+    console.warn('Could not cache stock management config:', err);
+  }
+}
+
+export async function fetchStockManagementConfig(): Promise<StockManagementConfig> {
+  const cached = getCachedStockManagementConfig();
+  try {
+    const docRef = doc(db, 'accounting_settings', 'stock_management_config');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const normalized = normalizeStockConfigPayload(snap.data());
+      if (!normalized.updatedAt) normalized.updatedAt = Date.now();
+      cacheStockManagementConfigLocally(normalized);
+      return normalized;
+    }
+    cacheStockManagementConfigLocally(DEFAULT_STOCK_MANAGEMENT_CONFIG);
+    return { ...DEFAULT_STOCK_MANAGEMENT_CONFIG };
+  } catch (err) {
+    handleFirestoreError(err, OperationType.GET, STOCK_MGMT_CONFIG_DOC_PATH);
+    return cached;
+  }
+}
+
+export async function saveStockManagementConfig(
+  updates: Partial<StockManagementConfig>
+): Promise<StockManagementConfig> {
+  const current = getCachedStockManagementConfig();
+  const payload: StockManagementConfig = stripUndefinedDeep({
+    enabled: updates.enabled !== undefined ? Boolean(updates.enabled) : current.enabled,
+    allowNegativeStock:
+      updates.allowNegativeStock !== undefined
+        ? Boolean(updates.allowNegativeStock)
+        : Boolean(current.allowNegativeStock),
+    autoOpenPackOnLooseSale:
+      updates.autoOpenPackOnLooseSale !== undefined
+        ? Boolean(updates.autoOpenPackOnLooseSale)
+        : current.autoOpenPackOnLooseSale ?? true,
+    defaultLowStockThreshold:
+      updates.defaultLowStockThreshold !== undefined
+        ? Math.max(0, Number(updates.defaultLowStockThreshold) || 0)
+        : current.defaultLowStockThreshold ?? 10,
+    expiryWarningDays:
+      updates.expiryWarningDays !== undefined
+        ? Math.max(15, Number(updates.expiryWarningDays) || 122)
+        : current.expiryWarningDays ?? 122,
+    blockExpiredSale:
+      updates.blockExpiredSale !== undefined
+        ? Boolean(updates.blockExpiredSale)
+        : current.blockExpiredSale ?? true,
+    updatedAt: Date.now(),
+    updatedBy: auth.currentUser?.email || updates.updatedBy || 'admin',
+  });
+
+  try {
+    const docRef = doc(db, 'accounting_settings', 'stock_management_config');
+    await setDoc(docRef, payload, { merge: true });
+    cacheStockManagementConfigLocally(payload);
+    return payload;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, STOCK_MGMT_CONFIG_DOC_PATH);
+    throw err;
+  }
+}

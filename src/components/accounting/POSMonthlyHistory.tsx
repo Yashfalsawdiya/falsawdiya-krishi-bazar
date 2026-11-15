@@ -3,16 +3,19 @@ import {
   Calendar, FileText, Download, Trash2, Search, Filter, 
   Eye, CheckCircle2, AlertTriangle, AlertCircle, RefreshCw, 
   Printer, ArrowUpDown, ChevronDown, Check, ShieldCheck,
-  CreditCard, Wallet, IndianRupee, Layers, ExternalLink, X, Lightbulb, Share2
+  CreditCard, Wallet, IndianRupee, Layers, ExternalLink, X, Lightbulb, Share2, RotateCcw
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { AccountingSale, MonthlyPOSExportMeta } from '../../types/accounting';
+import { AccountingSale, MonthlyPOSExportMeta, StockManagementConfig } from '../../types/accounting';
 import { 
   fetchAccountingSalesForMonth, 
   fetchAllPOSSalesForHistory,
   getMonthlyPOSExportMeta, 
   saveMonthlyPOSExportMeta, 
   deleteMonthlyPOSBills,
+  deleteOfflineSale,
+  fetchStockManagementConfig,
+  getCachedStockManagementConfig,
   HINDI_MONTH_NAMES_LIST 
 } from '../../services/accountingService';
 import { 
@@ -65,8 +68,11 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
   // Single Bill Invoice Modal State
   const [viewingSale, setViewingSale] = useState<AccountingSale | null>(null);
   const [sharingSale, setSharingSale] = useState<AccountingSale | null>(null);
+  const [cancelingSale, setCancelingSale] = useState<AccountingSale | null>(null);
+  const [isCancelingSingle, setIsCancelingSingle] = useState<boolean>(false);
   const [isPrintingSingle, setIsPrintingSingle] = useState<boolean>(false);
   const [isDownloadingSinglePdf, setIsDownloadingSinglePdf] = useState<boolean>(false);
+  const [stockConfig, setStockConfig] = useState<StockManagementConfig>(() => getCachedStockManagementConfig());
 
   // Delete Dialog States
   const [showExportRequiredModal, setShowExportRequiredModal] = useState<boolean>(false);
@@ -133,13 +139,15 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
     setIsLoading(true);
     setActionMessage(null);
     try {
-      const [fetchedSales, meta] = await Promise.all([
+      const [fetchedSales, meta, sConfig] = await Promise.all([
         fetchAccountingSalesForMonth(selectedYear, selectedMonth),
-        getMonthlyPOSExportMeta(selectedMonthKey)
+        getMonthlyPOSExportMeta(selectedMonthKey),
+        fetchStockManagementConfig(),
       ]);
 
       setSales(fetchedSales);
       setExportMeta(meta);
+      setStockConfig(sConfig);
     } catch (err) {
       console.error('Error fetching monthly data:', err);
     } finally {
@@ -346,6 +354,36 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
       alert('PDF डाउनलोड करने में त्रुटि: ' + err.message);
     } finally {
       setIsDownloadingSinglePdf(false);
+    }
+  };
+
+  // Handler: Single Bill Cancel / Delete with Stock & Batch Rollback
+  const handleConfirmCancelSingleSale = async () => {
+    if (!cancelingSale) return;
+    setIsCancelingSingle(true);
+    try {
+      await deleteOfflineSale(cancelingSale.id, true);
+      const cancelledNo = cancelingSale.invoiceNo;
+      setCancelingSale(null);
+      setActionMessage({
+        type: 'success',
+        text: `बिल #${cancelledNo} सफलतापूर्वक रद्द/डिलीट किया गया।${
+          stockConfig.enabled
+            ? ' सभी आइटम वापस उनके मूल बैच व स्टॉक में जुड़ गए हैं।'
+            : ''
+        }`,
+      });
+      await loadMonthData();
+      await loadAvailableMonths();
+      onSaleDeleted?.();
+    } catch (err: any) {
+      console.error('Error canceling single POS bill:', err);
+      setActionMessage({
+        type: 'error',
+        text: 'बिल रद्द करने में त्रुटि: ' + (err?.message || 'अज्ञात त्रुटि'),
+      });
+    } finally {
+      setIsCancelingSingle(false);
     }
   };
 
@@ -769,6 +807,13 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
                             >
                               <Download className="w-3.5 h-3.5 text-emerald-700" />
                             </button>
+                            <button
+                              onClick={() => setCancelingSale(sale)}
+                              className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors border border-rose-200 cursor-pointer"
+                              title="बिल रद्द / डिलीट करें (बैच व स्टॉक वापस जोड़ें)"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -849,6 +894,13 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
                           title="PDF डाउनलोड करें"
                         >
                           <Download className="w-3.5 h-3.5 text-emerald-700" />
+                        </button>
+                        <button
+                          onClick={() => setCancelingSale(sale)}
+                          className="p-1.5 bg-rose-50 text-rose-700 rounded-lg border border-rose-200"
+                          title="बिल रद्द / डिलीट करें (स्टॉक वापस जोड़ें)"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -1119,6 +1171,103 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
         includeOutstandingInText={false}
         onClose={() => setSharingSale(null)}
       />
+
+      {/* MODAL 6: SINGLE BILL CANCEL / RETURN + BATCH ROLLBACK MODAL */}
+      {cancelingSale && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 bg-rose-100 text-rose-700 rounded-2xl flex items-center justify-center shrink-0">
+                  <RotateCcw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900">
+                    बिल रद्द / डिलीट पुष्टि
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    बिल #{cancelingSale.invoiceNo} · {cancelingSale.date}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isCancelingSingle && setCancelingSale(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-gray-500">ग्राहक:</span>
+                <span className="font-bold text-gray-900">{cancelingSale.customerName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">कुल राशि:</span>
+                <span className="font-black text-gray-900">₹{cancelingSale.finalTotal?.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">आइटम संख्या:</span>
+                <span className="font-bold text-gray-800">{cancelingSale.items?.length || 0} उत्पाद</span>
+              </div>
+            </div>
+
+            {stockConfig.enabled ? (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                <span>
+                  <strong>बैच व स्टॉक रोलबैक:</strong> इस बिल के सभी आइटम वापस उनके मूल बैच व पैक स्टॉक में स्वतः जुड़ जाएंगे।
+                </span>
+              </div>
+            ) : (
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs text-gray-700 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
+                <span>स्टॉक मैनेजमेंट OFF होने के कारण स्टॉक में कोई बदलाव नहीं होगा।</span>
+              </div>
+            )}
+
+            {cancelingSale.udhariAmount > 0 && cancelingSale.customerId && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <span>
+                  ग्राहक की उधारी से <strong>₹{cancelingSale.udhariAmount.toLocaleString()}</strong> स्वतः कम (समायोजित) कर दिए जाएंगे।
+                </span>
+              </div>
+            )}
+
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                disabled={isCancelingSingle}
+                onClick={() => setCancelingSale(null)}
+                className="flex-1 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                रद्द करें
+              </button>
+              <button
+                type="button"
+                disabled={isCancelingSingle}
+                onClick={handleConfirmCancelSingleSale}
+                className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isCancelingSingle ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>प्रोसेस हो रहा है...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>बिल हटाएं व वापस जोड़ें</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ACTIVE PRINT PORTAL FOR SINGLE INVOICE PRINT */}
       {typeof document !== 'undefined' && isPrintingSingle && viewingSale && createPortal(

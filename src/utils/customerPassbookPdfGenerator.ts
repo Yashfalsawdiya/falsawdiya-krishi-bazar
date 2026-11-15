@@ -1,7 +1,7 @@
-import html2canvas from 'html2canvas-pro';
 import { jsPDF } from 'jspdf';
 import { AccountingCustomer, CustomerLedgerEntry } from '../types/accounting';
 import { loadLogoBase64 } from './invoiceGenerator';
+import { renderHtmlToSafeCanvas } from './canvasRenderUtils';
 
 export interface DownloadCustomerPassbookPdfOptions {
   customer: AccountingCustomer;
@@ -231,15 +231,16 @@ export function buildCustomerPassbookFileName(
 }
 
 /**
- * Renders the Customer Ledger Passbook HTML in an isolated offscreen iframe
- * and returns a crisp 2x HTMLCanvasElement.
+ * Renders the Customer Ledger Passbook HTML via the safe offscreen DIV pipeline
+ * (eliminating nested hidden iframes that stall or render black on Android PWA)
+ * and returns a white-flattened, pixel-validated HTMLCanvasElement.
  */
 export async function renderCustomerPassbookCanvas(
   options: Omit<DownloadCustomerPassbookPdfOptions, 'fileName'>
 ): Promise<HTMLCanvasElement> {
   const { customer, ledgerEntries, logoSource } = options;
 
-  // Pre-load logo to Base64 to prevent canvas CORS security errors
+  // Pre-load logo to Base64 (with 2.5s timeout fallback) to prevent canvas CORS errors
   let logoDataUrl = '/icon-192.png';
   try {
     logoDataUrl = await loadLogoBase64(logoSource || '/icon-192.png');
@@ -247,100 +248,12 @@ export async function renderCustomerPassbookCanvas(
     console.warn('Failed to load logo base64 for passbook, using fallback:', err);
   }
 
-  // Create isolated offscreen iframe to insulate html2canvas from host Tailwind v4 stylesheet issues
-  const iframe = document.createElement('iframe');
-  iframe.style.position = 'fixed';
-  iframe.style.left = '-9999px';
-  iframe.style.top = '0';
-  iframe.style.width = '794px';
-  iframe.style.height = '1123px';
-  iframe.style.border = 'none';
-  iframe.style.visibility = 'hidden';
-  iframe.style.zIndex = '-99999';
-  document.body.appendChild(iframe);
-
-  try {
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!iframeDoc) {
-      throw new Error('प्रिंटिंग फ्रेम तैयार नहीं किया जा सका।');
-    }
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <base href="${typeof window !== 'undefined' ? window.location.origin : ''}">
-          <link rel="preconnect" href="https://fonts.googleapis.com">
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-          <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-          <style>
-            * { box-sizing: border-box; margin: 0; padding: 0; }
-            body { 
-              font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; 
-              background-color: #ffffff; 
-              color: #111827; 
-              letter-spacing: normal;
-              word-spacing: normal;
-              text-rendering: optimizeLegibility;
-              -webkit-font-smoothing: antialiased;
-            }
-            table { border-collapse: collapse; }
-          </style>
-        </head>
-        <body style="background-color: #ffffff; margin: 0; padding: 0;">
-          <div id="passbook-render-target" style="width: 794px; background-color: #ffffff;">
-            ${buildCustomerPassbookHtml(customer, ledgerEntries, logoDataUrl)}
-          </div>
-        </body>
-      </html>
-    `;
-
-    iframeDoc.open();
-    iframeDoc.write(htmlContent);
-    iframeDoc.close();
-
-    // Wait for fonts & layout
-    if (iframeDoc.fonts && iframeDoc.fonts.ready) {
-      await iframeDoc.fonts.ready;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-
-    const renderTarget = iframeDoc.getElementById('passbook-render-target') || iframeDoc.body;
-
-    const canvas = await html2canvas(renderTarget, {
-      scale: 2, // Crisp 2x retina scale for sharp Hindi glyphs
-      useCORS: true,
-      allowTaint: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-      width: 794,
-      windowWidth: 794,
-      onclone: (clonedDoc, clonedElement) => {
-        // Strip any style tags that might contain unsupported oklch
-        const allStyles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-        allStyles.forEach((s) => {
-          if (s.textContent && s.textContent.includes('oklch')) {
-            s.remove();
-          }
-        });
-
-        if (clonedElement) {
-          clonedElement.style.position = 'static';
-          clonedElement.style.left = '0px';
-          clonedElement.style.top = '0px';
-          clonedElement.style.display = 'block';
-          clonedElement.style.visibility = 'visible';
-        }
-      },
-    });
-
-    return canvas;
-  } finally {
-    if (iframe.parentNode) {
-      iframe.parentNode.removeChild(iframe);
-    }
-  }
+  return await renderHtmlToSafeCanvas({
+    html: buildCustomerPassbookHtml(customer, ledgerEntries, logoDataUrl),
+    width: 794,
+    scale: 2,
+    timeoutMs: 12000,
+  });
 }
 
 export interface GeneratedPassbookImage {

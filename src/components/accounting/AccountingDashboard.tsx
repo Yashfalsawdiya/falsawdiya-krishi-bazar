@@ -138,7 +138,7 @@ export const AccountingDashboard: React.FC = () => {
       )}
 
       {activeTab === 'expenses' && (
-        <AccountingExpenses />
+        <AccountingExpenses onExpenseChange={() => loadReport()} />
       )}
 
       {/* OVERVIEW / SUMMARY DASHBOARD */}
@@ -365,109 +365,166 @@ export const AccountingDashboard: React.FC = () => {
           </div>
 
           {/* Secondary Rows: Cash Flow, Galla & Udhari */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Galla & Cash Received */}
-            <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b pb-3">
-                <span className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
-                  <Wallet className="w-4 h-4 text-emerald-600" />
-                  दैनिक गल्ला व नकद प्रवाह (Cash Flow)
-                </span>
-                <span className="text-[10px] text-gray-400">दुकान काउंटर</span>
-              </div>
-
-              <div className="space-y-2.5 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">नकद बिक्री से आया:</span>
-                  <strong className="text-gray-900 font-bold">+₹{report?.cashReceived?.toLocaleString() || 0}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">ऑनलाइन UPI से आया:</span>
-                  <strong className="text-gray-900 font-bold">+₹{report?.onlineReceived?.toLocaleString() || 0}</strong>
-                </div>
-                <div className="flex justify-between items-start">
-                  <span className="text-gray-500">उधारी वसूली से आया:</span>
-                  <div className="text-right">
-                    <strong className="text-emerald-700 font-bold">+₹{report?.customerPaymentCollected?.toLocaleString() || 0}</strong>
-                    {Boolean(report?.customerOnlinePaymentCollected && report.customerOnlinePaymentCollected > 0) && (
-                      <span className="block text-[10px] text-gray-400 font-normal">
-                        (नकद: ₹{(report?.customerCashPaymentCollected ?? 0).toLocaleString()} | UPI: ₹{(report?.customerOnlinePaymentCollected ?? 0).toLocaleString()})
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+            {/* 1. Galla & Cash Received */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shrink-0">
+                      <Wallet className="w-4.5 h-4.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-extrabold text-slate-900 leading-snug truncate">
+                        दैनिक गल्ला व नकद प्रवाह
+                      </h4>
+                      <span className="text-[11px] font-medium text-slate-400 block">
+                        Cash Flow · दुकान काउंटर
                       </span>
-                    )}
+                    </div>
                   </div>
                 </div>
-                <div className="flex justify-between text-rose-600">
-                  <span>गल्ले से खर्च निकला:</span>
-                  <strong className="font-bold">-₹{report?.cashExpenses?.toLocaleString() || 0}</strong>
+
+                <div className="mt-2 divide-y divide-slate-100 text-xs">
+                  <div className="py-2.5 flex items-center justify-between gap-3">
+                    <span className="text-slate-600 font-medium">नकद बिक्री से आया</span>
+                    <strong className="text-slate-900 font-bold tabular-nums whitespace-nowrap">
+                      +₹{report?.cashReceived?.toLocaleString() || 0}
+                    </strong>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-3">
+                    <span className="text-slate-600 font-medium">ऑनलाइन UPI से आया</span>
+                    <strong className="text-slate-900 font-bold tabular-nums whitespace-nowrap">
+                      +₹{report?.onlineReceived?.toLocaleString() || 0}
+                    </strong>
+                  </div>
+                  <div className="py-2.5 flex items-start justify-between gap-3">
+                    <span className="text-slate-600 font-medium">उधारी वसूली से आया</span>
+                    <div className="text-right tabular-nums">
+                      <strong className="text-emerald-700 font-bold whitespace-nowrap">
+                        +₹{report?.customerPaymentCollected?.toLocaleString() || 0}
+                      </strong>
+                      {Boolean(report?.customerOnlinePaymentCollected && report.customerOnlinePaymentCollected > 0) && (
+                        <span className="block text-[10px] text-slate-400 font-normal mt-0.5">
+                          नकद ₹{(report?.customerCashPaymentCollected ?? 0).toLocaleString()} · UPI ₹{(report?.customerOnlinePaymentCollected ?? 0).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-3">
+                    <span className="text-rose-600 font-medium">गल्ले से खर्च निकला</span>
+                    <strong className="text-rose-600 font-bold tabular-nums whitespace-nowrap">
+                      -₹{report?.cashExpenses?.toLocaleString() || 0}
+                    </strong>
+                  </div>
                 </div>
-                <div className="flex justify-between pt-2 border-t font-extrabold text-sm text-gray-900">
-                  <span>शुद्ध नकद गल्ला शेष:</span>
-                  <span className="text-emerald-800">
-                    ₹{((report?.cashReceived || 0) + ((report?.customerCashPaymentCollected ?? report?.customerPaymentCollected) || 0) - (report?.cashExpenses || 0)).toLocaleString()}
-                  </span>
-                </div>
+              </div>
+
+              <div className="mt-3 pt-3.5 border-t border-slate-200/80 flex items-baseline justify-between gap-3">
+                <span className="text-xs font-bold text-slate-700">शुद्ध नकद गल्ला शेष</span>
+                <span className="text-lg font-extrabold text-emerald-700 tabular-nums whitespace-nowrap">
+                  ₹{((report?.cashReceived || 0) + ((report?.customerCashPaymentCollected ?? report?.customerPaymentCollected) || 0) - (report?.cashExpenses || 0)).toLocaleString()}
+                </span>
               </div>
             </div>
 
-            {/* Market Credit / Udhari Status */}
-            <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b pb-3">
-                <span className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-amber-600" />
-                  बाजार उधारी खाता स्थिति (Credit Ledger)
-                </span>
-                <button
-                  onClick={() => setActiveTab('ledger')}
-                  className="text-[10px] text-emerald-700 hover:underline font-bold"
-                >
-                  खाता बही खोलें →
-                </button>
+            {/* 2. Market Credit / Udhari Status */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-200/70 flex items-center justify-center shrink-0">
+                      <Users className="w-4.5 h-4.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-extrabold text-slate-900 leading-snug truncate">
+                        बाजार उधारी खाता स्थिति
+                      </h4>
+                      <span className="text-[11px] font-medium text-slate-400 block">
+                        Credit Ledger
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('ledger')}
+                    className="text-[11px] text-[#2D5A27] hover:text-[#1f411b] hover:underline font-bold whitespace-nowrap shrink-0 cursor-pointer pt-0.5"
+                  >
+                    खाता बही खोलें →
+                  </button>
+                </div>
+
+                <div className="mt-2 divide-y divide-slate-100 text-xs">
+                  <div className="py-2.5 flex items-center justify-between gap-3">
+                    <span className="text-slate-600 font-medium">इस अवधि में दी गई नई उधारी</span>
+                    <strong className="text-amber-700 font-bold tabular-nums whitespace-nowrap">
+                      ₹{report?.newUdhariGiven?.toLocaleString() || 0}
+                    </strong>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-3">
+                    <span className="text-slate-600 font-medium">इस अवधि में वसूल हुई उधारी</span>
+                    <strong className="text-emerald-700 font-bold tabular-nums whitespace-nowrap">
+                      +₹{report?.customerPaymentCollected?.toLocaleString() || 0}
+                    </strong>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-2.5 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">इस अवधि में दी गई नई उधारी:</span>
-                  <strong className="text-amber-700 font-bold">₹{report?.newUdhariGiven?.toLocaleString() || 0}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">इस अवधि में वसूल हुई उधारी:</span>
-                  <strong className="text-emerald-700 font-bold">+₹{report?.customerPaymentCollected?.toLocaleString() || 0}</strong>
-                </div>
-                <div className="flex justify-between pt-2 border-t font-extrabold text-sm text-gray-900">
-                  <span>कुल कुल बकाया उधारी (All Time):</span>
-                  <span className="text-red-600">₹{report?.totalCustomerOutstanding?.toLocaleString() || 0}</span>
-                </div>
+              <div className="mt-3 pt-3.5 border-t border-slate-200/80 flex items-baseline justify-between gap-3">
+                <span className="text-xs font-bold text-slate-700">कुल बकाया उधारी (All Time)</span>
+                <span className="text-lg font-extrabold text-rose-600 tabular-nums whitespace-nowrap">
+                  ₹{report?.totalCustomerOutstanding?.toLocaleString() || 0}
+                </span>
               </div>
             </div>
 
-            {/* Product Master / Stock Position */}
-            <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b pb-3">
-                <span className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
-                  <Package className="w-4 h-4 text-emerald-600" />
-                  उत्पाद व स्टॉक मूल्य सूची स्थिति
-                </span>
-                <button
-                  onClick={() => setActiveTab('inventory')}
-                  className="text-[10px] text-emerald-700 hover:underline font-bold"
-                >
-                  स्टॉक सूची देखें →
-                </button>
+            {/* 3. Product Master / Stock Position */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 border border-teal-200/70 flex items-center justify-center shrink-0">
+                      <Package className="w-4.5 h-4.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-extrabold text-slate-900 leading-snug truncate">
+                        उत्पाद व स्टॉक मूल्य सूची
+                      </h4>
+                      <span className="text-[11px] font-medium text-slate-400 block">
+                        Inventory Master Status
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('inventory')}
+                    className="text-[11px] text-[#2D5A27] hover:text-[#1f411b] hover:underline font-bold whitespace-nowrap shrink-0 cursor-pointer pt-0.5"
+                  >
+                    स्टॉक सूची देखें →
+                  </button>
+                </div>
+
+                <div className="mt-2 divide-y divide-slate-100 text-xs">
+                  <div className="py-2.5 flex items-center justify-between gap-3">
+                    <span className="text-slate-600 font-medium">कुल पंजीकृत उत्पाद (Master)</span>
+                    <strong className="text-slate-900 font-bold tabular-nums whitespace-nowrap">
+                      {report?.totalProductsCount || 0} उत्पाद
+                    </strong>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between gap-3">
+                    <span className="text-slate-600 font-medium">बिलिंग स्थिति</span>
+                    <span className="text-emerald-700 font-bold text-right">
+                      सक्रिय (लागत व विक्रय दरें कॉन्फ़िगर)
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-2.5 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">कुल पंजीकृत उत्पाद (Master):</span>
-                  <strong className="text-gray-900 font-bold">{report?.totalProductsCount || 0} उत्पाद</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">बिलिंग स्थिति:</span>
-                  <span className="text-emerald-700 font-bold">सक्रिय (लागत व विक्रय दरें कॉन्फ़िगर)</span>
-                </div>
-                <div className="flex justify-between pt-2 border-t font-extrabold text-xs text-gray-700">
-                  <span>ग्राहक कुल उधारी:</span>
-                  <span className="text-red-700 font-bold">₹{report?.totalCustomerOutstanding?.toLocaleString() || 0}</span>
-                </div>
+              <div className="mt-3 pt-3.5 border-t border-slate-200/80 flex items-baseline justify-between gap-3">
+                <span className="text-xs font-bold text-slate-700">ग्राहक कुल उधारी</span>
+                <span className="text-lg font-extrabold text-rose-600 tabular-nums whitespace-nowrap">
+                  ₹{report?.totalCustomerOutstanding?.toLocaleString() || 0}
+                </span>
               </div>
             </div>
           </div>

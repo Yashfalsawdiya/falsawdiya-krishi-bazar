@@ -10,7 +10,8 @@ export interface PackagingVariant {
   baseQuantity: number; // In ml or g (e.g., 500 for 500ml, 1000 for 1L, 3000 for 3kg)
   costPrice: number; // Purchase Cost for this specific pack
   sellingPrice: number; // Selling Price for this specific pack
-  currentStockPacks: number; // Available sealed packs
+  currentStockPacks: number; // Available sealed packs (saleable + unbatched)
+  unbatchedPacks?: number; // Explicit legacy unbatched packs count if mixed with batches
   minStockAlertPacks?: number;
   barcode?: string;
   allowLooseSale?: boolean; // Can this pack be opened for gram/ml loose sales
@@ -20,16 +21,22 @@ export interface StockBatch {
   id: string;
   productId: string;
   variantId: string;
-  batchNumber: string;
-  manufacturingDate?: string; // YYYY-MM-DD
-  expiryDate: string; // YYYY-MM-DD
-  purchasePricePerPack: number;
+  batchNumber?: string; // Optional - if omitted, triggers dismissible warning when Stock Toggle ON
+  manufacturingDate?: string; // Optional YYYY-MM-DD
+  mfgDisplay?: string; // Original MM/YYYY or formatted display
+  expiryDate?: string; // Optional YYYY-MM-DD (last day of month if entered as MM/YYYY)
+  expiryDisplay?: string; // Original MM/YYYY or formatted display
+  purchasePricePerPack?: number; // Optional - falls back to variant.costPrice when omitted
   initialPackQuantity: number;
   remainingPackQuantity: number;
+  status?: 'active' | 'exhausted' | 'expired_written_off';
+  dismissedWarnings?: string[]; // Admin acknowledged warnings e.g. ['missing_batch_no', 'missing_expiry_date']
+  notes?: string;
   supplierId?: string;
   purchaseInvoiceNo?: string;
   purchaseDate?: string;
   createdAt: number;
+  updatedAt?: number;
 }
 
 export interface LooseStockPool {
@@ -39,6 +46,8 @@ export interface LooseStockPool {
   sellingPricePerBaseUnit: number; // Selling price per 1 ml or 1 gram
   lastOpenedFromVariantId?: string;
   lastOpenedBatchNumber?: string;
+  activeBatchId?: string;
+  activeBatchExpiryDate?: string;
   isAllowedForLooseSale?: boolean;
   updatedAt: number;
 }
@@ -51,8 +60,11 @@ export interface StockMovementLog {
   productName: string;
   variantId?: string;
   variantLabel?: string;
+  batchId?: string;
   batchNumber?: string;
-  type: 'purchase' | 'pack_sale' | 'loose_sale' | 'pack_opened' | 'weighing_adjustment' | 'damage' | 'expired_writeoff' | 'return';
+  expiryDate?: string;
+  purchaseCostPerPack?: number;
+  type: 'opening' | 'purchase' | 'pack_sale' | 'loose_sale' | 'pack_opened' | 'weighing_adjustment' | 'damage' | 'expired_writeoff' | 'return' | 'sale_reversal';
   quantityChangePacks?: number;
   quantityChangeBaseUnit?: number;
   balancePacksAfter?: number;
@@ -94,6 +106,15 @@ export interface AccountingProduct {
   createdAt: number;
 }
 
+export interface BatchAllocation {
+  batchId: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  packsUsed: number;
+  unitCost: number;
+  usedFallbackCost?: boolean;
+}
+
 export interface AccountingSaleItem {
   productId: string;
   name: string;
@@ -116,6 +137,8 @@ export interface AccountingSaleItem {
   variantLabel?: string;
   batchNumber?: string;
   expiryDate?: string;
+  selectedBatchId?: string; // Optional manual batch override by admin in POS
+  batchAllocations?: BatchAllocation[]; // Authoritative multi-batch FEFO deductions & rollback map
   looseQuantity?: number;
   looseUnit?: string;
   looseBaseQty?: number;
@@ -492,4 +515,13 @@ export interface POSLooseRateSettings {
   updatedBy?: string;
 }
 
-
+export interface StockManagementConfig {
+  enabled: boolean;
+  allowNegativeStock?: boolean;
+  autoOpenPackOnLooseSale?: boolean;
+  defaultLowStockThreshold?: number; // Default 10 units
+  expiryWarningDays?: number; // Default 122 days (4 months)
+  blockExpiredSale?: boolean; // Default true
+  updatedAt: number;
+  updatedBy?: string;
+}

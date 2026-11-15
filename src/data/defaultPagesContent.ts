@@ -360,9 +360,12 @@ export const DEFAULT_LEGAL_PAGES_CONTENT_HI: Required<LegalPagesContent> = {
       'मंदसौर जिला व आसपास के चिन्हित डिलीवरी पॉइंट्स'
     ],
     estimatedTimeline: '24 से 48 घंटे के भीतर (स्थानीय क्षेत्र में उसी दिन / अगले दिन डिलीवरी)',
-    freeDeliveryThreshold: 'न्यूनतम ऑर्डर सीमा पूरी होने पर शामगढ़ स्थानीय क्षेत्र में निःशुल्क डिलीवरी',
-    standardDeliveryFee: 'न्यूनतम ऑर्डर पर सामान्य डिलीवरी शुल्क ₹30 - ₹50 (दूरी अनुसार)',
-    heavyItemNote: 'भारी कृषि सामग्री जैसे 50 किग्रा खाद की बोरियों या बड़े ड्रमों के लिए डिलीवरी वाहन का नाममात्र अतिरिक्त भाड़ा लागू हो सकता है।',
+    freeDeliveryThreshold: 'गाँव की दूरी और कुल वजन के आधार पर गणना',
+    standardDeliveryFee: 'ऑर्डर कन्फर्म करने से पहले पूरा डिलीवरी शुल्क Checkout स्क्रीन पर दिखाया जाता है।',
+    heavyItemNote: 'होम डिलीवरी का शुल्क आपके गाँव की दूरी और ऑर्डर के कुल वजन (किग्रा) के अनुसार Checkout पर पहले ही तय होता है। थोक या बड़े ऑर्डर के लिए डिलीवरी समय व वाहन की पुष्टि कॉल द्वारा की जाती है।',
+    transparentFeeSummary: 'गाँव की दूरी और कुल वजन के आधार पर गणना',
+    transparentFeeNote: 'ऑर्डर कन्फर्म करने से पहले पूरा डिलीवरी शुल्क Checkout स्क्रीन पर दिखाया जाता है।',
+    vehicleWeightNote: 'होम डिलीवरी का शुल्क आपके गाँव की दूरी और ऑर्डर के कुल वजन (किग्रा) के अनुसार Checkout पर पहले ही तय होता है। थोक या बड़े ऑर्डर के लिए डिलीवरी समय व वाहन की पुष्टि कॉल द्वारा की जाती है।',
     trackingInfo: 'ऑर्डर प्रेषित होते ही किसान को व्हाट्सएप या कॉल द्वारा डिलीवरी राइडर का संपर्क विवरण व अनुमानित आगमन समय सूचित किया जाता है।',
     sections: [
       {
@@ -816,9 +819,12 @@ export const DEFAULT_LEGAL_PAGES_CONTENT_EN: Required<LegalPagesContent> = {
       'Mandsaur District and designated rural hub points'
     ],
     estimatedTimeline: 'Within 24 to 48 hours (Same-day or next-day delivery in local regions)',
-    freeDeliveryThreshold: 'Free delivery in Shamgarh local region upon meeting minimum order threshold',
-    standardDeliveryFee: 'Standard route fee of ₹30 - ₹50 depending on distance',
-    heavyItemNote: 'Nominal vehicle surcharges may apply to bulk fertilizers (50 kg bags) or large liquid drums.',
+    freeDeliveryThreshold: 'Calculated based on village distance and total weight',
+    standardDeliveryFee: 'The complete delivery fee is displayed clearly on the Checkout screen before confirming your order.',
+    heavyItemNote: 'Home delivery charges are finalized upfront at Checkout based on your village distance and total order weight (kg). For bulk or large orders, delivery timing and vehicle arrangement are confirmed via phone call.',
+    transparentFeeSummary: 'Calculated based on village distance and total weight',
+    transparentFeeNote: 'The complete delivery fee is displayed clearly on the Checkout screen before confirming your order.',
+    vehicleWeightNote: 'Home delivery charges are finalized upfront at Checkout based on your village distance and total order weight (kg). For bulk or large orders, delivery timing and vehicle arrangement are confirmed via phone call.',
     trackingInfo: 'Upon dispatch, rider contact details and expected arrival times are shared via WhatsApp and phone call.',
     sections: [
       {

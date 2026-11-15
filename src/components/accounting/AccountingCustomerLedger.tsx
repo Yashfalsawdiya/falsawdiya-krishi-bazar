@@ -731,11 +731,12 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Dynamic WhatsApp Button: Tagada vs Payment Confirmation */}
                   <button
+                    type="button"
                     onClick={() => sendWhatsAppMessage(selectedCustomer)}
-                    className={`px-3 py-2 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all ${
+                    className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border active:scale-95 transition-all cursor-pointer ${
                       selectedCustomer.currentOutstanding > 0
-                        ? 'bg-amber-600 hover:bg-amber-700'
-                        : 'bg-[#2D5A27] hover:bg-[#23461e]'
+                        ? 'bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200/70 text-[#2D5A27] border-emerald-200 hover:border-emerald-300 shadow-2xs'
+                        : 'bg-[#2D5A27] hover:bg-[#23461e] text-white border-[#2D5A27] shadow-sm'
                     }`}
                   >
                     {selectedCustomer.currentOutstanding > 0 ? (
