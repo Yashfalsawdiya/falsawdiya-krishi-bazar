@@ -1123,24 +1123,27 @@ const Home: React.FC = () => {
             const mapQuery = encodeURIComponent("डिंपल चौराहा क्षत्रिय खाती मांगलिक भवन शामगढ़ मंदसौर 458883");
             window.open(`https://www.google.com/maps/search/?api=1&query=${mapQuery}`, '_blank');
           }}
-          className="w-full md:w-[calc(50%-8px)] lg:w-[calc(33.333%-11px)] xl:w-[calc(33.333%-16px)] 2xl:w-[calc(33.333%-22px)] max-w-xl lg:max-w-none bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 border border-emerald-200/80 hover:border-[#2D5A27]/60 rounded-3xl p-4 sm:p-5 flex flex-col justify-between gap-3.5 active:scale-[0.99] transition-all text-left cursor-pointer shadow-xs hover:shadow-md group relative overflow-hidden"
+          className="w-full md:w-[calc(50%-8px)] lg:w-[calc(33.333%-11px)] xl:w-[calc(33.333%-16px)] 2xl:w-[calc(33.333%-22px)] max-w-xl lg:max-w-none bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 border border-emerald-200/80 hover:border-emerald-400 rounded-3xl p-4 sm:p-5 flex flex-col justify-between gap-3.5 active:scale-[0.99] transition-all text-left cursor-pointer shadow-xs hover:shadow-md group relative overflow-hidden"
         >
+          {/* Subtle Ambient Glow */}
+          <div className="absolute -right-8 -bottom-8 w-28 h-28 bg-[#25D366]/10 rounded-full blur-2xl pointer-events-none group-hover:bg-[#25D366]/20 transition-colors" />
+
           {/* Header Row */}
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-[#2D5A27] to-[#1E3F1A] text-white flex items-center justify-center shadow-md shadow-[#2D5A27]/20 group-hover:scale-105 transition-transform shrink-0">
-                <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-[#25D366] to-[#1ebe57] text-white flex items-center justify-center shadow-md shadow-[#25D366]/25 group-hover:scale-105 transition-transform shrink-0">
+                <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800/70 block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#128C7E] block">
                   हमारा स्थायी पता
                 </span>
-                <h4 className="font-extrabold text-xs sm:text-sm text-gray-900 group-hover:text-[#2D5A27] transition-colors leading-snug">
+                <h4 className="font-extrabold text-xs sm:text-sm text-gray-900 group-hover:text-[#128C7E] transition-colors leading-snug">
                   फल्सावदिया कृषि बाजार
                 </h4>
               </div>
             </div>
-            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-2.5 py-0.5 rounded-full border border-emerald-200/70 shrink-0">
+            <span className="text-[10px] font-bold text-[#128C7E] bg-emerald-100/90 px-2.5 py-0.5 rounded-full border border-emerald-200 shrink-0">
               शामगढ़
             </span>
           </div>
@@ -1152,21 +1155,21 @@ const Home: React.FC = () => {
             </p>
 
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/90 border border-emerald-100/80 text-[11px] font-semibold text-gray-600 shadow-2xs">
-              <Clock className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
+              <Clock className="w-3.5 h-3.5 text-[#128C7E] shrink-0" />
               <span>
                 दुकान समय: <strong className="text-gray-900 font-bold">सुबह 8:00 से रात 8:00 बजे तक</strong>
               </span>
             </div>
           </div>
 
-          {/* Modern Action Footer (matching Facebook / Instagram social cards) */}
-          <div className="pt-2.5 border-t border-emerald-100/80 flex items-center justify-between text-xs font-extrabold text-[#2D5A27]">
+          {/* Modern Action Footer (matching WhatsApp card) */}
+          <div className="pt-2.5 border-t border-emerald-100/80 flex items-center justify-between text-xs font-extrabold text-[#128C7E]">
             <span className="flex items-center gap-1.5">
               <ExternalLink className="w-3.5 h-3.5" />
               <span>गूगल मैप पर लोकेशन देखें</span>
             </span>
-            <span className="w-7 h-7 rounded-xl bg-emerald-50 group-hover:bg-[#2D5A27] group-hover:text-white text-[#2D5A27] flex items-center justify-center transition-all shadow-2xs">
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            <span className="w-7 h-7 rounded-xl bg-[#25D366] group-hover:bg-[#20ba59] text-white flex items-center justify-center shadow-xs group-hover:translate-x-0.5 transition-all">
+              <ArrowRight className="w-3.5 h-3.5" />
             </span>
           </div>
         </div>

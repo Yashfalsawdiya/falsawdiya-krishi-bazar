@@ -87,7 +87,20 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
     };
   }
 
-  // 6. General Server Issues
+  // 6. General Server Issues / Payload Too Large
+  if (
+    errorString.includes('413') ||
+    lowerStr.includes('payload too large') ||
+    lowerStr.includes('request entity too large') ||
+    lowerStr.includes('size exceeds')
+  ) {
+    return {
+      type: 'server',
+      message: 'फोटो का साइज बहुत बड़ा है। कृपया कम रेज़ोल्यूशन या साफ क्रॉप की गई फोटो चुनें।',
+      originalError: error
+    };
+  }
+
   if (
     errorString.includes('500') || 
     errorString.includes('deadline exceeded')

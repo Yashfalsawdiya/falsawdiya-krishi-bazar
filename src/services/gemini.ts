@@ -924,6 +924,11 @@ export interface ProductKnowledgeResult {
   }>;
   hasExactMatch: boolean;
   sources?: Array<{ title: string; uri: string }>;
+  mismatchDetected?: boolean;
+  mismatchWarning?: string;
+  ocrUncertain?: boolean;
+  uncertaintyNote?: string;
+  scanMode?: 'single' | 'front_back';
   order?: number;
   createdAt?: number;
 }
@@ -1138,15 +1143,19 @@ function safeParseProductKnowledge(jsonText: string): ProductKnowledgeResult {
     result.sources = enrichGovernmentSources(result.category, rawSources);
 
     // Determine hasExactMatch accurately:
-    // If a legitimate product name was extracted (not a dummy error string), it IS recognized!
+    // If a legitimate product name was extracted (not a dummy error string) and no Front/Back mismatch occurred, it IS recognized!
     const hasValidName = Boolean(
       result.productName && 
       result.productName !== "जानकारी उपलब्ध नहीं है" && 
       !result.productName.includes("पहचान नहीं") &&
       !result.productName.includes("उपलब्ध नहीं")
     );
-    
-    result.hasExactMatch = hasValidName;
+
+    result.mismatchDetected = Boolean(parsed.mismatchDetected);
+    result.mismatchWarning = typeof parsed.mismatchWarning === 'string' ? parsed.mismatchWarning.trim() : undefined;
+    result.ocrUncertain = Boolean(parsed.ocrUncertain);
+    result.uncertaintyNote = typeof parsed.uncertaintyNote === 'string' ? parsed.uncertaintyNote.trim() : undefined;
+    result.hasExactMatch = result.mismatchDetected ? false : hasValidName;
 
     return result;
   } catch (error) {
@@ -1239,25 +1248,82 @@ export async function getProductKnowledge(query: string, userApiKey?: string): P
   }
 }
 
-export async function analyzeProductImage(base64Image: string, userApiKey?: string): Promise<ProductKnowledgeResult> {
+export interface ProductScanImagesInput {
+  frontImage?: string | null;
+  backImage?: string | null;
+}
+
+function extractInlineImagePart(dataUrl: string): { inlineData: { mimeType: string; data: string } } {
+  let mimeType = "image/jpeg";
+  if (dataUrl.startsWith("data:")) {
+    const match = dataUrl.match(/^data:([^;]+);base64,/);
+    if (match && match[1]) {
+      mimeType = match[1];
+    }
+  }
+  const cleanData = dataUrl.split(',')[1] || dataUrl;
+  return {
+    inlineData: {
+      mimeType,
+      data: cleanData
+    }
+  };
+}
+
+export async function analyzeProductImage(
+  imageInput: string | ProductScanImagesInput,
+  userApiKey?: string
+): Promise<ProductKnowledgeResult> {
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
 
-    const prompt = `आप भारत के शीर्षस्थ कृषि वैज्ञानिक, पौध संरक्षण विशेषज्ञ, इमेज एनालिस्ट एवं CIBRC/ICAR नियामक सलाहकार हैं, जो 'फल्सावदिया कृषि बाजार' का प्रतिनिधित्व करते हैं।
+    const normalizedInput: ProductScanImagesInput =
+      typeof imageInput === 'string'
+        ? { frontImage: imageInput, backImage: null }
+        : { frontImage: imageInput?.frontImage || null, backImage: imageInput?.backImage || null };
+
+    const hasFront = Boolean(normalizedInput.frontImage && normalizedInput.frontImage.trim().length > 0);
+    const hasBack = Boolean(normalizedInput.backImage && normalizedInput.backImage.trim().length > 0);
+
+    if (!hasFront && !hasBack) {
+      throw new Error("स्कैन करने के लिए कम से कम एक उत्पाद फोटो आवश्यक है।");
+    }
+
+    const isDualPhoto = hasFront && hasBack;
+    const scanMode: 'single' | 'front_back' = isDualPhoto ? 'front_back' : 'single';
+
+    const photoContextInstruction = isDualPhoto
+      ? `आपको एक ही कृषि उत्पाद की 2 फोटो दी जा रही हैं:
+   - **PHOTO 1 (Front Side / सामने का हिस्सा)**: ब्रांड नाम, उत्पाद प्रकार, पैकेट/बोतल का मुख्य चेहरा और फ्रंट विवरण पढ़ने के लिए।
+   - **PHOTO 2 (Back Side / पीछे का हिस्सा)**: टेक्निकल नाम (Technical Composition), सक्रिय घटक (% w/w), फॉर्मूलेशन कोड, निर्माता कंपनी, CIBRC/FCO पंजीकरण संख्या, प्रतीक्षा अवधि (PHI), और सुरक्षा निर्देश पढ़ने के लिए।
+   दोनों फोटो के टेक्स्ट को संयुक्त रूप से (Joint OCR) जोड़कर उत्पाद की 100% सटीक पहचान करें।`
+      : hasFront
+        ? `आपको कृषि उत्पाद की 1 फोटो (Front Side / सामने का हिस्सा) दी जा रही है। फोटो पर दिख रहे ब्रांड नाम, पैकेट/बोतल के टेक्स्ट और किसी भी दिख रहे टेक्निकल विवरण से उत्पाद की पहचान करें।`
+        : `आपको कृषि उत्पाद की 1 फोटो (Back Side / पीछे का हिस्सा) दी जा रही है। लेबल पर छपे टेक्निकल नाम, Composition %, कंपनी का नाम और CIBRC/FCO विवरण से उत्पाद की पहचान करें।`;
+
+    const prompt = `आप भारत के शीर्षस्थ कृषि वैज्ञानिक, पौध संरक्षण विशेषज्ञ, मल्टी-इमेज OCR एनालिस्ट एवं CIBRC/ICAR नियामक सलाहकार हैं, जो 'फल्सावदिया कृषि बाजार' का प्रतिनिधित्व करते हैं।
 आपका कार्य संलग्न कृषि उत्पाद (कीटनाशक की बोतल, फफूंदनाशक का पाउच, खरपतवारनाशक, टॉनिक/PGR, सूक्ष्म पोषक तत्व, उर्वरक/खाद की बोरी, या बीज पैकेट) की फोटो का गहन विश्लेषण करना है और 100% सटीक, अत्यधिक विस्तृत (Detailed) व प्रामाणिक कृषि रिपोर्ट तैयार करना है।
 
-अति-महत्वपूर्ण विश्लेषण एवं नियामक मानक (OCR & Government Standards):
-1. **OCR व पैकेजिंग टेक्स्ट एक्सट्रैक्शन**: लेबल, बोतल या पैकेट पर छपे समस्त अक्षर, ब्रांड नाम, टेक्निकल रसायन नाम, फॉर्मूलेशन कोड (EC, SC, WP, SP, आदि), निर्माता कंपनी और CIBRC पंजीकरण को ध्यानपूर्वक पढ़ें।
-2. **सटीक पहचान**: उपलब्ध अक्षरों व पैकेट के डिज़ाइन से सही उत्पाद की पहचान करें।
-3. **सरकारी मानकों से मिलान**: CIBRC (केंद्रीय कीटनाशक बोर्ड), ICAR एवं उर्वरक नियंत्रण आदेश (FCO) के आधिकारिक पंजीकृत दावों से मिलान कर पूर्ण और सटीक विवरण भरें।
-4. **100% केवल सरल हिंदी**: भारतीय किसान इस रिपोर्ट को पढ़ेंगे। समस्त विवरण, फायदे, सावधानियां, कार्यप्रणाली, फसलें, कीट व मात्राएं सरल, स्पष्ट व सम्मानजनक हिंदी में ही लिखें।
-5. **सटीक व विस्तृत फील्ड्स**:
+${photoContextInstruction}
+
+अति-महत्वपूर्ण विश्लेषण, विरोधाभास जांच एवं नियामक मानक (Joint OCR & Verification):
+1. **संयुक्त OCR व पैकेजिंग टेक्स्ट एक्सट्रैक्शन**: दोनों लेबल (जो उपलब्ध हों) पर छपे समस्त अक्षर, ब्रांड नाम, टेक्निकल रसायन नाम, सांद्रता (% w/w या % w/v), फॉर्मूलेशन कोड (EC, SC, SL, WP, SP, WDG, SG, ZC, FS आदि), निर्माता कंपनी और CIBRC/FCO पंजीकरण नंबर को ध्यानपूर्वक पढ़ें।
+2. **विरोधाभास जांच (Contradiction Check - अत्यंत महत्वपूर्ण)**:
+   - यदि 2 फोटो दी गई हैं और PHOTO 1 (Front) तथा PHOTO 2 (Back) स्पष्ट रूप से **दो अलग-अलग उत्पादों** या असंगत ब्रांड/रासायनिक श्रेणियों की प्रतीत होती हैं (जैसे फ्रंट पर कोई कीटनाशक ब्रांड और बैक पर कोई बिल्कुल अलग खरपतवारनाशक/कंपनी का लेबल), तो उन्हें जबरदस्ती मिलाकर गलत जानकारी न दें!
+   - ऐसी स्थिति में JSON में \`"mismatchDetected": true\` सेट करें, \`"mismatchWarning"\` में सरल हिंदी में स्पष्ट कारण लिखें (जैसे दोनों फोटो में कौन-कौन से अलग उत्पाद दिखे), \`"hasExactMatch": false\` रखें और \`"productName"\` में स्पष्ट चेतावनी लिखें।
+3. **अस्पष्टता व अनुमान न लगाने का नियम (Strict Anti-Guesswork Rule)**:
+   - यदि फोटो धुंधली है, चमक (glare) के कारण टेक्निकल नाम/Composition पढ़ा नहीं जा रहा है, और फ्रंट ब्रांड से भी पक्का टेक्निकल सुनिश्चित नहीं हो पा रहा है, तो **गलत या अनुमानित केमिकल नाम व डोज़ कतई न लिखें**।
+   - ऐसी स्थिति में \`"ocrUncertain": true\` सेट करें और \`"uncertaintyNote"\` में सरल हिंदी में लिखें कि कौन-सी जानकारी स्पष्ट नहीं दिख रही (और यदि केवल Front फोटो दी गई थी, तो Back Side की साफ फोटो जोड़ने का सुझाव दें)।
+   - यदि फोटो कृषि उत्पाद की ही नहीं है तो \`"productName"\` में \`"पहचान नहीं हो सकी"\` लिखें।
+4. **सरकारी मानकों से मिलान**: जब उत्पाद और टेक्निकल स्पष्ट हो जाए, तो CIBRC (केंद्रीय कीटनाशक बोर्ड), ICAR एवं उर्वरक नियंत्रण आदेश (FCO) के आधिकारिक पंजीकृत दावों के अनुसार सटीक विवरण भरें।
+5. **100% केवल सरल हिंदी**: भारतीय किसान इस रिपोर्ट को पढ़ेंगे। समस्त विवरण, फायदे, सावधानियां, कार्यप्रणाली, फसलें, कीट व मात्राएं सरल, स्पष्ट व सम्मानजनक हिंदी में ही लिखें (टेक्निकल रसायनों के साथ कोष्ठक में अंग्रेजी नाम लिख सकते हैं)।
+6. **सटीक व विस्तृत JSON फील्ड्स**:
    - productName: उत्पाद का पूरा ब्रांड नाम व हिंदी उच्चारण
    - companyName: मूल निर्माता कंपनी
-   - technicalName: सक्रिय टेक्निकल रसायन, सांद्रता व फॉर्मूलेशन
-   - category: सटीक श्रेणी (कीटनाशक, फफूंदनाशक, खरपतवारनाशक, खाद आदि)
-   - formulation: फॉर्मूलेशन का प्रकार (SC, EC, WP, WDG आदि)
+   - technicalName: सक्रिय टेक्निकल रसायन, सांद्रता व फॉर्मूलेशन (यदि फोटो में साफ़ पढ़ा न जा सके और निश्चित न हो तो "लेबल अस्पष्ट - कृपया बैक फोटो स्पष्ट दें" लिखें)
+   - category: सटीक श्रेणी (कीटनाशक, फफूंदनाशक, खरपतवारनाशक, खाद, बीज आदि)
+   - formulation: फॉर्मूलेशन का प्रकार (SC, EC, WP, WDG, SL आदि)
    - activeIngredient: सक्रिय घटक
    - modeOfAction: कार्य करने का सटीक वैज्ञानिक तरीका (कम से कम 2-3 वाक्यों में)
    - fracIracHracGroup: ग्रुप कोड
@@ -1269,37 +1335,35 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
    - features: विशेष तकनीकी खूबियां
    - compatibleProducts & incompatibleProducts
    - waitingPeriod, phi, rei, toxicity, safetyInstructions, mixingOrder (WALES नियम), sprayTiming, rainfastPeriod, storage
-6. **प्रत्येक स्प्रेयर हेतु सटीक वास्तविक मात्रा (Accurate Dosages)**:
-   - dosageLiquid: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha } - सही मिलीलीटर मात्रा
-   - dosagePowder: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha } - सही ग्राम/किग्रा मात्रा
-   - dosageFertilizer: { perPlant, perPot, perBigha, perIrrigation, perSpray, perDrenching, totalAmount }
+   - mismatchDetected: boolean (true केवल तब जब फ्रंट और बैक फोटो अलग-अलग उत्पादों की हों)
+   - mismatchWarning: string (विरोधाभास होने पर सरल हिंदी चेतावनी, अन्यथा "")
+   - ocrUncertain: boolean (true जब टेक्निकल/कंपोज़िशन धुंधला या अपूर्ण हो)
+   - uncertaintyNote: string (अस्पष्टता का कारण व सुझाव सरल हिंदी में, अन्यथा "")
+7. **प्रत्येक स्प्रेयर हेतु सटीक वास्तविक मात्रा (Accurate Dosages)**:
+   - dosageLiquid: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha, perAcre } - सही मिलीलीटर मात्रा
+   - dosagePowder: { perLiter, per15L, per16L, per20L, per25L, per200L, per500L, perBigha, perAcre } - सही ग्राम/किग्रा मात्रा
+   - dosageFertilizer: { perPlant, perPot, perBigha, perAcre, perIrrigation, perSpray, perDrenching, totalAmount }
    - dosageSeeds: { seedRatePerBigha, seedRatePerAcre, seedTreatment, sowingDepth, rowAndPlantSpacing, germinationDays, sowingSeason }
    - cropSpecificDosage: कम से कम 4 से 6 फसलों हेतु { cropName, dosage, usage, sprayTime }
-7. **पहचान की स्थिति**: पहचान होने पर 'hasExactMatch' को true सेट करें। यदि फोटो कृषि से संबंधित नहीं है तो 'productName' में 'पहचान नहीं हो सकी' दें।
-8. कोई base64 या इमेज स्ट्रिंग आउटपुट JSON में न दें।
-9. आउटपुट केवल और केवल वैध JSON स्ट्रिंग लौटाएं।`;
+8. **पहचान की स्थिति**: सही पहचान होने पर 'hasExactMatch' को true सेट करें।
+9. कोई base64 या इमेज स्ट्रिंग आउटपुट JSON में न दें।
+10. आउटपुट केवल और केवल वैध JSON स्ट्रिंग लौटाएं।`;
 
-    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY REQUIREMENT: Analyze the image with extreme accuracy. Provide 100% scientifically accurate, deeply detailed, authentic agronomic information based on official CIB&RC and ICAR standards. Respond 100% in simple, respectful HINDI. Never echo base64 image data. Return strictly valid JSON. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
+    const systemInstruction = "You are an expert agricultural inputs consultant representing 'फल्सावदिया कृषि बाजार' (Falsawdiya Krishi Bazar), Shamgarh, MP. Shop timings: 8:00 AM to 8:00 PM. Address: Dimple Chauraha, Near Kshatriya Khati Manglik Bhawan, Shamgarh (458883). MANDATORY REQUIREMENT: Analyze single or dual (Front & Back) packaging images with extreme accuracy using joint OCR. Never fabricate technical compositions if unreadable, and always flag Front vs Back product contradictions honestly. Provide 100% scientifically accurate, deeply detailed, authentic agronomic information based on official CIB&RC and ICAR standards. Respond 100% in simple, respectful HINDI. Never echo base64 image data. Return strictly valid JSON. STRICT RULE ON NAME: Only use 'फल्सावदिया' (never 'फालसावदिया').";
 
-    // Dynamic MIME type detection from Base64 Data URL (prevents invalid argument error on PNG/WebP)
-    let mimeType = "image/jpeg";
-    if (base64Image.startsWith("data:")) {
-      const match = base64Image.match(/^data:([^;]+);base64,/);
-      if (match && match[1]) {
-        mimeType = match[1];
-      }
-    }
-    const cleanData = base64Image.split(',')[1] || base64Image;
-
-    const parts = [
-      { text: prompt },
-      {
-        inlineData: {
-          mimeType,
-          data: cleanData
-        }
-      }
+    const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
+      { text: prompt }
     ];
+
+    if (hasFront && normalizedInput.frontImage) {
+      parts.push({ text: "--- PHOTO 1: PRODUCT FRONT SIDE (सामने का हिस्सा) ---" });
+      parts.push(extractInlineImagePart(normalizedInput.frontImage));
+    }
+
+    if (hasBack && normalizedInput.backImage) {
+      parts.push({ text: "--- PHOTO 2: PRODUCT BACK SIDE (पीछे का हिस्सा - Composition / Technical / CIBRC) ---" });
+      parts.push(extractInlineImagePart(normalizedInput.backImage));
+    }
 
     let response: any = null;
     let lastError: any = null;
@@ -1318,6 +1382,7 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
         if (response?.text) {
           const parsed = safeParseProductKnowledge(response.text);
           if (parsed && parsed.productName) {
+            parsed.scanMode = scanMode;
             parsed.sources = enrichGovernmentSources(parsed.category, parsed.sources);
             return parsed;
           }
@@ -1334,6 +1399,7 @@ export async function analyzeProductImage(base64Image: string, userApiKey?: stri
     }
 
     const result = safeParseProductKnowledge(response.text);
+    result.scanMode = scanMode;
     result.sources = enrichGovernmentSources(result.category, result.sources);
     return result;
   } catch (error: any) {

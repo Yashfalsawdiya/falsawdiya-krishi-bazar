@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { getProductKnowledge, ProductKnowledgeResult, analyzeProductImage } from '../services/gemini';
-import { VERIFIED_AGRI_PRODUCTS } from '../data/verifiedAgriProducts';
+import { VERIFIED_AGRI_PRODUCTS, VerifiedAgriProductRecord } from '../data/verifiedAgriProducts';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
 import { getFriendlyAiError } from '../utils/aiErrorHandler';
@@ -260,9 +260,42 @@ export const normalizeProductResult = (raw: any): ProductKnowledgeResult => {
     cropSpecificDosage: safeCropDosage,
     sources: safeSources,
     hasExactMatch: Boolean(raw.hasExactMatch ?? true),
+    mismatchDetected: Boolean(raw.mismatchDetected),
+    mismatchWarning: typeof raw.mismatchWarning === 'string' ? raw.mismatchWarning : undefined,
+    ocrUncertain: Boolean(raw.ocrUncertain),
+    uncertaintyNote: typeof raw.uncertaintyNote === 'string' ? raw.uncertaintyNote : undefined,
+    scanMode: raw.scanMode === 'front_back' ? 'front_back' : raw.scanMode === 'single' ? 'single' : undefined,
     order: raw.order,
     createdAt: raw.createdAt
   };
+};
+
+const findStrictVerifiedMatch = (scanned: ProductKnowledgeResult): VerifiedAgriProductRecord | null => {
+  const prodNorm = normalizeText(scanned.productName || '');
+  const techNorm = normalizeText(scanned.technicalName || '');
+  if (!prodNorm && !techNorm) return null;
+
+  for (const record of VERIFIED_AGRI_PRODUCTS) {
+    const recName = normalizeText(record.productName);
+    const recTech = normalizeText(record.technicalName);
+
+    if (prodNorm && (recName === prodNorm || prodNorm.includes(recName) || recName.includes(prodNorm))) {
+      return record;
+    }
+
+    if (techNorm && recTech && techNorm === recTech) {
+      return record;
+    }
+
+    const exactAliasHit = record.aliases.some((alias) => {
+      const aNorm = normalizeText(alias);
+      return aNorm.length >= 3 && (prodNorm === aNorm || prodNorm.includes(aNorm));
+    });
+    if (exactAliasHit) {
+      return record;
+    }
+  }
+  return null;
 };
 
 const getCachedResult = (query: string): ProductKnowledgeResult | null => {
@@ -367,12 +400,18 @@ export default function AiProductKnowledge() {
   const [isFromCache, setIsFromCache] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Image search states
+  // Image search states (max 2 photos: Front + optional Back)
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [frontImage, setFrontImage] = useState<string | null>(null);
+  const [backImage, setBackImage] = useState<string | null>(null);
+  const [processingSlot, setProcessingSlot] = useState<'front' | 'back' | null>(null);
   const [isImageSearch, setIsImageSearch] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const activeCaptureSlotRef = useRef<'front' | 'back'>('front');
+
+  const selectedPhotoCount = (frontImage ? 1 : 0) + (backImage ? 1 : 0);
+  const hasAnyPhoto = selectedPhotoCount > 0;
 
   // Bookmarks & History
   const [bookmarkedProducts, setBookmarkedProducts] = useState<ProductKnowledgeResult[]>([]);
@@ -465,7 +504,8 @@ export default function AiProductKnowledge() {
 
     setIsLoading(true);
     setIsImageSearch(false);
-    setSelectedImage(null);
+    setFrontImage(null);
+    setBackImage(null);
     setError(null);
     setResult(null);
 
@@ -525,78 +565,121 @@ export default function AiProductKnowledge() {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setIsBottomSheetOpen(false);
-      setIsLoading(true);
-      setIsImageSearch(true);
-      setError(null);
-      setResult(null);
-      setSelectedImage(null);
+  const compressImageFile = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const maxDim = 1280;
+      const jpegQuality = 0.86;
+      const useObjectUrl = typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function';
+
+      const drawCompressed = (srcUrl: string, shouldRevoke: boolean) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height && width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else if (height >= width && height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              const compressedBase64 = canvas.toDataURL('image/jpeg', jpegQuality);
+              if (shouldRevoke) URL.revokeObjectURL(srcUrl);
+              resolve(compressedBase64);
+              return;
+            }
+          } catch (canvasErr) {
+            console.warn('Canvas resize notice, trying DataURL fallback:', canvasErr);
+          }
+          if (shouldRevoke) URL.revokeObjectURL(srcUrl);
+          const fallbackReader = new FileReader();
+          fallbackReader.onloadend = () => resolve(fallbackReader.result as string);
+          fallbackReader.onerror = () => reject(new Error('फोटो को प्रोसेस करने में समस्या आई।'));
+          fallbackReader.readAsDataURL(file);
+        };
+        img.onerror = () => {
+          if (shouldRevoke) URL.revokeObjectURL(srcUrl);
+          reject(new Error('चयनित फ़ाइल को पढ़ा नहीं जा सका। कृपया वैध फोटो चुनें।'));
+        };
+        img.src = srcUrl;
+      };
+
+      if (useObjectUrl) {
+        try {
+          const objectUrl = URL.createObjectURL(file);
+          drawCompressed(objectUrl, true);
+          return;
+        } catch (objErr) {
+          console.warn('createObjectURL fallback:', objErr);
+        }
+      }
 
       const reader = new FileReader();
-      reader.onloadend = () => {
-        try {
-          const base64 = reader.result as string;
-          setSelectedImage(base64);
-
-          // Downscale for fast reliable analysis
-          const img = new Image();
-          img.onload = () => {
-            try {
-              const maxWidth = 900;
-              const maxHeight = 900;
-              let width = img.width;
-              let height = img.height;
-
-              if (width > height && width > maxWidth) {
-                height = Math.round((height * maxWidth) / width);
-                width = maxWidth;
-              } else if (height > maxHeight) {
-                width = Math.round((width * maxHeight) / height);
-                height = maxHeight;
-              }
-
-              const canvas = document.createElement('canvas');
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              if (ctx) {
-                ctx.drawImage(img, 0, 0, width, height);
-                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
-                handleImageSearch(compressedBase64);
-              } else {
-                handleImageSearch(base64);
-              }
-            } catch (innerErr) {
-              handleImageSearch(base64);
-            }
-          };
-          img.onerror = () => handleImageSearch(base64);
-          img.src = base64;
-        } catch (readerErr) {
-          setIsLoading(false);
-          setError("फोटो प्रोसेस करने में विफलता। कृपया पुनः प्रयास करें।");
-        }
-      };
-
-      reader.onerror = () => {
-        setIsLoading(false);
-        setError("फाइल को पढ़ने में समस्या आई।");
-      };
-
+      reader.onloadend = () => drawCompressed(reader.result as string, false);
+      reader.onerror = () => reject(new Error('फ़ाइल को पढ़ने में समस्या आई।'));
       reader.readAsDataURL(file);
-    }
-    e.target.value = '';
+    });
   };
 
-  const handleImageSearch = async (base64Img: string) => {
+  const triggerCapture = (slot: 'front' | 'back', source: 'camera' | 'gallery') => {
+    if (isLoading || processingSlot !== null) return;
+    activeCaptureSlotRef.current = slot;
+    if (source === 'camera') {
+      cameraInputRef.current?.click();
+    } else {
+      galleryInputRef.current?.click();
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const targetSlot = activeCaptureSlotRef.current;
+    e.target.value = '';
+    if (!file) return;
+
+    setProcessingSlot(targetSlot);
+    setError(null);
+
+    try {
+      const compressedBase64 = await compressImageFile(file);
+      if (targetSlot === 'front') {
+        setFrontImage(compressedBase64);
+      } else {
+        setBackImage(compressedBase64);
+      }
+      setIsImageSearch(true);
+      setResult(null);
+    } catch (err: any) {
+      setError(err?.message || 'फोटो प्रोसेस करने में विफलता। कृपया पुनः प्रयास करें।');
+    } finally {
+      setProcessingSlot(null);
+    }
+  };
+
+  const handleImageSearch = async (overrideImages?: { frontImage?: string | null; backImage?: string | null }) => {
+    const imgFront = overrideImages !== undefined ? (overrideImages.frontImage ?? null) : frontImage;
+    const imgBack = overrideImages !== undefined ? (overrideImages.backImage ?? null) : backImage;
+
+    if (!imgFront && !imgBack) {
+      setError("स्कैन शुरू करने के लिए कृपया कम से कम 1 उत्पाद फोटो चुनें।");
+      return;
+    }
+
     if (!requireApiKey("AI Product Knowledge उपयोग करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) {
       setIsLoading(false);
       return;
     }
 
+    setIsBottomSheetOpen(false);
     setIsLoading(true);
     setIsImageSearch(true);
     setError(null);
@@ -604,19 +687,43 @@ export default function AiProductKnowledge() {
     setIsFromCache(false);
 
     try {
-      const data = await analyzeProductImage(base64Img, effectiveApiKey);
+      const data = await analyzeProductImage(
+        { frontImage: imgFront, backImage: imgBack },
+        effectiveApiKey
+      );
+
+      if (data?.mismatchDetected) {
+        const mismatchResult = normalizeProductResult(data);
+        setResult(mismatchResult);
+        return;
+      }
+
       if (!data || !data.productName || data.productName.includes("पहचान नहीं") || data.productName === "जानकारी उपलब्ध नहीं है") {
-        setError("उत्पाद स्पष्ट रूप से पहचान में नहीं आया। कृपया साफ फोटो लें या गैलरी से पुनः प्रयास करें।");
-        setSelectedImage(base64Img);
+        setError("उत्पाद स्पष्ट रूप से पहचान में नहीं आया। कृपया साफ फोटो लें या बैक साइड (टेक्निकल लेबल) की फोटो जोड़कर पुनः प्रयास करें।");
         setResult(null);
         return;
       }
 
-      const normData = normalizeProductResult(data);
-      saveToCache(normData.productName, normData);
+      let finalData = data;
+      if (!data.ocrUncertain) {
+        const verifiedMatch = findStrictVerifiedMatch(data);
+        if (verifiedMatch) {
+          finalData = {
+            ...verifiedMatch,
+            scanMode: data.scanMode,
+            ocrUncertain: data.ocrUncertain,
+            uncertaintyNote: data.uncertaintyNote,
+          };
+        }
+      }
+
+      const normData = normalizeProductResult(finalData);
+      if (!normData.mismatchDetected && !normData.ocrUncertain) {
+        saveToCache(normData.productName, normData);
+        autoSaveProduct(normData);
+      }
       setResult(normData);
-      autoSaveProduct(normData);
-      if (normData.productName) {
+      if (normData.productName && !normData.mismatchDetected) {
         setQuery(normData.productName);
       }
     } catch (err: any) {
@@ -758,7 +865,8 @@ ${result.safetyInstructions}
             onClick={() => {
               if (result) {
                 setResult(null);
-                setSelectedImage(null);
+                setFrontImage(null);
+                setBackImage(null);
               } else {
                 navigate(-1);
               }
@@ -836,34 +944,222 @@ ${result.safetyInstructions}
         />
       </div>
 
-      {/* Selected Image Preview */}
-      {selectedImage && (
-        <div className="bg-white rounded-3xl p-4 border border-amber-200 shadow-sm flex items-center justify-between gap-4 print:hidden">
-          <div className="flex items-center gap-3">
-            <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-gray-100 shrink-0">
-              <img src={selectedImage} alt="Scanned Product" className="w-full h-full object-cover" />
+      {/* Selected Images Multi-Photo Preview & Controls (Max 2: Front + Optional Back) */}
+      {hasAnyPhoto && (
+        <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#2D5A27]/20 shadow-sm space-y-4 print:hidden">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-[#2D5A27]/10 text-[#2D5A27] flex items-center justify-center shrink-0">
+                <Camera className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-black text-[#2D5A27] flex items-center gap-1.5">
+                  <span>चयनित उत्पाद फोटो ({selectedPhotoCount}/2)</span>
+                </p>
+                <p className="text-[11px] text-gray-500 font-bold">
+                  {isLoading
+                    ? "AI फोटो का संयुक्त विश्लेषण कर रहा है..."
+                    : result
+                      ? result.mismatchDetected
+                        ? "फ्रंट व बैक फोटो में अंतर मिला — कृपया फोटो जांचें"
+                        : "विश्लेषण पूर्ण! आवश्यकता हो तो फोटो बदलकर पुनः स्कैन करें"
+                      : frontImage && backImage
+                        ? "फ्रंट और बैक दोनों फोटो तैयार हैं — स्कैन शुरू करें"
+                        : "1 फोटो तैयार है — चाहें तो बैक फोटो जोड़ें या सीधे स्कैन करें"}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-black text-[#2D5A27] flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                स्कैन किया गया उत्पाद फोटो
-              </p>
-              <p className="text-[11px] text-gray-500 font-bold mt-0.5">
-                {isLoading ? "AI फोटो का विश्लेषण कर रहा है..." : "सफलतापूर्वक पहचाना गया!"}
-              </p>
+
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => {
+                setFrontImage(null);
+                setBackImage(null);
+                setResult(null);
+                setError(null);
+                setQuery('');
+              }}
+              className="text-xs font-black text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1"
+              title="सभी फोटो हटाएं"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>हटाएं</span>
+            </button>
+          </div>
+
+          {/* Two Slots Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Slot 1: Front Side */}
+            <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-3 flex items-center gap-3">
+              {frontImage ? (
+                <>
+                  <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 bg-white shrink-0">
+                    <img src={frontImage} alt="Product Front Side" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <p className="text-xs font-black text-gray-900">फोटो 1: Front Side (सामने)</p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={isLoading || processingSlot !== null}
+                        onClick={() => triggerCapture('front', 'camera')}
+                        className="text-[11px] font-bold text-[#2D5A27] bg-white border border-[#2D5A27]/25 hover:bg-[#2D5A27]/5 px-2.5 py-1 rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                      >
+                        <Camera className="w-3 h-3" />
+                        <span>कैमरा</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isLoading || processingSlot !== null}
+                        onClick={() => triggerCapture('front', 'gallery')}
+                        className="text-[11px] font-bold text-[#2D5A27] bg-white border border-[#2D5A27]/25 hover:bg-[#2D5A27]/5 px-2.5 py-1 rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                      >
+                        <ImageIcon className="w-3 h-3" />
+                        <span>बदलें</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => {
+                          setFrontImage(null);
+                          setResult(null);
+                        }}
+                        className="text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded-lg transition-all cursor-pointer disabled:opacity-50"
+                        title="फ्रंट फोटो हटाएं"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="w-full flex items-center justify-between gap-2 py-1">
+                  <div>
+                    <p className="text-xs font-black text-gray-800">फोटो 1: Front Side (सामने)</p>
+                    <p className="text-[10px] text-gray-500 font-medium">उत्पाद का मुख्य चेहरा / ब्रांड</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      disabled={isLoading || processingSlot !== null}
+                      onClick={() => triggerCapture('front', 'camera')}
+                      className="p-2 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 cursor-pointer disabled:opacity-50"
+                      title="कैमरे से फ्रंट फोटो लें"
+                    >
+                      <Camera className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLoading || processingSlot !== null}
+                      onClick={() => triggerCapture('front', 'gallery')}
+                      className="p-2 rounded-xl bg-green-50 text-[#2D5A27] border border-green-200 hover:bg-green-100 cursor-pointer disabled:opacity-50"
+                      title="गैलरी से फ्रंट फोटो चुनें"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Slot 2: Back Side (Optional) */}
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50/70 p-3 flex items-center gap-3">
+              {backImage ? (
+                <>
+                  <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 bg-white shrink-0">
+                    <img src={backImage} alt="Product Back Side" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <p className="text-xs font-black text-gray-900">फोटो 2: Back Side (पीछे)</p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={isLoading || processingSlot !== null}
+                        onClick={() => triggerCapture('back', 'camera')}
+                        className="text-[11px] font-bold text-[#2D5A27] bg-white border border-[#2D5A27]/25 hover:bg-[#2D5A27]/5 px-2.5 py-1 rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                      >
+                        <Camera className="w-3 h-3" />
+                        <span>कैमरा</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isLoading || processingSlot !== null}
+                        onClick={() => triggerCapture('back', 'gallery')}
+                        className="text-[11px] font-bold text-[#2D5A27] bg-white border border-[#2D5A27]/25 hover:bg-[#2D5A27]/5 px-2.5 py-1 rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                      >
+                        <ImageIcon className="w-3 h-3" />
+                        <span>बदलें</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => {
+                          setBackImage(null);
+                          setResult(null);
+                        }}
+                        className="text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded-lg transition-all cursor-pointer disabled:opacity-50"
+                        title="बैक फोटो हटाएं"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="w-full flex items-center justify-between gap-2 py-1">
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-gray-800">फोटो 2: Back Side (वैकल्पिक)</p>
+                    <p className="text-[10px] text-gray-500 font-medium">टेक्निकल / Composition की साफ फोटो</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      disabled={isLoading || processingSlot !== null}
+                      onClick={() => triggerCapture('back', 'camera')}
+                      className="p-2 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 cursor-pointer disabled:opacity-50"
+                      title="कैमरे से बैक फोटो लें"
+                    >
+                      <Camera className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLoading || processingSlot !== null}
+                      onClick={() => triggerCapture('back', 'gallery')}
+                      className="p-2 rounded-xl bg-green-50 text-[#2D5A27] border border-green-200 hover:bg-green-100 cursor-pointer disabled:opacity-50"
+                      title="गैलरी से बैक फोटो चुनें"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-          <button 
-            onClick={() => {
-              setSelectedImage(null);
-              setResult(null);
-              setQuery('');
-            }}
-            className="p-2 bg-rose-50 text-rose-600 rounded-full hover:bg-rose-100 transition-all cursor-pointer"
-            title="फोटो हटाएं"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          {/* Primary Scan / Re-scan CTA */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
+            <p className="text-[11px] text-gray-500 font-medium">
+              {selectedPhotoCount === 2
+                ? "अधिकतम 2 फोटो चुनी गईं — बदलने या हटाने के लिए ऊपर दिए बटन उपयोग करें।"
+                : "सटीक टेक्निकल पहचान के लिए पीछे की फोटो जोड़ना लाभदायक है।"}
+            </p>
+            <button
+              type="button"
+              disabled={isLoading || processingSlot !== null}
+              onClick={() => handleImageSearch()}
+              className="bg-[#2D5A27] hover:bg-[#3D7A35] text-white px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-sm shrink-0"
+            >
+              <Sparkles className="w-4 h-4 text-[#EAB308]" />
+              <span>
+                {result
+                  ? "चयनित फोटो से पुनः स्कैन करें"
+                  : frontImage && backImage
+                    ? "दोनों फोटो से AI स्कैन करें"
+                    : "इस फोटो से AI स्कैन करें"}
+              </span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -878,7 +1174,11 @@ ${result.safetyInstructions}
           </div>
           <div className="text-center space-y-1">
             <p className="text-[#2D5A27] font-black text-lg">
-              {isImageSearch ? "AI उत्पाद फोटो का विश्लेषण कर रहा है..." : "प्रमाणित कृषि डेटाबेस से विस्तृत रिपोर्ट तैयार हो रही है..."}
+              {isImageSearch
+                ? frontImage && backImage
+                  ? "AI फ्रंट और बैक दोनों फोटो का संयुक्त विश्लेषण कर रहा है..."
+                  : "AI उत्पाद फोटो का विश्लेषण कर रहा है..."
+                : "प्रमाणित कृषि डेटाबेस से विस्तृत रिपोर्ट तैयार हो रही है..."}
             </p>
             <p className="text-xs text-gray-500 font-medium">
               CIB&RC, ICAR और अधिकृत मानकों के आधार पर 100% सटीक डोज़ का संकलन जारी है
@@ -894,7 +1194,7 @@ ${result.safetyInstructions}
           <h3 className="font-bold text-rose-900 text-base">जानकारी खोजने में समस्या आई</h3>
           <p className="text-xs text-rose-700 font-medium leading-relaxed max-w-md mx-auto">{error}</p>
           <button 
-            onClick={() => handleSearch(query)}
+            onClick={() => (isImageSearch && hasAnyPhoto ? handleImageSearch() : handleSearch(query))}
             className="bg-[#2D5A27] hover:bg-[#3D7A35] text-white px-5 py-2.5 rounded-full text-xs font-black transition-all flex items-center gap-2 mx-auto cursor-pointer"
           >
             <RotateCcw className="w-4 h-4" /> पुनः प्रयास करें
@@ -910,7 +1210,8 @@ ${result.safetyInstructions}
             <button
               onClick={() => {
                 setResult(null);
-                setSelectedImage(null);
+                setFrontImage(null);
+                setBackImage(null);
               }}
               className="flex items-center gap-2 text-xs font-black text-[#2D5A27] bg-[#2D5A27]/5 hover:bg-[#2D5A27]/10 px-4 py-2.5 rounded-2xl transition-all border border-[#2D5A27]/15 cursor-pointer"
             >
@@ -955,6 +1256,56 @@ ${result.safetyInstructions}
             </div>
           )}
 
+          {/* Contradiction / Mismatch Alert Banner */}
+          {result.mismatchDetected && (
+            <div className="bg-rose-50 border-2 border-rose-200 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-rose-900">
+                    फ्रंट और बैक फोटो अलग-अलग उत्पादों की प्रतीत होती हैं
+                  </h4>
+                  <p className="text-xs text-rose-800 font-medium leading-relaxed">
+                    {result.mismatchWarning || "संलग्न दोनों फोटो में अलग-अलग उत्पाद/लेबल दिखाई दे रहे हैं। कृपया एक ही उत्पाद के सामने और पीछे की सही फोटो अपलोड करें।"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBottomSheetOpen(true)}
+                className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>फोटो बदलें</span>
+              </button>
+            </div>
+          )}
+
+          {/* OCR Uncertainty Alert Banner */}
+          {!result.mismatchDetected && result.ocrUncertain && (
+            <div className="bg-amber-50 border border-amber-200 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h4 className="text-xs font-black text-amber-950">
+                    टेक्निकल लेबल पूरी तरह स्पष्ट नहीं दिखा
+                  </h4>
+                  <p className="text-xs text-amber-900 font-medium leading-relaxed">
+                    {result.uncertaintyNote || "फोटो में टेक्निकल नाम या सामग्री (Ingredients) धुंधली है। 100% सटीक डोज़ के लिए उत्पाद के पीछे (Back Side) की साफ फोटो जोड़कर पुनः स्कैन करें।"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBottomSheetOpen(true)}
+                className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>{backImage ? "साफ फोटो लें" : "बैक फोटो जोड़ें"}</span>
+              </button>
+            </div>
+          )}
+
           {/* Primary Product Card */}
           <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm space-y-5">
             <div className="flex items-start justify-between gap-4">
@@ -982,11 +1333,19 @@ ${result.safetyInstructions}
                 </p>
               </div>
 
-              <div className="bg-green-50 border border-green-200 px-3.5 py-2 rounded-2xl flex items-center gap-2 shrink-0">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
+              <div className={`${result.mismatchDetected ? 'bg-rose-50 border-rose-200' : 'bg-green-50 border-green-200'} border px-3.5 py-2 rounded-2xl flex items-center gap-2 shrink-0`}>
+                {result.mismatchDetected ? (
+                  <AlertTriangle className="w-5 h-5 text-rose-600" />
+                ) : (
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                )}
                 <div>
-                  <p className="text-[10px] text-green-800 font-black uppercase tracking-wider">अधिकृत डेटा</p>
-                  <p className="text-[9px] text-gray-500 font-bold">100% CIB&RC मानक</p>
+                  <p className={`text-[10px] font-black uppercase tracking-wider ${result.mismatchDetected ? 'text-rose-800' : 'text-green-800'}`}>
+                    {result.mismatchDetected ? "जांच आवश्यक" : "अधिकृत डेटा"}
+                  </p>
+                  <p className="text-[9px] text-gray-500 font-bold">
+                    {result.scanMode === 'front_back' ? "Front + Back स्कैन" : "100% CIB&RC मानक"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -1559,7 +1918,7 @@ ${result.safetyInstructions}
         </div>
       )}
 
-      {/* Bottom Sheet for Camera / Gallery */}
+      {/* Bottom Sheet for Multi-Photo Scanner (Max 2: Front + Optional Back) */}
       <AnimatePresence>
         {isBottomSheetOpen && (
           <>
@@ -1575,50 +1934,186 @@ ${result.safetyInstructions}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 250 }}
-              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[2.5rem] shadow-2xl z-50 p-6 pb-10 border-t border-gray-100 flex flex-col space-y-4 max-w-lg mx-auto pointer-events-auto"
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[2.5rem] shadow-2xl z-50 p-6 pb-8 border-t border-gray-100 flex flex-col space-y-4 max-w-lg mx-auto pointer-events-auto max-h-[90vh] overflow-y-auto"
             >
-              <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-2" />
-              <div className="text-center pb-2">
-                <h4 className="text-lg font-black text-gray-900">AI उत्पाद फोटो स्कैन (Image Search)</h4>
-                <p className="text-xs text-gray-500 font-medium mt-1">दवाई, खाद की बोतल या पैकेट की साफ फोटो चुनें</p>
+              <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-1" />
+              <div className="text-center">
+                <h4 className="text-lg font-black text-gray-900">AI उत्पाद फोटो स्कैन ({selectedPhotoCount}/2)</h4>
+                <p className="text-xs text-gray-500 font-medium mt-1">
+                  1 फोटो या फ्रंट + बैक दोनों फोटो (अधिकतम 2) लेकर सटीक पहचान पाएं
+                </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2">
+              {/* Slot 1: Product Front Side */}
+              <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-black text-gray-900">1. उत्पाद का फ्रंट (Front Side)</p>
+                    <p className="text-[11px] text-gray-500 font-medium">पैकेट या बोतल का सामने का मुख्य हिस्सा</p>
+                  </div>
+                  {frontImage && (
+                    <button
+                      type="button"
+                      disabled={isLoading || processingSlot !== null}
+                      onClick={() => setFrontImage(null)}
+                      className="text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>हटाएं</span>
+                    </button>
+                  )}
+                </div>
+
+                {frontImage ? (
+                  <div className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-gray-200">
+                    <img src={frontImage} alt="Product Front Side" className="w-16 h-16 rounded-xl object-cover border border-gray-100 shrink-0" />
+                    <div className="flex-1 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={isLoading || processingSlot !== null}
+                        onClick={() => triggerCapture('front', 'camera')}
+                        className="flex-1 min-w-[100px] py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>कैमरा बदलें</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isLoading || processingSlot !== null}
+                        onClick={() => triggerCapture('front', 'gallery')}
+                        className="flex-1 min-w-[100px] py-2 px-3 bg-green-50 hover:bg-green-100 text-[#2D5A27] border border-green-200 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        <span>गैलरी बदलें</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      disabled={isLoading || processingSlot !== null}
+                      onClick={() => triggerCapture('front', 'camera')}
+                      className="flex items-center justify-center gap-2 py-3 px-3 bg-amber-50 hover:bg-amber-100/80 border border-amber-200 rounded-xl text-xs font-black text-amber-900 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <Camera className="w-4 h-4 text-amber-600" />
+                      <span>{processingSlot === 'front' ? "प्रोसेसिंग..." : "कैमरा (Front)"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLoading || processingSlot !== null}
+                      onClick={() => triggerCapture('front', 'gallery')}
+                      className="flex items-center justify-center gap-2 py-3 px-3 bg-green-50 hover:bg-green-100/80 border border-green-200 rounded-xl text-xs font-black text-[#2D5A27] transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <ImageIcon className="w-4 h-4 text-[#2D5A27]" />
+                      <span>{processingSlot === 'front' ? "प्रोसेसिंग..." : "गैलरी (Front)"}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Slot 2: Product Back Side (Optional) */}
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50/80 p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-black text-gray-900">2. उत्पाद का बैक (Back Side · वैकल्पिक)</p>
+                    <p className="text-[11px] text-gray-500 font-medium">टेक्निकल नाम, Composition व Ingredients के लिए</p>
+                  </div>
+                  {backImage && (
+                    <button
+                      type="button"
+                      disabled={isLoading || processingSlot !== null}
+                      onClick={() => setBackImage(null)}
+                      className="text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>हटाएं</span>
+                    </button>
+                  )}
+                </div>
+
+                {backImage ? (
+                  <div className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-gray-200">
+                    <img src={backImage} alt="Product Back Side" className="w-16 h-16 rounded-xl object-cover border border-gray-100 shrink-0" />
+                    <div className="flex-1 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={isLoading || processingSlot !== null}
+                        onClick={() => triggerCapture('back', 'camera')}
+                        className="flex-1 min-w-[100px] py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>कैमरा बदलें</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isLoading || processingSlot !== null}
+                        onClick={() => triggerCapture('back', 'gallery')}
+                        className="flex-1 min-w-[100px] py-2 px-3 bg-green-50 hover:bg-green-100 text-[#2D5A27] border border-green-200 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        <span>गैलरी बदलें</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      disabled={isLoading || processingSlot !== null}
+                      onClick={() => triggerCapture('back', 'camera')}
+                      className="flex items-center justify-center gap-2 py-3 px-3 bg-amber-50 hover:bg-amber-100/80 border border-amber-200 rounded-xl text-xs font-black text-amber-900 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <Camera className="w-4 h-4 text-amber-600" />
+                      <span>{processingSlot === 'back' ? "प्रोसेसिंग..." : "कैमरा (Back)"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLoading || processingSlot !== null}
+                      onClick={() => triggerCapture('back', 'gallery')}
+                      className="flex items-center justify-center gap-2 py-3 px-3 bg-green-50 hover:bg-green-100/80 border border-green-200 rounded-xl text-xs font-black text-[#2D5A27] transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <ImageIcon className="w-4 h-4 text-[#2D5A27]" />
+                      <span>{processingSlot === 'back' ? "प्रोसेसिंग..." : "गैलरी (Back)"}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Max 2 Limit Indicator */}
+              {selectedPhotoCount >= 2 && (
+                <p className="text-[11px] font-bold text-[#2D5A27] bg-green-50 border border-green-200 rounded-xl px-3 py-2 text-center flex items-center justify-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                  <span>अधिकतम 2 फोटो चुनी गईं — बदलने के लिए "बदलें" या हटाने के लिए "हटाएं" दबाएं</span>
+                </p>
+              )}
+
+              {/* Primary Scan CTA + Cancel */}
+              <div className="space-y-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (cameraInputRef.current) cameraInputRef.current.click();
-                  }}
-                  className="flex flex-col items-center justify-center p-5 bg-amber-50 hover:bg-amber-100/70 border-2 border-amber-100 rounded-2xl gap-2.5 transition-all cursor-pointer"
+                  disabled={!hasAnyPhoto || isLoading || processingSlot !== null}
+                  onClick={() => handleImageSearch()}
+                  className="w-full py-3.5 bg-[#2D5A27] hover:bg-[#3D7A35] text-white rounded-2xl text-xs font-black transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
                 >
-                  <div className="w-12 h-12 bg-amber-500 text-white rounded-full flex items-center justify-center shadow-md">
-                    <Camera className="w-6 h-6" />
-                  </div>
-                  <span className="text-xs font-black text-amber-900">कैमरे से फोटो लें</span>
-                  <span className="text-[10px] text-amber-700 font-bold">Take Photo</span>
+                  <Sparkles className="w-4 h-4 text-[#EAB308]" />
+                  <span>
+                    {!hasAnyPhoto
+                      ? "कम से कम 1 फोटो चुनें"
+                      : frontImage && backImage
+                        ? "दोनों फोटो से AI स्कैन करें (Front + Back)"
+                        : "इस 1 फोटो से तुरंत स्कैन करें"}
+                  </span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => {
-                    if (galleryInputRef.current) galleryInputRef.current.click();
-                  }}
-                  className="flex flex-col items-center justify-center p-5 bg-green-50 hover:bg-green-100/70 border-2 border-green-100 rounded-2xl gap-2.5 transition-all cursor-pointer"
+                  onClick={() => setIsBottomSheetOpen(false)}
+                  className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl text-xs font-black transition-all cursor-pointer"
                 >
-                  <div className="w-12 h-12 bg-[#2D5A27] text-white rounded-full flex items-center justify-center shadow-md">
-                    <ImageIcon className="w-6 h-6" />
-                  </div>
-                  <span className="text-xs font-black text-green-900">गैलरी से चुनें</span>
-                  <span className="text-[10px] text-green-700 font-bold">Choose from Gallery</span>
+                  बंद करें (Close)
                 </button>
               </div>
-
-              <button
-                onClick={() => setIsBottomSheetOpen(false)}
-                className="w-full py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl text-xs font-black transition-all cursor-pointer mt-3"
-              >
-                रद्द करें (Cancel)
-              </button>
             </motion.div>
           </>
         )}
