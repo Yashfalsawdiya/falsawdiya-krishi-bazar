@@ -777,26 +777,82 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
   }
 }
 
-export async function askAiQuestion(question: string, weatherData: any, userApiKey?: string) {
+export interface KrishiChatTurn {
+  role: 'user' | 'model';
+  text: string;
+}
+
+const MAX_CHAT_HISTORY_MESSAGES = 16;
+
+export async function askAiQuestion(
+  question: string,
+  weatherData: any,
+  userApiKey?: string,
+  history: KrishiChatTurn[] = []
+): Promise<string> {
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
+
+    const trimmedQuestion = question.trim();
+    if (!trimmedQuestion) {
+      throw new Error("कृपया अपना प्रश्न लिखें।");
+    }
+
     const now = new Date();
     const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+    const weatherContext = `आज की तारीख: ${dateStr} | स्थान: शामगढ़, मंदसौर (मध्य प्रदेश) | वर्तमान मौसम: ${weatherData?.temp ?? 'N/A'}°C, ${weatherData?.condition || 'उपलब्ध नहीं'}`;
 
-    const prompt = `सवाल: "${question}"
-    स्थान: शामगढ़, मध्य प्रदेश
-    मौसम: ${weatherData?.temp || 'N/A'}°C, ${weatherData?.condition || 'N/A'}
-    तारीख: ${dateStr}`;
+    const sanitizedHistory = Array.isArray(history)
+      ? history
+          .filter(
+            (turn): turn is KrishiChatTurn =>
+              Boolean(turn) &&
+              (turn.role === 'user' || turn.role === 'model') &&
+              typeof turn.text === 'string' &&
+              turn.text.trim().length > 0
+          )
+          .slice(-MAX_CHAT_HISTORY_MESSAGES)
+      : [];
 
-    const systemInstruction = "You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाजार' located in Shamgarh, Mandsaur, MP.\n\nShop Profile:\n- Name: फल्सावदिया कृषि बाजार\n- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)\n- Timings: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)\n\nInstructions: Answer farmer questions in simple Hindi. Always mention that recommended products are available at 'फल्सावदिया कृषि बाजार'. STRICT RULE: Do not use 'फालसावदिया'.";
+    // Ensure multi-turn payload starts cleanly with a user turn
+    const firstUserIdx = sanitizedHistory.findIndex((t) => t.role === 'user');
+    const alignedHistory = firstUserIdx >= 0 ? sanitizedHistory.slice(firstUserIdx) : [];
+
+    const contents = [
+      ...alignedHistory.map((turn) => ({
+        role: turn.role,
+        parts: [{ text: turn.text.trim() }]
+      })),
+      {
+        role: 'user' as const,
+        parts: [{ text: trimmedQuestion }]
+      }
+    ];
+
+    const isFollowUp = alignedHistory.length > 0;
+    const systemInstruction = `You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाजार' located in Shamgarh, Mandsaur, MP.
+
+Shop Profile:
+- Name: फल्सावदिया कृषि बाजार
+- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)
+- Timings: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)
+- Local Context: ${weatherContext}
+
+Conversation & Formatting Rules:
+1. Answer farmer questions in simple, respectful Hindi.
+2. Continuous Context Awareness: Treat this as an ongoing multi-turn conversation. Understand pronouns and references like "इसकी", "उसमें", "यह", "कितनी मात्रा", "अगर सिंचाई कम हो" directly from previous turns without asking the farmer to repeat the crop, variety, or product name.
+3. ${isFollowUp ? "Follow-up Turn Rule: Do NOT repeat 'जय राम जी की' greetings or full shop address again. Answer the follow-up question directly using the established context." : "First Turn Rule: Start with a warm brief greeting like 'जय राम जी की किसान भाई!' and give clear, helpful advice."}
+4. When recommending inputs/products, naturally mention availability at 'फल्सावदिया कृषि बाजार'.
+5. Formatting: Use clean short headings (###), concise bullet points (*), and bold labels (**...**) for easy reading on mobile screens.
+6. STRICT RULE: Always write 'फल्सावदिया' (never 'फालसावदिया').`;
 
     let response;
     try {
       // Tier 1: Try with Google Search Grounding for real-time validation
       response = await ai.models.generateContent({
         model: PRIMARY_GEMINI_MODEL,
-        contents: prompt,
+        contents,
         config: {
           systemInstruction,
           tools: [{ googleSearch: {} }]
@@ -808,7 +864,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
         // Tier 2: Seamlessly fall back to pure model generation without search tools
         response = await ai.models.generateContent({
           model: PRIMARY_GEMINI_MODEL,
-          contents: prompt,
+          contents,
           config: {
             systemInstruction
           }
@@ -819,7 +875,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
           // Tier 3: Resilient fallback to secondary flash model
           response = await ai.models.generateContent({
             model: FALLBACK_GEMINI_MODEL,
-            contents: prompt,
+            contents,
             config: {
               systemInstruction
             }
@@ -829,7 +885,7 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
           // Tier 4: Ultra-resilient fallback to tertiary model
           response = await ai.models.generateContent({
             model: TERTIARY_GEMINI_MODEL,
-            contents: prompt,
+            contents,
             config: {
               systemInstruction
             }
@@ -838,14 +894,18 @@ export async function askAiQuestion(question: string, weatherData: any, userApiK
       }
     }
 
-    return response.text;
+    const answerText = response?.text?.trim();
+    if (!answerText) {
+      throw new Error("AI से उत्तर प्राप्त नहीं हो सका। कृपया पुनः प्रयास करें।");
+    }
+    return answerText;
   } catch (error: any) {
     const friendlyError = getFriendlyAiError(error);
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
       throw friendlyError;
     }
     console.error("Gemini Chat Error:", error);
-    return friendlyError.message;
+    throw new Error(friendlyError.message || error?.message || "त्रुटि हुई। कृपया पुनः प्रयास करें।");
   }
 }
 

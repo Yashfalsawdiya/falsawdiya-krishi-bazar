@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
@@ -8,7 +8,7 @@ import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import { fetchWeather, WeatherData } from '../services/weatherService';
 import { fetchMandiBhav, MandiData } from '../services/mandiService';
-import { getDynamicAdvice, askAiQuestion } from '../services/gemini';
+import { getDynamicAdvice, askAiQuestion, KrishiChatTurn } from '../services/gemini';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
 import { AnimatePresence } from 'motion/react';
@@ -84,6 +84,83 @@ const translateText = (field: any): string => {
   return field.hi || field.en || '';
 };
 
+interface KrishiChatMessage {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  isError?: boolean;
+  retryQuestion?: string;
+}
+
+const renderInlineBold = (text: string): React.ReactNode => {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+      return (
+        <strong key={idx} className="font-bold text-[#243B1F]">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <React.Fragment key={idx}>{part.replace(/\*\*/g, '')}</React.Fragment>;
+  });
+};
+
+const FormattedAiChatText: React.FC<{ text: string }> = ({ text }) => {
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+
+  return (
+    <div className="space-y-1.5 text-sm text-[#4A3728] leading-relaxed">
+      {lines.map((rawLine, index) => {
+        const line = rawLine.trim();
+
+        if (!line) {
+          return <div key={index} className="h-1" />;
+        }
+
+        if (/^(-{3,}|\*{3,})$/.test(line)) {
+          return <hr key={index} className="border-[#E2DCD0] my-2" />;
+        }
+
+        const headingMatch = line.match(/^(#{1,4})\s+(.*)$/);
+        if (headingMatch) {
+          return (
+            <h4 key={index} className="font-bold text-[#2D5A27] text-[14px] pt-1.5 pb-0.5">
+              {renderInlineBold(headingMatch[2])}
+            </h4>
+          );
+        }
+
+        const bulletMatch = line.match(/^[-*•]\s+(.*)$/);
+        if (bulletMatch) {
+          return (
+            <div key={index} className="flex items-start gap-2 pl-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#2D5A27] mt-2 shrink-0" />
+              <div className="flex-1 min-w-0">{renderInlineBold(bulletMatch[1])}</div>
+            </div>
+          );
+        }
+
+        const numberedMatch = line.match(/^(\d+[.)])\s+(.*)$/);
+        if (numberedMatch) {
+          return (
+            <div key={index} className="flex items-start gap-2 pl-1">
+              <span className="font-bold text-[#2D5A27] shrink-0">{numberedMatch[1]}</span>
+              <div className="flex-1 min-w-0">{renderInlineBold(numberedMatch[2])}</div>
+            </div>
+          );
+        }
+
+        return (
+          <p key={index} className="break-words">
+            {renderInlineBold(line)}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
+
 const Home: React.FC = () => {
   const { products, categories, appContent, user, loadProducts, loadCategoryData, loading: appLoading } = useAppContext();
   const sortedCategories = useMemo(() => sortCategoriesByOrder(categories), [categories]);
@@ -154,10 +231,15 @@ const Home: React.FC = () => {
   const [mandi, setMandi] = useState<MandiData | null>(null);
   const [aiAdvice, setAiAdvice] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+
+  // Temporary session-only AI Krishi Sahayak chat state (cleared completely on Close)
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [userQuestion, setUserQuestion] = useState('');
-  const [lastQuestion, setLastQuestion] = useState<string | null>(null);
-  const [chatResponse, setChatResponse] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<KrishiChatMessage[]>([]);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatSessionIdRef = useRef<number>(0);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [zoomImage, setZoomImage] = useState<{ src: string | ImageSource; alt: string } | null>(null);
@@ -239,46 +321,96 @@ const Home: React.FC = () => {
     }
   }, [appLoading, effectiveApiKey]);
 
+  useEffect(() => {
+    if (isChatOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, isChatLoading, isChatOpen]);
+
   const handleOpenChat = () => {
     if (appLoading) return;
 
     if (!requireApiKey("AI कृषि चैट का उपयोग करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) {
       return;
     }
-    setIsChatOpen(true);
-    setChatResponse(null);
-    setLastQuestion(null);
+    chatSessionIdRef.current += 1;
+    setChatMessages([]);
     setUserQuestion('');
+    setIsChatLoading(false);
+    setIsChatOpen(true);
   };
 
-  const handleAskQuestion = async () => {
-    if (!userQuestion.trim()) return;
-    
-    if (appLoading) return;
+  const handleCloseChat = () => {
+    chatSessionIdRef.current += 1;
+    setIsChatOpen(false);
+    setChatMessages([]);
+    setUserQuestion('');
+    setIsChatLoading(false);
+  };
+
+  const handleAskQuestion = async (retryText?: string) => {
+    const isRetry = typeof retryText === 'string';
+    const question = (isRetry ? retryText : userQuestion).trim();
+    if (!question || isChatLoading || appLoading) return;
 
     if (!requireApiKey("AI से प्रश्न पूछने के लिए कृपया अपनी Gemini API Key जोड़ें।")) {
       return;
     }
 
-    const question = userQuestion.trim();
-    setLastQuestion(question);
-    setUserQuestion('');
-    setChatResponse(null);
+    const activeSessionId = chatSessionIdRef.current;
 
-    setIsAiLoading(true);
+    // Build multi-turn context from valid turns only (excluding error placeholders)
+    const validTurns: KrishiChatTurn[] = chatMessages
+      .filter((m) => !m.isError && m.text.trim().length > 0)
+      .map((m) => ({ role: m.role, text: m.text }));
+
+    // When retrying the immediately preceding user question, avoid duplicating it in UI and API history
+    const historyForApi =
+      isRetry && validTurns.length > 0 && validTurns[validTurns.length - 1].role === 'user'
+        ? validTurns.slice(0, -1)
+        : validTurns;
+
+    if (isRetry) {
+      setChatMessages((prev) => prev.filter((m) => !m.isError));
+    } else {
+      const userMsg: KrishiChatMessage = {
+        id: `u_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        role: 'user',
+        text: question
+      };
+      setChatMessages((prev) => [...prev.filter((m) => !m.isError), userMsg]);
+      setUserQuestion('');
+    }
+
+    setIsChatLoading(true);
     try {
-      const response = await askAiQuestion(question, weather, effectiveApiKey);
-      setChatResponse(response);
+      const response = await askAiQuestion(question, weather, effectiveApiKey, historyForApi);
+      if (chatSessionIdRef.current !== activeSessionId) return;
+
+      const aiMsg: KrishiChatMessage = {
+        id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        role: 'model',
+        text: response
+      };
+      setChatMessages((prev) => [...prev, aiMsg]);
     } catch (error: any) {
+      if (chatSessionIdRef.current !== activeSessionId) return;
       console.error("AI Question failed:", error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
         openApiKeyModal(error.message);
-        setIsChatOpen(false);
-      } else {
-        setChatResponse(error.message || "त्रुटि हुई। कृपया पुनः प्रयास करें।");
       }
+      const errorMsg: KrishiChatMessage = {
+        id: `err_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        role: 'model',
+        text: error?.message || "नेटवर्क या सर्वर में समस्या आई। कृपया पुनः प्रयास करें।",
+        isError: true,
+        retryQuestion: question
+      };
+      setChatMessages((prev) => [...prev, errorMsg]);
     } finally {
-      setIsAiLoading(false);
+      if (chatSessionIdRef.current === activeSessionId) {
+        setIsChatLoading(false);
+      }
     }
   };
 
@@ -1231,14 +1363,13 @@ const Home: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setIsChatOpen(false)}
               className="fixed inset-0 bg-black/60 z-[250] backdrop-blur-sm"
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-md bg-white rounded-3xl shadow-2xl z-[251] overflow-hidden flex flex-col max-h-[80vh]"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-md bg-white rounded-3xl shadow-2xl z-[251] overflow-hidden flex flex-col max-h-[82vh]"
             >
               <div className="bg-[#2D5A27] p-5 text-white flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -1247,48 +1378,79 @@ const Home: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-bold">AI कृषि सहायक</h3>
-                    <p className="text-[10px] opacity-70">अपना प्रश्न पूछें</p>
+                    <p className="text-[10px] opacity-80">अस्थायी संदर्भ-सक्षम चैट (बंद करते ही रीसेट)</p>
                   </div>
                 </div>
                 <button 
-                  onClick={() => setIsChatOpen(false)}
-                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                  type="button"
+                  onClick={handleCloseChat}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+                  title="चैट बंद करें और अस्थायी बातचीत साफ़ करें"
                 >
                   <CloseIcon className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="p-5 overflow-y-auto flex-1 space-y-4">
-                {lastQuestion && (
-                  <div className="flex justify-end">
-                    <div className="bg-[#2D5A27] text-white p-3 rounded-2xl rounded-tr-none text-sm max-w-[85%] shadow-sm font-medium">
-                      {lastQuestion}
-                    </div>
-                  </div>
-                )}
-
-                {chatResponse ? (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-[#F5F2ED] p-4 rounded-2xl rounded-tl-none text-sm text-[#4A3728] leading-relaxed whitespace-pre-wrap shadow-sm border border-[#E8E2D8]"
-                  >
-                    {chatResponse}
-                  </motion.div>
-                ) : !lastQuestion && (
-                  <div className="text-center py-10">
-                    <p className="text-sm text-gray-400 font-medium">
-                      आप अपना प्रश्न नीचे लिख सकते हैं।
+                {chatMessages.length === 0 && !isChatLoading && (
+                  <div className="text-center py-10 space-y-1.5">
+                    <p className="text-sm text-gray-500 font-medium">
+                      आप अपना कृषि प्रश्न नीचे लिख सकते हैं।
+                    </p>
+                    <p className="text-[11px] text-gray-400">
+                      एक ही चैट में लगातार फॉलो-अप सवाल पूछें — बंद करने पर इतिहास अपने-आप हट जाएगा।
                     </p>
                   </div>
                 )}
-                
-                {isAiLoading && (
+
+                {chatMessages.map((msg) =>
+                  msg.role === 'user' ? (
+                    <div key={msg.id} className="flex justify-end">
+                      <div className="bg-[#2D5A27] text-white p-3 rounded-2xl rounded-tr-none text-sm max-w-[85%] shadow-sm font-medium break-words">
+                        {msg.text}
+                      </div>
+                    </div>
+                  ) : msg.isError ? (
+                    <div
+                      key={msg.id}
+                      className="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl rounded-tl-none text-xs text-rose-800 space-y-2 shadow-xs"
+                    >
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                        <p className="font-medium leading-relaxed">{msg.text}</p>
+                      </div>
+                      {msg.retryQuestion && (
+                        <button
+                          type="button"
+                          disabled={isChatLoading}
+                          onClick={() => handleAskQuestion(msg.retryQuestion)}
+                          className="inline-flex items-center gap-1.5 bg-white border border-rose-200 hover:bg-rose-100 text-rose-700 font-bold px-3 py-1.5 rounded-xl text-[11px] transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>पुनः प्रयास करें</span>
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <motion.div
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-[#F5F2ED] p-4 rounded-2xl rounded-tl-none shadow-sm border border-[#E8E2D8]"
+                    >
+                      <FormattedAiChatText text={msg.text} />
+                    </motion.div>
+                  )
+                )}
+
+                {isChatLoading && (
                   <div className="flex items-center gap-2 text-[#2D5A27] font-bold text-xs bg-[#2D5A27]/5 p-3 rounded-xl w-fit">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     AI उत्तर तैयार कर रहा है...
                   </div>
                 )}
+
+                <div ref={messagesEndRef} />
               </div>
 
               <div className="p-5 bg-gray-50 border-t border-gray-100">
@@ -1300,13 +1462,19 @@ const Home: React.FC = () => {
                       onChange={(e) => setUserQuestion(e.target.value)}
                       placeholder="यहाँ अपना प्रश्न लिखें..."
                       className="w-full bg-white border border-gray-200 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D5A27]"
-                      onKeyPress={(e) => e.key === 'Enter' && handleAskQuestion()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleAskQuestion();
+                        }
+                      }}
                     />
                   </div>
                   <button 
-                    onClick={handleAskQuestion}
-                    disabled={isAiLoading || !userQuestion.trim()}
-                    className="bg-[#2D5A27] text-white p-3 rounded-2xl shadow-lg active:scale-95 transition-transform disabled:opacity-50"
+                    type="button"
+                    onClick={() => handleAskQuestion()}
+                    disabled={isChatLoading || !userQuestion.trim()}
+                    className="bg-[#2D5A27] text-white p-3 rounded-2xl shadow-lg active:scale-95 transition-transform disabled:opacity-50 cursor-pointer"
                   >
                     <Send className="w-5 h-5" />
                   </button>
