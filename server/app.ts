@@ -14,7 +14,6 @@ import {
   DeliveryEmailTemplateConfig,
   DEFAULT_SERVER_DELIVERY_TEMPLATE,
 } from './emailTemplates.js';
-import { handleAccountingInsights } from './accountingRoutes.js';
 import { handleGetMandiPrices } from './mandiRoutes.js';
 import { handleGetDailyNews, handleSyncNews } from './newsRoutes.js';
 import { handleGetSchemes, handleSyncSchemes } from './schemeRoutes.js';
@@ -1549,11 +1548,6 @@ app.get('/api/delivery/in-app-otp/:orderId', async (req: Request, res: Response)
     res.json({ success: false, inAppAvailable: false });
   }
 });
-
-// ==========================================
-// OFFLINE ACCOUNTING & AI INSIGHTS ROUTES
-// ==========================================
-app.post('/api/accounting/insights', handleAccountingInsights);
 
 // ==========================================
 // MANDI BHAV LIVE PRICES ROUTE

@@ -782,14 +782,136 @@ export interface KrishiChatTurn {
   text: string;
 }
 
+export interface KrishiChatSource {
+  title: string;
+  uri: string;
+  trustLevel: 'govt_official' | 'academic_brand' | 'web';
+}
+
+export type KrishiVerificationStatus = 'verified' | 'partial' | 'unverified';
+
+export interface KrishiChatResponse {
+  text: string;
+  verificationStatus: KrishiVerificationStatus;
+  searchGrounded: boolean;
+  sources: KrishiChatSource[];
+}
+
+export interface KrishiShopContext {
+  productNames?: string[];
+}
+
 const MAX_CHAT_HISTORY_MESSAGES = 16;
+
+const GOVT_OFFICIAL_DOMAIN_HINTS = [
+  '.gov.in',
+  '.nic.in',
+  '.res.in',
+  'icar.org.in',
+  'rvskvv.net',
+  'jnkvv.org',
+  'krishi.mp.gov.in',
+  'mpkrishi.mp.gov.in',
+  'cibrc',
+  'ppqs',
+  'iari',
+  'kvk',
+  'agricoop',
+  'agriwelfare',
+  'pmkisan',
+  'indiaseeds',
+  'agmarknet',
+  'data.gov.in'
+];
+
+const ACADEMIC_BRAND_DOMAIN_HINTS = [
+  '.ac.in',
+  '.edu.in',
+  '.edu',
+  'bayer',
+  'syngenta',
+  'upl-ltd',
+  'rallis',
+  'coromandel',
+  'iffco',
+  'fmc',
+  'corteva',
+  'adama',
+  'dhanuka',
+  'sumitomo',
+  'basf',
+  'piindustries',
+  'mahyco',
+  'kaveriseeds',
+  'nuziveeduseeds',
+  'krishijagran'
+];
+
+function classifyChatSourceTrust(uri: string, title?: string): KrishiChatSource['trustLevel'] {
+  const combined = `${uri} ${title || ''}`.toLowerCase();
+  if (GOVT_OFFICIAL_DOMAIN_HINTS.some((hint) => combined.includes(hint))) {
+    return 'govt_official';
+  }
+  if (ACADEMIC_BRAND_DOMAIN_HINTS.some((hint) => combined.includes(hint))) {
+    return 'academic_brand';
+  }
+  return 'web';
+}
+
+function extractGroundingChatSources(response: any): {
+  sources: KrishiChatSource[];
+  hasWebSearchQueries: boolean;
+} {
+  const metadata = response?.candidates?.[0]?.groundingMetadata;
+  const chunks = Array.isArray(metadata?.groundingChunks) ? metadata.groundingChunks : [];
+  const webSearchQueries = Array.isArray(metadata?.webSearchQueries) ? metadata.webSearchQueries : [];
+
+  const seenUris = new Set<string>();
+  const extracted: KrishiChatSource[] = [];
+
+  for (const chunk of chunks) {
+    const uri = typeof chunk?.web?.uri === 'string' ? chunk.web.uri.trim() : '';
+    const titleRaw = typeof chunk?.web?.title === 'string' ? chunk.web.title.trim() : '';
+    if (!uri || !/^https?:\/\//i.test(uri) || seenUris.has(uri)) continue;
+
+    seenUris.add(uri);
+    let displayTitle = titleRaw;
+    if (!displayTitle) {
+      try {
+        displayTitle = new URL(uri).hostname.replace(/^www\./, '');
+      } catch {
+        displayTitle = 'वेब संदर्भ';
+      }
+    }
+
+    extracted.push({
+      title: displayTitle,
+      uri,
+      trustLevel: classifyChatSourceTrust(uri, displayTitle)
+    });
+  }
+
+  const trustRank: Record<KrishiChatSource['trustLevel'], number> = {
+    govt_official: 0,
+    academic_brand: 1,
+    web: 2
+  };
+
+  extracted.sort((a, b) => trustRank[a.trustLevel] - trustRank[b.trustLevel]);
+
+  return {
+    sources: extracted.slice(0, 5),
+    hasWebSearchQueries: webSearchQueries.length > 0 || extracted.length > 0
+  };
+}
 
 export async function askAiQuestion(
   question: string,
   weatherData: any,
   userApiKey?: string,
-  history: KrishiChatTurn[] = []
-): Promise<string> {
+  history: KrishiChatTurn[] = [],
+  shopContext?: KrishiShopContext
+): Promise<KrishiChatResponse> {
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
@@ -801,7 +923,7 @@ export async function askAiQuestion(
 
     const now = new Date();
     const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-    const weatherContext = `आज की तारीख: ${dateStr} | स्थान: शामगढ़, मंदसौर (मध्य प्रदेश) | वर्तमान मौसम: ${weatherData?.temp ?? 'N/A'}°C, ${weatherData?.condition || 'उपलब्ध नहीं'}`;
+    const weatherContext = `आज की तारीख: ${dateStr} | स्थान: शामगढ़, मंदसौर (मालवा क्षेत्र, मध्य प्रदेश) | वर्तमान मौसम: ${weatherData?.temp ?? 'N/A'}°C, ${weatherData?.condition || 'उपलब्ध नहीं'}`;
 
     const sanitizedHistory = Array.isArray(history)
       ? history
@@ -830,75 +952,131 @@ export async function askAiQuestion(
       }
     ];
 
+    const catalogList = Array.isArray(shopContext?.productNames)
+      ? Array.from(new Set(shopContext.productNames.map(n => n.trim()).filter(Boolean))).slice(0, 80)
+      : [];
+    const catalogContextLine = catalogList.length > 0
+      ? `Store Catalog Reference (ONLY claim in-stock availability if matched here): ${catalogList.join(', ')}`
+      : `Store Catalog Reference: Not provided in chat context — NEVER falsely claim any seed/chemical is in stock; invite the farmer to check availability at the shop.`;
+
     const isFollowUp = alignedHistory.length > 0;
-    const systemInstruction = `You are an expert Indian agricultural scientist representing 'फल्सावदिया कृषि बाजार' located in Shamgarh, Mandsaur, MP.
+    const systemInstruction = `You are an honest, farmer-friendly Indian agricultural advisor representing 'फल्सावदिया कृषि बाजार' located in Shamgarh, Mandsaur, Malwa region, Madhya Pradesh.
 
 Shop Profile:
 - Name: फल्सावदिया कृषि बाजार
 - Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)
 - Timings: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)
 - Local Context: ${weatherContext}
+- ${catalogContextLine}
 
-Conversation & Formatting Rules:
-1. Answer farmer questions in simple, respectful Hindi.
-2. Continuous Context Awareness: Treat this as an ongoing multi-turn conversation. Understand pronouns and references like "इसकी", "उसमें", "यह", "कितनी मात्रा", "अगर सिंचाई कम हो" directly from previous turns without asking the farmer to repeat the crop, variety, or product name.
-3. ${isFollowUp ? "Follow-up Turn Rule: Do NOT repeat 'जय राम जी की' greetings or full shop address again. Answer the follow-up question directly using the established context." : "First Turn Rule: Start with a warm brief greeting like 'जय राम जी की किसान भाई!' and give clear, helpful advice."}
-4. When recommending inputs/products, naturally mention availability at 'फल्सावदिया कृषि बाजार'.
-5. Formatting: Use clean short headings (###), concise bullet points (*), and bold labels (**...**) for easy reading on mobile screens.
-6. STRICT RULE: Always write 'फल्सावदिया' (never 'फालसावदिया').`;
+Core Verification & Accuracy Rules (CRITICAL):
+1. ALWAYS Provide Helpful Guidance: Never leave the farmer empty-handed or give a dead-end refusal. Always answer their question clearly and respectfully in simple Hindi.
+2. Prioritize Trusted Sources via Google Search: Before answering factual questions about crop varieties/codes, yields, chemical technicals/dosages, fertilizers, or government schemes, search and cross-check authoritative Indian sources first: ICAR, IARI, KVK (especially KVK Mandsaur / RVSKVV / JNKVV), MP Agriculture Department (mpkrishi.mp.gov.in), CIBRC, PPQS, Govt of India portals (agricoop.gov.in, pmkisan.gov.in), and official manufacturer/seed company documents.
+3. High-Risk Agronomy Precision Rules:
+   - Seeds & Varieties: Verify exact official variety name and number (e.g. do NOT confuse HI 8759 Pusa Tejas, HI 8713 Pusa Mangal, Lok-1, etc.). Always clearly state yield units (क्विंटल/हेक्टेयर vs क्विंटल/एकड़ vs प्रति बीघा — never mix them up!). Distinguish public/ICAR varieties vs private research varieties.
+   - Pesticides / Fungicides / Herbicides: Verify exact Technical Name & Formulation. NEVER invent or guess an unverified chemical dose (ml/L or g/acre). If exact CIBRC/label approval is unverified, still explain general crop/pest care clearly, and tell the farmer to verify the exact dose on the original bottle label or at the shop before spraying.
+   - Fertilizers: State verified NPK % and advise soil-test/crop-stage based usage without false yield guarantees.
+   - Govt Schemes: Check current active status for ${dateStr}; clearly note if eligibility/last dates need checking on official govt portal.
+4. No Fake Links or Fake Stock Claims:
+   - NEVER invent or type fake URLs in your text (real clickable links are attached automatically from search metadata).
+   - ONLY say an item is available at 'फल्सावदिया कृषि बाजार' if it matches the Store Catalog Reference above. Otherwise politely say to confirm availability directly at the shop.
+5. Continuous Context & Formatting Rules:
+   - Treat this as a continuous multi-turn conversation; resolve pronouns ("इसकी", "उसमें", "यह", "कितनी मात्रा") from prior turns naturally.
+   - ${isFollowUp ? "Follow-up Turn Rule: Do NOT repeat 'जय राम जी की' greetings or full shop address again." : "First Turn Rule: Start with a warm brief greeting like 'जय राम जी की किसान भाई!'."}
+   - Format cleanly for mobile reading using short ### headings, * bullet points, and **bold** labels.
+   - STRICT RULE: Always write 'फल्सावदिया' (never 'फालसावदिया').
+6. Mandatory Machine Tag on Last Line (REQUIRED):
+   - End EVERY response on a separate final line with EXACTLY one tag:
+     - [[VERIFICATION:VERIFIED]] ONLY if your factual claims (variety numbers/traits, scheme status, technical names/doses) were confidently verified against reliable official/authoritative sources.
+     - [[VERIFICATION:UNVERIFIED]] if official confirmation was incomplete, uncertain, based on general agronomic memory, or for local/private varieties/products whose official specification could not be confirmed.`;
 
-    let response;
-    try {
-      // Tier 1: Try with Google Search Grounding for real-time validation
-      response = await ai.models.generateContent({
-        model: PRIMARY_GEMINI_MODEL,
-        contents,
-        config: {
-          systemInstruction,
-          tools: [{ googleSearch: {} }]
-        }
-      });
-    } catch (searchErr: any) {
-      console.warn("Search grounding attempt failed (e.g. search tool quota or network). Falling back to pure Gemini knowledge base...", searchErr);
+    let response: any = null;
+    let usedSearchTool = false;
+
+    // Tier 1 & 2: Try Google Search Grounding across locked Flash models first
+    const groundedModels = [PRIMARY_GEMINI_MODEL, FALLBACK_GEMINI_MODEL];
+    for (const model of groundedModels) {
       try {
-        // Tier 2: Seamlessly fall back to pure model generation without search tools
         response = await ai.models.generateContent({
-          model: PRIMARY_GEMINI_MODEL,
+          model,
           contents,
           config: {
-            systemInstruction
+            systemInstruction,
+            tools: [{ googleSearch: {} }]
           }
         });
-      } catch (primaryErr: any) {
-        console.warn("Primary model attempt failed in chat, trying fallback model...", primaryErr);
-        try {
-          // Tier 3: Resilient fallback to secondary flash model
-          response = await ai.models.generateContent({
-            model: FALLBACK_GEMINI_MODEL,
-            contents,
-            config: {
-              systemInstruction
-            }
-          });
-        } catch (secondaryErr: any) {
-          console.warn("Secondary model attempt failed in chat, trying tertiary model (flash-lite)...", secondaryErr);
-          // Tier 4: Ultra-resilient fallback to tertiary model
-          response = await ai.models.generateContent({
-            model: TERTIARY_GEMINI_MODEL,
-            contents,
-            config: {
-              systemInstruction
-            }
-          });
+        if (response?.text?.trim()) {
+          usedSearchTool = true;
+          break;
         }
+      } catch (searchErr: any) {
+        console.warn(`[askAiQuestion] Search grounding on ${model} failed:`, searchErr?.status, searchErr?.message);
       }
     }
 
-    const answerText = response?.text?.trim();
-    if (!answerText) {
+    // Tier 3: Seamless non-search fallback so the farmer still receives helpful guidance
+    if (!response?.text?.trim()) {
+      const fallbackModels = [PRIMARY_GEMINI_MODEL, FALLBACK_GEMINI_MODEL, TERTIARY_GEMINI_MODEL];
+      let lastFallbackErr: any = null;
+      for (const model of fallbackModels) {
+        try {
+          response = await ai.models.generateContent({
+            model,
+            contents,
+            config: {
+              systemInstruction
+            }
+          });
+          if (response?.text?.trim()) {
+            usedSearchTool = false;
+            break;
+          }
+        } catch (err: any) {
+          lastFallbackErr = err;
+          console.warn(`[askAiQuestion] Non-search fallback ${model} failed:`, err?.status, err?.message);
+        }
+      }
+      if (!response?.text?.trim() && lastFallbackErr) {
+        throw lastFallbackErr;
+      }
+    }
+
+    const rawAnswerText = response?.text?.trim();
+    if (!rawAnswerText) {
       throw new Error("AI से उत्तर प्राप्त नहीं हो सका। कृपया पुनः प्रयास करें।");
     }
-    return answerText;
+
+    // Inspect and strip the verification marker tag
+    const selfFlaggedUnverified = /\[\[VERIFICATION:\s*UNVERIFIED\]\]/i.test(rawAnswerText);
+    const selfFlaggedVerified = /\[\[VERIFICATION:\s*VERIFIED\]\]/i.test(rawAnswerText);
+    const cleanText = rawAnswerText
+      .replace(/\[\[VERIFICATION:\s*(VERIFIED|UNVERIFIED)\]\]/gi, '')
+      .trim();
+
+    // Extract real, non-hallucinated URLs from Gemini Grounding Metadata
+    const { sources, hasWebSearchQueries } = extractGroundingChatSources(response);
+    const searchGrounded = usedSearchTool && (sources.length > 0 || hasWebSearchQueries);
+    const hasAuthoritativeSource = sources.some(
+      (s) => s.trustLevel === 'govt_official' || s.trustLevel === 'academic_brand'
+    );
+
+    let verificationStatus: KrishiVerificationStatus;
+    if (!searchGrounded || selfFlaggedUnverified || sources.length === 0) {
+      verificationStatus = 'unverified';
+    } else if (hasAuthoritativeSource && selfFlaggedVerified) {
+      verificationStatus = 'verified';
+    } else if (hasAuthoritativeSource && !selfFlaggedUnverified) {
+      verificationStatus = 'verified';
+    } else {
+      verificationStatus = 'partial';
+    }
+
+    return {
+      text: cleanText,
+      verificationStatus,
+      searchGrounded,
+      sources
+    };
   } catch (error: any) {
     const friendlyError = getFriendlyAiError(error);
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {

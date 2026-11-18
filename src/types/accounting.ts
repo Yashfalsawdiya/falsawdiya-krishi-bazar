@@ -441,14 +441,6 @@ export interface AccountingSummaryReport {
   totalProductsCount?: number;
 }
 
-export interface AIBusinessInsight {
-  hindiSummary: string;
-  businessHealthScore: 'EXCELLENT' | 'GOOD' | 'WARNING' | 'CRITICAL';
-  bargainingImpactAdvice: string;
-  cashFlowAnalysis: string;
-  keyActionItems: string[];
-}
-
 export interface AccountingAuditLog {
   id: string;
   action: 'customer_khata_deleted' | 'customer_khata_archived' | 'customer_khata_closed' | 'customer_khata_reopened' | 'purchase_invoice_cancelled' | 'purchase_invoice_deleted';

@@ -1,17 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  TrendingUp, TrendingDown, IndianRupee, Sparkles, AlertTriangle, 
+  TrendingUp, TrendingDown, IndianRupee, AlertTriangle, 
   Calendar, ShoppingBag, Receipt, Users, Package, 
   ArrowUpRight, ArrowDownLeft, ShieldCheck, RefreshCw, Layers, CheckCircle2,
-  Wallet, Bot, Zap, Activity, Check, RotateCcw, X
+  Wallet, RotateCcw, X
 } from 'lucide-react';
 import { 
-  AccountingSummaryReport, 
-  AIBusinessInsight 
+  AccountingSummaryReport 
 } from '../../types/accounting';
 import { 
   fetchAccountingReport, 
-  getAIFinancialInsights,
   resetTestAccountingData
 } from '../../services/accountingService';
 import { AccountingPOSBilling } from './AccountingPOSBilling';
@@ -27,10 +25,6 @@ export const AccountingDashboard: React.FC = () => {
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('today');
   const [report, setReport] = useState<AccountingSummaryReport | null>(null);
   const [loadingReport, setLoadingReport] = useState(true);
-
-  // AI Insights State
-  const [aiInsight, setAiInsight] = useState<AIBusinessInsight | null>(null);
-  const [loadingAiInsight, setLoadingAiInsight] = useState(false);
 
   // Controlled Admin Test Data Reset State
   const [showResetModal, setShowResetModal] = useState<boolean>(false);
@@ -66,19 +60,6 @@ export const AccountingDashboard: React.FC = () => {
       loadReport();
     }
   }, [dateRange, activeTab]);
-
-  const handleGenerateAiInsight = async () => {
-    if (!report) return;
-    setLoadingAiInsight(true);
-    try {
-      const insight = await getAIFinancialInsights(report);
-      setAiInsight(insight);
-    } catch (err: any) {
-      alert('AI विश्लेषण लोड करने में समस्या: ' + err.message);
-    } finally {
-      setLoadingAiInsight(false);
-    }
-  };
 
   const handleResetTestData = async () => {
     setIsResetting(true);
@@ -183,15 +164,6 @@ export const AccountingDashboard: React.FC = () => {
                 <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
                 <span>टेस्ट डेटा रीसेट</span>
               </button>
-
-              <button
-                onClick={handleGenerateAiInsight}
-                disabled={loadingAiInsight}
-                className="px-4 py-2.5 bg-[#2D5A27] hover:bg-[#23461e] text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm active:scale-95 transition-all disabled:opacity-50"
-              >
-                <Bot className="w-4 h-4" />
-                {loadingAiInsight ? 'AI विश्लेषण हो रहा है...' : 'AI मुनीम जी से सलाह लें (AI Insights)'}
-              </button>
             </div>
           </div>
 
@@ -231,61 +203,6 @@ export const AccountingDashboard: React.FC = () => {
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>टेस्ट डेटा रीसेट करें</span>
               </button>
-            </div>
-          )}
-
-          {/* AI Insights Card (If generated) */}
-          {aiInsight && (
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50/50 p-6 rounded-3xl border border-amber-200 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5 text-amber-900 font-extrabold text-sm sm:text-base">
-                  <Sparkles className="w-5 h-5 text-amber-600" />
-                  AI मुनीम जी - व्यापार स्वास्थ्य व लाभ विश्लेषण
-                </div>
-                <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full ${
-                  aiInsight.businessHealthScore === 'EXCELLENT'
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : aiInsight.businessHealthScore === 'GOOD'
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  स्थिति: {aiInsight.businessHealthScore}
-                </span>
-              </div>
-
-              <div className="text-xs text-gray-800 space-y-2 leading-relaxed bg-white/80 p-4 rounded-2xl border border-amber-100">
-                <p className="font-medium text-gray-900">{aiInsight.hindiSummary}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-[11px]">
-                  <div>
-                    <span className="font-bold text-amber-900 flex items-center gap-1 mb-0.5">
-                      <Zap className="w-3.5 h-3.5 text-amber-700" />
-                      मोलभाव व डिस्काउंट प्रभाव:
-                    </span>
-                    <p className="text-gray-600">{aiInsight.bargainingImpactAdvice}</p>
-                  </div>
-                  <div>
-                    <span className="font-bold text-blue-900 flex items-center gap-1 mb-0.5">
-                      <Activity className="w-3.5 h-3.5 text-blue-700" />
-                      उधारी व कैश-फ्लो स्थिति:
-                    </span>
-                    <p className="text-gray-600">{aiInsight.cashFlowAnalysis}</p>
-                  </div>
-                </div>
-              </div>
-
-              {aiInsight.keyActionItems && aiInsight.keyActionItems.length > 0 && (
-                <div className="space-y-1">
-                  <h4 className="font-bold text-amber-950 text-xs">कार्रवाई योग्य प्रमुख सुझाव (Action Items):</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {aiInsight.keyActionItems.map((item, idx) => (
-                      <div key={idx} className="p-2.5 bg-white rounded-xl border border-amber-200 text-[11px] text-gray-700 flex items-start gap-1.5">
-                        <Check className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <span>{item}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

@@ -2,13 +2,13 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen, Info, ChevronRight, ChevronLeft, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, EyeOff, Award, Facebook, Instagram, Plus, MessageCircle, Copy, Check, Store, Clock } from 'lucide-react';
+import { CloudSun, ArrowRight, Phone, ShoppingBag, Sprout, Youtube, Play, ExternalLink, Loader2, Calendar, MapPin, TrendingUp, Landmark, Key, Sparkles, Send, Tag, X as CloseIcon, BookOpen, Info, ChevronRight, ChevronLeft, ShieldCheck, FileText, RotateCcw, AlertTriangle, PhoneCall, ShieldAlert, EyeOff, Award, Facebook, Instagram, Plus, MessageCircle, Wheat, Copy, Check, Store, Clock } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import { fetchWeather, WeatherData } from '../services/weatherService';
 import { fetchMandiBhav, MandiData } from '../services/mandiService';
-import { getDynamicAdvice, askAiQuestion, KrishiChatTurn } from '../services/gemini';
+import { getDynamicAdvice, askAiQuestion, KrishiChatTurn, KrishiChatSource, KrishiVerificationStatus } from '../services/gemini';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
 import { AnimatePresence } from 'motion/react';
@@ -88,6 +88,8 @@ interface KrishiChatMessage {
   id: string;
   role: 'user' | 'model';
   text: string;
+  verificationStatus?: KrishiVerificationStatus;
+  sources?: KrishiChatSource[];
   isError?: boolean;
   retryQuestion?: string;
 }
@@ -384,13 +386,25 @@ const Home: React.FC = () => {
 
     setIsChatLoading(true);
     try {
-      const response = await askAiQuestion(question, weather, effectiveApiKey, historyForApi);
+      const shopProductNames = products
+        .map((p) => (p.hindiName || p.name || '').trim())
+        .filter(Boolean);
+
+      const response = await askAiQuestion(
+        question,
+        weather,
+        effectiveApiKey,
+        historyForApi,
+        { productNames: shopProductNames }
+      );
       if (chatSessionIdRef.current !== activeSessionId) return;
 
       const aiMsg: KrishiChatMessage = {
         id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         role: 'model',
-        text: response
+        text: response.text,
+        verificationStatus: response.verificationStatus,
+        sources: response.sources
       };
       setChatMessages((prev) => [...prev, aiMsg]);
     } catch (error: any) {
@@ -1307,52 +1321,66 @@ const Home: React.FC = () => {
         </div>
       </div>
 
-      {/* Farming Tips */}
-      <section className="bg-gradient-to-br from-[#EEF7EC] via-[#F4F9F2] to-[#E5F2E1] rounded-2xl sm:rounded-3xl 2xl:rounded-[2rem] p-4 sm:p-5 2xl:p-7 border border-[#CDE5C8] shadow-xs space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="font-bold text-[#1B4318] text-sm sm:text-base flex items-center gap-2">
-            <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-[#2D5A27]/10 border border-[#2D5A27]/15 flex items-center justify-center text-[#2D5A27] shrink-0">
-              <Sprout className="w-4 h-4 text-[#2D5A27]" />
-            </span>
-            <span>
-              आज की सलाह
-            </span>
-          </h3>
+      {/* AI Krishi Sahayak & Daily Farming Tip Card */}
+      <section className="relative bg-white rounded-3xl border border-emerald-900/10 shadow-[0_10px_30px_-12px_rgba(27,67,24,0.14)] overflow-hidden">
+        {/* Subtle Ambient Light Accent */}
+        <div className="pointer-events-none absolute -top-16 -right-16 w-48 h-48 rounded-full bg-emerald-500/8 blur-3xl" />
 
-          <button 
-            onClick={handleOpenChat}
-            disabled={isAiLoading}
-            className="group inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-[#2D5A27] hover:bg-[#23461e] active:scale-95 text-white text-xs sm:text-sm font-semibold px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-full shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 shrink-0 cursor-pointer"
-            title="खेती से जुड़ा सवाल पूछें और AI कृषि सहायक से बात करें"
-          >
-            {isAiLoading ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
-            ) : (
-              <Sparkles className="w-3.5 h-3.5 text-amber-300 transition-transform group-hover:rotate-12" />
-            )}
-            <span>AI से कृषि सलाह लें</span>
-            <ArrowRight className="w-3.5 h-3.5 text-white/80 group-hover:translate-x-0.5 transition-transform" />
-          </button>
-        </div>
-        
-        {aiAdvice ? (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-xs sm:text-sm leading-relaxed text-[#1F3A1D] bg-white/85 backdrop-blur-xs p-3.5 rounded-xl border border-[#CDE5C8] font-medium"
-          >
-            {aiAdvice}
-          </motion.div>
-        ) : (
-          <div className="space-y-1">
-            <p className="text-xs sm:text-sm text-[#263D23] font-medium leading-relaxed">
-              {translateText(dailyTip)}
-            </p>
-            <p className="text-[11px] text-[#42603E]/80 hidden sm:block">
-              खेती से जुड़ा सवाल पूछें और AI कृषि सहायक से सीधे बात करें
-            </p>
+        {/* Main Interactive Zone */}
+        <div className="relative p-4 sm:p-6 2xl:p-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
+          {/* Identity & Heading */}
+          <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-[#2D5A27] to-[#1B4318] text-white flex items-center justify-center shadow-md shadow-[#2D5A27]/20 ring-4 ring-[#2D5A27]/10 shrink-0">
+              <MessageCircle className="w-6 h-6 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-extrabold text-gray-900 text-lg sm:text-xl leading-tight tracking-tight">
+                AI कृषि सहायक
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-600 font-medium mt-1 leading-snug">
+                अपनी खेती से जुड़ा कोई भी सवाल पूछें।
+              </p>
+            </div>
           </div>
-        )}
+
+          {/* Primary Action Zone - Modern Interactive Ask Bar Button */}
+          <div className="w-full md:w-auto md:min-w-[330px] lg:min-w-[360px] shrink-0">
+            <button
+              type="button"
+              onClick={handleOpenChat}
+              disabled={isAiLoading}
+              className="group w-full min-h-[52px] flex items-center justify-between gap-2.5 bg-gradient-to-r from-[#F6FBF5] via-white to-[#F6FBF5] hover:from-[#EDF7EC] hover:to-[#F3FAF2] active:scale-[0.985] border-[1.5px] border-[#2D5A27]/30 hover:border-[#2D5A27] p-1.5 pl-2 rounded-2xl shadow-[0_8px_22px_-8px_rgba(27,67,24,0.22)] hover:shadow-[0_12px_26px_-8px_rgba(27,67,24,0.34)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D5A27] focus-visible:ring-offset-2 transition-all duration-200 disabled:opacity-50 cursor-pointer"
+              title="खेती से जुड़ा सवाल पूछें और AI कृषि सहायक से बात करें"
+            >
+              <span className="flex items-center gap-2.5 min-w-0">
+                <span className="w-9 h-9 rounded-xl bg-[#EAF4E8] border border-[#2D5A27]/20 flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105">
+                  {isAiLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-[#2D5A27]" />
+                  ) : (
+                    <Wheat className="w-[18px] h-[18px] text-[#2D5A27]" />
+                  )}
+                </span>
+                <span className="text-[13.5px] sm:text-[15px] font-extrabold text-[#1B4318] tracking-tight truncate">
+                  AI कृषि सहायक से सवाल पूछें
+                </span>
+              </span>
+              <span className="w-10 h-9 rounded-xl bg-gradient-to-br from-[#2D5A27] to-[#1B4318] group-hover:from-[#234A1E] group-hover:to-[#133210] text-white shadow-sm shadow-[#2D5A27]/30 flex items-center justify-center shrink-0 transition-all duration-200">
+                <Send className="w-4 h-4 text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Hairline-Separated Daily Tip Footer Band */}
+        <div className="bg-[#F3F8F2] border-t border-emerald-900/8 px-4 sm:px-6 2xl:px-7 py-3 sm:py-3.5 flex items-center gap-3">
+          <span className="w-8 h-8 rounded-xl bg-white border border-emerald-900/10 shadow-2xs flex items-center justify-center shrink-0">
+            <Sprout className="w-4 h-4 text-[#2D5A27]" />
+          </span>
+          <p className="text-xs sm:text-[13px] leading-relaxed text-gray-700 font-medium">
+            <span className="font-bold text-[#1B4318]">आज की सलाह: </span>
+            {aiAdvice || translateText(dailyTip)}
+          </p>
+        </div>
       </section>
 
       {/* AI Chat Modal */}
@@ -1436,9 +1464,84 @@ const Home: React.FC = () => {
                       key={msg.id}
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="bg-[#F5F2ED] p-4 rounded-2xl rounded-tl-none shadow-sm border border-[#E8E2D8]"
+                      className="bg-[#F5F2ED] p-4 rounded-2xl rounded-tl-none shadow-sm border border-[#E8E2D8] space-y-3"
                     >
                       <FormattedAiChatText text={msg.text} />
+
+                      {/* Verified / Unverified Status & Grounding Sources */}
+                      {msg.verificationStatus === 'verified' && (
+                        <div className="pt-2.5 border-t border-[#E2DCD0] space-y-2">
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>विश्वसनीय व आधिकारिक स्रोतों से सत्यापित</span>
+                          </div>
+
+                          {msg.sources && msg.sources.length > 0 && (
+                            <div className="space-y-1.5">
+                              <p className="text-[10px] font-bold text-[#5C4938] uppercase tracking-wider flex items-center gap-1">
+                                <BookOpen className="w-3 h-3 text-[#2D5A27]" />
+                                <span>संदर्भ स्रोत (Sources)</span>
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {msg.sources.map((src, sIdx) => (
+                                  <a
+                                    key={`${src.uri}_${sIdx}`}
+                                    href={src.uri}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 border border-[#DED6C8] text-[10px] font-semibold text-[#2D5A27] transition-colors max-w-full"
+                                  >
+                                    <span className="truncate max-w-[190px]">{src.title}</span>
+                                    {src.trustLevel === 'govt_official' && (
+                                      <span className="px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold shrink-0">
+                                        सरकारी
+                                      </span>
+                                    )}
+                                    <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-75" />
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {(msg.verificationStatus === 'unverified' || msg.verificationStatus === 'partial') && (
+                        <div className="pt-2.5 border-t border-[#E2DCD0] space-y-2">
+                          <div className="bg-amber-50 border border-amber-200/90 rounded-xl p-2.5 text-[11px] text-amber-900 space-y-1">
+                            <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span>
+                                {msg.verificationStatus === 'partial'
+                                  ? 'आंशिक सत्यापन सूचना (कृपया पुष्टि करें)'
+                                  : 'सत्यापन सूचना (जानकारी Verified नहीं है)'}
+                              </span>
+                            </div>
+                            <p className="text-[10.5px] leading-relaxed text-amber-900/90">
+                              {msg.verificationStatus === 'partial'
+                                ? 'यह जानकारी सामान्य वेब स्रोतों पर आधारित है, आधिकारिक सरकारी/कंपनी दस्तावेज़ से पूर्ण सत्यापन नहीं हुआ है। कृपया उपयोग से पहले स्थानीय कृषि विशेषज्ञ अथवा फल्सावदिया कृषि बाजार (डिंपल चौराहा, शामगढ़) पर आकर एक बार सही जानकारी की पुष्टि ज़रूर कर लें।'
+                                : 'यह जानकारी अभी आधिकारिक स्रोतों से पूरी तरह सत्यापित नहीं हो पाई है। कृपया दवा, बीज या खाद के उपयोग से पहले स्थानीय स्तर पर अथवा सीधे फल्सावदिया कृषि बाजार (डिंपल चौराहा, शामगढ़) पर आकर सही जानकारी की पुष्टि और सत्यापन ज़रूर कर लें।'}
+                            </p>
+                          </div>
+
+                          {msg.sources && msg.sources.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {msg.sources.map((src, sIdx) => (
+                                <a
+                                  key={`${src.uri}_${sIdx}`}
+                                  href={src.uri}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white hover:bg-amber-50 border border-[#DED6C8] text-[10px] font-medium text-[#5C4938] transition-colors max-w-full"
+                                >
+                                  <span className="truncate max-w-[180px]">{src.title}</span>
+                                  <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-70" />
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </motion.div>
                   )
                 )}
@@ -1446,7 +1549,7 @@ const Home: React.FC = () => {
                 {isChatLoading && (
                   <div className="flex items-center gap-2 text-[#2D5A27] font-bold text-xs bg-[#2D5A27]/5 p-3 rounded-xl w-fit">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    AI उत्तर तैयार कर रहा है...
+                    विश्वसनीय स्रोतों से जानकारी जाँचकर उत्तर तैयार हो रहा है...
                   </div>
                 )}
 

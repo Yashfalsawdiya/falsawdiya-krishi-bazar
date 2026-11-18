@@ -2747,25 +2747,6 @@ export async function saveCashRegister(register: AccountingCashRegister): Promis
   await setDoc(docRef, { ...register, updatedAt: Date.now() }, { merge: true });
 }
 
-// ----------------------------------------------------
-// AI BUSINESS INSIGHTS
-// ----------------------------------------------------
-
-export async function getAccountingInsightsAI(period: string, summaryData: any): Promise<string> {
-  const res = await fetch('/api/accounting/insights', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ period, summaryData }),
-  });
-
-  const json = await res.json();
-  if (!json.success) {
-    throw new Error(json.error || 'AI सलाह प्राप्त नहीं हो सकी।');
-  }
-
-  return json.insights;
-}
-
 export async function fetchCustomerLedgerPayments(): Promise<CustomerLedgerEntry[]> {
   try {
     const q = query(
@@ -2873,35 +2854,6 @@ export async function fetchAccountingReport(
   } catch (err) {
     console.error('Error compiling accounting report:', err);
     throw err;
-  }
-}
-
-export async function getAIFinancialInsights(reportData: any): Promise<any> {
-  try {
-    const rawAiText = await getAccountingInsightsAI('custom', reportData);
-    
-    return {
-      hindiSummary: rawAiText,
-      businessHealthScore: reportData.netProfit > 0 ? 'EXCELLENT' : reportData.grossProfit > 0 ? 'GOOD' : 'WARNING',
-      bargainingImpactAdvice: `बिक्री पर सकल मार्जिन ${reportData.grossMarginPercent}% रहा। मोलभाव उचित सीमा में है।`,
-      cashFlowAnalysis: `गल्ले में शुद्ध नकद प्रवाह धनात्मक है। कुल मार्केट उधारी ₹${reportData.totalCustomerOutstanding} पर वसूली अभियान चलाएं।`,
-      keyActionItems: [
-        'उधारी सीमा पार कर चुके किसानों को WhatsApp तगादा भेजें',
-        `${reportData.lowStockCount} कम स्टॉक वाले उत्पादों का थोक आर्डर दें`,
-        'दुकान खर्चों को नियमित रूप से AI स्कैनर से रिकॉर्ड करें',
-      ],
-    };
-  } catch (err: any) {
-    return {
-      hindiSummary: `आपकी कुल बिक्री ₹${reportData.totalSalesAmount} और शुद्ध मुनाफा ₹${reportData.netProfit} रहा (मार्जिन: ${reportData.netMarginPercent}%)। व्यापार स्वस्थ स्थिति में है।`,
-      businessHealthScore: 'GOOD',
-      bargainingImpactAdvice: 'दवाइयों व खादों पर उचित मार्जिन बनाए रखें।',
-      cashFlowAnalysis: `दुकान पर कुल ₹${reportData.totalCustomerOutstanding} उधारी बाकी है।`,
-      keyActionItems: [
-        'समय पर सप्लायर इनवॉइस दर्ज करें',
-        'उधारी वसूली पर ध्यान दें',
-      ],
-    };
   }
 }
 
