@@ -90,7 +90,6 @@ interface KrishiChatMessage {
   text: string;
   verificationStatus?: KrishiVerificationStatus;
   sources?: KrishiChatSource[];
-  isStreaming?: boolean;
   isError?: boolean;
   retryQuestion?: string;
 }
@@ -240,9 +239,7 @@ const Home: React.FC = () => {
   const [userQuestion, setUserQuestion] = useState('');
   const [chatMessages, setChatMessages] = useState<KrishiChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const [chatStatusText, setChatStatusText] = useState('विश्वसनीय स्रोतों से जानकारी जाँचकर उत्तर तैयार हो रहा है...');
   const chatSessionIdRef = useRef<number>(0);
-  const chatAbortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -328,8 +325,7 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     if (isChatOpen) {
-      const hasStreaming = chatMessages.some((m) => m.isStreaming);
-      messagesEndRef.current?.scrollIntoView({ behavior: hasStreaming ? 'auto' : 'smooth' });
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatMessages, isChatLoading, isChatOpen]);
 
@@ -339,29 +335,19 @@ const Home: React.FC = () => {
     if (!requireApiKey("AI कृषि चैट का उपयोग करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) {
       return;
     }
-    chatAbortControllerRef.current?.abort();
-    chatAbortControllerRef.current = null;
     chatSessionIdRef.current += 1;
     setChatMessages([]);
     setUserQuestion('');
     setIsChatLoading(false);
-    setChatStatusText('विश्वसनीय स्रोतों से जानकारी जाँचकर उत्तर तैयार हो रहा है...');
     setIsChatOpen(true);
   };
 
   const handleCloseChat = () => {
-    chatAbortControllerRef.current?.abort();
-    chatAbortControllerRef.current = null;
     chatSessionIdRef.current += 1;
     setIsChatOpen(false);
     setChatMessages([]);
     setUserQuestion('');
     setIsChatLoading(false);
-    setChatStatusText('विश्वसनीय स्रोतों से जानकारी जाँचकर उत्तर तैयार हो रहा है...');
-  };
-
-  const handleCancelChatRequest = () => {
-    chatAbortControllerRef.current?.abort();
   };
 
   const handleAskQuestion = async (retryText?: string) => {
@@ -375,9 +361,9 @@ const Home: React.FC = () => {
 
     const activeSessionId = chatSessionIdRef.current;
 
-    // Build multi-turn context from valid non-streaming turns only (excluding error placeholders)
+    // Build multi-turn context from valid turns only (excluding error placeholders)
     const validTurns: KrishiChatTurn[] = chatMessages
-      .filter((m) => !m.isError && !m.isStreaming && m.text.trim().length > 0)
+      .filter((m) => !m.isError && m.text.trim().length > 0)
       .map((m) => ({ role: m.role, text: m.text }));
 
     // When retrying the immediately preceding user question, avoid duplicating it in UI and API history
@@ -387,25 +373,18 @@ const Home: React.FC = () => {
         : validTurns;
 
     if (isRetry) {
-      setChatMessages((prev) => prev.filter((m) => !m.isError && !m.isStreaming));
+      setChatMessages((prev) => prev.filter((m) => !m.isError));
     } else {
       const userMsg: KrishiChatMessage = {
         id: `u_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         role: 'user',
         text: question
       };
-      setChatMessages((prev) => [...prev.filter((m) => !m.isError && !m.isStreaming), userMsg]);
+      setChatMessages((prev) => [...prev.filter((m) => !m.isError), userMsg]);
       setUserQuestion('');
     }
 
-    chatAbortControllerRef.current?.abort();
-    const controller = new AbortController();
-    chatAbortControllerRef.current = controller;
-
-    const streamingMsgId = `m_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    setChatStatusText('विश्वसनीय कृषि स्रोतों से जानकारी जाँची जा रही है...');
     setIsChatLoading(true);
-
     try {
       const shopProductNames = products
         .map((p) => (p.hindiName || p.name || '').trim())
@@ -416,73 +395,20 @@ const Home: React.FC = () => {
         weather,
         effectiveApiKey,
         historyForApi,
-        { productNames: shopProductNames },
-        {
-          signal: controller.signal,
-          onStatus: (statusMsg) => {
-            if (chatSessionIdRef.current === activeSessionId) {
-              setChatStatusText(statusMsg);
-            }
-          },
-          onChunk: (partialText) => {
-            if (chatSessionIdRef.current !== activeSessionId) return;
-            setChatMessages((prev) => {
-              const idx = prev.findIndex((m) => m.id === streamingMsgId);
-              if (idx >= 0) {
-                const updated = [...prev];
-                updated[idx] = { ...updated[idx], text: partialText, isStreaming: true };
-                return updated;
-              }
-              return [
-                ...prev,
-                {
-                  id: streamingMsgId,
-                  role: 'model',
-                  text: partialText,
-                  isStreaming: true
-                }
-              ];
-            });
-          }
-        }
+        { productNames: shopProductNames }
       );
       if (chatSessionIdRef.current !== activeSessionId) return;
 
-      const finalAiMsg: KrishiChatMessage = {
-        id: streamingMsgId,
+      const aiMsg: KrishiChatMessage = {
+        id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         role: 'model',
         text: response.text,
         verificationStatus: response.verificationStatus,
-        sources: response.sources,
-        isStreaming: false
+        sources: response.sources
       };
-
-      setChatMessages((prev) => {
-        const idx = prev.findIndex((m) => m.id === streamingMsgId);
-        if (idx >= 0) {
-          const updated = [...prev];
-          updated[idx] = finalAiMsg;
-          return updated;
-        }
-        return [...prev, finalAiMsg];
-      });
+      setChatMessages((prev) => [...prev, aiMsg]);
     } catch (error: any) {
       if (chatSessionIdRef.current !== activeSessionId) return;
-
-      if (error?.message === 'AI_REQUEST_CANCELLED') {
-        setChatMessages((prev) => [
-          ...prev.filter((m) => m.id !== streamingMsgId),
-          {
-            id: `cancel_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-            role: 'model',
-            text: 'अनुरोध रोक दिया गया है। आप चाहें तो पुनः प्रयास कर सकते हैं।',
-            isError: true,
-            retryQuestion: question
-          }
-        ]);
-        return;
-      }
-
       console.error("AI Question failed:", error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
         openApiKeyModal(error.message);
@@ -494,11 +420,8 @@ const Home: React.FC = () => {
         isError: true,
         retryQuestion: question
       };
-      setChatMessages((prev) => [...prev.filter((m) => m.id !== streamingMsgId), errorMsg]);
+      setChatMessages((prev) => [...prev, errorMsg]);
     } finally {
-      if (chatAbortControllerRef.current === controller) {
-        chatAbortControllerRef.current = null;
-      }
       if (chatSessionIdRef.current === activeSessionId) {
         setIsChatLoading(false);
       }
@@ -1545,24 +1468,8 @@ const Home: React.FC = () => {
                     >
                       <FormattedAiChatText text={msg.text} />
 
-                      {msg.isStreaming && (
-                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#E2DCD0] text-[11px] text-[#2D5A27] font-semibold">
-                          <span className="flex items-center gap-1.5">
-                            <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-                            <span>उत्तर तैयार हो रहा है...</span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={handleCancelChatRequest}
-                            className="text-[10px] font-bold text-rose-700 hover:text-rose-800 px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 cursor-pointer"
-                          >
-                            रोकें
-                          </button>
-                        </div>
-                      )}
-
                       {/* Verified / Unverified Status & Grounding Sources */}
-                      {!msg.isStreaming && msg.verificationStatus === 'verified' && (
+                      {msg.verificationStatus === 'verified' && (
                         <div className="pt-2.5 border-t border-[#E2DCD0] space-y-2">
                           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold">
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -1599,7 +1506,7 @@ const Home: React.FC = () => {
                         </div>
                       )}
 
-                      {!msg.isStreaming && (msg.verificationStatus === 'unverified' || msg.verificationStatus === 'partial') && (
+                      {(msg.verificationStatus === 'unverified' || msg.verificationStatus === 'partial') && (
                         <div className="pt-2.5 border-t border-[#E2DCD0] space-y-2">
                           <div className="bg-amber-50 border border-amber-200/90 rounded-xl p-2.5 text-[11px] text-amber-900 space-y-1">
                             <div className="flex items-center gap-1.5 font-bold text-amber-800">
@@ -1639,19 +1546,10 @@ const Home: React.FC = () => {
                   )
                 )}
 
-                {isChatLoading && !chatMessages.some((m) => m.isStreaming) && (
-                  <div className="flex items-center justify-between gap-2 text-[#2D5A27] font-bold text-xs bg-[#2D5A27]/5 border border-[#2D5A27]/15 p-3 rounded-xl">
-                    <span className="flex items-center gap-2 min-w-0">
-                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                      <span className="leading-snug">{chatStatusText}</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleCancelChatRequest}
-                      className="shrink-0 text-[11px] font-bold text-rose-700 hover:text-rose-800 px-2.5 py-1 rounded-lg bg-white border border-rose-200 cursor-pointer"
-                    >
-                      रोकें
-                    </button>
+                {isChatLoading && (
+                  <div className="flex items-center gap-2 text-[#2D5A27] font-bold text-xs bg-[#2D5A27]/5 p-3 rounded-xl w-fit">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    विश्वसनीय स्रोतों से जानकारी जाँचकर उत्तर तैयार हो रहा है...
                   </div>
                 )}
 
