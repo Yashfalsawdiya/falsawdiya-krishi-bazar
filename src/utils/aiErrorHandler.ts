@@ -6,7 +6,7 @@
 
 export interface FriendlyError {
   message: string;
-  type: 'key_missing' | 'key_invalid' | 'network' | 'quota' | 'server' | 'permission_denied' | 'unknown';
+  type: 'key_missing' | 'key_invalid' | 'network' | 'quota' | 'server' | 'permission_denied' | 'timeout' | 'unknown';
   originalError?: any;
 }
 
@@ -14,6 +14,20 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
   const errorString = error?.message || String(error);
   
   const lowerStr = errorString.toLowerCase();
+
+  // 0. Request Timeout / Abort
+  if (
+    errorString.includes('AI_REQUEST_TIMEOUT') ||
+    error?.name === 'AbortError' ||
+    lowerStr.includes('timeout') ||
+    lowerStr.includes('timed out')
+  ) {
+    return {
+      type: 'timeout',
+      message: 'जवाब आने में सामान्य से अधिक समय लग रहा है। कृपया इंटरनेट जाँचें और "पुनः प्रयास करें" दबाएँ।',
+      originalError: error
+    };
+  }
 
   // 1. Missing API Key
   if (

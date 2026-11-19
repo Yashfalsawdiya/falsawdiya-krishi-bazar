@@ -34,7 +34,21 @@ export function isModelTemporarilyUnhealthy(model: string): boolean {
 export function markModelTemporaryFailure(model: string, error: any) {
   const status = error?.status || error?.code;
   const msg = (error?.message || String(error)).toLowerCase();
-  if (status === 503 || status === 429 || msg.includes('503') || msg.includes('high demand') || msg.includes('429') || msg.includes('quota') || msg.includes('resource_exhausted')) {
+  if (status === 404 || msg.includes('404') || msg.includes('is not found for api version')) {
+    modelFailureCooldowns.set(model, Date.now() + 5 * 60 * 1000);
+    return;
+  }
+  if (
+    status === 503 ||
+    status === 429 ||
+    msg.includes('503') ||
+    msg.includes('high demand') ||
+    msg.includes('429') ||
+    msg.includes('quota') ||
+    msg.includes('resource_exhausted') ||
+    msg.includes('ai_request_timeout') ||
+    msg.includes('timeout')
+  ) {
     modelFailureCooldowns.set(model, Date.now() + 90 * 1000);
   }
 }
@@ -801,6 +815,12 @@ export interface KrishiShopContext {
   productNames?: string[];
 }
 
+export interface KrishiChatStreamCallbacks {
+  onChunk?: (partialCleanText: string) => void;
+  onStatus?: (statusMessage: string) => void;
+  signal?: AbortSignal;
+}
+
 const MAX_CHAT_HISTORY_MESSAGES = 16;
 
 const GOVT_OFFICIAL_DOMAIN_HINTS = [
@@ -858,13 +878,26 @@ function classifyChatSourceTrust(uri: string, title?: string): KrishiChatSource[
   return 'web';
 }
 
-function extractGroundingChatSources(response: any): {
+function extractGroundingChatSources(groundingMetadataList: any[]): {
   sources: KrishiChatSource[];
   hasWebSearchQueries: boolean;
 } {
-  const metadata = response?.candidates?.[0]?.groundingMetadata;
-  const chunks = Array.isArray(metadata?.groundingChunks) ? metadata.groundingChunks : [];
-  const webSearchQueries = Array.isArray(metadata?.webSearchQueries) ? metadata.webSearchQueries : [];
+  const chunks: any[] = [];
+  const webSearchQueries: string[] = [];
+
+  for (const metadata of groundingMetadataList) {
+    if (!metadata) continue;
+    if (Array.isArray(metadata.groundingChunks)) {
+      chunks.push(...metadata.groundingChunks);
+    }
+    if (Array.isArray(metadata.webSearchQueries)) {
+      for (const q of metadata.webSearchQueries) {
+        if (typeof q === 'string' && q.trim()) {
+          webSearchQueries.push(q.trim());
+        }
+      }
+    }
+  }
 
   const seenUris = new Set<string>();
   const extracted: KrishiChatSource[] = [];
@@ -905,12 +938,231 @@ function extractGroundingChatSources(response: any): {
   };
 }
 
+function stripStreamingVerificationTag(raw: string): string {
+  return raw
+    .replace(/\[\[VERIFICATION:\s*(VERIFIED|UNVERIFIED)\]\]/gi, '')
+    .replace(/\[\[[^\]]*$/, '')
+    .trimEnd();
+}
+
+function selectRelevantCatalogProducts(
+  productNames: string[] | undefined,
+  question: string,
+  history: KrishiChatTurn[]
+): string[] {
+  if (!Array.isArray(productNames) || productNames.length === 0) return [];
+  const uniqueNames = Array.from(new Set(productNames.map((n) => n.trim()).filter(Boolean)));
+  if (uniqueNames.length <= 25) return uniqueNames;
+
+  const recentText = [
+    question,
+    ...history.slice(-4).map((h) => h.text)
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  const keywords = Array.from(
+    new Set(
+      recentText
+        .split(/[\s,।?!.;:()"']+/)
+        .map((w) => w.trim())
+        .filter((w) => w.length >= 2)
+    )
+  );
+
+  const matched = uniqueNames.filter((name) => {
+    const lowerName = name.toLowerCase();
+    return keywords.some((kw) => lowerName.includes(kw));
+  });
+
+  const matchedSet = new Set(matched);
+  const remaining = uniqueNames.filter((n) => !matchedSet.has(n));
+  return [...matched, ...remaining].slice(0, 30);
+}
+
+function isFatalChatError(error: any, externalSignal?: AbortSignal): boolean {
+  if (externalSignal?.aborted) return true;
+  const msg = error?.message || String(error);
+  if (msg === 'AI_REQUEST_CANCELLED' || error?.name === 'AI_REQUEST_CANCELLED') {
+    return true;
+  }
+  const friendly = getFriendlyAiError(error);
+  return (
+    friendly.type === 'key_missing' ||
+    friendly.type === 'key_invalid' ||
+    friendly.type === 'quota'
+  );
+}
+
+function raceWithAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) {
+    return Promise.reject(new Error(typeof signal.reason === 'string' ? signal.reason : 'AI_REQUEST_TIMEOUT'));
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      reject(new Error(typeof signal.reason === 'string' ? signal.reason : 'AI_REQUEST_TIMEOUT'));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      (val) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(val);
+      },
+      (err) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(err);
+      }
+    );
+  });
+}
+
+async function executeChatStreamAttempt(options: {
+  ai: GoogleGenAI;
+  model: string;
+  contents: any[];
+  systemInstruction: string;
+  useSearch: boolean;
+  firstChunkTimeoutMs: number;
+  inactivityTimeoutMs: number;
+  maxTotalTimeoutMs: number;
+  externalSignal?: AbortSignal;
+  onTextUpdate?: (cleanPartialText: string) => void;
+}): Promise<{
+  rawText: string;
+  groundingMetadataList: any[];
+  ttftMs: number | null;
+  totalMs: number;
+}> {
+  const {
+    ai,
+    model,
+    contents,
+    systemInstruction,
+    useSearch,
+    firstChunkTimeoutMs,
+    inactivityTimeoutMs,
+    maxTotalTimeoutMs,
+    externalSignal,
+    onTextUpdate
+  } = options;
+
+  if (externalSignal?.aborted) {
+    throw new Error('AI_REQUEST_CANCELLED');
+  }
+
+  const startedAt = performance.now();
+  const attemptController = new AbortController();
+  let ttftMs: number | null = null;
+  let accumulatedText = '';
+  const groundingMetadataList: any[] = [];
+
+  const onExternalAbort = () => {
+    attemptController.abort('AI_REQUEST_CANCELLED');
+  };
+  externalSignal?.addEventListener('abort', onExternalAbort, { once: true });
+
+  let firstChunkTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+    attemptController.abort('AI_REQUEST_TIMEOUT');
+  }, firstChunkTimeoutMs);
+
+  let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+  const maxTotalTimer = setTimeout(() => {
+    attemptController.abort('AI_REQUEST_TIMEOUT');
+  }, maxTotalTimeoutMs);
+
+  const resetInactivityTimer = () => {
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(() => {
+      attemptController.abort('AI_REQUEST_TIMEOUT');
+    }, inactivityTimeoutMs);
+  };
+
+  let iterator: AsyncIterator<any> | null = null;
+
+  try {
+    const stream = await raceWithAbort(
+      ai.models.generateContentStream({
+        model,
+        contents,
+        config: {
+          systemInstruction,
+          abortSignal: attemptController.signal,
+          ...(useSearch ? { tools: [{ googleSearch: {} }] } : {})
+        }
+      }),
+      attemptController.signal
+    );
+
+    iterator = stream[Symbol.asyncIterator]();
+
+    while (true) {
+      const step = await raceWithAbort(iterator.next(), attemptController.signal);
+      if (step.done) break;
+
+      const chunk = step.value;
+      const meta = chunk?.candidates?.[0]?.groundingMetadata;
+      if (meta) {
+        groundingMetadataList.push(meta);
+      }
+
+      const chunkText = typeof chunk?.text === 'string' ? chunk.text : '';
+      if (chunkText) {
+        if (firstChunkTimer) {
+          clearTimeout(firstChunkTimer);
+          firstChunkTimer = null;
+        }
+        if (ttftMs === null) {
+          ttftMs = Math.round(performance.now() - startedAt);
+        }
+        resetInactivityTimer();
+        accumulatedText += chunkText;
+
+        const cleanPreview = stripStreamingVerificationTag(accumulatedText);
+        if (cleanPreview.length > 0) {
+          onTextUpdate?.(cleanPreview);
+        }
+      }
+    }
+
+    return {
+      rawText: accumulatedText,
+      groundingMetadataList,
+      ttftMs,
+      totalMs: Math.round(performance.now() - startedAt)
+    };
+  } catch (err: any) {
+    if (externalSignal?.aborted || err?.message === 'AI_REQUEST_CANCELLED') {
+      throw new Error('AI_REQUEST_CANCELLED');
+    }
+    // If a substantial partial answer was already streamed cleanly before a late timeout, preserve it rather than discarding
+    const cleanPartial = stripStreamingVerificationTag(accumulatedText).trim();
+    if (cleanPartial.length >= 160) {
+      return {
+        rawText: `${cleanPartial}\n[[VERIFICATION:UNVERIFIED]]`,
+        groundingMetadataList,
+        ttftMs,
+        totalMs: Math.round(performance.now() - startedAt)
+      };
+    }
+    throw err;
+  } finally {
+    if (firstChunkTimer) clearTimeout(firstChunkTimer);
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    clearTimeout(maxTotalTimer);
+    externalSignal?.removeEventListener('abort', onExternalAbort);
+    if (iterator && typeof iterator.return === 'function') {
+      iterator.return().catch(() => {});
+    }
+  }
+}
+
 export async function askAiQuestion(
   question: string,
   weatherData: any,
   userApiKey?: string,
   history: KrishiChatTurn[] = [],
-  shopContext?: KrishiShopContext
+  shopContext?: KrishiShopContext,
+  callbacks?: KrishiChatStreamCallbacks
 ): Promise<KrishiChatResponse> {
   try {
     const ai = getAI(userApiKey);
@@ -952,9 +1204,11 @@ export async function askAiQuestion(
       }
     ];
 
-    const catalogList = Array.isArray(shopContext?.productNames)
-      ? Array.from(new Set(shopContext.productNames.map(n => n.trim()).filter(Boolean))).slice(0, 80)
-      : [];
+    const catalogList = selectRelevantCatalogProducts(
+      shopContext?.productNames,
+      trimmedQuestion,
+      alignedHistory
+    );
     const catalogContextLine = catalogList.length > 0
       ? `Store Catalog Reference (ONLY claim in-stock availability if matched here): ${catalogList.join(', ')}`
       : `Store Catalog Reference: Not provided in chat context — NEVER falsely claim any seed/chemical is in stock; invite the farmer to check availability at the shop.`;
@@ -990,60 +1244,104 @@ Core Verification & Accuracy Rules (CRITICAL):
      - [[VERIFICATION:VERIFIED]] ONLY if your factual claims (variety numbers/traits, scheme status, technical names/doses) were confidently verified against reliable official/authoritative sources.
      - [[VERIFICATION:UNVERIFIED]] if official confirmation was incomplete, uncertain, based on general agronomic memory, or for local/private varieties/products whose official specification could not be confirmed.`;
 
-    let response: any = null;
+    let result: {
+      rawText: string;
+      groundingMetadataList: any[];
+      ttftMs: number | null;
+      totalMs: number;
+    } | null = null;
     let usedSearchTool = false;
+    let lastError: any = null;
+    const failedModelsInRequest = new Set<string>();
 
-    // Tier 1 & 2: Try Google Search Grounding across locked Flash models first
-    const groundedModels = [PRIMARY_GEMINI_MODEL, FALLBACK_GEMINI_MODEL];
-    for (const model of groundedModels) {
+    // Tier 1 & 2: Prioritized Google Search Grounding (streaming + strict per-call timeout)
+    const groundedModels = getPrioritizedModels([PRIMARY_GEMINI_MODEL, FALLBACK_GEMINI_MODEL]);
+    for (let idx = 0; idx < groundedModels.length; idx++) {
+      const model = groundedModels[idx];
+      callbacks?.onStatus?.(
+        idx === 0
+          ? 'विश्वसनीय कृषि स्रोतों से जानकारी जाँची जा रही है...'
+          : 'वैकल्पिक विश्वसनीय स्रोत मॉडल से जाँच जारी है...'
+      );
       try {
-        response = await ai.models.generateContent({
+        const attempt = await executeChatStreamAttempt({
+          ai,
           model,
           contents,
-          config: {
-            systemInstruction,
-            tools: [{ googleSearch: {} }]
-          }
+          systemInstruction,
+          useSearch: true,
+          firstChunkTimeoutMs: 18000,
+          inactivityTimeoutMs: 12000,
+          maxTotalTimeoutMs: 38000,
+          externalSignal: callbacks?.signal,
+          onTextUpdate: callbacks?.onChunk
         });
-        if (response?.text?.trim()) {
+        if (attempt.rawText.trim()) {
+          result = attempt;
           usedSearchTool = true;
+          console.debug(
+            `[askAiQuestion] Grounded stream completed on ${model} (TTFT: ${attempt.ttftMs ?? '-'}ms, Total: ${attempt.totalMs}ms)`
+          );
           break;
         }
       } catch (searchErr: any) {
-        console.warn(`[askAiQuestion] Search grounding on ${model} failed:`, searchErr?.status, searchErr?.message);
+        lastError = searchErr;
+        if (isFatalChatError(searchErr, callbacks?.signal)) {
+          throw searchErr;
+        }
+        markModelTemporaryFailure(model, searchErr);
+        failedModelsInRequest.add(model);
+        console.warn(`[askAiQuestion] Grounded stream on ${model} failed:`, searchErr?.status, searchErr?.message);
       }
     }
 
-    // Tier 3: Seamless non-search fallback so the farmer still receives helpful guidance
-    if (!response?.text?.trim()) {
-      const fallbackModels = [PRIMARY_GEMINI_MODEL, FALLBACK_GEMINI_MODEL, TERTIARY_GEMINI_MODEL];
-      let lastFallbackErr: any = null;
-      for (const model of fallbackModels) {
+    // Tier 3: Seamless non-search fallback (skip models that already failed with timeout/404/503 in this request first)
+    if (!result?.rawText?.trim()) {
+      const allFallback = getPrioritizedModels([
+        PRIMARY_GEMINI_MODEL,
+        FALLBACK_GEMINI_MODEL,
+        TERTIARY_GEMINI_MODEL
+      ]);
+      const freshFallbacks = allFallback.filter((m) => !failedModelsInRequest.has(m));
+      const orderedFallbacks = (freshFallbacks.length > 0 ? freshFallbacks : allFallback).slice(0, 2);
+
+      for (const model of orderedFallbacks) {
+        callbacks?.onStatus?.('त्वरित कृषि ज्ञान से उत्तर तैयार किया जा रहा है...');
         try {
-          response = await ai.models.generateContent({
+          const attempt = await executeChatStreamAttempt({
+            ai,
             model,
             contents,
-            config: {
-              systemInstruction
-            }
+            systemInstruction,
+            useSearch: false,
+            firstChunkTimeoutMs: 12000,
+            inactivityTimeoutMs: 10000,
+            maxTotalTimeoutMs: 28000,
+            externalSignal: callbacks?.signal,
+            onTextUpdate: callbacks?.onChunk
           });
-          if (response?.text?.trim()) {
+          if (attempt.rawText.trim()) {
+            result = attempt;
             usedSearchTool = false;
+            console.debug(
+              `[askAiQuestion] Non-search stream completed on ${model} (TTFT: ${attempt.ttftMs ?? '-'}ms, Total: ${attempt.totalMs}ms)`
+            );
             break;
           }
         } catch (err: any) {
-          lastFallbackErr = err;
-          console.warn(`[askAiQuestion] Non-search fallback ${model} failed:`, err?.status, err?.message);
+          lastError = err;
+          if (isFatalChatError(err, callbacks?.signal)) {
+            throw err;
+          }
+          markModelTemporaryFailure(model, err);
+          console.warn(`[askAiQuestion] Non-search stream ${model} failed:`, err?.status, err?.message);
         }
-      }
-      if (!response?.text?.trim() && lastFallbackErr) {
-        throw lastFallbackErr;
       }
     }
 
-    const rawAnswerText = response?.text?.trim();
+    const rawAnswerText = result?.rawText?.trim();
     if (!rawAnswerText) {
-      throw new Error("AI से उत्तर प्राप्त नहीं हो सका। कृपया पुनः प्रयास करें।");
+      throw lastError || new Error("AI से उत्तर प्राप्त नहीं हो सका। कृपया पुनः प्रयास करें।");
     }
 
     // Inspect and strip the verification marker tag
@@ -1054,7 +1352,9 @@ Core Verification & Accuracy Rules (CRITICAL):
       .trim();
 
     // Extract real, non-hallucinated URLs from Gemini Grounding Metadata
-    const { sources, hasWebSearchQueries } = extractGroundingChatSources(response);
+    const { sources, hasWebSearchQueries } = extractGroundingChatSources(
+      result?.groundingMetadataList || []
+    );
     const searchGrounded = usedSearchTool && (sources.length > 0 || hasWebSearchQueries);
     const hasAuthoritativeSource = sources.some(
       (s) => s.trustLevel === 'govt_official' || s.trustLevel === 'academic_brand'
@@ -1078,6 +1378,9 @@ Core Verification & Accuracy Rules (CRITICAL):
       sources
     };
   } catch (error: any) {
+    if (error?.message === 'AI_REQUEST_CANCELLED' || callbacks?.signal?.aborted) {
+      throw new Error('AI_REQUEST_CANCELLED');
+    }
     const friendlyError = getFriendlyAiError(error);
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
       throw friendlyError;
