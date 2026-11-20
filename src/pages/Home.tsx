@@ -90,6 +90,7 @@ interface KrishiChatMessage {
   text: string;
   verificationStatus?: KrishiVerificationStatus;
   sources?: KrishiChatSource[];
+  isStreaming?: boolean;
   isError?: boolean;
   retryQuestion?: string;
 }
@@ -239,7 +240,9 @@ const Home: React.FC = () => {
   const [userQuestion, setUserQuestion] = useState('');
   const [chatMessages, setChatMessages] = useState<KrishiChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [chatStatusText, setChatStatusText] = useState('उत्तर तैयार किया जा रहा है...');
   const chatSessionIdRef = useRef<number>(0);
+  const chatAbortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -251,7 +254,9 @@ const Home: React.FC = () => {
     const list = normalizeVideos(appContent?.videos);
     return list.filter(v => v.isActive !== false);
   }, [appContent?.videos]);
-  const partners = appContent?.partners || PARTNERS.map((name, i) => ({ id: `p${i}`, name, logo: '' }));
+  const partners = (appContent?.partners || PARTNERS.map((name, i) => ({ id: `p${i}`, name, logo: '', isActive: true }))).filter(
+    (p) => p.isActive !== false
+  );
   const whatsappSection = appContent?.whatsappSection || {
     title: 'WhatsApp पर जुड़ें',
     description: 'सीधे फोटो भेजें और घर बैठे सामान मंगाएं या दुकान पर आकर ले जाएं।',
@@ -325,7 +330,8 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     if (isChatOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      const hasStreaming = chatMessages.some((m) => m.isStreaming);
+      messagesEndRef.current?.scrollIntoView({ behavior: hasStreaming ? 'auto' : 'smooth' });
     }
   }, [chatMessages, isChatLoading, isChatOpen]);
 
@@ -335,19 +341,29 @@ const Home: React.FC = () => {
     if (!requireApiKey("AI कृषि चैट का उपयोग करने के लिए कृपया अपनी Gemini API Key जोड़ें।")) {
       return;
     }
+    chatAbortControllerRef.current?.abort();
+    chatAbortControllerRef.current = null;
     chatSessionIdRef.current += 1;
     setChatMessages([]);
     setUserQuestion('');
     setIsChatLoading(false);
+    setChatStatusText('उत्तर तैयार किया जा रहा है...');
     setIsChatOpen(true);
   };
 
   const handleCloseChat = () => {
+    chatAbortControllerRef.current?.abort();
+    chatAbortControllerRef.current = null;
     chatSessionIdRef.current += 1;
     setIsChatOpen(false);
     setChatMessages([]);
     setUserQuestion('');
     setIsChatLoading(false);
+    setChatStatusText('उत्तर तैयार किया जा रहा है...');
+  };
+
+  const handleCancelChatRequest = () => {
+    chatAbortControllerRef.current?.abort();
   };
 
   const handleAskQuestion = async (retryText?: string) => {
@@ -361,9 +377,9 @@ const Home: React.FC = () => {
 
     const activeSessionId = chatSessionIdRef.current;
 
-    // Build multi-turn context from valid turns only (excluding error placeholders)
+    // Build multi-turn context from valid non-streaming turns only (excluding error placeholders)
     const validTurns: KrishiChatTurn[] = chatMessages
-      .filter((m) => !m.isError && m.text.trim().length > 0)
+      .filter((m) => !m.isError && !m.isStreaming && m.text.trim().length > 0)
       .map((m) => ({ role: m.role, text: m.text }));
 
     // When retrying the immediately preceding user question, avoid duplicating it in UI and API history
@@ -373,18 +389,25 @@ const Home: React.FC = () => {
         : validTurns;
 
     if (isRetry) {
-      setChatMessages((prev) => prev.filter((m) => !m.isError));
+      setChatMessages((prev) => prev.filter((m) => !m.isError && !m.isStreaming));
     } else {
       const userMsg: KrishiChatMessage = {
         id: `u_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         role: 'user',
         text: question
       };
-      setChatMessages((prev) => [...prev.filter((m) => !m.isError), userMsg]);
+      setChatMessages((prev) => [...prev.filter((m) => !m.isError && !m.isStreaming), userMsg]);
       setUserQuestion('');
     }
 
+    chatAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    chatAbortControllerRef.current = controller;
+
+    const streamingMsgId = `m_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    setChatStatusText('उत्तर तैयार किया जा रहा है...');
     setIsChatLoading(true);
+
     try {
       const shopProductNames = products
         .map((p) => (p.hindiName || p.name || '').trim())
@@ -395,20 +418,73 @@ const Home: React.FC = () => {
         weather,
         effectiveApiKey,
         historyForApi,
-        { productNames: shopProductNames }
+        { productNames: shopProductNames },
+        {
+          signal: controller.signal,
+          onStatus: (statusMsg) => {
+            if (chatSessionIdRef.current === activeSessionId) {
+              setChatStatusText(statusMsg);
+            }
+          },
+          onChunk: (partialText) => {
+            if (chatSessionIdRef.current !== activeSessionId) return;
+            setChatMessages((prev) => {
+              const idx = prev.findIndex((m) => m.id === streamingMsgId);
+              if (idx >= 0) {
+                const updated = [...prev];
+                updated[idx] = { ...updated[idx], text: partialText, isStreaming: true };
+                return updated;
+              }
+              return [
+                ...prev,
+                {
+                  id: streamingMsgId,
+                  role: 'model',
+                  text: partialText,
+                  isStreaming: true
+                }
+              ];
+            });
+          }
+        }
       );
       if (chatSessionIdRef.current !== activeSessionId) return;
 
-      const aiMsg: KrishiChatMessage = {
-        id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      const finalAiMsg: KrishiChatMessage = {
+        id: streamingMsgId,
         role: 'model',
         text: response.text,
         verificationStatus: response.verificationStatus,
-        sources: response.sources
+        sources: response.sources,
+        isStreaming: false
       };
-      setChatMessages((prev) => [...prev, aiMsg]);
+
+      setChatMessages((prev) => {
+        const idx = prev.findIndex((m) => m.id === streamingMsgId);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = finalAiMsg;
+          return updated;
+        }
+        return [...prev, finalAiMsg];
+      });
     } catch (error: any) {
       if (chatSessionIdRef.current !== activeSessionId) return;
+
+      if (error?.message === 'AI_REQUEST_CANCELLED') {
+        setChatMessages((prev) => [
+          ...prev.filter((m) => m.id !== streamingMsgId),
+          {
+            id: `cancel_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            role: 'model',
+            text: 'अनुरोध रोक दिया गया है। आप चाहें तो पुनः प्रयास कर सकते हैं।',
+            isError: true,
+            retryQuestion: question
+          }
+        ]);
+        return;
+      }
+
       console.error("AI Question failed:", error);
       if (error.type === 'key_missing' || error.type === 'key_invalid') {
         openApiKeyModal(error.message);
@@ -420,8 +496,11 @@ const Home: React.FC = () => {
         isError: true,
         retryQuestion: question
       };
-      setChatMessages((prev) => [...prev, errorMsg]);
+      setChatMessages((prev) => [...prev.filter((m) => m.id !== streamingMsgId), errorMsg]);
     } finally {
+      if (chatAbortControllerRef.current === controller) {
+        chatAbortControllerRef.current = null;
+      }
       if (chatSessionIdRef.current === activeSessionId) {
         setIsChatLoading(false);
       }
@@ -1001,68 +1080,70 @@ const Home: React.FC = () => {
       </section>
 
       {/* Popular Brands Showcase Carousel */}
-      <section className="py-3 sm:py-4 overflow-hidden" id="home-popular-brands-section">
-        {/* Section Header with Subtle Green Accent */}
-        <div className="flex items-center justify-center gap-3 mb-3.5">
-          <div className="h-px w-8 sm:w-16 bg-gradient-to-r from-transparent to-emerald-300/80" />
-          <div className="inline-flex items-center px-3.5 py-1 bg-white/90 backdrop-blur-xs border border-emerald-100 rounded-full shadow-2xs">
-            <span className="text-xs sm:text-[13px] font-black text-gray-800 tracking-wider uppercase">
-              Popular Brands
-            </span>
+      {partners.length > 0 && (
+        <section className="py-3 sm:py-4 overflow-hidden" id="home-popular-brands-section">
+          {/* Section Header with Subtle Green Accent */}
+          <div className="flex items-center justify-center gap-3 mb-3.5">
+            <div className="h-px w-8 sm:w-16 bg-gradient-to-r from-transparent to-emerald-300/80" />
+            <div className="inline-flex items-center px-3.5 py-1 bg-white/90 backdrop-blur-xs border border-emerald-100 rounded-full shadow-2xs">
+              <span className="text-xs sm:text-[13px] font-black text-gray-800 tracking-wider uppercase">
+                Popular Brands
+              </span>
+            </div>
+            <div className="h-px w-8 sm:w-16 bg-gradient-to-l from-transparent to-emerald-300/80" />
           </div>
-          <div className="h-px w-8 sm:w-16 bg-gradient-to-l from-transparent to-emerald-300/80" />
-        </div>
 
-        {/* Carousel Container with Edge Gradient Fade */}
-        <div className="relative flex overflow-x-hidden">
-          {/* Subtle Left & Right Edge Gradient Fade Masks for Premium Look */}
-          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-[#FAF8F5] via-[#FAF8F5]/80 to-transparent z-10" />
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[#FAF8F5] via-[#FAF8F5]/80 to-transparent z-10" />
+          {/* Carousel Container with Edge Gradient Fade */}
+          <div className="relative flex overflow-x-hidden">
+            {/* Subtle Left & Right Edge Gradient Fade Masks for Premium Look */}
+            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-[#FAF8F5] via-[#FAF8F5]/80 to-transparent z-10" />
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[#FAF8F5] via-[#FAF8F5]/80 to-transparent z-10" />
 
-          <motion.div 
-            animate={{ x: ["0%", "-50%"] }}
-            transition={{ 
-              x: {
-                repeat: Infinity,
-                repeatType: "loop",
-                duration: 95,
-                ease: "linear",
-              },
-            }}
-            className="flex gap-3.5 sm:gap-4.5 items-center whitespace-nowrap py-1.5"
-          >
-            {[...partners, ...partners].map((partner, idx) => (
-              <Link
-                key={`${partner.id}-${idx}`}
-                to={`/products?search=${encodeURIComponent(partner.name)}`}
-                title={`${partner.name} के उत्पाद देखें`}
-                className="group relative flex flex-col justify-between w-[126px] sm:w-[142px] h-[88px] sm:h-[96px] p-2 sm:p-2.5 bg-white rounded-2xl border border-gray-200/80 shadow-2xs hover:shadow-md hover:border-emerald-300 hover:-translate-y-1 active:scale-95 transition-all duration-300 cursor-pointer shrink-0 select-none"
-              >
-                {/* Logo Area (Proper Aspect Ratio, Perfectly Centered, 100% Uncropped) */}
-                <div className="w-full h-11 sm:h-12 flex items-center justify-center px-1 py-0.5">
-                  {partner.logo ? (
-                    <SmartImage 
-                      src={partner.logo} 
-                      alt={partner.name} 
-                      className="w-full h-full"
-                      objectFit="contain"
-                    />
-                  ) : (
-                    <span className="text-[11px] font-black text-[#2D5A27] tracking-tight">{partner.name}</span>
-                  )}
-                </div>
+            <motion.div 
+              animate={{ x: ["0%", "-50%"] }}
+              transition={{ 
+                x: {
+                  repeat: Infinity,
+                  repeatType: "loop",
+                  duration: 95,
+                  ease: "linear",
+                },
+              }}
+              className="flex gap-3.5 sm:gap-4.5 items-center whitespace-nowrap py-1.5"
+            >
+              {[...partners, ...partners].map((partner, idx) => (
+                <Link
+                  key={`${partner.id}-${idx}`}
+                  to={`/products?search=${encodeURIComponent(partner.name)}`}
+                  title={`${partner.name} के उत्पाद देखें`}
+                  className="group relative flex flex-col justify-between w-[126px] sm:w-[142px] h-[88px] sm:h-[96px] p-2 sm:p-2.5 bg-white rounded-2xl border border-gray-200/80 shadow-2xs hover:shadow-md hover:border-emerald-300 hover:-translate-y-1 active:scale-95 transition-all duration-300 cursor-pointer shrink-0 select-none"
+                >
+                  {/* Logo Area (Proper Aspect Ratio, Perfectly Centered, 100% Uncropped) */}
+                  <div className="w-full h-11 sm:h-12 flex items-center justify-center px-1 py-0.5">
+                    {partner.logo ? (
+                      <SmartImage 
+                        src={partner.logo} 
+                        alt={partner.name} 
+                        className="w-full h-full"
+                        objectFit="contain"
+                      />
+                    ) : (
+                      <span className="text-[11px] font-black text-[#2D5A27] tracking-tight">{partner.name}</span>
+                    )}
+                  </div>
 
-                {/* Company Name Under Logo */}
-                <div className="w-full pt-1 border-t border-gray-100 flex items-center justify-center">
-                  <span className="text-[10px] sm:text-[11px] font-bold text-gray-600 group-hover:text-[#2D5A27] transition-colors truncate max-w-[110px] text-center leading-tight">
-                    {partner.name}
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </motion.div>
-        </div>
-      </section>
+                  {/* Company Name Under Logo */}
+                  <div className="w-full pt-1 border-t border-gray-100 flex items-center justify-center">
+                    <span className="text-[10px] sm:text-[11px] font-bold text-gray-600 group-hover:text-[#2D5A27] transition-colors truncate max-w-[110px] text-center leading-tight">
+                      {partner.name}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </motion.div>
+          </div>
+        </section>
+      )}
 
       {/* YouTube Videos Section */}
       {videos.length > 0 && (
@@ -1468,8 +1549,24 @@ const Home: React.FC = () => {
                     >
                       <FormattedAiChatText text={msg.text} />
 
+                      {msg.isStreaming && (
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#E2DCD0] text-[11px] text-[#2D5A27] font-semibold">
+                          <span className="flex items-center gap-1.5">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                            <span>उत्तर तैयार हो रहा है...</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleCancelChatRequest}
+                            className="text-[10px] font-bold text-rose-700 hover:text-rose-800 px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 cursor-pointer"
+                          >
+                            रोकें
+                          </button>
+                        </div>
+                      )}
+
                       {/* Verified / Unverified Status & Grounding Sources */}
-                      {msg.verificationStatus === 'verified' && (
+                      {!msg.isStreaming && msg.verificationStatus === 'verified' && (
                         <div className="pt-2.5 border-t border-[#E2DCD0] space-y-2">
                           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold">
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -1506,7 +1603,7 @@ const Home: React.FC = () => {
                         </div>
                       )}
 
-                      {(msg.verificationStatus === 'unverified' || msg.verificationStatus === 'partial') && (
+                      {!msg.isStreaming && (msg.verificationStatus === 'unverified' || msg.verificationStatus === 'partial') && (
                         <div className="pt-2.5 border-t border-[#E2DCD0] space-y-2">
                           <div className="bg-amber-50 border border-amber-200/90 rounded-xl p-2.5 text-[11px] text-amber-900 space-y-1">
                             <div className="flex items-center gap-1.5 font-bold text-amber-800">
@@ -1546,10 +1643,19 @@ const Home: React.FC = () => {
                   )
                 )}
 
-                {isChatLoading && (
-                  <div className="flex items-center gap-2 text-[#2D5A27] font-bold text-xs bg-[#2D5A27]/5 p-3 rounded-xl w-fit">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    विश्वसनीय स्रोतों से जानकारी जाँचकर उत्तर तैयार हो रहा है...
+                {isChatLoading && !chatMessages.some((m) => m.isStreaming) && (
+                  <div className="flex items-center justify-between gap-2 text-[#2D5A27] font-bold text-xs bg-[#2D5A27]/5 border border-[#2D5A27]/15 p-3 rounded-xl">
+                    <span className="flex items-center gap-2 min-w-0">
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                      <span className="leading-snug">{chatStatusText}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCancelChatRequest}
+                      className="shrink-0 text-[11px] font-bold text-rose-700 hover:text-rose-800 px-2.5 py-1 rounded-lg bg-white border border-rose-200 cursor-pointer"
+                    >
+                      रोकें
+                    </button>
                   </div>
                 )}
 

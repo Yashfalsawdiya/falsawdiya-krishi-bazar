@@ -4,7 +4,7 @@ import {
   Calculator, PhoneCall, Bug, TrendingUp, ShoppingCart, Sparkles, 
   Info, ShieldCheck, FileText, RotateCcw, AlertTriangle, ShieldAlert, 
   HelpCircle, Truck, Scale, Award, Camera, CloudSun, Package, MessageCircle,
-  Home, ShoppingBag, TestTube2
+  Home, ShoppingBag, TestTube2, Video
 } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -57,6 +57,7 @@ const Header: React.FC = () => {
     { icon: Phone, label: 'AI कृषि विशेषज्ञ कॉल', path: '/ai-call', color: 'text-[#2D5A27]' },
     { icon: Sparkles, label: 'AI उत्पाद जानकारी (Knowledge)', path: '/ai-product-knowledge', color: 'text-[#366B2F]' },
     { icon: TrendingUp, label: 'मंडी भाव (Mandi Bhav)', path: '/mandi', color: 'text-[#2D5A27]' },
+    { icon: Video, label: 'कृषि वीडियो (Videos)', path: '/videos', color: 'text-red-600' },
     { icon: Bug, label: 'कीट एवं रोग निर्देशिका', path: '/encyclopedia', color: 'text-[#1F4525]' },
     { icon: Landmark, label: 'सरकारी योजनाएं', path: '/schemes', color: 'text-[#2D5A27]' },
     { icon: TestTube2, label: 'मिट्टी परीक्षण (Soil Testing)', path: '/soil-testing', color: 'text-[#183D16]' },
@@ -452,6 +453,16 @@ const Header: React.FC = () => {
                   )}
                 >
                   <Newspaper className="w-3.5 h-3.5" /> कृषि समाचार
+                </NavLink>
+
+                <NavLink 
+                  to="/videos" 
+                  className={({ isActive }) => cn(
+                    "px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap flex items-center gap-1.5",
+                    isActive ? "bg-white/20 text-white font-semibold shadow-xs" : "text-white/85 hover:text-white hover:bg-white/10 font-medium"
+                  )}
+                >
+                  <Video className="w-3.5 h-3.5" /> कृषि वीडियो
                 </NavLink>
 
                 <NavLink 

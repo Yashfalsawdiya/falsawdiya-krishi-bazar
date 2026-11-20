@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, ShoppingBag, Camera, CloudSun, Newspaper } from 'lucide-react';
+import { Home, ShoppingBag, Camera, CloudSun, Newspaper, Video } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useFeatureToggle } from '../hooks/useFeatureToggle';
 
@@ -11,7 +11,8 @@ const BottomNav: React.FC = () => {
     { to: '/', icon: Home, label: 'होम' },
     { to: '/products', icon: ShoppingBag, label: 'बाजार' },
     { to: '/disease', icon: Camera, label: 'बीमारी जाँच' },
-    { to: '/news', icon: Newspaper, label: 'कृषि समाचार' },
+    { to: '/news', icon: Newspaper, label: 'समाचार' },
+    { to: '/videos', icon: Video, label: 'वीडियो' },
     { to: '/weather', icon: CloudSun, label: 'मौसम' },
   ];
 
@@ -24,10 +25,11 @@ const BottomNav: React.FC = () => {
     <nav 
       id="mobile-bottom-nav" 
       aria-label="Mobile and Tablet Navigation"
-      className="lg:hidden fixed bottom-0 left-0 right-0 w-full bg-[#1E3F1A]/95 backdrop-blur-md border-t border-white/10 shadow-[0_-4px_24px_rgba(0,0,0,0.25)] z-50 px-2 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+      className="lg:hidden fixed bottom-0 left-0 right-0 w-full bg-[#1E3F1A]/95 backdrop-blur-md border-t border-white/10 shadow-[0_-4px_24px_rgba(0,0,0,0.25)] z-50 px-1.5 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
     >
       <div className={cn(
-        "max-w-md md:max-w-xl mx-auto grid items-center",
+        "max-w-md md:max-w-2xl mx-auto grid items-center",
+        visibleNavItems.length >= 6 && "grid-cols-6",
         visibleNavItems.length === 5 && "grid-cols-5",
         visibleNavItems.length === 4 && "grid-cols-4",
         visibleNavItems.length === 3 && "grid-cols-3",
@@ -40,25 +42,25 @@ const BottomNav: React.FC = () => {
             to={item.to}
             end={item.to === '/'}
             className={({ isActive }) => cn(
-              "flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 min-h-[48px] select-none group relative active:scale-95",
+              "flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-150 min-h-[48px] select-none group relative active:scale-95 min-w-0",
               isActive ? "text-[#FACC15]" : "text-white/75 hover:text-white"
             )}
           >
             {({ isActive }) => (
               <>
                 <div className={cn(
-                  "w-10 h-7 rounded-xl flex items-center justify-center transition-all duration-150",
+                  "w-9 h-7 rounded-xl flex items-center justify-center transition-all duration-150 shrink-0",
                   isActive 
                     ? "bg-white/15 text-[#FACC15] shadow-xs" 
                     : "text-white/75 group-hover:text-white group-hover:bg-white/5"
                 )}>
                   <item.icon className={cn(
-                    "w-5 h-5 transition-transform duration-150",
+                    "w-[18px] h-[18px] sm:w-5 sm:h-5 transition-transform duration-150",
                     isActive ? "scale-105" : ""
                   )} />
                 </div>
                 <span className={cn(
-                  "text-[11px] transition-all duration-150 leading-tight mt-1 truncate max-w-full px-0.5",
+                  "text-[10px] sm:text-[11px] transition-all duration-150 leading-tight mt-1 truncate max-w-full px-0.5 whitespace-nowrap",
                   isActive 
                     ? "font-semibold text-[#FACC15]" 
                     : "font-normal text-white/75 group-hover:text-white"

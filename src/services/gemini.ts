@@ -34,7 +34,21 @@ export function isModelTemporarilyUnhealthy(model: string): boolean {
 export function markModelTemporaryFailure(model: string, error: any) {
   const status = error?.status || error?.code;
   const msg = (error?.message || String(error)).toLowerCase();
-  if (status === 503 || status === 429 || msg.includes('503') || msg.includes('high demand') || msg.includes('429') || msg.includes('quota') || msg.includes('resource_exhausted')) {
+  if (status === 404 || msg.includes('404') || msg.includes('is not found for api version')) {
+    modelFailureCooldowns.set(model, Date.now() + 5 * 60 * 1000);
+    return;
+  }
+  if (
+    status === 503 ||
+    status === 429 ||
+    msg.includes('503') ||
+    msg.includes('high demand') ||
+    msg.includes('429') ||
+    msg.includes('quota') ||
+    msg.includes('resource_exhausted') ||
+    msg.includes('ai_request_timeout') ||
+    msg.includes('timeout')
+  ) {
     modelFailureCooldowns.set(model, Date.now() + 90 * 1000);
   }
 }
@@ -788,17 +802,25 @@ export interface KrishiChatSource {
   trustLevel: 'govt_official' | 'academic_brand' | 'web';
 }
 
-export type KrishiVerificationStatus = 'verified' | 'partial' | 'unverified';
+export type KrishiVerificationStatus = 'general' | 'verified' | 'partial' | 'unverified';
+export type KrishiQueryMode = 'general' | 'fresh_search' | 'high_risk';
 
 export interface KrishiChatResponse {
   text: string;
   verificationStatus: KrishiVerificationStatus;
   searchGrounded: boolean;
   sources: KrishiChatSource[];
+  queryMode?: KrishiQueryMode;
 }
 
 export interface KrishiShopContext {
   productNames?: string[];
+}
+
+export interface KrishiChatStreamCallbacks {
+  onChunk?: (partialCleanText: string) => void;
+  onStatus?: (statusMessage: string) => void;
+  signal?: AbortSignal;
 }
 
 const MAX_CHAT_HISTORY_MESSAGES = 16;
@@ -858,13 +880,26 @@ function classifyChatSourceTrust(uri: string, title?: string): KrishiChatSource[
   return 'web';
 }
 
-function extractGroundingChatSources(response: any): {
+function extractGroundingChatSources(groundingMetadataList: any[]): {
   sources: KrishiChatSource[];
   hasWebSearchQueries: boolean;
 } {
-  const metadata = response?.candidates?.[0]?.groundingMetadata;
-  const chunks = Array.isArray(metadata?.groundingChunks) ? metadata.groundingChunks : [];
-  const webSearchQueries = Array.isArray(metadata?.webSearchQueries) ? metadata.webSearchQueries : [];
+  const chunks: any[] = [];
+  const webSearchQueries: string[] = [];
+
+  for (const metadata of groundingMetadataList) {
+    if (!metadata) continue;
+    if (Array.isArray(metadata.groundingChunks)) {
+      chunks.push(...metadata.groundingChunks);
+    }
+    if (Array.isArray(metadata.webSearchQueries)) {
+      for (const q of metadata.webSearchQueries) {
+        if (typeof q === 'string' && q.trim()) {
+          webSearchQueries.push(q.trim());
+        }
+      }
+    }
+  }
 
   const seenUris = new Set<string>();
   const extracted: KrishiChatSource[] = [];
@@ -905,13 +940,271 @@ function extractGroundingChatSources(response: any): {
   };
 }
 
+function stripStreamingVerificationTag(raw: string): string {
+  return raw
+    .replace(/\[\[VERIFICATION:\s*(VERIFIED|UNVERIFIED)\]\]/gi, '')
+    .replace(/\[\[[^\]]*$/, '')
+    .trimEnd();
+}
+
+function selectRelevantCatalogProducts(
+  productNames: string[] | undefined,
+  question: string,
+  history: KrishiChatTurn[]
+): string[] {
+  if (!Array.isArray(productNames) || productNames.length === 0) return [];
+  const uniqueNames = Array.from(new Set(productNames.map((n) => n.trim()).filter(Boolean)));
+  if (uniqueNames.length <= 25) return uniqueNames;
+
+  const recentText = [
+    question,
+    ...history.slice(-4).map((h) => h.text)
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  const keywords = Array.from(
+    new Set(
+      recentText
+        .split(/[\s,।?!.;:()"']+/)
+        .map((w) => w.trim())
+        .filter((w) => w.length >= 2)
+    )
+  );
+
+  const matched = uniqueNames.filter((name) => {
+    const lowerName = name.toLowerCase();
+    return keywords.some((kw) => lowerName.includes(kw));
+  });
+
+  const matchedSet = new Set(matched);
+  const remaining = uniqueNames.filter((n) => !matchedSet.has(n));
+  return [...matched, ...remaining].slice(0, 30);
+}
+
+const HIGH_RISK_CHEMICAL_REGEX =
+  /(कीटनाशक|फफूंदनाशक|फफूँदनाशक|खरपतवारनाशक|निंदानाशक|दवाई|दवा|रसायन|केमिकल|प्रतिबंध|बैन|सुरक्षा अवधि|वेटिंग|स्प्रे|छिड़काव|टैंक मिक्स|डोज़|डोज|खुराक|मिली|एमएल|पंप|टंकी|pesticide|insecticide|fungicide|herbicide|weedicide|miticide|nematicide|bactericide|agrochemical|chemical|dosage|dose|formulation|technical|cibrc|ppqs|banned|\bban\b|waiting period|\bphi\b|\brei\b|toxicity|tank mix|spray|\d+\s*(?:ml|gm|g)\b|%\s*(?:sc|ec|wg|sg|wp|sl|od|fs|sp|ew)|coragen|confidor|actara|amistar|roundup|glycel|saaf|bavistin|nativo|custodia|emamectin|imidacloprid|thiamethoxam|chlorantraniliprole|mancozeb|carbendazim|azoxystrobin|tebuconazole|glyphosate|paraquat|pendimethalin|2,4-d|lambda|profenofos|cypermethrin|chlorpyrifos|fipronil|buprofezin|flonicamid|propiconazole|hexaconazole|कोराजन|कॉन्फिडोर|एक्टारा|एमिस्टार|राउंडअप|साफ|बाविस्टिन|नेटिवो|कस्टोडिया|एमामेक्टिन|इमिडाक्लोप्रिड|थायमेथोक्सम|मैन्कोजेब|कार्बेन्डाजिम|ग्लाइफोसेट)/i;
+
+const HIGH_RISK_FOLLOWUP_REGEX =
+  /(मात्रा|कितना|कितनी|पंप|एकड़|बीघा|कैसे डाल|मिला|सावधानी|फसल पर|स्वीकृत|असर|waiting|how much|acre|bigha|pump|mix)/i;
+
+const FRESH_SEARCH_REGEX =
+  /(इस साल|इस वर्ष|नए साल|नई किस्म|नया बीज|नई वैरायटी|नया उत्पाद|नई दवाई|नया प्रोडक्ट|ताजा|ताज़ा|लेटेस्ट|वर्तमान|अभी कौन|चल रही|सरकारी योजना|योजना|सब्सिडी|अनुदान|रजिस्ट्रेशन|आवेदन|किस्त|पीएम किसान|फसल बीमा|भावांतर|लॉन्च|लांच|मंडी भाव|आज का भाव|अपडेट|नई रिलीज|\b202[5-9]\b|latest|current|today|new variety|new launch|new product|scheme|yojana|subsidy|pm\s*kisan|pmfby|mandi|released)/i;
+
+export function classifyKrishiQueryMode(
+  question: string,
+  history: KrishiChatTurn[] = []
+): KrishiQueryMode {
+  const q = (question || '').trim();
+  if (!q) return 'general';
+
+  if (HIGH_RISK_CHEMICAL_REGEX.test(q)) {
+    return 'high_risk';
+  }
+
+  // Carry over high-risk safety mode for short dosage/usage follow-up questions
+  if (HIGH_RISK_FOLLOWUP_REGEX.test(q) && history.length > 0) {
+    const recentHistoryText = history
+      .slice(-3)
+      .map((t) => t.text || '')
+      .join(' ');
+    if (HIGH_RISK_CHEMICAL_REGEX.test(recentHistoryText)) {
+      return 'high_risk';
+    }
+  }
+
+  if (FRESH_SEARCH_REGEX.test(q)) {
+    return 'fresh_search';
+  }
+
+  return 'general';
+}
+
+function isFatalChatError(error: any, externalSignal?: AbortSignal): boolean {
+  if (externalSignal?.aborted) return true;
+  const msg = error?.message || String(error);
+  if (msg === 'AI_REQUEST_CANCELLED' || error?.name === 'AI_REQUEST_CANCELLED') {
+    return true;
+  }
+  const friendly = getFriendlyAiError(error);
+  return (
+    friendly.type === 'key_missing' ||
+    friendly.type === 'key_invalid' ||
+    friendly.type === 'quota'
+  );
+}
+
+function raceWithAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) {
+    return Promise.reject(new Error(typeof signal.reason === 'string' ? signal.reason : 'AI_REQUEST_TIMEOUT'));
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      reject(new Error(typeof signal.reason === 'string' ? signal.reason : 'AI_REQUEST_TIMEOUT'));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      (val) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(val);
+      },
+      (err) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(err);
+      }
+    );
+  });
+}
+
+async function executeChatStreamAttempt(options: {
+  ai: GoogleGenAI;
+  model: string;
+  contents: any[];
+  systemInstruction: string;
+  useSearch: boolean;
+  firstChunkTimeoutMs: number;
+  inactivityTimeoutMs: number;
+  maxTotalTimeoutMs: number;
+  externalSignal?: AbortSignal;
+  onTextUpdate?: (cleanPartialText: string) => void;
+}): Promise<{
+  rawText: string;
+  groundingMetadataList: any[];
+  ttftMs: number | null;
+  totalMs: number;
+}> {
+  const {
+    ai,
+    model,
+    contents,
+    systemInstruction,
+    useSearch,
+    firstChunkTimeoutMs,
+    inactivityTimeoutMs,
+    maxTotalTimeoutMs,
+    externalSignal,
+    onTextUpdate
+  } = options;
+
+  if (externalSignal?.aborted) {
+    throw new Error('AI_REQUEST_CANCELLED');
+  }
+
+  const startedAt = performance.now();
+  const attemptController = new AbortController();
+  let ttftMs: number | null = null;
+  let accumulatedText = '';
+  const groundingMetadataList: any[] = [];
+
+  const onExternalAbort = () => {
+    attemptController.abort('AI_REQUEST_CANCELLED');
+  };
+  externalSignal?.addEventListener('abort', onExternalAbort, { once: true });
+
+  let firstChunkTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+    attemptController.abort('AI_REQUEST_TIMEOUT');
+  }, firstChunkTimeoutMs);
+
+  let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+  const maxTotalTimer = setTimeout(() => {
+    attemptController.abort('AI_REQUEST_TIMEOUT');
+  }, maxTotalTimeoutMs);
+
+  const resetInactivityTimer = () => {
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(() => {
+      attemptController.abort('AI_REQUEST_TIMEOUT');
+    }, inactivityTimeoutMs);
+  };
+
+  let iterator: AsyncIterator<any> | null = null;
+
+  try {
+    const stream = await raceWithAbort(
+      ai.models.generateContentStream({
+        model,
+        contents,
+        config: {
+          systemInstruction,
+          abortSignal: attemptController.signal,
+          ...(useSearch ? { tools: [{ googleSearch: {} }] } : {})
+        }
+      }),
+      attemptController.signal
+    );
+
+    iterator = stream[Symbol.asyncIterator]();
+
+    while (true) {
+      const step = await raceWithAbort(iterator.next(), attemptController.signal);
+      if (step.done) break;
+
+      const chunk = step.value;
+      const meta = chunk?.candidates?.[0]?.groundingMetadata;
+      if (meta) {
+        groundingMetadataList.push(meta);
+      }
+
+      const chunkText = typeof chunk?.text === 'string' ? chunk.text : '';
+      if (chunkText) {
+        if (firstChunkTimer) {
+          clearTimeout(firstChunkTimer);
+          firstChunkTimer = null;
+        }
+        if (ttftMs === null) {
+          ttftMs = Math.round(performance.now() - startedAt);
+        }
+        resetInactivityTimer();
+        accumulatedText += chunkText;
+
+        const cleanPreview = stripStreamingVerificationTag(accumulatedText);
+        if (cleanPreview.length > 0) {
+          onTextUpdate?.(cleanPreview);
+        }
+      }
+    }
+
+    return {
+      rawText: accumulatedText,
+      groundingMetadataList,
+      ttftMs,
+      totalMs: Math.round(performance.now() - startedAt)
+    };
+  } catch (err: any) {
+    if (externalSignal?.aborted || err?.message === 'AI_REQUEST_CANCELLED') {
+      throw new Error('AI_REQUEST_CANCELLED');
+    }
+    // If a substantial partial answer was already streamed cleanly before a late timeout, preserve it rather than discarding
+    const cleanPartial = stripStreamingVerificationTag(accumulatedText).trim();
+    if (cleanPartial.length >= 160) {
+      return {
+        rawText: `${cleanPartial}\n[[VERIFICATION:UNVERIFIED]]`,
+        groundingMetadataList,
+        ttftMs,
+        totalMs: Math.round(performance.now() - startedAt)
+      };
+    }
+    throw err;
+  } finally {
+    if (firstChunkTimer) clearTimeout(firstChunkTimer);
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    clearTimeout(maxTotalTimer);
+    externalSignal?.removeEventListener('abort', onExternalAbort);
+    if (iterator && typeof iterator.return === 'function') {
+      iterator.return().catch(() => {});
+    }
+  }
+}
+
 export async function askAiQuestion(
   question: string,
   weatherData: any,
   userApiKey?: string,
   history: KrishiChatTurn[] = [],
-  shopContext?: KrishiShopContext
+  shopContext?: KrishiShopContext,
+  callbacks?: KrishiChatStreamCallbacks
 ): Promise<KrishiChatResponse> {
+  const requestStartAt = performance.now();
   try {
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
@@ -941,6 +1234,8 @@ export async function askAiQuestion(
     const firstUserIdx = sanitizedHistory.findIndex((t) => t.role === 'user');
     const alignedHistory = firstUserIdx >= 0 ? sanitizedHistory.slice(firstUserIdx) : [];
 
+    const queryMode = classifyKrishiQueryMode(trimmedQuestion, alignedHistory);
+
     const contents = [
       ...alignedHistory.map((turn) => ({
         role: turn.role,
@@ -952,98 +1247,187 @@ export async function askAiQuestion(
       }
     ];
 
-    const catalogList = Array.isArray(shopContext?.productNames)
-      ? Array.from(new Set(shopContext.productNames.map(n => n.trim()).filter(Boolean))).slice(0, 80)
-      : [];
+    const catalogList = selectRelevantCatalogProducts(
+      shopContext?.productNames,
+      trimmedQuestion,
+      alignedHistory
+    );
     const catalogContextLine = catalogList.length > 0
       ? `Store Catalog Reference (ONLY claim in-stock availability if matched here): ${catalogList.join(', ')}`
-      : `Store Catalog Reference: Not provided in chat context — NEVER falsely claim any seed/chemical is in stock; invite the farmer to check availability at the shop.`;
+      : `Store Catalog Reference: Not provided in chat context — NEVER falsely claim any seed/chemical is in stock; invite the farmer to confirm availability at the shop.`;
 
     const isFollowUp = alignedHistory.length > 0;
-    const systemInstruction = `You are an honest, farmer-friendly Indian agricultural advisor representing 'फल्सावदिया कृषि बाजार' located in Shamgarh, Mandsaur, Malwa region, Madhya Pradesh.
-
-Shop Profile:
-- Name: फल्सावदिया कृषि बाजार
-- Address: डिंपल चौराहा, क्षत्रिय खाती मांगलिक भवन के पास, शामगढ़, जिला मंदसौर, मध्य प्रदेश (458883)
-- Timings: सुबह 8:00 बजे से रात 8:00 बजे तक (08:00 AM – 08:00 PM)
+    const baseShopIdentity = `You are a helpful, farmer-friendly Indian agricultural advisor representing 'फल्सावदिया कृषि बाजार' (Dimple Chauraha, Shamgarh, Mandsaur, MP 458883, open 08:00 AM – 08:00 PM).
 - Local Context: ${weatherContext}
 - ${catalogContextLine}
+- Continuous Context: Treat this as an ongoing multi-turn chat; resolve pronouns ("इसकी", "उसमें", "यह", "कितनी मात्रा") from previous turns naturally.
+- ${isFollowUp ? "Follow-up Turn Rule: Do NOT repeat 'जय राम जी की' greeting or full shop address." : "First Turn Rule: Start with a warm brief greeting like 'जय राम जी की किसान भाई!'."}
+- Formatting & Spelling: Reply in clear, simple Hindi formatted for mobile using short ### headings, * bullet points, and **bold** labels. Always write 'फल्सावदिया' (never 'फालसावदिया').
+- Honest Stock & Links: NEVER invent fake URLs. ONLY claim an item is in stock if it matches the Store Catalog Reference above.`;
 
-Core Verification & Accuracy Rules (CRITICAL):
-1. ALWAYS Provide Helpful Guidance: Never leave the farmer empty-handed or give a dead-end refusal. Always answer their question clearly and respectfully in simple Hindi.
-2. Prioritize Trusted Sources via Google Search: Before answering factual questions about crop varieties/codes, yields, chemical technicals/dosages, fertilizers, or government schemes, search and cross-check authoritative Indian sources first: ICAR, IARI, KVK (especially KVK Mandsaur / RVSKVV / JNKVV), MP Agriculture Department (mpkrishi.mp.gov.in), CIBRC, PPQS, Govt of India portals (agricoop.gov.in, pmkisan.gov.in), and official manufacturer/seed company documents.
-3. High-Risk Agronomy Precision Rules:
-   - Seeds & Varieties: Verify exact official variety name and number (e.g. do NOT confuse HI 8759 Pusa Tejas, HI 8713 Pusa Mangal, Lok-1, etc.). Always clearly state yield units (क्विंटल/हेक्टेयर vs क्विंटल/एकड़ vs प्रति बीघा — never mix them up!). Distinguish public/ICAR varieties vs private research varieties.
-   - Pesticides / Fungicides / Herbicides: Verify exact Technical Name & Formulation. NEVER invent or guess an unverified chemical dose (ml/L or g/acre). If exact CIBRC/label approval is unverified, still explain general crop/pest care clearly, and tell the farmer to verify the exact dose on the original bottle label or at the shop before spraying.
-   - Fertilizers: State verified NPK % and advise soil-test/crop-stage based usage without false yield guarantees.
-   - Govt Schemes: Check current active status for ${dateStr}; clearly note if eligibility/last dates need checking on official govt portal.
-4. No Fake Links or Fake Stock Claims:
-   - NEVER invent or type fake URLs in your text (real clickable links are attached automatically from search metadata).
-   - ONLY say an item is available at 'फल्सावदिया कृषि बाजार' if it matches the Store Catalog Reference above. Otherwise politely say to confirm availability directly at the shop.
-5. Continuous Context & Formatting Rules:
-   - Treat this as a continuous multi-turn conversation; resolve pronouns ("इसकी", "उसमें", "यह", "कितनी मात्रा") from prior turns naturally.
-   - ${isFollowUp ? "Follow-up Turn Rule: Do NOT repeat 'जय राम जी की' greetings or full shop address again." : "First Turn Rule: Start with a warm brief greeting like 'जय राम जी की किसान भाई!'."}
-   - Format cleanly for mobile reading using short ### headings, * bullet points, and **bold** labels.
-   - STRICT RULE: Always write 'फल्सावदिया' (never 'फालसावदिया').
-6. Mandatory Machine Tag on Last Line (REQUIRED):
-   - End EVERY response on a separate final line with EXACTLY one tag:
-     - [[VERIFICATION:VERIFIED]] ONLY if your factual claims (variety numbers/traits, scheme status, technical names/doses) were confidently verified against reliable official/authoritative sources.
-     - [[VERIFICATION:UNVERIFIED]] if official confirmation was incomplete, uncertain, based on general agronomic memory, or for local/private varieties/products whose official specification could not be confirmed.`;
+    let systemInstruction: string;
+    if (queryMode === 'general') {
+      systemInstruction = `${baseShopIdentity}
 
-    let response: any = null;
-    let usedSearchTool = false;
+Fast General Agronomy Mode:
+- Answer clearly, practically, and concisely using reliable Indian agricultural science suited to Malwa / MP farmers.
+- Distinguish yield/area units clearly (क्विंटल/हेक्टेयर vs क्विंटल/एकड़ vs बीघा).
+- Do NOT invent unverified brand-specific chemical dosages; if a spray/dose is mentioned generally, advise reading the product bottle label or confirming at the shop.`;
+    } else if (queryMode === 'fresh_search') {
+      systemInstruction = `${baseShopIdentity}
 
-    // Tier 1 & 2: Try Google Search Grounding across locked Flash models first
-    const groundedModels = [PRIMARY_GEMINI_MODEL, FALLBACK_GEMINI_MODEL];
-    for (const model of groundedModels) {
-      try {
-        response = await ai.models.generateContent({
-          model,
-          contents,
-          config: {
-            systemInstruction,
-            tools: [{ googleSearch: {} }]
-          }
-        });
-        if (response?.text?.trim()) {
-          usedSearchTool = true;
-          break;
-        }
-      } catch (searchErr: any) {
-        console.warn(`[askAiQuestion] Search grounding on ${model} failed:`, searchErr?.status, searchErr?.message);
-      }
+Live Information & Google Search Mode:
+- Use Google Search to check latest accurate details (new varieties, ${dateStr} active government schemes/subsidies, new product launches, or recent agronomy updates) prioritizing ICAR, IARI, KVK, MP Agriculture (mpkrishi.mp.gov.in), Govt of India portals, and official brand sources.
+- Do NOT invent dates, subsidy amounts, or variety codes if unclear; clearly mention what needs checking on the official portal.
+- End EVERY response on a separate final line with EXACTLY one tag:
+  - [[VERIFICATION:VERIFIED]] ONLY if your key facts were confirmed from official/govt/university/manufacturer sources.
+  - [[VERIFICATION:UNVERIFIED]] if results were incomplete, uncertain, or only from unverified general blogs.`;
+    } else {
+      systemInstruction = `${baseShopIdentity}
+
+High-Risk Crop Protection & Dosage Safety Mode:
+- Use Google Search to verify exact Technical Name, Formulation, crop approval, waiting period (PHI), bans/restrictions, and CIBRC / official manufacturer label dosage before recommending.
+- CRITICAL SAFETY RULE: NEVER guess or invent a chemical dose (ml/L, g/acre) or crop approval. If exact official/CIBRC/label confirmation is missing, still explain safe pest/disease management generally and clearly instruct the farmer to verify exact dose on the original bottle label or at 'फल्सावदिया कृषि बाजार' before spraying.
+- End EVERY response on a separate final line with EXACTLY one tag:
+  - [[VERIFICATION:VERIFIED]] ONLY if technical name, crop approval, and dosage were confidently verified against official CIBRC / manufacturer / govt / ICAR sources.
+  - [[VERIFICATION:UNVERIFIED]] if official label confirmation was incomplete or uncertain.`;
     }
 
-    // Tier 3: Seamless non-search fallback so the farmer still receives helpful guidance
-    if (!response?.text?.trim()) {
-      const fallbackModels = [PRIMARY_GEMINI_MODEL, FALLBACK_GEMINI_MODEL, TERTIARY_GEMINI_MODEL];
-      let lastFallbackErr: any = null;
-      for (const model of fallbackModels) {
+    const prepDoneAt = performance.now();
+
+    let result: {
+      rawText: string;
+      groundingMetadataList: any[];
+      ttftMs: number | null;
+      totalMs: number;
+    } | null = null;
+    let usedSearchTool = false;
+    let lastError: any = null;
+    let apiCallsCount = 0;
+
+    if (queryMode === 'general') {
+      // Tier 1 Fast Path: Direct streaming without Google Search delay (1 call normally, max 1 fast fallback on error)
+      const directModels = getPrioritizedModels([
+        PRIMARY_GEMINI_MODEL,
+        FALLBACK_GEMINI_MODEL,
+        TERTIARY_GEMINI_MODEL
+      ]).slice(0, 2);
+
+      for (let idx = 0; idx < directModels.length; idx++) {
+        const model = directModels[idx];
+        callbacks?.onStatus?.(
+          idx === 0
+            ? 'त्वरित उत्तर तैयार किया जा रहा है...'
+            : 'वैकल्पिक मॉडल से उत्तर तैयार हो रहा है...'
+        );
+        apiCallsCount += 1;
         try {
-          response = await ai.models.generateContent({
+          const attempt = await executeChatStreamAttempt({
+            ai,
             model,
             contents,
-            config: {
-              systemInstruction
-            }
+            systemInstruction,
+            useSearch: false,
+            firstChunkTimeoutMs: 8000,
+            inactivityTimeoutMs: 8000,
+            maxTotalTimeoutMs: 22000,
+            externalSignal: callbacks?.signal,
+            onTextUpdate: callbacks?.onChunk
           });
-          if (response?.text?.trim()) {
+          if (attempt.rawText.trim()) {
+            result = attempt;
             usedSearchTool = false;
             break;
           }
         } catch (err: any) {
-          lastFallbackErr = err;
-          console.warn(`[askAiQuestion] Non-search fallback ${model} failed:`, err?.status, err?.message);
+          lastError = err;
+          if (isFatalChatError(err, callbacks?.signal)) {
+            throw err;
+          }
+          markModelTemporaryFailure(model, err);
+          console.warn(`[askAiQuestion] Fast direct stream ${model} failed:`, err?.status, err?.message);
         }
       }
-      if (!response?.text?.trim() && lastFallbackErr) {
-        throw lastFallbackErr;
+    } else {
+      // Tier 2 / Tier 3 Selective Grounded Path: Single-pass Search + max 1 grounded fallback
+      const groundedModels = getPrioritizedModels([PRIMARY_GEMINI_MODEL, FALLBACK_GEMINI_MODEL]).slice(0, 2);
+      const statusFirst =
+        queryMode === 'high_risk'
+          ? 'दवाई व खुराक की सुरक्षित जानकारी जाँची जा रही है...'
+          : 'ताज़ा जानकारी Google Search से देखी जा रही है...';
+
+      for (let idx = 0; idx < groundedModels.length; idx++) {
+        const model = groundedModels[idx];
+        callbacks?.onStatus?.(
+          idx === 0 ? statusFirst : 'वैकल्पिक मॉडल से जानकारी जाँची जा रही है...'
+        );
+        apiCallsCount += 1;
+        try {
+          const attempt = await executeChatStreamAttempt({
+            ai,
+            model,
+            contents,
+            systemInstruction,
+            useSearch: true,
+            firstChunkTimeoutMs: idx === 0 ? 12000 : 11000,
+            inactivityTimeoutMs: 10000,
+            maxTotalTimeoutMs: 26000,
+            externalSignal: callbacks?.signal,
+            onTextUpdate: callbacks?.onChunk
+          });
+          if (attempt.rawText.trim()) {
+            result = attempt;
+            usedSearchTool = true;
+            break;
+          }
+        } catch (searchErr: any) {
+          lastError = searchErr;
+          if (isFatalChatError(searchErr, callbacks?.signal)) {
+            throw searchErr;
+          }
+          markModelTemporaryFailure(model, searchErr);
+          console.warn(`[askAiQuestion] Grounded stream (${queryMode}) on ${model} failed:`, searchErr?.status, searchErr?.message);
+        }
+      }
+
+      // Emergency 1-step non-search fallback only if grounded calls failed (explicitly marked unverified for safety)
+      if (!result?.rawText?.trim()) {
+        const emergencyModel = getPrioritizedModels([TERTIARY_GEMINI_MODEL, FALLBACK_GEMINI_MODEL])[0];
+        callbacks?.onStatus?.('सीधे कृषि ज्ञान से उत्तर तैयार किया जा रहा है...');
+        apiCallsCount += 1;
+        try {
+          const attempt = await executeChatStreamAttempt({
+            ai,
+            model: emergencyModel,
+            contents,
+            systemInstruction,
+            useSearch: false,
+            firstChunkTimeoutMs: 8000,
+            inactivityTimeoutMs: 8000,
+            maxTotalTimeoutMs: 20000,
+            externalSignal: callbacks?.signal,
+            onTextUpdate: callbacks?.onChunk
+          });
+          if (attempt.rawText.trim()) {
+            result = attempt;
+            usedSearchTool = false;
+          }
+        } catch (err: any) {
+          lastError = err;
+          if (isFatalChatError(err, callbacks?.signal)) {
+            throw err;
+          }
+          markModelTemporaryFailure(emergencyModel, err);
+          console.warn(`[askAiQuestion] Emergency non-search stream ${emergencyModel} failed:`, err?.status, err?.message);
+        }
       }
     }
 
-    const rawAnswerText = response?.text?.trim();
+    const postProcessStartAt = performance.now();
+
+    const rawAnswerText = result?.rawText?.trim();
     if (!rawAnswerText) {
-      throw new Error("AI से उत्तर प्राप्त नहीं हो सका। कृपया पुनः प्रयास करें।");
+      throw lastError || new Error("AI से उत्तर प्राप्त नहीं हो सका। कृपया पुनः प्रयास करें।");
     }
 
     // Inspect and strip the verification marker tag
@@ -1053,31 +1437,56 @@ Core Verification & Accuracy Rules (CRITICAL):
       .replace(/\[\[VERIFICATION:\s*(VERIFIED|UNVERIFIED)\]\]/gi, '')
       .trim();
 
-    // Extract real, non-hallucinated URLs from Gemini Grounding Metadata
-    const { sources, hasWebSearchQueries } = extractGroundingChatSources(response);
-    const searchGrounded = usedSearchTool && (sources.length > 0 || hasWebSearchQueries);
-    const hasAuthoritativeSource = sources.some(
-      (s) => s.trustLevel === 'govt_official' || s.trustLevel === 'academic_brand'
-    );
-
+    let sources: KrishiChatSource[] = [];
+    let searchGrounded = false;
     let verificationStatus: KrishiVerificationStatus;
-    if (!searchGrounded || selfFlaggedUnverified || sources.length === 0) {
-      verificationStatus = 'unverified';
-    } else if (hasAuthoritativeSource && selfFlaggedVerified) {
-      verificationStatus = 'verified';
-    } else if (hasAuthoritativeSource && !selfFlaggedUnverified) {
-      verificationStatus = 'verified';
+
+    if (queryMode === 'general' && !usedSearchTool) {
+      verificationStatus = 'general';
     } else {
-      verificationStatus = 'partial';
+      // Extract real, non-hallucinated URLs from Gemini Grounding Metadata
+      const extracted = extractGroundingChatSources(result?.groundingMetadataList || []);
+      sources = extracted.sources;
+      searchGrounded = usedSearchTool && (sources.length > 0 || extracted.hasWebSearchQueries);
+      const hasAuthoritativeSource = sources.some(
+        (s) => s.trustLevel === 'govt_official' || s.trustLevel === 'academic_brand'
+      );
+
+      if (!searchGrounded || selfFlaggedUnverified || sources.length === 0) {
+        verificationStatus = 'unverified';
+      } else if (hasAuthoritativeSource && (selfFlaggedVerified || !selfFlaggedUnverified)) {
+        verificationStatus = 'verified';
+      } else {
+        // General web results must NOT be blindly treated as govt/scientific verified
+        verificationStatus = 'partial';
+      }
     }
+
+    const postProcessDoneAt = performance.now();
+    console.debug('[askAiQuestion Timing]', {
+      queryMode,
+      useSearch: usedSearchTool,
+      apiCallsCount,
+      prepMs: Math.round(prepDoneAt - requestStartAt),
+      ttftMs: result?.ttftMs ?? null,
+      apiTotalMs: result?.totalMs ?? null,
+      postProcessMs: Math.round(postProcessDoneAt - postProcessStartAt),
+      totalEndToEndMs: Math.round(postProcessDoneAt - requestStartAt),
+      verificationStatus,
+      sourcesCount: sources.length
+    });
 
     return {
       text: cleanText,
       verificationStatus,
       searchGrounded,
-      sources
+      sources,
+      queryMode
     };
   } catch (error: any) {
+    if (error?.message === 'AI_REQUEST_CANCELLED' || callbacks?.signal?.aborted) {
+      throw new Error('AI_REQUEST_CANCELLED');
+    }
     const friendlyError = getFriendlyAiError(error);
     if (friendlyError.type === 'key_missing' || friendlyError.type === 'key_invalid') {
       throw friendlyError;

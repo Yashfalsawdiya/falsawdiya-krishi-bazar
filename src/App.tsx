@@ -36,6 +36,7 @@ const DiseaseDetection = safeLazy(() => import('./pages/DiseaseDetection'));
 const Weather = safeLazy(() => import('./pages/Weather'));
 const Schemes = safeLazy(() => import('./pages/Schemes'));
 const AgriNews = safeLazy(() => import('./pages/AgriNews'));
+const Videos = safeLazy(() => import('./pages/Videos'));
 const SoilTesting = safeLazy(() => import('./pages/SoilTesting'));
 const AgriCalculator = safeLazy(() => import('./pages/AgriCalculator'));
 const Helpline = safeLazy(() => import('./pages/Helpline'));
@@ -96,6 +97,7 @@ export default function App() {
                 <Route path="weather" element={<FeatureGuard featureKey="weather" featureTitle="मौसम पूर्वानुमान"><Weather /></FeatureGuard>} />
                 <Route path="schemes" element={<FeatureGuard featureKey="schemes" featureTitle="सरकारी योजनाएं"><Schemes /></FeatureGuard>} />
                 <Route path="news" element={<FeatureGuard featureKey="news" featureTitle="कृषि समाचार"><AgriNews /></FeatureGuard>} />
+                <Route path="videos" element={<FeatureGuard featureKey="videos" featureTitle="कृषि वीडियो"><Videos /></FeatureGuard>} />
                 <Route path="soil-testing" element={<FeatureGuard featureKey="soil_testing" featureTitle="मिट्टी परीक्षण मार्गदर्शिका"><SoilTesting /></FeatureGuard>} />
                 <Route path="calculator" element={<FeatureGuard featureKey="calculator" featureTitle="Agri Calculator"><AgriCalculator /></FeatureGuard>} />
                 <Route path="helpline" element={<FeatureGuard featureKey="helpline" featureTitle="हेल्पलाइन डायरेक्टरी"><Helpline /></FeatureGuard>} />

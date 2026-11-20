@@ -68,7 +68,7 @@ export interface AppContent {
     url: string;
     label: string;
   };
-  partners: { id: string; name: string; logo: string | ImageSource }[];
+  partners: { id: string; name: string; logo: string | ImageSource; isActive?: boolean }[];
   whatsappSection: {
     title: string;
     description: string;
@@ -102,6 +102,7 @@ export interface AppContent {
   showTreatmentPlanInDiseaseReport?: boolean;
   footer?: FooterConfig;
   featureToggles?: Record<string, boolean>;
+  videoHubSettings?: import('../types').VideoHubSettings;
 }
 
 export interface UserSettings {
@@ -1124,13 +1125,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const stripUndefinedDeep = <T,>(val: T): T => {
+    if (Array.isArray(val)) {
+      return val.map((item) => stripUndefinedDeep(item)) as unknown as T;
+    }
+    if (val && typeof val === 'object' && Object.getPrototypeOf(val) === Object.prototype) {
+      const cleaned: Record<string, any> = {};
+      for (const [k, v] of Object.entries(val)) {
+        if (v !== undefined) {
+          cleaned[k] = stripUndefinedDeep(v);
+        }
+      }
+      return cleaned as T;
+    }
+    return val;
+  };
+
   const updateAppContent = async (content: AppContent) => {
-    setAppContent(content);
-    safeLocalStorageSet('agri_cache_app_content', JSON.stringify(content));
-    idbSet(IDB_KEYS.APP_CONTENT, content);
-    prefetchContentImages(content);
+    const sanitized = stripUndefinedDeep(content);
+    setAppContent(sanitized);
+    safeLocalStorageSet('agri_cache_app_content', JSON.stringify(sanitized));
+    idbSet(IDB_KEYS.APP_CONTENT, sanitized);
+    prefetchContentImages(sanitized);
     try {
-      await setDoc(doc(db, 'settings', 'content'), content);
+      await setDoc(doc(db, 'settings', 'content'), sanitized);
       await bumpMetadataVersion(db, 'content');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/content');

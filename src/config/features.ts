@@ -1,7 +1,7 @@
 import { 
   Sparkles, Phone, Camera, TrendingUp, CloudSun, 
   Landmark, Newspaper, Calculator, TestTube2, 
-  Bug, PhoneCall, HelpCircle, LucideIcon 
+  Bug, PhoneCall, HelpCircle, Video, LucideIcon 
 } from 'lucide-react';
 
 export interface AppFeature {
@@ -87,6 +87,16 @@ export const APP_FEATURES: AppFeature[] = [
     defaultEnabled: true,
   },
   {
+    id: 'videos',
+    name: 'कृषि वीडियो (Krishi Videos)',
+    englishName: 'YouTube Agri Videos & Shorts',
+    description: 'खेती, खाद, रोग नियंत्रण व योजनाओं के उपयोगी वीडियो और शॉर्ट्स',
+    route: '/videos',
+    category: 'service',
+    icon: Video,
+    defaultEnabled: true,
+  },
+  {
     id: 'calculator',
     name: 'कृषि कैलकुलेटर (Agri Calculator)',
     englishName: 'Fertilizer & Seed Calculator',
@@ -146,6 +156,7 @@ export const ROUTE_TO_FEATURE_MAP: Record<string, string> = {
   '/weather': 'weather',
   '/schemes': 'schemes',
   '/news': 'news',
+  '/videos': 'videos',
   '/calculator': 'calculator',
   '/soil-testing': 'soil_testing',
   '/encyclopedia': 'encyclopedia',

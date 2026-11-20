@@ -148,7 +148,8 @@
             "properties": {
               "id": { "type": "string" },
               "name": { "type": "string" },
-              "logo": { "oneOf": [{ "type": "string" }, { "$ref": "ImageSource" }] }
+              "logo": { "oneOf": [{ "type": "string" }, { "$ref": "ImageSource" }] },
+              "isActive": { "type": "boolean" }
             }
           }
         },

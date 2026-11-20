@@ -26,6 +26,20 @@ export type DeviceBannersMap = {
   desktop: DeviceBanner[];
 };
 
+export type VideoCategoryId =
+  | 'all'
+  | 'crop_info'
+  | 'fertilizers'
+  | 'pesticides'
+  | 'schemes'
+  | 'mandi'
+  | 'weather_irrigation'
+  | 'agri_tech'
+  | 'farmer_stories'
+  | 'app_guide'
+  | 'shorts'
+  | 'other';
+
 export interface YouTubeVideoItem {
   id: string;
   title: string;
@@ -35,8 +49,44 @@ export interface YouTubeVideoItem {
   thumbnail: string | ImageSource;
   isActive: boolean;
   displayOrder?: number;
+  category?: Exclude<VideoCategoryId, 'all'>;
+  isShort?: boolean;
+  duration?: string;
+  durationSeconds?: number;
+  publishedAt?: string;
+  publishedTimestamp?: number;
+  isPinned?: boolean;
+  isFeatured?: boolean;
+  embeddable?: boolean;
+  source?: 'manual' | 'channel_rss' | 'channel_api';
   createdAt?: number;
   updatedAt?: number;
+}
+
+export interface VideoOverride {
+  videoId: string;
+  isActive?: boolean;
+  isDeleted?: boolean;
+  isPinned?: boolean;
+  isFeatured?: boolean;
+  isShort?: boolean;
+  category?: Exclude<VideoCategoryId, 'all'>;
+  title?: string;
+  description?: string;
+  updatedAt?: number;
+}
+
+export interface VideoHubSettings {
+  enabled?: boolean;
+  showShortsTab?: boolean;
+  autoSyncEnabled?: boolean;
+  defaultTab?: 'videos' | 'shorts';
+  resolvedChannelId?: string;
+  resolvedChannelTitle?: string;
+  lastSyncAt?: number;
+  lastSyncMode?: 'api' | 'rss' | 'none';
+  lastSyncCount?: number;
+  overrides?: Record<string, VideoOverride>;
 }
 
 export interface CategoryData {
@@ -917,7 +967,7 @@ export interface AppContent {
     url: string;
     label: string;
   };
-  partners: { id: string; name: string; logo: string | ImageSource }[];
+  partners: { id: string; name: string; logo: string | ImageSource; isActive?: boolean }[];
   whatsappSection: {
     title: string;
     description: string;
@@ -951,6 +1001,7 @@ export interface AppContent {
   showTreatmentPlanInDiseaseReport?: boolean;
   footer?: FooterConfig;
   featureToggles?: Record<string, boolean>;
+  videoHubSettings?: VideoHubSettings;
 }
 
 export interface FooterLinkItem {

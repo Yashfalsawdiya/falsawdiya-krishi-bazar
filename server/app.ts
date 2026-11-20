@@ -17,6 +17,7 @@ import {
 import { handleGetMandiPrices } from './mandiRoutes.js';
 import { handleGetDailyNews, handleSyncNews } from './newsRoutes.js';
 import { handleGetSchemes, handleSyncSchemes } from './schemeRoutes.js';
+import { handleGetYouTubeVideos, handleSyncYouTubeVideos } from './videoRoutes.js';
 
 export const app = express();
 
@@ -1562,6 +1563,12 @@ app.get('/api/news/daily', handleGetDailyNews);
 app.post('/api/news/sync', handleSyncNews);
 app.get('/api/schemes/all', handleGetSchemes);
 app.post('/api/schemes/sync', handleSyncSchemes);
+
+// ==========================================
+// CENTRALIZED YOUTUBE HYBRID VIDEO HUB
+// ==========================================
+app.get('/api/videos/youtube', handleGetYouTubeVideos);
+app.post('/api/videos/sync', handleSyncYouTubeVideos);
 
 // Health check endpoint
 app.get('/api/health', async (_req: Request, res: Response) => {

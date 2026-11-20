@@ -8,7 +8,7 @@ import {
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle,
   Truck, FileText, Facebook, Instagram, Package, CreditCard, Layers, MessageSquare,
   Zap, Radio, Clock, Send, Eye, EyeOff, SlidersHorizontal, AlertCircle, LayoutGrid,
-  Calculator
+  Calculator, Award
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
@@ -26,6 +26,7 @@ const AdminRazorpayManager = lazy(() => import('../components/AdminRazorpayManag
 const AdminInvoiceTemplateManager = lazy(() => import('../components/AdminInvoiceTemplateManager'));
 const AdminDeliveryManager = lazy(() => import('../components/AdminDeliveryManager'));
 const AdminDeviceBannerManager = lazy(() => import('../components/AdminDeviceBannerManager'));
+const AdminPopularBrandsManager = lazy(() => import('../components/AdminPopularBrandsManager'));
 const AdminYouTubeVideoManager = lazy(() => import('../components/AdminYouTubeVideoManager'));
 const AdminFooterManager = lazy(() => import('../components/AdminFooterManager'));
 const AdminFeaturesManager = lazy(() => import('../components/AdminFeaturesManager'));
@@ -38,7 +39,7 @@ const AdminTabFallback: React.FC = () => (
   </div>
 );
 
-type AdminTabType = 'accounting' | 'orders' | 'delivery' | 'features' | 'content' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate' | 'footer';
+type AdminTabType = 'accounting' | 'orders' | 'delivery' | 'features' | 'content' | 'heroBanners' | 'popularBrands' | 'youtube' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate' | 'footer';
 
 interface AdminNavSectionItem {
   id: AdminTabType;
@@ -53,6 +54,9 @@ const ADMIN_NAV_SECTIONS: AdminNavSectionItem[] = [
   { id: 'orders', titleHi: 'ऑर्डर्स', subtitleEn: '(Orders)', icon: Package },
   { id: 'delivery', titleHi: 'डिलीवरी सेटिंग्स', subtitleEn: '(Delivery)', icon: Truck },
   { id: 'content', titleHi: 'कंटेंट', subtitleEn: '(Content)', icon: Layout },
+  { id: 'heroBanners', titleHi: 'Hero Banners', subtitleEn: '(Home Slider)', icon: ImageIcon },
+  { id: 'popularBrands', titleHi: 'Popular Brands', subtitleEn: '(Partner Logos)', icon: Award },
+  { id: 'youtube', titleHi: 'YouTube', subtitleEn: '(Videos & Channel)', icon: YoutubeIcon },
   { id: 'features', titleHi: 'फ़ीचर्स नियंत्रण', subtitleEn: '(Features)', icon: SlidersHorizontal },
   { id: 'products', titleHi: 'उत्पाद', subtitleEn: '(Products)', icon: ShoppingBag },
   { id: 'categories', titleHi: 'श्रेणियाँ', subtitleEn: '(Categories)', icon: ListFilter },
@@ -97,7 +101,7 @@ const Admin: React.FC = () => {
     }
   }, [isAdmin]);
   
-  const [activeTab, setActiveTab] = useState<'accounting' | 'orders' | 'delivery' | 'features' | 'content' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate' | 'footer'>('orders');
+  const [activeTab, setActiveTab] = useState<AdminTabType>('orders');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
   const [productSearchQuery, setProductSearchQuery] = useState<string>('');
@@ -388,6 +392,10 @@ const Admin: React.FC = () => {
     }
   };
 
+  const [youtubeSaveMessage, setYoutubeSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [heroBannerSaveMessage, setHeroBannerSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [popularBrandSaveMessage, setPopularBrandSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   const handleContentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!contentForm) return;
@@ -397,6 +405,75 @@ const Admin: React.FC = () => {
       alert('कंटेंट सुरक्षित कर दिया गया है!');
     } catch (error) {
       console.error("Error saving content:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleHeroBannersSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contentForm) return;
+    setIsSaving(true);
+    setHeroBannerSaveMessage(null);
+    try {
+      await updateAppContent(contentForm);
+      setHeroBannerSaveMessage({
+        type: 'success',
+        text: 'Hero Banners सफलतापूर्वक सुरक्षित कर दिए गए हैं!'
+      });
+      setTimeout(() => setHeroBannerSaveMessage(null), 5000);
+    } catch (error) {
+      console.error("Error saving hero banners:", error);
+      setHeroBannerSaveMessage({
+        type: 'error',
+        text: 'Hero Banners सेव करने में त्रुटि हुई। कृपया पुनः प्रयास करें।'
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePopularBrandsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contentForm) return;
+    setIsSaving(true);
+    setPopularBrandSaveMessage(null);
+    try {
+      await updateAppContent(contentForm);
+      setPopularBrandSaveMessage({
+        type: 'success',
+        text: 'Popular Brands सफलतापूर्वक सुरक्षित कर दिए गए हैं!'
+      });
+      setTimeout(() => setPopularBrandSaveMessage(null), 5000);
+    } catch (error) {
+      console.error("Error saving popular brands:", error);
+      setPopularBrandSaveMessage({
+        type: 'error',
+        text: 'Popular Brands सेव करने में त्रुटि हुई। कृपया पुनः प्रयास करें।'
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleYouTubeSettingsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contentForm) return;
+    setIsSaving(true);
+    setYoutubeSaveMessage(null);
+    try {
+      await updateAppContent(contentForm);
+      setYoutubeSaveMessage({
+        type: 'success',
+        text: 'YouTube चैनल और वीडियो गाइड सेटिंग्स सफलतापूर्वक सुरक्षित कर दी गई हैं।'
+      });
+      setTimeout(() => setYoutubeSaveMessage(null), 5000);
+    } catch (error) {
+      console.error("Error saving YouTube settings:", error);
+      setYoutubeSaveMessage({
+        type: 'error',
+        text: 'YouTube सेटिंग्स सेव करने में त्रुटि हुई। कृपया पुनः प्रयास करें।'
+      });
     } finally {
       setIsSaving(false);
     }
@@ -836,7 +913,7 @@ const Admin: React.FC = () => {
                   एडमिन नेविगेशन डैशबोर्ड
                 </h3>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80">
-                  16 सेक्शंस
+                  {ADMIN_NAV_SECTIONS.length} सेक्शंस
                 </span>
               </div>
               <p className="text-[11px] text-gray-500 font-medium mt-0.5">
@@ -1844,6 +1921,177 @@ const Admin: React.FC = () => {
         <Suspense fallback={<AdminTabFallback />}>
           <AdminFeaturesManager />
         </Suspense>
+      ) : activeTab === 'heroBanners' ? (
+        <form onSubmit={handleHeroBannersSubmit} className="space-y-6" id="admin-hero-banners-tab-section">
+          {contentForm ? (
+            <SafeErrorBoundary fallbackTitle="Hero Banners प्रबंधन सेक्शन लोड करने में समस्या आई">
+              <Suspense fallback={<AdminTabFallback />}>
+                <AdminDeviceBannerManager 
+                  contentForm={contentForm}
+                  setContentForm={setContentForm as React.Dispatch<React.SetStateAction<AppContent>>}
+                  onSaveContent={async () => {
+                    if (contentForm) {
+                      await updateAppContent(contentForm);
+                    }
+                  }}
+                />
+              </Suspense>
+            </SafeErrorBoundary>
+          ) : (
+            <AdminTabFallback />
+          )}
+
+          {heroBannerSaveMessage && (
+            <div
+              className={cn(
+                "p-4 rounded-2xl border text-sm font-semibold flex items-center gap-2.5",
+                heroBannerSaveMessage.type === 'success'
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                  : "bg-red-50 border-red-200 text-red-800"
+              )}
+            >
+              {heroBannerSaveMessage.type === 'success' ? (
+                <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+              )}
+              <span>{heroBannerSaveMessage.text}</span>
+            </div>
+          )}
+
+          <button 
+            type="submit" 
+            disabled={isSaving || !contentForm}
+            className="w-full bg-[#2D5A27] hover:bg-[#23461e] text-white py-5 rounded-[1.5rem] font-bold flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all disabled:opacity-50 sticky bottom-4 z-10 cursor-pointer"
+          >
+            {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+            Hero Banners सुरक्षित करें (Save Hero Banners)
+          </button>
+        </form>
+      ) : activeTab === 'popularBrands' ? (
+        <form onSubmit={handlePopularBrandsSubmit} className="space-y-6" id="admin-popular-brands-tab-section">
+          {contentForm ? (
+            <SafeErrorBoundary fallbackTitle="Popular Brands प्रबंधन सेक्शन लोड करने में समस्या आई">
+              <Suspense fallback={<AdminTabFallback />}>
+                <AdminPopularBrandsManager 
+                  contentForm={contentForm}
+                  setContentForm={setContentForm as React.Dispatch<React.SetStateAction<AppContent>>}
+                  onSaveContent={async (nextContent?: AppContent) => {
+                    const target = nextContent || contentForm;
+                    if (target) {
+                      await updateAppContent(target);
+                    }
+                  }}
+                />
+              </Suspense>
+            </SafeErrorBoundary>
+          ) : (
+            <AdminTabFallback />
+          )}
+
+          {popularBrandSaveMessage && (
+            <div
+              className={cn(
+                "p-4 rounded-2xl border text-sm font-semibold flex items-center gap-2.5",
+                popularBrandSaveMessage.type === 'success'
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                  : "bg-red-50 border-red-200 text-red-800"
+              )}
+            >
+              {popularBrandSaveMessage.type === 'success' ? (
+                <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+              )}
+              <span>{popularBrandSaveMessage.text}</span>
+            </div>
+          )}
+
+          <button 
+            type="submit" 
+            disabled={isSaving || !contentForm}
+            className="w-full bg-[#2D5A27] hover:bg-[#23461e] text-white py-5 rounded-[1.5rem] font-bold flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all disabled:opacity-50 sticky bottom-4 z-10 cursor-pointer"
+          >
+            {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+            Popular Brands सुरक्षित करें (Save Popular Brands)
+          </button>
+        </form>
+      ) : activeTab === 'youtube' ? (
+        <form onSubmit={handleYouTubeSettingsSubmit} className="space-y-6" id="admin-youtube-tab-section">
+          {contentForm ? (
+            <SafeErrorBoundary fallbackTitle="YouTube प्रबंधन सेक्शन लोड करने में समस्या आई">
+              <Suspense fallback={<AdminTabFallback />}>
+                <AdminYouTubeVideoManager 
+                  contentForm={contentForm}
+                  setContentForm={setContentForm as React.Dispatch<React.SetStateAction<AppContent>>}
+                  onSaveContent={async (nextContent?: AppContent) => {
+                    const target = nextContent || contentForm;
+                    if (target) {
+                      await updateAppContent(target);
+                    }
+                  }}
+                />
+              </Suspense>
+            </SafeErrorBoundary>
+          ) : (
+            <AdminTabFallback />
+          )}
+
+          {/* AI Guide Video Link Settings (YouTube) */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
+              <YoutubeIcon className="w-5 h-5 text-red-600" />
+              AI वीडियो गाइड सेटिंग्स (AI Video Guide)
+            </h3>
+            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
+                  YouTube वीडियो लिंक (API Key Guide)
+                </label>
+                <input 
+                  type="text" 
+                  value={contentForm?.apiKeyGuideVideoUrl || ''}
+                  onChange={e => {
+                    if (!contentForm) return;
+                    setContentForm({ ...contentForm, apiKeyGuideVideoUrl: e.target.value });
+                  }}
+                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium text-sm"
+                  placeholder="जैसे: https://www.youtube.com/watch?v=..."
+                />
+                <p className="text-[11px] text-gray-500 ml-1">
+                  यह लिंक 'प्रोफाइल' और 'API Key पॉपअप' में किसानों को मार्गदर्शन वीडियो के रूप में दिखाई देगा।
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {youtubeSaveMessage && (
+            <div
+              className={cn(
+                "p-4 rounded-2xl border text-sm font-semibold flex items-center gap-2.5",
+                youtubeSaveMessage.type === 'success'
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                  : "bg-red-50 border-red-200 text-red-800"
+              )}
+            >
+              {youtubeSaveMessage.type === 'success' ? (
+                <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+              )}
+              <span>{youtubeSaveMessage.text}</span>
+            </div>
+          )}
+
+          <button 
+            type="submit" 
+            disabled={isSaving || !contentForm}
+            className="w-full bg-[#2D5A27] hover:bg-[#23461e] text-white py-5 rounded-[1.5rem] font-bold flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all disabled:opacity-50 sticky bottom-4 z-10 cursor-pointer"
+          >
+            {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+            YouTube सेटिंग्स सुरक्षित करें (Save YouTube Settings)
+          </button>
+        </form>
       ) : (
         <form onSubmit={handleContentSubmit} className="space-y-8">
           {/* Instant Force Push Updates Card */}
@@ -2157,100 +2405,6 @@ const Admin: React.FC = () => {
             </div>
           </div>
 
-          {/* Hero Banners */}
-          <Suspense fallback={<AdminTabFallback />}>
-            <AdminDeviceBannerManager 
-              contentForm={contentForm}
-              setContentForm={setContentForm as React.Dispatch<React.SetStateAction<AppContent>>}
-              onSaveContent={async () => {
-                if (contentForm) {
-                  await updateAppContent(contentForm);
-                }
-              }}
-            />
-          </Suspense>
-
-          {/* YouTube Videos Management (Add, Edit, Delete, Reorder, Active/Hidden, Channel URL) */}
-          {contentForm && (
-            <Suspense fallback={<AdminTabFallback />}>
-              <AdminYouTubeVideoManager 
-                contentForm={contentForm}
-                setContentForm={setContentForm as React.Dispatch<React.SetStateAction<AppContent>>}
-                onSaveContent={async () => {
-                  if (contentForm) {
-                    await updateAppContent(contentForm);
-                  }
-                }}
-              />
-            </Suspense>
-          )}
-
-          {/* Partner Logos */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
-                <Sprout className="w-5 h-5 text-[#2D5A27]" />
-                कंपनियों के लोगो (Partner Logos)
-              </h3>
-              <button 
-                type="button"
-                onClick={() => {
-                  if (!contentForm) return;
-                  const newPartners = [...(contentForm.partners || [])];
-                  newPartners.push({ id: Math.random().toString(36).substring(2, 11) + Date.now().toString(36), name: '', logo: '' });
-                  setContentForm({...contentForm, partners: newPartners});
-                }}
-                className="text-[#2D5A27] bg-[#2D5A27]/10 p-2 rounded-xl flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
-              >
-                <Plus className="w-3 h-3" /> कंपनी जोड़ें
-              </button>
-            </div>
-            <div className="grid grid-cols-1 gap-4">
-              {contentForm?.partners?.map((partner, idx) => (
-                <div key={`${partner.id}-${idx}`} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4 relative group">
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      if (!contentForm) return;
-                      const newPartners = contentForm.partners.filter(p => p.id !== partner.id);
-                      setContentForm({...contentForm, partners: newPartners});
-                    }}
-                    className="absolute top-4 right-4 p-2 text-red-500 bg-red-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">कंपनी का नाम (Company Name)</label>
-                      <input 
-                        type="text" 
-                        value={partner.name}
-                        onChange={e => {
-                          if (!contentForm) return;
-                          const newPartners = [...contentForm.partners];
-                          newPartners[idx].name = e.target.value;
-                          setContentForm({...contentForm, partners: newPartners});
-                        }}
-                        className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
-                        placeholder="जैसे: Bayer"
-                      />
-                    </div>
-                    <DualImageInput 
-                      label="कंपनी लोगो (Company Logo)"
-                      value={partner.logo}
-                      onChange={source => {
-                        if (!contentForm) return;
-                        const newPartners = [...contentForm.partners];
-                        newPartners[idx].logo = source;
-                        setContentForm({...contentForm, partners: newPartners});
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* WhatsApp Section Details */}
           <div className="space-y-4">
             <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
@@ -2561,30 +2715,6 @@ const Admin: React.FC = () => {
                   className="w-full bg-gray-50 border-2 border-transparent focus:border-[#E1306C] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
                   placeholder="जैसे: प्रोफाइल देखें"
                 />
-              </div>
-            </div>
-          </div>
-
-          {/* AI Guide Settings */}
-          <div className="space-y-4">
-            <h3 className="font-bold text-[#4A3728] flex items-center gap-2">
-              <YoutubeIcon className="w-5 h-5 text-red-600" />
-              AI वीडियो गाइड सेटिंग्स (AI Video Guide)
-            </h3>
-            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">YouTube वीडियो लिंक (API Key Guide)</label>
-                <input 
-                  type="text" 
-                  value={contentForm?.apiKeyGuideVideoUrl || ''}
-                  onChange={e => {
-                    if (!contentForm) return;
-                    setContentForm({ ...contentForm, apiKeyGuideVideoUrl: e.target.value });
-                  }}
-                  className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-4 outline-none transition-all font-medium"
-                  placeholder="जैसे: https://www.youtube.com/watch?v=..."
-                />
-                <p className="text-[10px] text-gray-400 ml-1">यह लिंक 'प्रोफाइल' और 'API Key पॉपअप' में दिखाई देगा।</p>
               </div>
             </div>
           </div>
