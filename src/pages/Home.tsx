@@ -18,7 +18,7 @@ import {
   normalizeDeviceBanners, 
   getActiveBannersForDevice 
 } from '../utils/deviceBanners';
-import { normalizeVideos, resolveVideoThumbnail } from '../utils/youtubeUtils';
+import { normalizeVideos, resolveVideoThumbnail, extractYouTubeVideoId } from '../utils/youtubeUtils';
 import { DeviceBanner } from '../types';
 import { sortCategoriesByOrder } from '../utils/categoryUtils';
 import { useFeatureToggle } from '../hooks/useFeatureToggle';
@@ -1165,40 +1165,48 @@ const Home: React.FC = () => {
           
           <div className="overflow-hidden -mx-4 px-4" ref={emblaVideoRef}>
             <div className={cn("flex gap-4", videos.length <= 3 && "md:justify-center")}>
-              {videos.map((video, idx) => (
-                <div key={`${video.id}-${idx}`} className="flex-[0_0_85%] sm:flex-[0_0_45%] md:flex-[0_0_31%] lg:flex-[0_0_23%] min-w-0">
-                  <a 
-                    href={video.videoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 active:scale-95 transition-transform group"
-                  >
-                    <div className="aspect-video relative bg-gray-900">
-                      <SmartImage 
-                        src={resolveVideoThumbnail(video)} 
-                        alt={video.title} 
-                        className="absolute inset-0 w-full h-full"
-                        objectFit="cover"
-                      />
-                      <div className="absolute inset-0 bg-black/15 flex items-center justify-center group-hover:bg-black/25 transition-colors">
-                        <div className="bg-red-600 text-white w-14 h-10 rounded-[14px] flex items-center justify-center shadow-xl group-hover:scale-105 transition-transform">
-                          <Play className="w-6 h-6 fill-white text-white ml-1" />
+              {videos.map((video, idx) => {
+                const targetVideoId =
+                  video.videoId ||
+                  extractYouTubeVideoId(video.videoUrl || '') ||
+                  video.id;
+                const inAppVideoPath = targetVideoId
+                  ? `/videos?v=${encodeURIComponent(targetVideoId)}`
+                  : '/videos';
+
+                return (
+                  <div key={`${video.id}-${idx}`} className="flex-[0_0_85%] sm:flex-[0_0_45%] md:flex-[0_0_31%] lg:flex-[0_0_23%] min-w-0">
+                    <Link 
+                      to={inAppVideoPath}
+                      className="block bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 active:scale-95 transition-transform group"
+                    >
+                      <div className="aspect-video relative bg-gray-900">
+                        <SmartImage 
+                          src={resolveVideoThumbnail(video)} 
+                          alt={video.title} 
+                          className="absolute inset-0 w-full h-full"
+                          objectFit="cover"
+                        />
+                        <div className="absolute inset-0 bg-black/15 flex items-center justify-center group-hover:bg-black/25 transition-colors">
+                          <div className="bg-red-600 text-white w-14 h-10 rounded-[14px] flex items-center justify-center shadow-xl group-hover:scale-105 transition-transform">
+                            <Play className="w-6 h-6 fill-white text-white ml-1" />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="p-3">
-                      <h4 className="text-sm font-bold text-gray-800 line-clamp-2">
-                        {translateText(video.title)}
-                      </h4>
-                      {video.description && (
-                        <p className="text-xs text-gray-500 line-clamp-1 mt-1">
-                          {translateText(video.description)}
-                        </p>
-                      )}
-                    </div>
-                  </a>
-                </div>
-              ))}
+                      <div className="p-3">
+                        <h4 className="text-sm font-bold text-gray-800 line-clamp-2">
+                          {translateText(video.title)}
+                        </h4>
+                        {video.description && (
+                          <p className="text-xs text-gray-500 line-clamp-1 mt-1">
+                            {translateText(video.description)}
+                          </p>
+                        )}
+                      </div>
+                    </Link>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>

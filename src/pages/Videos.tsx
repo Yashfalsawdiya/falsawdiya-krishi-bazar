@@ -1,11 +1,9 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Video,
   Film,
   Play,
-  Search,
-  X,
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
@@ -20,6 +18,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Loader2,
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { YouTubeVideoItem } from '../types';
@@ -35,6 +34,8 @@ import {
   getCachedVideoFeed,
   setCachedVideoFeed,
   formatYouTubeWatchUrl,
+  extractYouTubeVideoId,
+  getYouTubeThumbnailSource,
 } from '../utils/youtubeUtils';
 import SmartImage from '../components/SmartImage';
 import { cn } from '../lib/utils';
@@ -55,7 +56,6 @@ const Videos: React.FC = () => {
   const [activeTab, setActiveTab] = useState<FormatTab>(
     videoHubSettings?.defaultTab === 'shorts' && showShortsTab ? 'shorts' : 'videos'
   );
-  const [searchQuery, setSearchQuery] = useState('');
   const [onlyBookmarked, setOnlyBookmarked] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -69,6 +69,9 @@ const Videos: React.FC = () => {
   const [bookmarkedIds, setBookmarkedIds] = useState<string[]>(() => getBookmarkedVideoIds());
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [playerLoading, setPlayerLoading] = useState(false);
+  const [playerError, setPlayerError] = useState<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToastMsg(msg);
@@ -179,7 +182,7 @@ const Videos: React.FC = () => {
   // Reset pagination when filters change
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [activeTab, searchQuery, onlyBookmarked]);
+  }, [activeTab, onlyBookmarked]);
 
   // Counts for tab header
   const formatCounts = useMemo(() => {
@@ -192,10 +195,8 @@ const Videos: React.FC = () => {
     return { videos, shorts };
   }, [allMergedVideos]);
 
-  // Filtered list based on active format tab, search, and bookmarks
+  // Filtered list based on active format tab and bookmarks
   const filteredVideos = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-
     return allMergedVideos.filter((v) => {
       const matchesFormat = showShortsTab
         ? activeTab === 'shorts'
@@ -210,18 +211,11 @@ const Videos: React.FC = () => {
         if (!bookmarkedIds.includes(key)) return false;
       }
 
-      if (q) {
-        const catLabel = (VIDEO_CATEGORY_MAP[v.category || 'other'] || '').toLowerCase();
-        const hay = `${v.title} ${v.description || ''} ${catLabel}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-
       return true;
     });
   }, [
     allMergedVideos,
     activeTab,
-    searchQuery,
     onlyBookmarked,
     bookmarkedIds,
     showShortsTab,
@@ -236,19 +230,86 @@ const Videos: React.FC = () => {
   const activePlayerVideoId = searchParams.get('v');
   const activePlayerVideo = useMemo(() => {
     if (!activePlayerVideoId) return null;
-    return (
-      allMergedVideos.find(
-        (v) => v.videoId === activePlayerVideoId || v.id === activePlayerVideoId
-      ) || null
+    const trimmedParam = activePlayerVideoId.trim();
+    const extractedId = extractYouTubeVideoId(trimmedParam);
+
+    const matched = allMergedVideos.find(
+      (v) =>
+        v.videoId === trimmedParam ||
+        v.id === trimmedParam ||
+        (extractedId ? v.videoId === extractedId : false)
     );
+    if (matched) return matched;
+
+    // If navigated directly with a valid 11-char YouTube Video ID (e.g. from Home while feed loads),
+    // construct an immediate playable item so playback starts right away without extra API calls.
+    if (extractedId && /^[a-zA-Z0-9_-]{11}$/.test(extractedId)) {
+      return {
+        id: extractedId,
+        videoId: extractedId,
+        videoUrl: formatYouTubeWatchUrl(extractedId),
+        title: 'किसान पाठशाला वीडियो',
+        description: '',
+        thumbnail: getYouTubeThumbnailSource(extractedId),
+        isActive: true,
+        embeddable: true,
+        source: 'manual',
+      } as YouTubeVideoItem;
+    }
+
+    return null;
   }, [activePlayerVideoId, allMergedVideos]);
 
-  // Reset description expansion when switching video
+  // Reset description expansion, loading & error state when switching video
   useEffect(() => {
     setDescExpanded(false);
+    setPlayerError(null);
     if (activePlayerVideoId) {
+      setPlayerLoading(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      const safetyTimer = setTimeout(() => setPlayerLoading(false), 5000);
+      return () => clearTimeout(safetyTimer);
+    } else {
+      setPlayerLoading(false);
     }
+  }, [activePlayerVideoId]);
+
+  // Listen to official YouTube IFrame API postMessage events for ready/error detection
+  useEffect(() => {
+    if (!activePlayerVideoId) return;
+
+    const handleYouTubeMessage = (event: MessageEvent) => {
+      if (
+        event.origin !== 'https://www.youtube.com' &&
+        event.origin !== 'https://www.youtube-nocookie.com'
+      ) {
+        return;
+      }
+
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (!data || typeof data !== 'object') return;
+
+        if (data.event === 'onReady') {
+          setPlayerLoading(false);
+        } else if (data.event === 'onError') {
+          const code = Number(data.info);
+          setPlayerLoading(false);
+          if (code === 100) {
+            setPlayerError('यह वीडियो निजी (Private) है या YouTube से हटा दिया गया है।');
+          } else if (code === 101 || code === 150) {
+            setPlayerError('वीडियो मालिक द्वारा इस वीडियो को ऐप में एम्बेड करने की अनुमति बंद (Embedding Disabled) की गई है।');
+          } else {
+            setPlayerError('यह वीडियो वर्तमान में ऐप प्लेयर में लोड नहीं हो सका।');
+          }
+        }
+      } catch {
+        // Ignore non-JSON iframe messages
+      }
+    };
+
+    window.addEventListener('message', handleYouTubeMessage);
+    return () => window.removeEventListener('message', handleYouTubeMessage);
   }, [activePlayerVideoId]);
 
   const openVideoPlayer = (video: YouTubeVideoItem) => {
@@ -318,6 +379,42 @@ const Videos: React.FC = () => {
     }
   };
 
+  // Fallback if an invalid/non-existent ?v= parameter was passed
+  if (activePlayerVideoId && !activePlayerVideo) {
+    return (
+      <div className="max-w-3xl mx-auto py-8 px-4 space-y-5">
+        <button
+          type="button"
+          onClick={closeVideoPlayer}
+          className="inline-flex items-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl bg-white border border-gray-200/90 text-[#1E3F1A] hover:bg-emerald-50 font-semibold text-sm shadow-2xs transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>सभी वीडियो</span>
+        </button>
+
+        <div className="bg-white rounded-3xl border border-gray-200/80 p-8 text-center space-y-4 shadow-sm">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+            <AlertCircle className="w-7 h-7" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-lg font-bold text-[#1E3F1A]">वीडियो उपलब्ध नहीं है</h2>
+            <p className="text-xs sm:text-sm text-gray-600 max-w-md mx-auto">
+              चयनित वीडियो हटा दिया गया है या इसकी वीडियो ID मान्य नहीं है। कृपया किसान पाठशाला से कोई अन्य वीडियो चुनें।
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={closeVideoPlayer}
+            className="inline-flex items-center gap-2 bg-[#2D5A27] hover:bg-[#22471D] text-white px-5 py-3 rounded-xl text-sm font-bold transition-colors cursor-pointer"
+          >
+            <Video className="w-4 h-4" />
+            <span>किसान पाठशाला के सभी वीडियो देखें</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ========================================================
   // PLAYER VIEW (Dedicated in-app YouTube Player screen)
   // ========================================================
@@ -330,10 +427,29 @@ const Videos: React.FC = () => {
       activePlayerVideo.publishedAt,
       activePlayerVideo.publishedTimestamp || activePlayerVideo.createdAt
     );
-    const canEmbed = activePlayerVideo.embeddable !== false && Boolean(activePlayerVideo.videoId);
+    const playableVideoId =
+      activePlayerVideo.videoId || extractYouTubeVideoId(activePlayerVideo.videoUrl || '');
+    const canEmbed = activePlayerVideo.embeddable !== false && Boolean(playableVideoId) && !playerError;
     const watchUrl =
       activePlayerVideo.videoUrl ||
-      (activePlayerVideo.videoId ? formatYouTubeWatchUrl(activePlayerVideo.videoId) : '#');
+      (playableVideoId ? formatYouTubeWatchUrl(playableVideoId) : '#');
+    const channelDisplayName =
+      resolvedChannelTitle || youtubeChannel?.label || 'फल्सावदिया कृषि बाजार';
+    const embedSrc = playableVideoId
+      ? `https://www.youtube.com/embed/${playableVideoId}?autoplay=1&rel=0&playsinline=1&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+      : '';
+
+    const handleIframeLoad = () => {
+      setPlayerLoading(false);
+      try {
+        iframeRef.current?.contentWindow?.postMessage(
+          JSON.stringify({ event: 'listening' }),
+          'https://www.youtube.com'
+        );
+      } catch {
+        // ignore cross-origin postMessage restriction
+      }
+    };
 
     return (
       <div className="max-w-5xl mx-auto pb-8 space-y-5">
@@ -370,25 +486,49 @@ const Videos: React.FC = () => {
 
         {/* Player Surface */}
         <div className="bg-white rounded-3xl border border-gray-200/80 shadow-sm overflow-hidden">
-          <div className="bg-neutral-950 flex items-center justify-center">
+          <div className="bg-neutral-950 flex items-center justify-center relative">
             {canEmbed ? (
               isShortPlayer ? (
-                <div className="w-full max-w-[360px] mx-auto aspect-[9/16] max-h-[72vh] bg-black">
+                <div className="relative w-full max-w-[360px] mx-auto aspect-[9/16] max-h-[72vh] bg-black">
+                  {playerLoading && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2.5 bg-neutral-950/90 text-white pointer-events-none">
+                      <Loader2 className="w-8 h-8 animate-spin text-[#EAB308]" />
+                      <p className="text-xs font-semibold text-white/85">वीडियो प्लेयर लोड हो रहा है...</p>
+                    </div>
+                  )}
                   <iframe
-                    key={activePlayerVideo.videoId}
-                    src={`https://www.youtube.com/embed/${activePlayerVideo.videoId}?autoplay=1&rel=0&playsinline=1&modestbranding=1`}
+                    ref={iframeRef}
+                    key={playableVideoId}
+                    src={embedSrc}
                     title={activePlayerVideo.title}
+                    onLoad={handleIframeLoad}
+                    onError={() => {
+                      setPlayerLoading(false);
+                      setPlayerError('वीडियो लोड करने में समस्या आई।');
+                    }}
                     className="w-full h-full border-0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
                   />
                 </div>
               ) : (
-                <div className="w-full aspect-video bg-black">
+                <div className="relative w-full aspect-video bg-black">
+                  {playerLoading && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2.5 bg-neutral-950/90 text-white pointer-events-none">
+                      <Loader2 className="w-8 h-8 animate-spin text-[#EAB308]" />
+                      <p className="text-xs font-semibold text-white/85">वीडियो प्लेयर लोड हो रहा है...</p>
+                    </div>
+                  )}
                   <iframe
-                    key={activePlayerVideo.videoId}
-                    src={`https://www.youtube.com/embed/${activePlayerVideo.videoId}?autoplay=1&rel=0&playsinline=1&modestbranding=1`}
+                    ref={iframeRef}
+                    key={playableVideoId}
+                    src={embedSrc}
                     title={activePlayerVideo.title}
+                    onLoad={handleIframeLoad}
+                    onError={() => {
+                      setPlayerLoading(false);
+                      setPlayerError('वीडियो लोड करने में समस्या आई।');
+                    }}
                     className="w-full h-full border-0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
@@ -401,48 +541,76 @@ const Videos: React.FC = () => {
                 <div className="space-y-1">
                   <h3 className="text-base font-bold">यह वीडियो सीधे ऐप में एम्बेड नहीं हो सका</h3>
                   <p className="text-xs text-white/75">
-                    वीडियो मालिक की सेटिंग के कारण इसे सीधे YouTube ऐप/ब्राउज़र में देखा जा सकता है।
+                    {playerError || 'वीडियो मालिक की सेटिंग के कारण इसे सीधे YouTube ऐप/ब्राउज़र में देखा जा सकता है।'}
                   </p>
                 </div>
-                <a
-                  href={watchUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-xl text-sm font-bold transition-colors"
-                >
-                  <Youtube className="w-4 h-4" />
-                  <span>YouTube पर वीडियो चलाएँ</span>
-                  <ExternalLink className="w-4 h-4" />
-                </a>
+                <div className="flex flex-wrap items-center justify-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={closeVideoPlayer}
+                    className="inline-flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>सभी वीडियो देखें</span>
+                  </button>
+                  {watchUrl !== '#' && (
+                    <a
+                      href={watchUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-colors"
+                    >
+                      <Youtube className="w-4 h-4" />
+                      <span>YouTube पर वीडियो चलाएँ</span>
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                </div>
               </div>
             )}
           </div>
 
           {/* Video Details Body */}
           <div className="p-5 sm:p-6 space-y-4">
-            {/* Unboxed Metadata Line */}
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[#2D5A27]">
-              <span>{categoryLabel}</span>
-              {activePlayerVideo.duration && (
-                <>
-                  <span className="text-gray-300" aria-hidden="true">·</span>
-                  <span className="text-gray-600 tabular-nums">{activePlayerVideo.duration}</span>
-                </>
-              )}
-              {dateLabel && (
-                <>
-                  <span className="text-gray-300" aria-hidden="true">·</span>
-                  <span className="text-gray-500 font-medium">{dateLabel}</span>
-                </>
-              )}
-              {activePlayerVideo.isPinned && (
-                <>
-                  <span className="text-gray-300" aria-hidden="true">·</span>
-                  <span className="inline-flex items-center gap-1 text-amber-700">
-                    <Pin className="w-3 h-3" /> पिन किया गया
-                  </span>
-                </>
-              )}
+            {/* Selected Video Thumbnail & Channel Name Row */}
+            <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+              <div className="w-16 h-10 sm:w-20 sm:h-12 rounded-xl overflow-hidden bg-gray-900 border border-gray-200 shrink-0">
+                <SmartImage
+                  src={resolveVideoThumbnail(activePlayerVideo)}
+                  alt={activePlayerVideo.title}
+                  className="w-full h-full"
+                  objectFit="cover"
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="inline-flex items-center gap-1.5 text-xs font-bold text-red-700">
+                  <Youtube className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{channelDisplayName}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-[#2D5A27] mt-0.5">
+                  <span>{categoryLabel}</span>
+                  {activePlayerVideo.duration && (
+                    <>
+                      <span className="text-gray-300" aria-hidden="true">·</span>
+                      <span className="text-gray-600 tabular-nums">{activePlayerVideo.duration}</span>
+                    </>
+                  )}
+                  {dateLabel && (
+                    <>
+                      <span className="text-gray-300" aria-hidden="true">·</span>
+                      <span className="text-gray-500 font-medium">{dateLabel}</span>
+                    </>
+                  )}
+                  {activePlayerVideo.isPinned && (
+                    <>
+                      <span className="text-gray-300" aria-hidden="true">·</span>
+                      <span className="inline-flex items-center gap-1 text-amber-700">
+                        <Pin className="w-3 h-3" /> पिन किया गया
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Title */}
@@ -601,11 +769,11 @@ const Videos: React.FC = () => {
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-extrabold text-[#1E3F1A] leading-tight">
-              कृषि वीडियो केंद्र
+              किसान पाठशाला
             </h1>
             <p className="text-xs text-gray-600 font-medium">
               {resolvedChannelTitle
-                ? `${resolvedChannelTitle} · खेती, खाद व योजनाओं के वीडियो`
+                ? resolvedChannelTitle
                 : 'खेती, खाद, रोग नियंत्रण और सरकारी योजनाओं की वीडियो गाइड'}
             </p>
           </div>
@@ -705,28 +873,6 @@ const Videos: React.FC = () => {
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="relative max-w-xl">
-        <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="वीडियो खोजें (जैसे: गेहूँ, यूरिया, मंडी भाव, पीएम किसान)..."
-          className="w-full min-h-[44px] bg-white border border-gray-200/90 focus:border-[#2D5A27] rounded-2xl py-2.5 pl-10 pr-10 text-sm text-[#1E3F1A] placeholder:text-gray-400 outline-none shadow-2xs transition-colors"
-        />
-        {searchQuery && (
-          <button
-            type="button"
-            onClick={() => setSearchQuery('')}
-            aria-label="खोज साफ़ करें"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-700 rounded-lg cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-
       {/* Non-blocking Notice if needed */}
       {feedNotice && (
         <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl px-4 py-3 text-xs font-medium flex items-center gap-2">
@@ -760,22 +906,19 @@ const Videos: React.FC = () => {
           <h3 className="text-base font-bold text-[#1E3F1A]">
             {onlyBookmarked
               ? 'आपने अभी कोई वीडियो सेव नहीं किया है'
-              : searchQuery
-              ? `"${searchQuery}" से जुड़ा कोई वीडियो नहीं मिला`
               : activeTab === 'shorts'
               ? 'अभी कोई शॉर्ट्स वीडियो उपलब्ध नहीं है'
               : 'अभी कोई वीडियो उपलब्ध नहीं है'}
           </h3>
           <p className="text-xs text-gray-500 max-w-md mx-auto">
-            खोज फ़िल्टर साफ़ करें या बाद में पुनः देखें।
+            {onlyBookmarked
+              ? 'सेव किए गए वीडियो देखने के लिए किसी भी वीडियो पर बुकमार्क आइकन दबाएँ।'
+              : 'नए कृषि वीडियो देखने के लिए कुछ समय बाद पुनः जाँच करें।'}
           </p>
-          {(searchQuery || onlyBookmarked) && (
+          {onlyBookmarked && (
             <button
               type="button"
-              onClick={() => {
-                setSearchQuery('');
-                setOnlyBookmarked(false);
-              }}
+              onClick={() => setOnlyBookmarked(false)}
               className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#2D5A27] text-white text-xs font-bold cursor-pointer"
             >
               सभी वीडियो दिखाएँ

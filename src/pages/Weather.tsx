@@ -29,9 +29,8 @@ const getWeatherHeroTheme = (condition: string, isNight: boolean) => {
       Icon: CloudLightning,
       bgGradient: 'bg-gradient-to-br from-indigo-950/10 via-purple-50/90 to-amber-50/60',
       border: 'border-indigo-200/90',
-      ring: 'ring-4 ring-purple-100/70',
-      shadow: 'shadow-lg shadow-indigo-500/10',
-      glow: 'bg-gradient-to-tr from-purple-500/25 to-amber-400/20',
+      ring: 'ring-2 ring-purple-100/70',
+      shadow: 'shadow-xs',
       iconClass: 'text-indigo-700',
     };
   }
@@ -43,9 +42,8 @@ const getWeatherHeroTheme = (condition: string, isNight: boolean) => {
       Icon: CloudRain,
       bgGradient: 'bg-gradient-to-br from-sky-50 via-blue-50/90 to-indigo-50/70',
       border: 'border-sky-200/90',
-      ring: 'ring-4 ring-sky-100/70',
-      shadow: 'shadow-lg shadow-sky-500/15',
-      glow: 'bg-gradient-to-tr from-sky-400/30 to-blue-500/25',
+      ring: 'ring-2 ring-sky-100/70',
+      shadow: 'shadow-xs',
       iconClass: 'text-sky-600',
     };
   }
@@ -58,9 +56,8 @@ const getWeatherHeroTheme = (condition: string, isNight: boolean) => {
         Icon: CloudMoon,
         bgGradient: 'bg-gradient-to-br from-slate-50 via-indigo-50/90 to-purple-50/70',
         border: 'border-indigo-200/90',
-        ring: 'ring-4 ring-indigo-100/70',
-        shadow: 'shadow-lg shadow-indigo-500/15',
-        glow: 'bg-gradient-to-tr from-indigo-500/25 to-purple-400/25',
+        ring: 'ring-2 ring-indigo-100/70',
+        shadow: 'shadow-xs',
         iconClass: 'text-indigo-600',
       };
     }
@@ -70,9 +67,8 @@ const getWeatherHeroTheme = (condition: string, isNight: boolean) => {
       Icon: Moon,
       bgGradient: 'bg-gradient-to-br from-indigo-50/90 via-slate-100/90 to-indigo-100/80',
       border: 'border-indigo-200/90',
-      ring: 'ring-4 ring-indigo-100/70',
-      shadow: 'shadow-lg shadow-indigo-500/15',
-      glow: 'bg-gradient-to-tr from-indigo-400/30 to-violet-500/25',
+      ring: 'ring-2 ring-indigo-100/70',
+      shadow: 'shadow-xs',
       iconClass: 'text-indigo-600',
     };
   }
@@ -84,9 +80,8 @@ const getWeatherHeroTheme = (condition: string, isNight: boolean) => {
       Icon: CloudSun,
       bgGradient: 'bg-gradient-to-br from-slate-50 via-emerald-50/70 to-teal-50/60',
       border: 'border-emerald-200/90',
-      ring: 'ring-4 ring-emerald-100/70',
-      shadow: 'shadow-lg shadow-emerald-500/10',
-      glow: 'bg-gradient-to-tr from-amber-300/25 to-emerald-400/25',
+      ring: 'ring-2 ring-emerald-100/70',
+      shadow: 'shadow-xs',
       iconClass: 'text-emerald-700',
     };
   }
@@ -96,10 +91,9 @@ const getWeatherHeroTheme = (condition: string, isNight: boolean) => {
     type: 'sunny' as const,
     Icon: Sun,
     bgGradient: 'bg-gradient-to-br from-amber-50 via-orange-50/90 to-amber-100/70',
-    border: 'border-amber-300/90',
-    ring: 'ring-4 ring-amber-100/80',
-    shadow: 'shadow-lg shadow-amber-500/20',
-    glow: 'bg-gradient-to-tr from-amber-400/35 via-orange-400/25 to-yellow-300/25',
+    border: 'border-amber-200/90',
+    ring: 'ring-2 ring-amber-100/70',
+    shadow: 'shadow-xs',
     iconClass: 'text-amber-500',
   };
 };
@@ -110,53 +104,39 @@ const WeatherHeroVisual: React.FC<{ condition: string; isNight: boolean }> = ({ 
 
   return (
     <div className="relative shrink-0 flex flex-col items-center select-none group">
-      {/* Dynamic Ambient Background Glow */}
-      <div 
-        className={cn(
-          "absolute -inset-2 rounded-full blur-xl opacity-75 group-hover:opacity-95 transition-opacity duration-500 pointer-events-none",
-          theme.glow
-        )} 
-      />
-
-      {/* Modern Multi-Layered Squircle Pod with Gentle Float */}
+      {/* Clean Multi-Layered Squircle Pod */}
       <motion.div
         animate={{ y: [0, -4, 0] }}
         transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
         className={cn(
-          "relative w-22 h-22 sm:w-26 sm:h-26 rounded-3xl p-3 sm:p-4 flex items-center justify-center border backdrop-blur-xs transition-all duration-300 group-hover:scale-105",
+          "relative w-22 h-22 sm:w-26 sm:h-26 rounded-3xl p-3 sm:p-4 flex items-center justify-center border transition-transform duration-300 group-hover:scale-105",
           theme.bgGradient,
           theme.border,
           theme.ring,
           theme.shadow
         )}
       >
-        {/* Subtle decorative inner corner glass shine */}
-        <div className="absolute top-1.5 left-2 w-4 h-2 bg-white/60 rounded-full blur-[1px] pointer-events-none" />
-
-        {/* Dynamic Multi-Tonal Icon Render */}
+        {/* Crisp Icon Render without glow */}
         {theme.type === 'sunny' ? (
           <div className="relative flex items-center justify-center">
-            {/* Ambient sun core pulse */}
-            <div className="absolute w-8 h-8 rounded-full bg-amber-400/30 blur-sm animate-pulse" />
-            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-amber-500 stroke-[2] drop-shadow-sm transition-transform duration-500 group-hover:rotate-45" />
+            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-amber-500 stroke-[2] transition-transform duration-500 group-hover:rotate-45" />
           </div>
         ) : theme.type === 'clear-night' ? (
           <div className="relative flex items-center justify-center">
-            {/* Ambient night glow with subtle star twinkle */}
-            <IconComponent className="w-12 h-12 sm:w-14 sm:h-14 text-indigo-600 stroke-[2] drop-shadow-sm transition-transform duration-300 group-hover:-rotate-12" />
-            <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-amber-400 stroke-[2] animate-pulse" />
+            <IconComponent className="w-12 h-12 sm:w-14 sm:h-14 text-indigo-600 stroke-[2] transition-transform duration-300 group-hover:-rotate-12" />
+            <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-amber-400 stroke-[2]" />
           </div>
         ) : theme.type === 'rainy' ? (
           <div className="relative flex items-center justify-center">
-            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-sky-600 stroke-[2] drop-shadow-sm" />
+            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-sky-600 stroke-[2]" />
           </div>
         ) : theme.type === 'thunder' ? (
           <div className="relative flex items-center justify-center">
-            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-indigo-700 stroke-[2] drop-shadow-sm" />
+            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-indigo-700 stroke-[2]" />
           </div>
         ) : (
           <div className="relative flex items-center justify-center">
-            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-emerald-700 stroke-[2] drop-shadow-sm" />
+            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-emerald-700 stroke-[2]" />
           </div>
         )}
       </motion.div>
