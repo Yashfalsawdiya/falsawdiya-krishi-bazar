@@ -25,6 +25,7 @@ import { useAppContext } from '../context/AppContext';
 import { cn } from '../lib/utils';
 import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
+import { formatHindiDate } from '../lib/dateUtils';
 
 const isHindi = true;
 const translateText = (t: any): string => {
@@ -83,25 +84,25 @@ const AgriNews: React.FC = () => {
   }, [loading]);
 
   /**
-   * Helper to convert DD/MM/YYYY into formatted Hindi or English date string (e.g. 27 September 2026 / 27 सितंबर 2026)
+   * Helper to convert DD/MM/YYYY into strict DD MMMM YYYY Hindi or English full-month date string
+   * (e.g. 05 दिसंबर 2026 / 05 December 2026)
    */
   const formatNewsDate = (dateStr: string, english: boolean): string => {
     if (!dateStr) return "";
+    if (!english) {
+      return formatHindiDate(dateStr);
+    }
     const parts = dateStr.trim().split('/');
     if (parts.length === 3) {
-      const day = parseInt(parts[0], 10);
+      const day = String(parseInt(parts[0], 10)).padStart(2, '0');
       const monthIndex = parseInt(parts[1], 10) - 1;
       const year = parts[2];
-      const hindiMonths = [
-        "जनवरी", "फरवरी", "मार्च", "अप्रैल", "मई", "जून",
-        "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"
-      ];
       const englishMonths = [
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
       ];
       if (monthIndex >= 0 && monthIndex < 12) {
-        return english ? `${day} ${englishMonths[monthIndex]} ${year}` : `${day} ${hindiMonths[monthIndex]} ${year}`;
+        return `${day} ${englishMonths[monthIndex]} ${year}`;
       }
     }
     return dateStr;

@@ -118,3 +118,17 @@ To prevent dead code accumulation, code bloat, and accidental reactivation of pr
 - **Version Restoration Delta Audit**:
   - If a previous version or Git baseline snapshot is ever restored due to debugging or technical necessity, the developer/agent **MUST** immediately conduct a Delta Audit: any zombie codes, obsolete files, or previously removed features that get restored by the old snapshot must be immediately purged before compiling or handing over the code, keeping the codebase permanently lightweight, clean, and bug-free.
 
+## 10. Strict Global Date Formatting Standard (`DD MMMM YYYY` - Permanent Rule)
+To guarantee uniform, readable, and farmer-friendly dates across every screen, modal, invoice, PDF, and shared message:
+
+- **Mandatory Global Format**:
+  - Every displayed date across the application **MUST** use **`DD MMMM YYYY`** with **FULL Hindi month names** (`जनवरी`, `फरवरी`, `मार्च`, `अप्रैल`, `मई`, `जून`, `जुलाई`, `अगस्त`, `सितंबर`, `अक्टूबर`, `नवंबर`, `दिसंबर`), e.g. `22 नवंबर 2026`, `01 जनवरी 2027`, `05 दिसंबर 2026`.
+  - When time is included, display `DD MMMM YYYY, hh:mm AM/PM` (e.g. `22 नवंबर 2026, 04:30 PM`).
+- **Centralized Helpers (`src/lib/dateUtils.ts`)**:
+  - Always import and use `formatHindiDate`, `formatHindiDateTime`, `formatHindiMonthYear`, `formatFullHindiDate`, or `HINDI_MONTHS` from `src/lib/dateUtils.ts`.
+  - All date parsing MUST remain timezone-safe (`parseDateSafe`) so `YYYY-MM-DD` strings never shift backward by UTC offset.
+- **Strict Prohibitions**:
+  - **NEVER** use `month: 'short'` or abbreviated Hindi/English months (`अक्टू॰`, `नव॰`, `दिस॰`, `जन॰`, `फ़र॰`, `अग॰`, `Nov`, `Oct`).
+  - **NEVER** display bare numeric dates (`YYYY-MM-DD`, `DD/MM/YYYY`, `new Date().toLocaleDateString('hi-IN')` without full month formatting) in UI cards, tables, bills, or reports.
+  - Keep database storage keys (`YYYY-MM-DD`, epoch ms), `<input type="date">` pickers, editable form input values, and OS-safe file names (`Bill_No_..._Date_DD-MM-YYYY.pdf`) untouched.
+

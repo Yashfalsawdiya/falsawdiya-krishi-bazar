@@ -5,6 +5,7 @@ import {
   CROPS_LIST, 
   getHindiCropName
 } from '../data/mandiData';
+import { formatHindiDate } from '../lib/dateUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
@@ -226,7 +227,9 @@ const MandiBhav: React.FC = () => {
           <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm border border-[#2D5A27]/10">
             <Calendar className="w-3.5 h-3.5 text-[#2D5A27]" />
             <span className="text-[11px] font-bold text-[#2D5A27]">
-              {currentTime.toLocaleDateString(isHindi ? 'hi-IN' : 'en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
+              {isHindi
+                ? formatHindiDate(currentTime)
+                : currentTime.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
             </span>
           </div>
 
@@ -468,7 +471,7 @@ const MandiBhav: React.FC = () => {
                     </span>
                     <span className="font-bold text-gray-700 flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
-                      {data.sourceDate || data.date}
+                      {formatHindiDate(data.sourceDate || data.date)}
                     </span>
                   </div>
 

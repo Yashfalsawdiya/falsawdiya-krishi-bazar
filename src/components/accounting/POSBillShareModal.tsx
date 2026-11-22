@@ -20,9 +20,9 @@ import {
 import { AccountingSale } from '../../types/accounting';
 import {
   buildSalesInvoiceFileName,
-  formatBillDateDdMmYyyy,
   generateSalesInvoicePdfBlob,
 } from '../../utils/salesInvoicePdfGenerator';
+import { formatHindiDate } from '../../lib/dateUtils';
 import {
   copyTextToClipboard,
   formatDetailedSalesBillText,
@@ -275,7 +275,7 @@ export const POSBillShareModal: React.FC<POSBillShareModalProps> = ({
             </h3>
             <p className="text-xs text-gray-500 font-medium mt-0.5">
               बिल <strong className="font-mono text-gray-800">#{sale.invoiceNo}</strong> · दिनांक:{' '}
-              {formatBillDateDdMmYyyy(sale.date, sale.timestamp)} · {sale.customerName}
+              {formatHindiDate(sale.date || sale.timestamp)} · {sale.customerName}
             </p>
             <p className="text-xs font-extrabold text-[#2D5A27] mt-0.5">
               कुल बिल: ₹{(sale.finalTotal || 0).toLocaleString('en-IN')} ({itemsCount} उत्पाद)

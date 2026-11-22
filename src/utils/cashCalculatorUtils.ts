@@ -1,3 +1,5 @@
+import { formatHindiDateTime } from '../lib/dateUtils';
+
 export interface DenominationConfig {
   value: number;
   enabled: boolean;
@@ -286,23 +288,7 @@ export function buildCashFingerprint(
 }
 
 export function formatCashDateTime(isoString: string): string {
-  try {
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) return isoString;
-    const datePart = d.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-    const timePart = d.toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-    return `${datePart}, ${timePart}`;
-  } catch {
-    return isoString;
-  }
+  return formatHindiDateTime(isoString) || isoString;
 }
 
 const ONES_EN = [

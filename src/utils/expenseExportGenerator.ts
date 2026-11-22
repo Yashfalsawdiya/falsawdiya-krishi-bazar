@@ -1,9 +1,9 @@
 import { jsPDF } from 'jspdf';
 import { AccountingExpense, AccountingExpenseCategory } from '../types/accounting';
-import { HINDI_MONTH_NAMES_LIST } from '../services/accountingService';
 import { loadLogoBase64 } from './invoiceGenerator';
 import { renderHtmlToSafeCanvas } from './canvasRenderUtils';
 import { formatTodayDdMmYyyy } from './stockExportGenerator';
+import { HINDI_MONTHS, formatHindiDate } from '../lib/dateUtils';
 
 export type ExpenseExportScope = 'selected_month' | 'all_months';
 
@@ -80,8 +80,7 @@ export function formatMonthKeyLabels(monthKey: string): {
   const [yStr, mStr] = monthKey.split('-');
   const year = parseInt(yStr, 10) || new Date().getFullYear();
   const month = parseInt(mStr, 10) || new Date().getMonth() + 1;
-  const hiFull = HINDI_MONTH_NAMES_LIST[month - 1] || `माह ${month}`;
-  const hiShort = hiFull.split(' ')[0];
+  const hiShort = HINDI_MONTHS[month - 1] || `माह ${month}`;
   const enName = ENGLISH_MONTH_NAMES[month - 1] || `Month_${month}`;
 
   return {
@@ -438,7 +437,7 @@ function buildExpensePageHtml(params: {
               <tr style="background-color: ${bg}; border-bottom: 1px solid #e5e7eb; vertical-align: top;">
                 <td style="padding: 7px 6px; text-align: center; color: #6b7280; font-weight: 700; font-size: 10.5px;">${serial}</td>
                 <td style="padding: 7px 6px; font-weight: 700; color: #111827; font-size: 10.5px; white-space: nowrap;">${escapeHtml(
-                  exp.date || '-'
+                  exp.date ? formatHindiDate(exp.date) : '-'
                 )}</td>
                 <td style="padding: 7px 8px; font-weight: 700; color: #1f2937; font-size: 10.5px;">${escapeHtml(
                   exp.categoryNameHindi || exp.categoryName || 'अन्य'
@@ -639,7 +638,7 @@ export async function generateExpenseExportPdfBlob(
     );
 
     const totalPages = pages.length;
-    const printedDate = formatTodayDdMmYyyy(new Date());
+    const printedDate = formatHindiDate(new Date());
 
     const pdf = new jsPDF({
       orientation: 'portrait',
@@ -762,7 +761,7 @@ export function formatExpenseReportText(options: {
     '*दुकान खर्च रिपोर्ट (Expense Report)*',
     periodLabel,
     `श्रेणी: ${catLabel}`,
-    `प्रिंट दिनांक: ${formatTodayDdMmYyyy(new Date())}`,
+    `प्रिंट दिनांक: ${formatHindiDate(new Date())}`,
     '----------------------------------',
     `*कुल खर्च: ₹${analytics.totalAmount.toLocaleString('en-IN')}* (${analytics.totalCount} प्रविष्टियां)`,
     `नकद (Cash): ₹${analytics.cashTotal.toLocaleString('en-IN')}`,
@@ -800,7 +799,7 @@ export function formatExpenseReportText(options: {
     const mode = exp.paymentMode === 'cash' ? 'नकद' : 'ऑनलाइन';
     const extra = [exp.recipientName?.trim(), exp.description?.trim()].filter(Boolean).join(' - ');
     lines.push(
-      `${idx + 1}. ${exp.date} | *${exp.categoryNameHindi || exp.categoryName}* | ₹${(
+      `${idx + 1}. ${formatHindiDate(exp.date || exp.timestamp)} | *${exp.categoryNameHindi || exp.categoryName}* | ₹${(
         exp.amount || 0
       ).toLocaleString('en-IN')} (${mode})${extra ? `\n   विवरण: ${extra}` : ''}`
     );

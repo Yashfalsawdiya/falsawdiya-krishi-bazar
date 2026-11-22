@@ -22,6 +22,7 @@ import { normalizeVideos, resolveVideoThumbnail, extractYouTubeVideoId } from '.
 import { DeviceBanner } from '../types';
 import { sortCategoriesByOrder } from '../utils/categoryUtils';
 import { useFeatureToggle } from '../hooks/useFeatureToggle';
+import { formatHindiDate } from '../lib/dateUtils';
 
 const BANNERS = [
   {
@@ -298,7 +299,7 @@ const Home: React.FC = () => {
       return (a.hindiName || '').localeCompare(b.hindiName || '');
     });
 
-  const currentDate = new Date().toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  const currentDate = formatHindiDate(new Date());
 
   // Logic to get a daily tip based on the month and day
   const getDailyTip = () => {

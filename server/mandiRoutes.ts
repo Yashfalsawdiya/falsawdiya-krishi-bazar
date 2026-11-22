@@ -185,16 +185,33 @@ function cleanLocation(val: string): { hindi: string; english: string } {
   return { hindi, english };
 }
 
-function formatIndianTime(date: Date = new Date()): string {
-  return date.toLocaleString('hi-IN', {
+const SERVER_HINDI_MONTHS = [
+  'जनवरी', 'फरवरी', 'मार्च', 'अप्रैल', 'मई', 'जून',
+  'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'
+];
+
+function formatIndianDate(date: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Kolkata',
-    day: 'numeric',
-    month: 'long',
+    day: '2-digit',
+    month: 'numeric',
     year: 'numeric',
+  }).formatToParts(date);
+  const dd = parts.find(p => p.type === 'day')?.value || String(date.getDate()).padStart(2, '0');
+  const mmIdx = parseInt(parts.find(p => p.type === 'month')?.value || String(date.getMonth() + 1), 10) - 1;
+  const yyyy = parts.find(p => p.type === 'year')?.value || String(date.getFullYear());
+  return `${dd} ${SERVER_HINDI_MONTHS[mmIdx] || ''} ${yyyy}`.trim();
+}
+
+function formatIndianTime(date: Date = new Date()): string {
+  const datePart = formatIndianDate(date);
+  const timePart = date.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: true
-  });
+    hour12: true,
+  }).toUpperCase();
+  return `${datePart}, ${timePart}`;
 }
 
 // 1. Query Official Government OGD (data.gov.in / AGMARKNET dataset)
@@ -540,12 +557,7 @@ async function fetchFromGeminiGrounding(
     });
 
     const now = new Date();
-    const dateStr = now.toLocaleDateString('hi-IN', {
-      timeZone: 'Asia/Kolkata',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
+    const dateStr = formatIndianDate(now);
 
     const prompt = `आज (${dateStr}) और हाल के दिनों के लिए ${stateClean} राज्य के ${districtClean} जिले की ${mandiClean} मंडी के वास्तविक और नवीनतम मंडी भाव (Mandi Bhav / Market Rates) खोजें।
 

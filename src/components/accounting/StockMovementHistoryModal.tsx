@@ -14,6 +14,7 @@ import {
   deleteStockMovement,
   fetchStockMovements,
 } from '../../services/accountingService';
+import { formatHindiDateTime } from '../../lib/dateUtils';
 
 interface StockMovementHistoryModalProps {
   productId?: string;
@@ -241,7 +242,7 @@ export const StockMovementHistoryModal: React.FC<StockMovementHistoryModalProps>
                       </p>
                     )}
                     <p className="text-[10px] text-gray-400 font-mono">
-                      {new Date(log.timestamp).toLocaleString('en-IN')}
+                      {formatHindiDateTime(log.timestamp)}
                       {log.purchaseCostPerPack !== undefined && ` · खरीद दर: ₹${log.purchaseCostPerPack}`}
                     </p>
                   </div>

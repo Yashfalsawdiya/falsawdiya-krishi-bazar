@@ -3,6 +3,7 @@ import { AccountingSale } from '../types/accounting';
 import { formatSaleItemInvoiceTitle } from './agriPackagingUtils';
 import { loadLogoBase64 } from './invoiceGenerator';
 import { renderHtmlToSafeCanvas } from './canvasRenderUtils';
+import { formatHindiDate, formatHindiTime } from '../lib/dateUtils';
 
 export interface GenerateInvoicePdfOptions {
   sale: AccountingSale;
@@ -34,7 +35,7 @@ function buildInvoiceHtml(
   const paidAmount = (sale.cashPaid || 0) + (sale.onlinePaid || 0);
 
   const formattedTime = sale.timestamp 
-    ? new Date(sale.timestamp).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+    ? formatHindiTime(sale.timestamp)
     : '';
 
   const itemsHtml = (sale.items && sale.items.length > 0)
@@ -137,7 +138,7 @@ function buildInvoiceHtml(
           </div>
           <div style="font-size: 11.5px; color: #4b5563; line-height: 1.5;">
             <div>बिल नंबर: <strong style="color: #111827; font-family: monospace;">#${sale.invoiceNo}</strong></div>
-            <div>दिनांक: <strong style="color: #111827;">${sale.date}${formattedTime ? ` (${formattedTime})` : ''}</strong></div>
+            <div>दिनांक: <strong style="color: #111827;">${formatHindiDate(sale.date || sale.timestamp)}${formattedTime ? ` (${formattedTime})` : ''}</strong></div>
             ${meta?.monthTitle ? `<div style="font-size: 10.5px; color: #047857; font-weight: 600; margin-top: 2px;">माह: ${meta.monthTitle}</div>` : ''}
           </div>
         </div>
@@ -196,7 +197,7 @@ function buildInvoiceHtml(
         <div style="width: 48%; border-right: 1px solid #e5e7eb; padding-right: 12px;">
           <div style="font-size: 11px; color: #4b5563; line-height: 1.5;">
             <div><strong>बिल संदर्भ:</strong> #${sale.invoiceNo}</div>
-            <div><strong>दिनांक:</strong> ${sale.date}</div>
+            <div><strong>दिनांक:</strong> ${formatHindiDate(sale.date || sale.timestamp)}</div>
           </div>
           <div style="margin-top: 10px; font-size: 10px; color: #6b7280; line-height: 1.5;">
             <strong style="color: #065f46;">नियम व शर्तें:</strong><br/>

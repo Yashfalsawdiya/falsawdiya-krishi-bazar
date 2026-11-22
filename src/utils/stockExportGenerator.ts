@@ -12,8 +12,9 @@ import {
   calculateProductHealthSummary,
   calculateVariantStockSummary,
   EnrichedBatch,
-  formatBatchDateDisplay,
+  formatBatchDateHindiDisplay,
 } from './batchInventoryUtils';
+import { formatHindiDate } from '../lib/dateUtils';
 
 export type StockExportScope = 'complete' | 'category_combined' | 'single_category';
 export type StockPriceMode = 'admin_margin' | 'rate_list';
@@ -287,8 +288,8 @@ export function buildBatchReportRows(params: {
           categoryLabelHi: entry.categoryLabelHi,
           batch: b,
           batchNumberDisplay: b.batchNumber || 'बिना बैच नं.',
-          mfgDisplay: b.manufacturingDate ? formatBatchDateDisplay(b.manufacturingDate, b.mfgDisplay) : '-',
-          expiryDisplay: b.expiryDate ? formatBatchDateDisplay(b.expiryDate, b.expiryDisplay) : 'तिथि नहीं',
+          mfgDisplay: b.manufacturingDate ? formatBatchDateHindiDisplay(b.manufacturingDate, b.mfgDisplay) : '-',
+          expiryDisplay: b.expiryDate ? formatBatchDateHindiDisplay(b.expiryDate, b.expiryDisplay) : 'तिथि नहीं',
           statusLabel: b.alert.labelHindi,
           statusColor,
           daysRemaining: b.alert.daysRemaining,
@@ -1262,7 +1263,7 @@ export async function generateStockExportPdfBlob(
       // fallback already set
     }
 
-    const printedDate = formatTodayDdMmYyyy(new Date());
+    const printedDate = formatHindiDate(new Date());
     let pageHtmlList: string[] = [];
 
     if (
@@ -1499,7 +1500,7 @@ export function formatStockListText(options: {
       ? 'standard_stock'
       : options.reportType || 'standard_stock';
 
-  const printedDate = formatTodayDdMmYyyy(new Date());
+  const printedDate = formatHindiDate(new Date());
   const isAdminMode = priceMode === 'admin_margin';
   const showStockQty = stockManagementEnabled && isAdminMode;
 

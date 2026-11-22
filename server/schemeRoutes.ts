@@ -472,7 +472,20 @@ export const handleGetSchemes = async (req: Request, res: Response): Promise<voi
       try {
         console.log('[Central Scheme Cache] Searching for latest 2026 government agricultural schemes via Gemini...');
         const ai = new GoogleGenAI({ apiKey: serverKey });
-        const dateStr = new Date().toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+        const hindiMonths = [
+          'जनवरी', 'फरवरी', 'मार्च', 'अप्रैल', 'मई', 'जून',
+          'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'
+        ];
+        const parts = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Kolkata',
+          day: '2-digit',
+          month: 'numeric',
+          year: 'numeric',
+        }).formatToParts(new Date());
+        const dd = parts.find(p => p.type === 'day')?.value || '01';
+        const mmIdx = parseInt(parts.find(p => p.type === 'month')?.value || '1', 10) - 1;
+        const yyyy = parts.find(p => p.type === 'year')?.value || String(new Date().getFullYear());
+        const dateStr = `${dd} ${hindiMonths[mmIdx] || ''} ${yyyy}`.trim();
 
         const prompt = `आज ${dateStr} तक की जानकारी के अनुसार भारत सरकार (Central Govt) और मध्य प्रदेश सरकार (MP Govt) द्वारा किसानों के लिए घोषित नवीनतम कृषि योजनाओं (Government Schemes for Farmers), सब्सिडी, ट्रैक्टर/सोलर पंप योजना, फसल बीमा एवं नए कल्याणकारी नियमों की विस्तृत सूची प्रदान करें।
         

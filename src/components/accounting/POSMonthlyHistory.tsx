@@ -25,6 +25,7 @@ import {
 import { PrintableSalesInvoice } from './PrintableSalesInvoice';
 import { POSBillShareModal } from './POSBillShareModal';
 import { formatSaleItemInvoiceTitle } from '../../utils/agriPackagingUtils';
+import { formatHindiDate, formatHindiDateTime, formatHindiTime } from '../../lib/dateUtils';
 
 interface POSMonthlyHistoryProps {
   onBackToBilling?: () => void;
@@ -260,14 +261,7 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
       if (result.success) {
         // Save export metadata
         const now = Date.now();
-        const exportDateStr = new Date(now).toLocaleString('hi-IN', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true,
-        });
+        const exportDateStr = formatHindiDateTime(now);
 
         const newMeta: MonthlyPOSExportMeta = {
           monthKey: selectedMonthKey,
@@ -640,7 +634,7 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
                 >
                   <option value="all">सभी तारीखें ({sales.length})</option>
                   {availableDays.map(d => (
-                    <option key={d} value={d}>दिनांक: {d}</option>
+                    <option key={d} value={d}>दिनांक: {formatHindiDate(d)}</option>
                   ))}
                 </select>
               )}
@@ -731,7 +725,7 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
                 <tbody className="divide-y divide-gray-100">
                   {filteredSales.map((sale) => {
                     const formattedTime = sale.timestamp 
-                      ? new Date(sale.timestamp).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+                      ? formatHindiTime(sale.timestamp)
                       : '';
                     const itemsSummary = sale.items?.map(it => formatSaleItemInvoiceTitle(it)).join(', ');
 
@@ -741,7 +735,7 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
                           #{sale.invoiceNo}
                         </td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="font-bold text-gray-900">{sale.date}</div>
+                          <div className="font-bold text-gray-900">{formatHindiDate(sale.date || sale.timestamp)}</div>
                           {formattedTime && <div className="text-[10px] text-gray-400">{formattedTime}</div>}
                         </td>
                         <td className="py-3.5 px-4">
@@ -827,7 +821,7 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
             <div className="block md:hidden divide-y divide-gray-100">
               {filteredSales.map((sale) => {
                 const formattedTime = sale.timestamp 
-                  ? new Date(sale.timestamp).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+                  ? formatHindiTime(sale.timestamp)
                   : '';
                 const itemsSummary = sale.items?.map(it => formatSaleItemInvoiceTitle(it)).join(', ');
 
@@ -838,7 +832,7 @@ export const POSMonthlyHistory: React.FC<POSMonthlyHistoryProps> = ({
                         #{sale.invoiceNo}
                       </div>
                       <div className="text-[11px] text-gray-500">
-                        {sale.date} {formattedTime && `· ${formattedTime}`}
+                        {formatHindiDate(sale.date || sale.timestamp)} {formattedTime && `· ${formattedTime}`}
                       </div>
                     </div>
 

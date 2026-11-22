@@ -21,6 +21,7 @@ import ApiKeyModal from '../components/ApiKeyModal';
 import useAiGuard from '../hooks/useAiGuard';
 import { useLanguage } from '../context/LanguageContext';
 import { openProductWhatsAppEnquiry } from '../utils/whatsappHelper';
+import { formatHindiDateTime } from '../lib/dateUtils';
 
 export interface DiseaseChatMessage {
   id: string;
@@ -282,8 +283,7 @@ const DiseaseDetection: React.FC = () => {
       // Create new Scan Record with unique ID and initial chat history
       const newScanId = `scan_${Date.now()}`;
       const now = new Date();
-      const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' }) + 
-                      ' ' + now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
+      const dateStr = formatHindiDateTime(now);
 
       let detectedTitle = analysis.diseaseName || analysis.cropName || (analysis.keywords && analysis.keywords.length > 0 ? analysis.keywords.slice(0, 2).join(', ') : 'फसल रोग रिपोर्ट');
 

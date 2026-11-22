@@ -5,6 +5,7 @@ import {
   StockBatch,
 } from '../types/accounting';
 import { calculateExpiryAlert, ExpiryAlertResult, getProductVariants } from './agriPackagingUtils';
+import { formatHindiDate, formatHindiMonthYear } from '../lib/dateUtils';
 
 /**
  * Recursively strips `undefined` properties from objects and arrays so Firestore
@@ -164,6 +165,27 @@ export function formatBatchDateDisplay(dateStr?: string, displayHint?: string): 
     return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
   }
   return dateStr.trim();
+}
+
+/**
+ * Formats batch manufacturing/expiry date strictly for UI cards, POS selectors, and PDF/Text exports
+ * using full Hindi month names ("DD MMMM YYYY" or "MMMM YYYY" for month-granular batches like 06/2028).
+ */
+export function formatBatchDateHindiDisplay(dateStr?: string, displayHint?: string): string {
+  const hint = displayHint?.trim();
+  if (hint) {
+    if (/^\d{1,2}[\/\-]\d{4}$/.test(hint) || /^\d{4}[\/\-]\d{1,2}$/.test(hint)) {
+      return formatHindiMonthYear(hint);
+    }
+    const formattedHint = formatHindiDate(hint);
+    if (formattedHint) return formattedHint;
+  }
+  if (!dateStr || !dateStr.trim()) return 'तिथि नहीं';
+  const trimmed = dateStr.trim();
+  if (/^\d{1,2}[\/\-]\d{4}$/.test(trimmed) || /^\d{4}[\/\-]\d{1,2}$/.test(trimmed)) {
+    return formatHindiMonthYear(trimmed);
+  }
+  return formatHindiDate(trimmed) || trimmed;
 }
 
 export type BatchWarningKey =

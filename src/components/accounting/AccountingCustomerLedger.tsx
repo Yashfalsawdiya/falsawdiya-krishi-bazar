@@ -31,6 +31,7 @@ import { downloadSalesInvoicePDF } from '../../utils/salesInvoicePdfGenerator';
 import { downloadCustomerPassbookPDF } from '../../utils/customerPassbookPdfGenerator';
 import { CustomerPassbookShareModal } from './CustomerPassbookShareModal';
 import { formatSaleItemInvoiceTitle } from '../../utils/agriPackagingUtils';
+import { formatHindiDate } from '../../lib/dateUtils';
 
 interface Props {
   initialCustomerId?: string;
@@ -429,7 +430,7 @@ export const AccountingCustomerLedger: React.FC<Props> = ({ initialCustomerId, o
 
 🧾 *बिक्री बिल (Sales Invoice)*
 बिल नं: #${sale.invoiceNo}
-दिनांक: ${sale.date}
+दिनांक: ${formatHindiDate(sale.date || sale.timestamp)}
 ग्राहक: ${sale.customerName} ${sale.customerVillage ? `(${sale.customerVillage})` : ''}
 
 📦 *सामान का विवरण:*
@@ -887,7 +888,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[10px] text-gray-500">{entry.date} · {entry.note}</p>
+                              <p className="text-[10px] text-gray-500">{formatHindiDate(entry.date || entry.timestamp)} · {entry.note}</p>
                             </div>
                           </div>
 
@@ -1569,7 +1570,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                       {selectedCustomer.accountNumber?.trim() ? selectedCustomer.accountNumber.trim() : '-'}
                     </span>
                   </p>
-                  <p><strong>पासबुक प्रिंट दिनांक:</strong> {new Date().toLocaleDateString('hi-IN')}</p>
+                  <p><strong>पासबुक प्रिंट दिनांक:</strong> {formatHindiDate(new Date())}</p>
                   <p><strong>खाता स्थिति:</strong> <span className="font-bold text-emerald-700">{selectedCustomer.currentOutstanding === 0 ? 'खाता चुकता' : 'उधारी खाता चालू'}</span></p>
                 </div>
               </div>
@@ -1617,7 +1618,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                         return (
                           <tr key={entry.id} className="hover:bg-gray-50/50">
                             <td className="p-2.5 text-gray-400">{idx + 1}</td>
-                            <td className="p-2.5 text-gray-800 font-semibold">{entry.date}</td>
+                            <td className="p-2.5 text-gray-800 font-semibold">{formatHindiDate(entry.date || entry.timestamp)}</td>
                             <td className="p-2.5 font-bold text-gray-900">
                               {isDebit ? 'सामान बिक्री' : `उधारी भुगतान (${entry.paymentMode || 'Cash'})`}
                               <span className="block text-[10px] text-gray-400 font-normal">{entry.note}</span>
@@ -1718,7 +1719,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                   {selectedCustomer.accountNumber?.trim() ? selectedCustomer.accountNumber.trim() : '-'}
                 </span>
               </p>
-              <p><strong>पासबुक प्रिंट दिनांक:</strong> {new Date().toLocaleDateString('hi-IN')}</p>
+              <p><strong>पासबुक प्रिंट दिनांक:</strong> {formatHindiDate(new Date())}</p>
               <p><strong>खाता स्थिति:</strong> <span className="font-bold text-emerald-700">{selectedCustomer.currentOutstanding === 0 ? 'खाता चुकता' : 'उधारी खाता चालू'}</span></p>
             </div>
           </div>
@@ -1766,7 +1767,7 @@ ${sale.bargainingDiscount ? `छूट/मोलभाव: -₹${sale.bargaining
                     return (
                       <tr key={entry.id} className="hover:bg-gray-50/50">
                         <td className="p-2.5 text-gray-400">{idx + 1}</td>
-                        <td className="p-2.5 text-gray-800 font-semibold">{entry.date}</td>
+                        <td className="p-2.5 text-gray-800 font-semibold">{formatHindiDate(entry.date || entry.timestamp)}</td>
                         <td className="p-2.5 font-bold text-gray-900">
                           {isDebit ? 'सामान बिक्री' : `उधारी भुगतान (${entry.paymentMode || 'Cash'})`}
                           <span className="block text-[10px] text-gray-400 font-normal">{entry.note}</span>

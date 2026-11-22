@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { getFriendlyAiError } from "../utils/aiErrorHandler";
+import { formatHindiDate } from "../lib/dateUtils";
 
 export interface Scheme {
   title: string;
@@ -462,7 +463,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
   }
 
   try {
-    const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+    const dateStr = formatHindiDate(now);
     const prompt = `आज ${dateStr} तक की जानकारी के अनुसार भारत सरकार (Central) और मध्य प्रदेश सरकार (MP State) की नवीनतम कृषि योजनाओं (Government Schemes for Farmers), सब्सिडी नियमों, और नए कल्याणकारी कार्यक्रमों की सूची प्रदान करें।
     
     प्रत्येक योजना का विवरण शुद्ध JSON Array प्रारूप में दें:

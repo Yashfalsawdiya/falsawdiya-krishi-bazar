@@ -2,9 +2,9 @@ import { AccountingSale } from '../types/accounting';
 import { formatSaleItemInvoiceTitle } from './agriPackagingUtils';
 import {
   buildSalesInvoiceFileName,
-  formatBillDateDdMmYyyy,
   renderSalesInvoiceCanvas,
 } from './salesInvoicePdfGenerator';
+import { formatHindiDate, formatHindiTime } from '../lib/dateUtils';
 
 export const MAX_IMAGE_SHARE_ITEMS = 10;
 
@@ -49,14 +49,8 @@ export function formatDetailedSalesBillText(
     includeOutstanding?: boolean;
   }
 ): string {
-  const formattedDate = formatBillDateDdMmYyyy(sale.date, sale.timestamp);
-  const formattedTime = sale.timestamp
-    ? new Date(sale.timestamp).toLocaleTimeString('hi-IN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      })
-    : '';
+  const formattedDate = formatHindiDate(sale.date || sale.timestamp);
+  const formattedTime = sale.timestamp ? formatHindiTime(sale.timestamp) : '';
 
   const paymentModeText =
     sale.paymentMode === 'cash'

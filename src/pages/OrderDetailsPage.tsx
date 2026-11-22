@@ -528,13 +528,7 @@ const OrderDetailsPage: React.FC = () => {
                 <p className="text-[10px] text-gray-500 font-medium">
                   रद्दीकरण समय:{' '}
                   {order.refundDetails?.cancelledAt
-                    ? new Date(order.refundDetails.cancelledAt).toLocaleString('hi-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
+                    ? formatFullHindiDate(order.refundDetails.cancelledAt, true)
                     : orderDate}
                 </p>
               </div>
@@ -1076,7 +1070,7 @@ const OrderDetailsPage: React.FC = () => {
                       {ev.title}
                     </p>
                     <span className="text-[10px] text-gray-400">
-                      {new Date(ev.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {formatFullHindiDate(ev.timestamp, true)}
                     </span>
                   </div>
                   <p className="text-[11px] text-gray-500 mt-0.5">{ev.description}</p>

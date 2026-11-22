@@ -1,6 +1,7 @@
 import React from 'react';
 import { AccountingSale, AccountingSaleItem } from '../../types/accounting';
 import { formatSaleItemInvoiceTitle } from '../../utils/agriPackagingUtils';
+import { formatHindiDate, formatHindiTime } from '../../lib/dateUtils';
 
 interface Props {
   sale: AccountingSale;
@@ -64,11 +65,11 @@ export const PrintableSalesInvoice: React.FC<Props> = ({ sale, customerOutstandi
               बिल नंबर: <strong className="text-gray-900 font-bold font-mono">#{sale.invoiceNo}</strong>
             </p>
             <p>
-              दिनांक: <strong className="text-gray-900 font-bold">{sale.date}</strong>
+              दिनांक: <strong className="text-gray-900 font-bold">{formatHindiDate(sale.date || sale.timestamp)}</strong>
             </p>
             {sale.timestamp && (
               <p className="text-[10px] text-gray-500">
-                समय: {new Date(sale.timestamp).toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                समय: {formatHindiTime(sale.timestamp)}
               </p>
             )}
           </div>
@@ -212,7 +213,7 @@ export const PrintableSalesInvoice: React.FC<Props> = ({ sale, customerOutstandi
               <strong>बिल संदर्भ:</strong> #{sale.invoiceNo}
             </p>
             <p>
-              <strong>दिनांक:</strong> {sale.date}
+              <strong>दिनांक:</strong> {formatHindiDate(sale.date || sale.timestamp)}
             </p>
             <div className="pt-2 text-[10px] text-gray-500 space-y-0.5">
               <p className="font-bold text-emerald-800">नियम व शर्तें:</p>

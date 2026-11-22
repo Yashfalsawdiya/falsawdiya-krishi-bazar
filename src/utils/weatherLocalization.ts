@@ -1,7 +1,8 @@
 /**
  * Weather Localization Utility
- * Maps WMO weather condition codes to i18n keys and formats dates/times using Intl.DateTimeFormat
+ * Maps WMO weather condition codes to i18n keys and formats dates/times using centralized Hindi full dates
  */
+import { HINDI_MONTHS } from '../lib/dateUtils';
 
 export const WMO_CODE_TO_HINDI: Record<number, string> = {
   0: 'साफ मौसम',
@@ -73,10 +74,6 @@ export function getHindiCondition(condition: string, weatherCode?: number): stri
 }
 
 const HINDI_WEEKDAYS = ['रविवार', 'सोमवार', 'मंगलवार', 'बुधवार', 'गुरुवार', 'शुक्रवार', 'शनिवार'];
-const HINDI_FULL_MONTHS = [
-  'जनवरी', 'फ़रवरी', 'मार्च', 'अप्रैल', 'मई', 'जून',
-  'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'
-];
 
 /**
  * Parses YYYY-MM-DD or date object into local midday Date to eliminate any timezone / UTC shift bugs
@@ -121,17 +118,19 @@ export function formatWeekday(dateInput: Date | string | number, lang: string = 
 }
 
 /**
- * Formats full date with complete month name (e.g., "19 अक्टूबर" or "19 October")
+ * Formats full date in strict "DD MMMM YYYY" format with complete month name
+ * Example: "19 अक्टूबर 2026" or "19 October 2026"
  */
 export function formatFullDate(dateInput: Date | string | number, lang: string = 'hi'): string {
   try {
     const date = parseLocalDate(dateInput);
     if (isNaN(date.getTime())) return '';
-    const day = date.getDate();
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
     if (lang === 'hi') {
-      return `${day} ${HINDI_FULL_MONTHS[date.getMonth()]}`;
+      return `${day} ${HINDI_MONTHS[date.getMonth()]} ${year}`;
     }
-    return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'long' }).format(date);
+    return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
   } catch {
     return '';
   }

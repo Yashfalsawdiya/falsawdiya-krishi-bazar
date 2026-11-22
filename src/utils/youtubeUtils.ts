@@ -1,4 +1,5 @@
 import { YouTubeVideoItem, ImageSource, VideoCategoryId, VideoOverride } from '../types';
+import { formatHindiDate } from '../lib/dateUtils';
 
 export interface VideoCategoryDef {
   id: VideoCategoryId;
@@ -437,20 +438,12 @@ export function mergeHybridVideos(
 }
 
 /**
- * Formats timestamp or ISO date into clean Indian short format.
+ * Formats timestamp or ISO date into strict DD MMMM YYYY full Hindi month format.
  */
 export function formatVideoDateHindi(publishedAt?: string, timestamp?: number): string {
-  const ts = publishedAt ? Date.parse(publishedAt) : timestamp;
-  if (!ts || isNaN(ts)) return '';
-  try {
-    return new Date(ts).toLocaleDateString('hi-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return '';
-  }
+  const input = publishedAt || timestamp;
+  if (!input) return '';
+  return formatHindiDate(input);
 }
 
 // Local Bookmarks (0 Firestore cost)

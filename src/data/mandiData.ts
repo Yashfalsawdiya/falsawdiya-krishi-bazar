@@ -1,3 +1,5 @@
+import { formatHindiDate } from '../lib/dateUtils';
+
 export type MandiSourceType = 'govt' | 'mandipulse' | 'market_report' | 'estimated';
 
 // Mandi Pulse Database structure & stable fallback generator
@@ -249,7 +251,7 @@ export function generateFallbackMandiDetails(state: string, district: string, ma
   };
 
   const items: MandiItem[] = [];
-  const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  const dateStr = formatHindiDate(now);
   const hours = now.getHours();
   const timeStr = `${hours < 10 ? '0' + hours : hours}:${now.getMinutes() < 10 ? '0' + now.getMinutes() : now.getMinutes()}`;
 

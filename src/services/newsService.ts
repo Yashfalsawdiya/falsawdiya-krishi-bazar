@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { getFriendlyAiError } from "../utils/aiErrorHandler";
+import { HINDI_MONTHS } from "../lib/dateUtils";
 
 const getAI = (userApiKey?: string) => {
   const apiKey = userApiKey;
@@ -163,11 +164,8 @@ export const formatLastSyncText = (timestampMs?: number): string | undefined => 
     return `${timeStr} (कल)`;
   }
 
-  const months = [
-    "जनवरी", "फरवरी", "मार्च", "अप्रैल", "मई", "जून",
-    "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"
-  ];
-  return `${syncDate.getDate()} ${months[syncDate.getMonth()]} ${syncDate.getFullYear()}, ${timeStr}`;
+  const dd = String(syncDate.getDate()).padStart(2, '0');
+  return `${dd} ${HINDI_MONTHS[syncDate.getMonth()]} ${syncDate.getFullYear()}, ${timeStr}`;
 };
 
 /**

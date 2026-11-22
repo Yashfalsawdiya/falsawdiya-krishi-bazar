@@ -11,9 +11,9 @@ const BottomNav: React.FC = () => {
     { to: '/', icon: Home, label: 'होम' },
     { to: '/products', icon: ShoppingBag, label: 'बाजार' },
     { to: '/disease', icon: Camera, label: 'बीमारी जाँच' },
-    { to: '/news', icon: Newspaper, label: 'समाचार' },
     { to: '/videos', icon: Video, label: 'वीडियो' },
     { to: '/weather', icon: CloudSun, label: 'मौसम' },
+    { to: '/news', icon: Newspaper, label: 'समाचार' },
   ];
 
   const visibleNavItems = navItems.filter(item => {

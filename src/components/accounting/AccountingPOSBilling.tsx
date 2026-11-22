@@ -46,9 +46,10 @@ import {
   allocateFefoBatches,
   calculateProductHealthSummary,
   calculateVariantStockSummary,
-  formatBatchDateDisplay,
+  formatBatchDateHindiDisplay,
   stripUndefinedDeep
 } from '../../utils/batchInventoryUtils';
+import { formatHindiDate } from '../../lib/dateUtils';
 import { PrintableSalesInvoice } from './PrintableSalesInvoice';
 import { downloadSalesInvoicePDF } from '../../utils/salesInvoicePdfGenerator';
 import { POSMonthlyHistory } from './POSMonthlyHistory';
@@ -2038,13 +2039,13 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                         <p className="text-[11px] text-red-600 font-bold flex items-start gap-1.5 bg-red-50 p-2 rounded-xl border border-red-200 leading-tight">
                           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
                           <span>
-                            यह Bill Number (#{duplicateWarning.sale.invoiceNo}) इस तारीख ({duplicateWarning.sale.date}) पर पहले से मौजूद है ({duplicateWarning.sale.customerName}, ₹{duplicateWarning.sale.finalTotal})। कृपया Bill Number या Bill Date verify करें।
+                            यह Bill Number (#{duplicateWarning.sale.invoiceNo}) इस तारीख ({formatHindiDate(duplicateWarning.sale.date || duplicateWarning.sale.timestamp)}) पर पहले से मौजूद है ({duplicateWarning.sale.customerName}, ₹{duplicateWarning.sale.finalTotal})। कृपया Bill Number या Bill Date verify करें।
                           </span>
                         </p>
                       )}
                       {duplicateWarning?.exists === false && manualBillNumber.trim() && (
                         <p className="text-[10px] text-emerald-700 font-bold flex items-center gap-1 px-1">
-                          <Check className="w-3.5 h-3.5" /> बिल नंबर #{manualBillNumber.trim()} दिनांक {invoiceDate} पर उपलब्ध है।
+                          <Check className="w-3.5 h-3.5" /> बिल नंबर #{manualBillNumber.trim()} दिनांक {formatHindiDate(invoiceDate)} पर उपलब्ध है।
                         </p>
                       )}
                     </div>
@@ -2292,7 +2293,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                                     <span>
                                       {item.selectedBatchId ? 'चयनित बैच: ' : 'FEFO बैच: '}
                                       {item.batchAllocations
-                                        .map(a => `${a.batchNumber || 'बैच'} (${a.packsUsed}${a.expiryDate ? ` · ${formatBatchDateDisplay(a.expiryDate)}` : ''})`)
+                                        .map(a => `${a.batchNumber || 'बैच'} (${a.packsUsed}${a.expiryDate ? ` · ${formatBatchDateHindiDisplay(a.expiryDate)}` : ''})`)
                                         .join(' + ')}
                                     </span>
                                   </span>
@@ -2316,7 +2317,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                                     {eligibleBatchesForRow.map(b => (
                                       <option key={b.id} value={b.id}>
                                         {b.batchNumber || 'बिना बैच नं.'} · {b.remainingPackQuantity} शेष · ₹{b.effectivePurchaseCost}
-                                        {b.expiryDate ? ` · Exp: ${formatBatchDateDisplay(b.expiryDate, b.expiryDisplay)}` : ''}
+                                        {b.expiryDate ? ` · Exp: ${formatBatchDateHindiDisplay(b.expiryDate, b.expiryDisplay)}` : ''}
                                       </option>
                                     ))}
                                   </select>
@@ -3216,7 +3217,7 @@ export const AccountingPOSBilling: React.FC<Props> = ({ onSaleCreated, onSaleCom
                     <Layers className="w-4 h-4 text-blue-700 shrink-0" />
                     <span>
                       {autoOpenPacksNeeded} सीलबंद पैक स्वतः खुलेगा (FEFO बैच: {looseFefoPreview.batchNumbersSummary || 'उपलब्ध'}
-                      {looseFefoPreview.primaryExpiryDate ? ` · Exp: ${formatBatchDateDisplay(looseFefoPreview.primaryExpiryDate)}` : ''})
+                      {looseFefoPreview.primaryExpiryDate ? ` · Exp: ${formatBatchDateHindiDisplay(looseFefoPreview.primaryExpiryDate)}` : ''})
                     </span>
                   </div>
                 ) : null}

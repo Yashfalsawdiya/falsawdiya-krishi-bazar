@@ -6,6 +6,7 @@ import {
   openSmsComposer,
   copyTextToClipboard,
 } from './salesInvoiceShareUtils';
+import { formatHindiDate } from '../lib/dateUtils';
 
 export {
   triggerBlobDownload,
@@ -26,7 +27,7 @@ function formatLedgerEntryLine(entry: CustomerLedgerEntry, idx: number): string 
   const balanceStr = `₹${(entry.balanceAfter || 0).toLocaleString('en-IN')}`;
   const noteLine = entry.note && entry.note.trim() ? `\n   विवरण: ${entry.note.trim()}` : '';
 
-  return `${idx + 1}. ${entry.date} | *${title}*${billRef}${noteLine}\n   ${signLabel}: ${amountStr} | शेष: ${balanceStr}`;
+  return `${idx + 1}. ${formatHindiDate(entry.date || entry.timestamp)} | *${title}*${billRef}${noteLine}\n   ${signLabel}: ${amountStr} | शेष: ${balanceStr}`;
 }
 
 export function formatDetailedCustomerPassbookText(
@@ -36,7 +37,7 @@ export function formatDetailedCustomerPassbookText(
     maxEntries?: number;
   }
 ): string {
-  const today = new Date().toLocaleDateString('hi-IN');
+  const today = formatHindiDate(new Date());
   const displayAccount = customer.accountNumber?.trim()
     ? customer.accountNumber.trim()
     : customer.id.slice(0, 6).toUpperCase();
@@ -101,7 +102,7 @@ export function formatCompactSmsCustomerPassbookText(
   const statusText = (customer.currentOutstanding || 0) === 0 ? 'खाता चुकता' : 'बकाया शेष';
   const latest = ledgerEntries.length > 0 ? ledgerEntries[ledgerEntries.length - 1] : null;
   const latestLine = latest
-    ? `\nअंतिम लेनदेन (${latest.date}): ${latest.type === 'sale_debit' ? 'खरीद +' : 'जमा -'}₹${(latest.amount || 0).toLocaleString('en-IN')}`
+    ? `\nअंतिम लेनदेन (${formatHindiDate(latest.date || latest.timestamp)}): ${latest.type === 'sale_debit' ? 'खरीद +' : 'जमा -'}₹${(latest.amount || 0).toLocaleString('en-IN')}`
     : '';
 
   return (

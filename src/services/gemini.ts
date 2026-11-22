@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { jsonrepair } from "jsonrepair";
 import { getFriendlyAiError } from "../utils/aiErrorHandler";
+import { formatHindiDate } from "../lib/dateUtils";
 
 function isQuotaError(error: any): boolean {
   const status = error?.status || error?.code;
@@ -707,7 +708,7 @@ export async function getDynamicAdvice(weatherData: any, season: string, cropNam
     const ai = getAI(userApiKey);
     if (!ai) throw new Error("GEMINI_KEY_NOT_SET");
     const now = new Date();
-    const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+    const dateStr = formatHindiDate(now);
     const timeStr = now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
 
     const prompt = `आप एक विशेषज्ञ भारतीय कृषि वैज्ञानिक हैं। 
@@ -1215,7 +1216,7 @@ export async function askAiQuestion(
     }
 
     const now = new Date();
-    const dateStr = now.toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+    const dateStr = formatHindiDate(now);
     const weatherContext = `आज की तारीख: ${dateStr} | स्थान: शामगढ़, मंदसौर (मालवा क्षेत्र, मध्य प्रदेश) | वर्तमान मौसम: ${weatherData?.temp ?? 'N/A'}°C, ${weatherData?.condition || 'उपलब्ध नहीं'}`;
 
     const sanitizedHistory = Array.isArray(history)

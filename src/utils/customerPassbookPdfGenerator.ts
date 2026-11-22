@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import { AccountingCustomer, CustomerLedgerEntry } from '../types/accounting';
 import { loadLogoBase64 } from './invoiceGenerator';
 import { renderHtmlToSafeCanvas } from './canvasRenderUtils';
+import { formatHindiDate } from '../lib/dateUtils';
 
 export interface DownloadCustomerPassbookPdfOptions {
   customer: AccountingCustomer;
@@ -19,7 +20,7 @@ function buildCustomerPassbookHtml(
   ledgerEntries: CustomerLedgerEntry[],
   logoDataUrl: string
 ): string {
-  const currentDate = new Date().toLocaleDateString('hi-IN');
+  const currentDate = formatHindiDate(new Date());
   const isAllPaid = customer.currentOutstanding === 0;
 
   const rowsHtml = ledgerEntries.length === 0
@@ -36,7 +37,7 @@ function buildCustomerPassbookHtml(
         return `
           <tr style="background-color: ${bg}; border-bottom: 1px solid #f3f4f6;">
             <td style="padding: 10px 8px; text-align: center; color: #9ca3af; font-size: 11px;">${idx + 1}</td>
-            <td style="padding: 10px 8px; color: #1f2937; font-weight: 600; font-size: 11.5px; white-space: nowrap;">${entry.date}</td>
+            <td style="padding: 10px 8px; color: #1f2937; font-weight: 600; font-size: 11.5px; white-space: nowrap;">${formatHindiDate(entry.date || entry.timestamp)}</td>
             <td style="padding: 10px 8px; color: #111827; font-size: 11.5px; line-height: 1.5; word-break: break-word;">
               <div style="font-weight: 700;">${isDebit ? 'सामान बिक्री' : `उधारी भुगतान (${entry.paymentMode || 'Cash'})`}</div>
               ${entry.note ? `<div style="font-size: 10px; color: #6b7280; font-weight: normal; margin-top: 2px; line-height: 1.4;">${entry.note}</div>` : ''}

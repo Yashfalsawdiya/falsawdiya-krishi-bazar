@@ -24,6 +24,7 @@ import {
   formatMonthKeyLabels,
   getAvailableExpenseMonths,
 } from '../../utils/expenseExportGenerator';
+import { formatHindiDate } from '../../lib/dateUtils';
 
 interface AccountingExpensesProps {
   onExpenseChange?: () => void;
@@ -489,7 +490,7 @@ export const AccountingExpenses: React.FC<AccountingExpensesProps> = ({ onExpens
                           </span>
                         </div>
                         <p className="text-[11px] text-gray-500">
-                          {exp.date} {exp.recipientName ? `· ${exp.recipientName}` : ''} {exp.description ? `· ${exp.description}` : ''}
+                          {formatHindiDate(exp.date || exp.timestamp)} {exp.recipientName ? `· ${exp.recipientName}` : ''} {exp.description ? `· ${exp.description}` : ''}
                         </p>
                       </div>
                     </div>

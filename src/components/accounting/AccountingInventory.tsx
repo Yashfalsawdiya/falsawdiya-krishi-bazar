@@ -34,6 +34,7 @@ import {
   calculateProductHealthSummary,
   calculateVariantStockSummary,
   formatBatchDateDisplay,
+  formatBatchDateHindiDisplay,
   getBatchAlert,
   getBatchesForVariant,
   parseMfgOrExpiryInput,
@@ -1451,7 +1452,7 @@ export const AccountingInventory: React.FC = () => {
                                         {firstActiveBatch.batchNumber ? `बैच: ${firstActiveBatch.batchNumber}` : ''}
                                         {firstActiveBatch.batchNumber && firstActiveBatch.expiryDate ? ' · ' : ''}
                                         {firstActiveBatch.expiryDate
-                                          ? `Exp: ${formatBatchDateDisplay(firstActiveBatch.expiryDate, firstActiveBatch.expiryDisplay)}`
+                                          ? `Exp: ${formatBatchDateHindiDisplay(firstActiveBatch.expiryDate, firstActiveBatch.expiryDisplay)}`
                                           : ''}
                                         {vs.activeBatchesCount > 1 ? ` (+${vs.activeBatchesCount - 1})` : ''}
                                       </div>
