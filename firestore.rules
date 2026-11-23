@@ -159,6 +159,26 @@ service cloud.firestore {
              (!('showTreatmentPlanInDiseaseReport' in data) || data.showTreatmentPlanInDiseaseReport is bool) &&
              (!('featureToggles' in data) || data.featureToggles is map);
     }
+
+    function isValidPlaylist(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 2000)) &&
+             (!('thumbnail' in data) || isValidImage(data.thumbnail)) &&
+             data.displayOrder is number &&
+             data.isActive is bool &&
+             data.createdAt is number &&
+             data.updatedAt is number;
+    }
+
+    function isValidPlaylistVideo(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.playlistId is string && isValidId(data.playlistId) &&
+             existsAfter(/databases/$(database)/documents/playlists/$(data.playlistId)) &&
+             data.videoId is string && data.videoId.size() > 0 && data.videoId.size() <= 128 &&
+             data.displayOrder is number &&
+             data.addedAt is number;
+    }
     
     // ===============================================================
     // Rules
@@ -360,6 +380,28 @@ service cloud.firestore {
     // POS Monthly Backup & Export Tracking
     match /pos_monthly_backup_meta/{id} {
       allow read, write: if isAdmin();
+    }
+
+    // Video Playlists Collection (Public read, Admin-only write)
+    match /playlists/{playlistId} {
+      allow get: if isValidId(playlistId);
+      allow list: if true;
+      allow create: if isValidId(playlistId) && isAdmin() && isValidPlaylist(request.resource.data);
+      allow update: if isValidId(playlistId) && isAdmin() && isValidPlaylist(request.resource.data) &&
+                       request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isValidId(playlistId) && isAdmin();
+    }
+
+    // Playlist Video Mappings Collection (Public read, Admin-only write)
+    match /playlist_videos/{mappingId} {
+      allow get: if isValidId(mappingId);
+      allow list: if true;
+      allow create: if isValidId(mappingId) && isAdmin() && isValidPlaylistVideo(request.resource.data);
+      allow update: if isValidId(mappingId) && isAdmin() && isValidPlaylistVideo(request.resource.data) &&
+                       request.resource.data.playlistId == resource.data.playlistId &&
+                       request.resource.data.videoId == resource.data.videoId &&
+                       request.resource.data.addedAt == resource.data.addedAt;
+      allow delete: if isValidId(mappingId) && isAdmin();
     }
 
     // Default deny-all (moved to end)

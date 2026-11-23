@@ -8,7 +8,7 @@ import {
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle,
   Truck, FileText, Facebook, Instagram, Package, CreditCard, Layers, MessageSquare,
   Zap, Radio, Clock, Send, Eye, EyeOff, SlidersHorizontal, AlertCircle, LayoutGrid,
-  Calculator, Award
+  Calculator, Award, ListVideo
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
@@ -28,6 +28,7 @@ const AdminDeliveryManager = lazy(() => import('../components/AdminDeliveryManag
 const AdminDeviceBannerManager = lazy(() => import('../components/AdminDeviceBannerManager'));
 const AdminPopularBrandsManager = lazy(() => import('../components/AdminPopularBrandsManager'));
 const AdminYouTubeVideoManager = lazy(() => import('../components/AdminYouTubeVideoManager'));
+const AdminPlaylistManager = lazy(() => import('../components/AdminPlaylistManager'));
 const AdminFooterManager = lazy(() => import('../components/AdminFooterManager'));
 const AdminFeaturesManager = lazy(() => import('../components/AdminFeaturesManager'));
 const AccountingDashboard = lazy(() => import('../components/accounting/AccountingDashboard'));
@@ -39,7 +40,7 @@ const AdminTabFallback: React.FC = () => (
   </div>
 );
 
-type AdminTabType = 'accounting' | 'orders' | 'delivery' | 'features' | 'content' | 'heroBanners' | 'popularBrands' | 'youtube' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate' | 'footer';
+type AdminTabType = 'accounting' | 'orders' | 'delivery' | 'features' | 'content' | 'heroBanners' | 'popularBrands' | 'youtube' | 'playlists' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate' | 'footer';
 
 interface AdminNavSectionItem {
   id: AdminTabType;
@@ -57,6 +58,7 @@ const ADMIN_NAV_SECTIONS: AdminNavSectionItem[] = [
   { id: 'heroBanners', titleHi: 'Hero Banners', subtitleEn: '(Home Slider)', icon: ImageIcon },
   { id: 'popularBrands', titleHi: 'Popular Brands', subtitleEn: '(Partner Logos)', icon: Award },
   { id: 'youtube', titleHi: 'YouTube', subtitleEn: '(Videos & Channel)', icon: YoutubeIcon },
+  { id: 'playlists', titleHi: 'Playlist Management', subtitleEn: '(Playlists & Order)', icon: ListVideo },
   { id: 'features', titleHi: 'फ़ीचर्स नियंत्रण', subtitleEn: '(Features)', icon: SlidersHorizontal },
   { id: 'products', titleHi: 'उत्पाद', subtitleEn: '(Products)', icon: ShoppingBag },
   { id: 'categories', titleHi: 'श्रेणियाँ', subtitleEn: '(Categories)', icon: ListFilter },
@@ -2092,6 +2094,12 @@ const Admin: React.FC = () => {
             YouTube सेटिंग्स सुरक्षित करें (Save YouTube Settings)
           </button>
         </form>
+      ) : activeTab === 'playlists' ? (
+        <SafeErrorBoundary fallbackTitle="Playlist Management सेक्शन लोड करने में समस्या आई">
+          <Suspense fallback={<AdminTabFallback />}>
+            <AdminPlaylistManager />
+          </Suspense>
+        </SafeErrorBoundary>
       ) : (
         <form onSubmit={handleContentSubmit} className="space-y-8">
           {/* Instant Force Push Updates Card */}

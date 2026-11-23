@@ -23,7 +23,9 @@ import {
   LegalPagesContent, 
   DynamicDeliveryConfig,
   InvoiceTemplateConfig,
-  DeliveryEmailTemplateConfig
+  DeliveryEmailTemplateConfig,
+  VideoPlaylist,
+  PlaylistVideoItem
 } from '../types';
 import { sortCategoriesByOrder } from './categoryUtils';
 
@@ -37,6 +39,8 @@ export const IDB_KEYS = {
   DELIVERY_CONFIG: 'fkb_delivery_config_cache',
   INVOICE_TEMPLATE: 'fkb_invoice_template_cache',
   DELIVERY_EMAIL_TEMPLATE: 'fkb_delivery_email_template_cache',
+  PLAYLISTS: 'fkb_playlists_cache',
+  PLAYLIST_VIDEOS: 'fkb_playlist_videos_cache',
   METADATA_VERSION: 'fkb_metadata_version_cache',
   LAST_CHECK_TIMESTAMP: 'fkb_last_version_check_ts'
 };
@@ -67,6 +71,7 @@ export interface MetadataVersionRecord {
     deliveryEmailTemplate?: number;
     helplines?: number;
     agriIssues?: number;
+    playlists?: number;
   };
 }
 
@@ -85,6 +90,8 @@ export async function loadAllCachedData() {
       deliveryConfig,
       invoiceTemplate,
       deliveryEmailTemplate,
+      playlists,
+      playlistVideos,
       cachedVersion
     ] = await Promise.all([
       idbGet<Product[]>(IDB_KEYS.PRODUCTS),
@@ -96,6 +103,8 @@ export async function loadAllCachedData() {
       idbGet<DynamicDeliveryConfig>(IDB_KEYS.DELIVERY_CONFIG),
       idbGet<InvoiceTemplateConfig>(IDB_KEYS.INVOICE_TEMPLATE),
       idbGet<DeliveryEmailTemplateConfig>(IDB_KEYS.DELIVERY_EMAIL_TEMPLATE),
+      idbGet<VideoPlaylist[]>(IDB_KEYS.PLAYLISTS),
+      idbGet<PlaylistVideoItem[]>(IDB_KEYS.PLAYLIST_VIDEOS),
       idbGet<MetadataVersionRecord>(IDB_KEYS.METADATA_VERSION)
     ]);
 
@@ -109,6 +118,8 @@ export async function loadAllCachedData() {
       deliveryConfig: deliveryConfig || null,
       invoiceTemplate: invoiceTemplate || null,
       deliveryEmailTemplate: deliveryEmailTemplate || null,
+      playlists: (playlists || []).slice().sort((a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999)),
+      playlistVideos: (playlistVideos || []).slice().sort((a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999)),
       cachedVersion: cachedVersion || null
     };
   } catch (err) {
@@ -123,6 +134,8 @@ export async function loadAllCachedData() {
       deliveryConfig: null,
       invoiceTemplate: null,
       deliveryEmailTemplate: null,
+      playlists: [],
+      playlistVideos: [],
       cachedVersion: null
     };
   }
@@ -148,6 +161,8 @@ export async function syncDataIfVersionChanged(
     deliveryConfig: DynamicDeliveryConfig;
     invoiceTemplate: InvoiceTemplateConfig;
     deliveryEmailTemplate: DeliveryEmailTemplateConfig;
+    playlists: VideoPlaylist[];
+    playlistVideos: PlaylistVideoItem[];
   }>;
 }> {
   if (!navigator.onLine) {
@@ -204,7 +219,9 @@ export async function syncDataIfVersionChanged(
       legalSnap,
       deliverySnap,
       invoiceSnap,
-      emailTemplateSnap
+      emailTemplateSnap,
+      playlistsSnap,
+      playlistVideosSnap
     ] = await Promise.all([
       getDocs(collection(db, 'products')),
       getDocs(collection(db, 'categories')),
@@ -214,7 +231,9 @@ export async function syncDataIfVersionChanged(
       getDoc(doc(db, 'settings', 'legalPages')),
       getDoc(doc(db, 'settings', 'deliveryConfig')),
       getDoc(doc(db, 'settings', 'invoiceTemplate')),
-      getDoc(doc(db, 'settings', 'deliveryEmailTemplate'))
+      getDoc(doc(db, 'settings', 'deliveryEmailTemplate')),
+      getDocs(collection(db, 'playlists')).catch(() => null),
+      getDocs(collection(db, 'playlist_videos')).catch(() => null)
     ]);
 
     const products: Product[] = [];
@@ -236,6 +255,18 @@ export async function syncDataIfVersionChanged(
     const invoiceTemplate = invoiceSnap.exists() ? (invoiceSnap.data() as InvoiceTemplateConfig) : undefined;
     const deliveryEmailTemplate = emailTemplateSnap.exists() ? (emailTemplateSnap.data() as DeliveryEmailTemplateConfig) : undefined;
 
+    const playlistsRaw: VideoPlaylist[] = [];
+    if (playlistsSnap) {
+      playlistsSnap.forEach(d => playlistsRaw.push({ id: d.id, ...d.data() } as VideoPlaylist));
+    }
+    const playlists = playlistsRaw.sort((a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999));
+
+    const playlistVideosRaw: PlaylistVideoItem[] = [];
+    if (playlistVideosSnap) {
+      playlistVideosSnap.forEach(d => playlistVideosRaw.push({ id: d.id, ...d.data() } as PlaylistVideoItem));
+    }
+    const playlistVideos = playlistVideosRaw.sort((a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999));
+
     // Save newly downloaded data into IndexedDB
     await Promise.all([
       idbSet(IDB_KEYS.PRODUCTS, products),
@@ -247,6 +278,8 @@ export async function syncDataIfVersionChanged(
       deliveryConfig ? idbSet(IDB_KEYS.DELIVERY_CONFIG, deliveryConfig) : Promise.resolve(),
       invoiceTemplate ? idbSet(IDB_KEYS.INVOICE_TEMPLATE, invoiceTemplate) : Promise.resolve(),
       deliveryEmailTemplate ? idbSet(IDB_KEYS.DELIVERY_EMAIL_TEMPLATE, deliveryEmailTemplate) : Promise.resolve(),
+      playlistsSnap ? idbSet(IDB_KEYS.PLAYLISTS, playlists) : Promise.resolve(),
+      playlistVideosSnap ? idbSet(IDB_KEYS.PLAYLIST_VIDEOS, playlistVideos) : Promise.resolve(),
       idbSet(IDB_KEYS.METADATA_VERSION, remoteVersion)
     ]);
 
@@ -261,7 +294,9 @@ export async function syncDataIfVersionChanged(
         legalPages,
         deliveryConfig,
         invoiceTemplate,
-        deliveryEmailTemplate
+        deliveryEmailTemplate,
+        ...(playlistsSnap ? { playlists } : {}),
+        ...(playlistVideosSnap ? { playlistVideos } : {})
       }
     };
   } catch (error) {
@@ -327,7 +362,8 @@ export async function forcePushMetadataVersion(
         content: now,
         deliveryConfig: now,
         helplines: now,
-        agriIssues: now
+        agriIssues: now,
+        playlists: now
       }
     };
     await setDoc(versionRef, newVersion, { merge: true });

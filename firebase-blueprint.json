@@ -272,6 +272,33 @@
         "updatedBy": { "type": "string" }
       },
       "required": ["enabled", "updatedAt"]
+    },
+    "Playlist": {
+      "title": "Playlist",
+      "description": "Curated YouTube video playlists displayed in Kisan Pathshala.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 160 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "thumbnail": { "oneOf": [{ "type": "string" }, { "$ref": "ImageSource" }] },
+        "displayOrder": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["name", "displayOrder", "isActive", "createdAt", "updatedAt"]
+    },
+    "PlaylistVideo": {
+      "title": "PlaylistVideo",
+      "description": "Many-to-many ordered mapping between playlists and existing videos without duplicating video records.",
+      "type": "object",
+      "properties": {
+        "playlistId": { "type": "string", "maxLength": 128 },
+        "videoId": { "type": "string", "maxLength": 128 },
+        "displayOrder": { "type": "number" },
+        "addedAt": { "type": "number" }
+      },
+      "required": ["playlistId", "videoId", "displayOrder", "addedAt"]
     }
   },
   "firestore": {
@@ -310,6 +337,14 @@
     "/deliveryPartners/{partnerId}": {
       "schema": "DeliveryPartner",
       "description": "Collection of delivery partner profiles and assignments."
+    },
+    "/playlists/{playlistId}": {
+      "schema": "Playlist",
+      "description": "Publicly readable, admin-managed video playlists for Kisan Pathshala."
+    },
+    "/playlist_videos/{mappingId}": {
+      "schema": "PlaylistVideo",
+      "description": "Publicly readable, admin-managed ordered playlist-to-video mappings."
     },
     "/accounting_settings/pos_loose_rate_options": {
       "schema": "POSLooseRateSettings",

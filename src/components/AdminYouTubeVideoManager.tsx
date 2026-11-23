@@ -23,19 +23,16 @@ import {
   Star,
   Film,
   Radio,
+  ListVideo,
 } from 'lucide-react';
 import {
   YouTubeVideoItem,
   ImageSource,
-  VideoCategoryId,
   VideoHubSettings,
   VideoOverride,
 } from '../types';
-import { AppContent } from '../context/AppContext';
+import { AppContent, useAppContext } from '../context/AppContext';
 import {
-  VIDEO_CATEGORIES,
-  VIDEO_CATEGORY_MAP,
-  classifyYouTubeVideoCategory,
   extractYouTubeVideoId,
   formatYouTubeWatchUrl,
   getYouTubeThumbnailSource,
@@ -59,16 +56,29 @@ interface AdminYouTubeVideoManagerProps {
   onSaveContent?: (nextContent?: AppContent) => Promise<void>;
 }
 
-const CONCRETE_CATEGORIES = VIDEO_CATEGORIES.filter((c) => c.id !== 'all') as Array<{
-  id: Exclude<VideoCategoryId, 'all'>;
-  label: string;
-}>;
-
 const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
   contentForm,
   setContentForm,
   onSaveContent,
 }) => {
+  const {
+    playlists,
+    playlistVideos,
+    setVideoPlaylists,
+    cleanupVideoPlaylistMappings,
+  } = useAppContext();
+
+  const sortedPlaylists = useMemo(
+    () => [...playlists].sort((a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999)),
+    [playlists]
+  );
+
+  const playlistByIdMap = useMemo(() => {
+    const map = new Map<string, (typeof playlists)[number]>();
+    sortedPlaylists.forEach((p) => map.set(p.id, p));
+    return map;
+  }, [sortedPlaylists]);
+
   // Manual curated videos (shown on Home Page + Video Hub)
   const manualVideosList: YouTubeVideoItem[] = useMemo(() => {
     return normalizeVideos(contentForm?.videos);
@@ -98,10 +108,10 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
   const [formDescription, setFormDescription] = useState('');
   const [formThumbnail, setFormThumbnail] = useState<string | ImageSource>('');
   const [formIsActive, setFormIsActive] = useState(true);
-  const [formCategory, setFormCategory] = useState<Exclude<VideoCategoryId, 'all'>>('crop_info');
   const [formIsShort, setFormIsShort] = useState(false);
   const [formIsPinned, setFormIsPinned] = useState(false);
   const [formIsFeatured, setFormIsFeatured] = useState(false);
+  const [formSelectedPlaylistIds, setFormSelectedPlaylistIds] = useState<string[]>([]);
   const [isDetectingTitle, setIsDetectingTitle] = useState(false);
   const [formUrlError, setFormUrlError] = useState<string | null>(null);
 
@@ -190,7 +200,6 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
       setIsDetectingTitle(false);
       if (title && !formTitle.trim()) {
         setFormTitle(title);
-        setFormCategory(classifyYouTubeVideoCategory(title, formDescription, formIsShort));
       }
     }
   };
@@ -202,7 +211,6 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
     setIsDetectingTitle(false);
     if (title) {
       setFormTitle(title);
-      setFormCategory(classifyYouTubeVideoCategory(title, formDescription, formIsShort));
       setStatusMessage({ type: 'success', text: 'वीडियो का शीर्षक स्वतः भर दिया गया है।' });
     } else {
       setStatusMessage({ type: 'info', text: 'शीर्षक स्वतः नहीं मिल सका, कृपया मैन्युअल लिखें।' });
@@ -368,28 +376,30 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
     setFormDescription('');
     setFormThumbnail('');
     setFormIsActive(true);
-    setFormCategory('crop_info');
     setFormIsShort(false);
     setFormIsPinned(false);
     setFormIsFeatured(false);
+    setFormSelectedPlaylistIds([]);
     setFormUrlError(null);
     setIsAddModalOpen(true);
   };
 
   const openEditModal = (video: YouTubeVideoItem) => {
+    const targetKey = video.videoId || video.id;
+    const assignedIds = playlistVideos
+      .filter((m) => m.videoId === targetKey)
+      .map((m) => m.playlistId);
+
     setEditingVideo(video);
     setFormVideoUrl(video.videoUrl || (video.videoId ? formatYouTubeWatchUrl(video.videoId) : ''));
     setFormTitle(video.title || '');
     setFormDescription(video.description || '');
     setFormThumbnail(video.thumbnail || '');
     setFormIsActive(video.isActive !== false);
-    setFormCategory(
-      video.category ||
-        classifyYouTubeVideoCategory(video.title, video.description || '', Boolean(video.isShort))
-    );
     setFormIsShort(Boolean(video.isShort));
     setFormIsPinned(Boolean(video.isPinned));
     setFormIsFeatured(Boolean(video.isFeatured));
+    setFormSelectedPlaylistIds(Array.from(new Set(assignedIds)));
     setFormUrlError(null);
   };
 
@@ -426,7 +436,6 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
       description: formDescription.trim(),
       thumbnail: thumb,
       isActive: formIsActive,
-      category: formCategory,
       isShort: formIsShort,
       isPinned: formIsPinned,
       isFeatured: formIsFeatured,
@@ -440,6 +449,9 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
       (prev) => ({ ...prev, videos: updated }),
       'नई वीडियो सफलतापूर्वक जोड़ी गई!'
     );
+    if (formSelectedPlaylistIds.length > 0) {
+      await setVideoPlaylists(id, formSelectedPlaylistIds);
+    }
     setIsAddModalOpen(false);
   };
 
@@ -459,6 +471,7 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
       return;
     }
 
+    const oldKey = editingVideo.videoId || editingVideo.id;
     const isManual = manualVideosList.some((m) => m.id === editingVideo.id);
 
     if (isManual) {
@@ -483,7 +496,6 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
               description: formDescription.trim(),
               thumbnail: thumb,
               isActive: formIsActive,
-              category: formCategory,
               isShort: formIsShort,
               isPinned: formIsPinned,
               isFeatured: formIsFeatured,
@@ -496,16 +508,20 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
         (prev) => ({ ...prev, videos: updated }),
         'वीडियो जानकारी सफलतापूर्वक अपडेट की गई!'
       );
+      if (oldKey && oldKey !== id) {
+        await cleanupVideoPlaylistMappings(oldKey);
+      }
+      await setVideoPlaylists(id, formSelectedPlaylistIds);
     } else {
       await updateVideoMetadata(editingVideo, {
         title: formTitle.trim(),
         description: formDescription.trim(),
         isActive: formIsActive,
-        category: formCategory,
         isShort: formIsShort,
         isPinned: formIsPinned,
         isFeatured: formIsFeatured,
       });
+      await setVideoPlaylists(oldKey, formSelectedPlaylistIds);
     }
     setEditingVideo(null);
   };
@@ -540,6 +556,7 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
 
     if (!isManual) {
       await updateVideoMetadata(targetVideo, { isActive: false, isDeleted: true });
+      await cleanupVideoPlaylistMappings(targetKey);
       setSyncedChannelVideos((prev) =>
         prev.filter((v) => (v.videoId || v.id) !== targetKey)
       );
@@ -559,6 +576,7 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
       (prev) => ({ ...prev, videos: updated }),
       'वीडियो सफलतापूर्वक हटा दी गई!'
     );
+    await cleanupVideoPlaylistMappings(targetKey);
     setVideoToDelete(null);
   };
 
@@ -581,7 +599,7 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
               </span>
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
-              चैनल से ऑटो-सिंक करें या होम पेज व वीडियो हब के लिए मैन्युअल वीडियो जोड़ें और श्रेणी तय करें
+              चैनल से ऑटो-सिंक करें या होम पेज व किसान पाठशाला के लिए मैन्युअल वीडियो जोड़ें और प्लेलिस्ट तय करें
             </p>
           </div>
         </div>
@@ -840,7 +858,11 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
             const isFirst = isManual && manualIdx === 0;
             const isLast = isManual && manualIdx === manualVideosList.length - 1;
             const resolvedThumb = resolveVideoThumbnail(video);
-            const catValue = video.category || 'other';
+            const videoKey = video.videoId || video.id;
+            const assignedPlaylistNames = playlistVideos
+              .filter((m) => m.videoId === videoKey)
+              .map((m) => playlistByIdMap.get(m.playlistId)?.name)
+              .filter((name): name is string => Boolean(name));
 
             return (
               <div
@@ -876,7 +898,7 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
                       )}
                     </div>
 
-                    {/* Details & Inline Category Selector */}
+                    {/* Details & Playlist Chips */}
                     <div className="space-y-2 flex-1 min-w-0 w-full">
                       <div className="flex items-center gap-2 flex-wrap">
                         {video.isActive ? (
@@ -922,22 +944,15 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
                       )}
 
                       <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                        <select
-                          aria-label="वीडियो श्रेणी बदलें"
-                          value={catValue}
-                          onChange={(e) =>
-                            updateVideoMetadata(video, {
-                              category: e.target.value as Exclude<VideoCategoryId, 'all'>,
-                            })
-                          }
-                          className="bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-1 text-xs font-semibold text-[#1E3F1A] outline-none focus:border-[#2D5A27] cursor-pointer"
-                        >
-                          {CONCRETE_CATEGORIES.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.label}
-                            </option>
-                          ))}
-                        </select>
+                        {assignedPlaylistNames.map((plName, pIdx) => (
+                          <span
+                            key={`${plName}-${pIdx}`}
+                            className="inline-flex items-center gap-1 bg-emerald-50 text-[#2D5A27] border border-emerald-200/80 rounded-xl px-2.5 py-1 text-[11px] font-bold"
+                          >
+                            <ListVideo className="w-3 h-3 shrink-0" />
+                            <span className="truncate max-w-[160px]">{plName}</span>
+                          </span>
+                        ))}
 
                         <a
                           href={video.videoUrl}
@@ -1097,7 +1112,7 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
                       {editingVideo ? 'वीडियो संपादित करें (Edit Video)' : 'नई वीडियो जोड़ें (+ Add Video)'}
                     </h3>
                     <p className="text-xs text-gray-400">
-                      होम पेज और वीडियो केंद्र के लिए यूट्यूब लिंक व श्रेणी सेट करें
+                      होम पेज और किसान पाठशाला के लिए यूट्यूब लिंक व विवरण सेट करें
                     </p>
                   </div>
                 </div>
@@ -1174,53 +1189,32 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
                   />
                 </div>
 
-                {/* Category & Format Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
-                      श्रेणी (Category)
-                    </label>
-                    <select
-                      value={formCategory}
-                      onChange={(e) =>
-                        setFormCategory(e.target.value as Exclude<VideoCategoryId, 'all'>)
-                      }
-                      className="w-full bg-gray-50 border-2 border-transparent focus:border-[#2D5A27] focus:bg-white rounded-2xl p-3.5 outline-none text-sm font-medium"
+                {/* Video Format */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
+                    वीडियो प्रकार (Format)
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5 bg-gray-100 p-1 rounded-2xl">
+                    <button
+                      type="button"
+                      onClick={() => setFormIsShort(false)}
+                      className={cn(
+                        'py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
+                        !formIsShort ? 'bg-white text-[#2D5A27] shadow-xs' : 'text-gray-500'
+                      )}
                     >
-                      {CONCRETE_CATEGORIES.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
-                      वीडियो प्रकार (Format)
-                    </label>
-                    <div className="grid grid-cols-2 gap-1.5 bg-gray-100 p-1 rounded-2xl">
-                      <button
-                        type="button"
-                        onClick={() => setFormIsShort(false)}
-                        className={cn(
-                          'py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
-                          !formIsShort ? 'bg-white text-[#2D5A27] shadow-xs' : 'text-gray-500'
-                        )}
-                      >
-                        वीडियो (16:9)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormIsShort(true)}
-                        className={cn(
-                          'py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
-                          formIsShort ? 'bg-white text-[#2D5A27] shadow-xs' : 'text-gray-500'
-                        )}
-                      >
-                        शॉर्ट्स (9:16)
-                      </button>
-                    </div>
+                      वीडियो (16:9)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormIsShort(true)}
+                      className={cn(
+                        'py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
+                        formIsShort ? 'bg-white text-[#2D5A27] shadow-xs' : 'text-gray-500'
+                      )}
+                    >
+                      शॉर्ट्स (9:16)
+                    </button>
                   </div>
                 </div>
 
@@ -1245,6 +1239,71 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
                   onChange={(src) => setFormThumbnail(src)}
                   description="खाली छोड़ने पर यूट्यूब का आधिकारिक थंबनेल स्वतः उपयोग होगा।"
                 />
+
+                {/* Optional Multi-Select Playlists Picker */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                      <ListVideo className="w-3.5 h-3.5 text-[#2D5A27]" />
+                      <span>प्लेलिस्ट में जोड़ें (वैकल्पिक)</span>
+                    </label>
+                    {formSelectedPlaylistIds.length > 0 && (
+                      <span className="text-[11px] font-bold text-[#2D5A27]">
+                        {formSelectedPlaylistIds.length} चयनित
+                      </span>
+                    )}
+                  </div>
+
+                  {sortedPlaylists.length === 0 ? (
+                    <div className="p-3 rounded-2xl bg-gray-50 border border-gray-200/70 text-[11px] text-gray-500">
+                      अभी कोई प्लेलिस्ट उपलब्ध नहीं है। आप Admin → Playlist Management से प्लेलिस्ट बना सकते हैं या इस वीडियो को बिना प्लेलिस्ट के सेव कर सकते हैं।
+                    </div>
+                  ) : (
+                    <div className="max-h-40 overflow-y-auto space-y-1.5 p-2 rounded-2xl bg-gray-50/70 border border-gray-200/70">
+                      {sortedPlaylists.map((pl) => {
+                        const checked = formSelectedPlaylistIds.includes(pl.id);
+                        return (
+                          <button
+                            key={pl.id}
+                            type="button"
+                            onClick={() =>
+                              setFormSelectedPlaylistIds((prev) =>
+                                prev.includes(pl.id)
+                                  ? prev.filter((id) => id !== pl.id)
+                                  : [...prev, pl.id]
+                              )
+                            }
+                            className={cn(
+                              'w-full flex items-center justify-between gap-2.5 p-2 rounded-xl border text-left transition-colors cursor-pointer',
+                              checked
+                                ? 'bg-emerald-50 border-[#2D5A27]/40 text-[#1E3F1A]'
+                                : 'bg-white border-gray-100 hover:bg-gray-50 text-gray-700'
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div
+                                className={cn(
+                                  'w-4 h-4 rounded border flex items-center justify-center shrink-0',
+                                  checked
+                                    ? 'bg-[#2D5A27] border-[#2D5A27] text-white'
+                                    : 'border-gray-300 bg-white'
+                                )}
+                              >
+                                {checked && <Check className="w-3 h-3" />}
+                              </div>
+                              <span className="text-xs font-bold truncate">{pl.name}</span>
+                            </div>
+                            {pl.isActive === false && (
+                              <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md shrink-0">
+                                छिपी हुई
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
 
                 {/* Toggles: Active / Pin / Featured */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">

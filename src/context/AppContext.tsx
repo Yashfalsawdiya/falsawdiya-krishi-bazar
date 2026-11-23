@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Product, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig, DeliveryEmailTemplateConfig, DeviceType, DeviceBanner, DeviceBannersMap, YouTubeVideoItem, FooterConfig } from '../types';
+import { Product, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig, DeliveryEmailTemplateConfig, DeviceType, DeviceBanner, DeviceBannersMap, YouTubeVideoItem, FooterConfig, VideoPlaylist, PlaylistVideoItem } from '../types';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
 import { DEFAULT_INVOICE_TEMPLATE, mergeInvoiceTemplate } from '../data/defaultInvoiceTemplate';
 import { DEFAULT_DELIVERY_EMAIL_TEMPLATE, mergeDeliveryEmailTemplate } from '../data/defaultDeliveryEmailTemplate';
@@ -114,6 +114,8 @@ interface AppContextType {
   categories: CategoryData[];
   agriIssues: AgriIssue[];
   helplines: Helpline[];
+  playlists: VideoPlaylist[];
+  playlistVideos: PlaylistVideoItem[];
   appContent: AppContent | null;
   legalPagesContent: Required<LegalPagesContent>;
   invoiceTemplate: InvoiceTemplateConfig;
@@ -143,6 +145,15 @@ interface AppContextType {
   addHelpline: (helpline: Omit<Helpline, 'id'>) => Promise<void>;
   updateHelpline: (helpline: Helpline) => Promise<void>;
   deleteHelpline: (id: string) => Promise<void>;
+  addPlaylist: (playlist: Omit<VideoPlaylist, 'id' | 'createdAt' | 'updatedAt'>, initialVideoIds?: string[]) => Promise<VideoPlaylist>;
+  updatePlaylist: (playlist: VideoPlaylist) => Promise<void>;
+  deletePlaylist: (playlistId: string) => Promise<void>;
+  reorderPlaylists: (reordered: VideoPlaylist[]) => Promise<void>;
+  addVideosToPlaylist: (playlistId: string, videoIds: string[]) => Promise<void>;
+  removeVideoFromPlaylist: (playlistId: string, videoId: string) => Promise<void>;
+  reorderPlaylistVideos: (playlistId: string, orderedVideoIds: string[]) => Promise<void>;
+  setVideoPlaylists: (videoId: string, targetPlaylistIds: string[]) => Promise<void>;
+  cleanupVideoPlaylistMappings: (videoId: string) => Promise<void>;
   updateAppContent: (content: AppContent) => Promise<void>;
   updateFooterContent: (footer: FooterConfig) => Promise<void>;
   updateLegalPagesContent: (content: LegalPagesContent) => Promise<void>;
@@ -188,6 +199,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [agriIssues, setAgriIssues] = useState<AgriIssue[]>([]);
   const [helplines, setHelplines] = useState<Helpline[]>([]);
+  const [playlists, setPlaylists] = useState<VideoPlaylist[]>([]);
+  const [playlistVideos, setPlaylistVideos] = useState<PlaylistVideoItem[]>([]);
   const [appContent, setAppContent] = useState<AppContent | null>(null);
 
   const mergeLegalPages = (saved?: Partial<LegalPagesContent> | null): Required<LegalPagesContent> => {
@@ -467,6 +480,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (newData.categories) setCategories(sortCategoriesByOrder(newData.categories));
       if (newData.agriIssues) setAgriIssues(newData.agriIssues);
       if (newData.helplines) setHelplines(newData.helplines);
+      if (newData.playlists) setPlaylists(newData.playlists);
+      if (newData.playlistVideos) setPlaylistVideos(newData.playlistVideos);
       if (newData.appContent) {
         setAppContent(newData.appContent);
         prefetchContentImages(newData.appContent);
@@ -486,6 +501,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (cached.categories.length > 0) setCategories(sortCategoriesByOrder(cached.categories));
       if (cached.agriIssues.length > 0) setAgriIssues(cached.agriIssues);
       if (cached.helplines.length > 0) setHelplines(cached.helplines);
+      if (cached.playlists && cached.playlists.length > 0) setPlaylists(cached.playlists);
+      if (cached.playlistVideos && cached.playlistVideos.length > 0) setPlaylistVideos(cached.playlistVideos);
       if (cached.appContent) {
         setAppContent(cached.appContent);
         prefetchContentImages(cached.appContent);
@@ -585,6 +602,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let unsubAdminDelivery: Unsubscribe | undefined;
     let unsubAdminInvoice: Unsubscribe | undefined;
     let unsubAdminEmailTpl: Unsubscribe | undefined;
+    let unsubAdminPlaylists: Unsubscribe | undefined;
+    let unsubAdminPlaylistVideos: Unsubscribe | undefined;
 
     if (isAdmin) {
       unsubAdminContent = onSnapshot(doc(db, 'settings', 'content'), (snapshot) => {
@@ -594,6 +613,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           idbSet(IDB_KEYS.APP_CONTENT, data);
         }
       });
+
+      unsubAdminPlaylists = onSnapshot(collection(db, 'playlists'), (snapshot) => {
+        const list = snapshot.docs
+          .map(d => ({ id: d.id, ...d.data() } as VideoPlaylist))
+          .sort((a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999));
+        setPlaylists(list);
+        idbSet(IDB_KEYS.PLAYLISTS, list);
+      }, () => {});
+
+      unsubAdminPlaylistVideos = onSnapshot(collection(db, 'playlist_videos'), (snapshot) => {
+        const list = snapshot.docs
+          .map(d => ({ id: d.id, ...d.data() } as PlaylistVideoItem))
+          .sort((a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999));
+        setPlaylistVideos(list);
+        idbSet(IDB_KEYS.PLAYLIST_VIDEOS, list);
+      }, () => {});
 
       unsubAdminLegal = onSnapshot(doc(db, 'settings', 'legalPages'), (snapshot) => {
         if (snapshot.exists()) {
@@ -642,6 +677,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       if (unsubAdminProducts) unsubAdminProducts();
       if (unsubAdminContent) unsubAdminContent();
+      if (unsubAdminPlaylists) unsubAdminPlaylists();
+      if (unsubAdminPlaylistVideos) unsubAdminPlaylistVideos();
       if (unsubAdminLegal) unsubAdminLegal();
       if (unsubAdminDelivery) unsubAdminDelivery();
       if (unsubAdminInvoice) unsubAdminInvoice();
@@ -1125,6 +1162,345 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // ========================================================
+  // VIDEO PLAYLISTS & MAPPING CRUD (Many-to-Many, Non-Destructive)
+  // ========================================================
+
+  const sanitizePlaylistMappingKey = (rawId: string): string =>
+    rawId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
+
+  const buildPlaylistMappingDocId = (playlistId: string, videoId: string): string =>
+    `${playlistId}__${sanitizePlaylistMappingKey(videoId)}`.slice(0, 128);
+
+  const addPlaylist = async (
+    data: Omit<VideoPlaylist, 'id' | 'createdAt' | 'updatedAt'>,
+    initialVideoIds: string[] = []
+  ): Promise<VideoPlaylist> => {
+    const now = Date.now();
+    const playlistId = `pl_${now}_${Math.random().toString(36).substring(2, 6)}`;
+    const newPlaylist: VideoPlaylist = {
+      id: playlistId,
+      name: data.name.trim(),
+      description: (data.description || '').trim(),
+      thumbnail: data.thumbnail || '',
+      displayOrder: typeof data.displayOrder === 'number' ? data.displayOrder : playlists.length + 1,
+      isActive: data.isActive !== false,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const uniqueVideoIds = Array.from(new Set(initialVideoIds.filter(Boolean)));
+    const newMappings: PlaylistVideoItem[] = uniqueVideoIds.map((vid, idx) => ({
+      id: buildPlaylistMappingDocId(playlistId, vid),
+      playlistId,
+      videoId: vid,
+      displayOrder: idx + 1,
+      addedAt: now + idx,
+    }));
+
+    try {
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'playlists', playlistId), newPlaylist);
+      newMappings.forEach((m) => {
+        batch.set(doc(db, 'playlist_videos', m.id), m);
+      });
+      await batch.commit();
+
+      setPlaylists((prev) => {
+        const updated = [...prev, newPlaylist].sort(
+          (a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999)
+        );
+        idbSet(IDB_KEYS.PLAYLISTS, updated);
+        return updated;
+      });
+      if (newMappings.length > 0) {
+        setPlaylistVideos((prev) => {
+          const updated = [...prev, ...newMappings];
+          idbSet(IDB_KEYS.PLAYLIST_VIDEOS, updated);
+          return updated;
+        });
+      }
+      await bumpMetadataVersion(db, 'playlists');
+      return newPlaylist;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `playlists/${playlistId}`);
+      throw error;
+    }
+  };
+
+  const updatePlaylist = async (playlist: VideoPlaylist) => {
+    const updatedItem: VideoPlaylist = {
+      ...playlist,
+      name: playlist.name.trim(),
+      description: (playlist.description || '').trim(),
+      thumbnail: playlist.thumbnail || '',
+      updatedAt: Date.now(),
+    };
+
+    setPlaylists((prev) => {
+      const updated = prev
+        .map((p) => (p.id === updatedItem.id ? updatedItem : p))
+        .sort((a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999));
+      idbSet(IDB_KEYS.PLAYLISTS, updated);
+      return updated;
+    });
+
+    try {
+      await setDoc(doc(db, 'playlists', updatedItem.id), updatedItem);
+      await bumpMetadataVersion(db, 'playlists');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `playlists/${updatedItem.id}`);
+      throw error;
+    }
+  };
+
+  const deletePlaylist = async (playlistId: string) => {
+    const matchingMappings = playlistVideos.filter((m) => m.playlistId === playlistId);
+
+    try {
+      const batch = writeBatch(db);
+      batch.delete(doc(db, 'playlists', playlistId));
+      matchingMappings.forEach((m) => {
+        batch.delete(doc(db, 'playlist_videos', m.id));
+      });
+      await batch.commit();
+
+      setPlaylists((prev) => {
+        const updated = prev
+          .filter((p) => p.id !== playlistId)
+          .map((p, idx) => ({ ...p, displayOrder: idx + 1 }));
+        idbSet(IDB_KEYS.PLAYLISTS, updated);
+        return updated;
+      });
+      setPlaylistVideos((prev) => {
+        const updated = prev.filter((m) => m.playlistId !== playlistId);
+        idbSet(IDB_KEYS.PLAYLIST_VIDEOS, updated);
+        return updated;
+      });
+      await bumpMetadataVersion(db, 'playlists');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `playlists/${playlistId}`);
+      throw error;
+    }
+  };
+
+  const reorderPlaylists = async (reordered: VideoPlaylist[]) => {
+    const now = Date.now();
+    const normalized = reordered.map((p, idx) => ({
+      ...p,
+      displayOrder: idx + 1,
+      updatedAt: now,
+    }));
+
+    setPlaylists(normalized);
+    idbSet(IDB_KEYS.PLAYLISTS, normalized);
+
+    try {
+      const batch = writeBatch(db);
+      normalized.forEach((p) => {
+        batch.update(doc(db, 'playlists', p.id), {
+          displayOrder: p.displayOrder,
+          updatedAt: now,
+        });
+      });
+      await batch.commit();
+      await bumpMetadataVersion(db, 'playlists');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'playlists/reorder');
+      throw error;
+    }
+  };
+
+  const addVideosToPlaylist = async (playlistId: string, videoIds: string[]) => {
+    const existingForPlaylist = playlistVideos.filter((m) => m.playlistId === playlistId);
+    const existingVideoSet = new Set(existingForPlaylist.map((m) => m.videoId));
+    const maxOrder = existingForPlaylist.reduce(
+      (max, m) => Math.max(max, m.displayOrder || 0),
+      0
+    );
+
+    const toAdd = Array.from(new Set(videoIds.filter(Boolean))).filter(
+      (vid) => !existingVideoSet.has(vid)
+    );
+    if (toAdd.length === 0) return;
+
+    const now = Date.now();
+    const newMappings: PlaylistVideoItem[] = toAdd.map((vid, idx) => ({
+      id: buildPlaylistMappingDocId(playlistId, vid),
+      playlistId,
+      videoId: vid,
+      displayOrder: maxOrder + idx + 1,
+      addedAt: now + idx,
+    }));
+
+    try {
+      const batch = writeBatch(db);
+      newMappings.forEach((m) => {
+        batch.set(doc(db, 'playlist_videos', m.id), m);
+      });
+      await batch.commit();
+
+      setPlaylistVideos((prev) => {
+        const updated = [...prev, ...newMappings].sort(
+          (a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999)
+        );
+        idbSet(IDB_KEYS.PLAYLIST_VIDEOS, updated);
+        return updated;
+      });
+      await bumpMetadataVersion(db, 'playlists');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `playlist_videos/${playlistId}`);
+      throw error;
+    }
+  };
+
+  const removeVideoFromPlaylist = async (playlistId: string, videoId: string) => {
+    const targetMappings = playlistVideos.filter(
+      (m) => m.playlistId === playlistId && m.videoId === videoId
+    );
+    const remaining = playlistVideos
+      .filter((m) => m.playlistId === playlistId && m.videoId !== videoId)
+      .sort((a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999))
+      .map((m, idx) => ({ ...m, displayOrder: idx + 1 }));
+
+    try {
+      const batch = writeBatch(db);
+      targetMappings.forEach((m) => {
+        batch.delete(doc(db, 'playlist_videos', m.id));
+      });
+      remaining.forEach((m) => {
+        batch.update(doc(db, 'playlist_videos', m.id), { displayOrder: m.displayOrder });
+      });
+      await batch.commit();
+
+      setPlaylistVideos((prev) => {
+        const other = prev.filter((m) => m.playlistId !== playlistId);
+        const updated = [...other, ...remaining].sort(
+          (a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999)
+        );
+        idbSet(IDB_KEYS.PLAYLIST_VIDEOS, updated);
+        return updated;
+      });
+      await bumpMetadataVersion(db, 'playlists');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `playlist_videos/${playlistId}`);
+      throw error;
+    }
+  };
+
+  const reorderPlaylistVideos = async (playlistId: string, orderedVideoIds: string[]) => {
+    const existingMap = new Map(
+      playlistVideos
+        .filter((m) => m.playlistId === playlistId)
+        .map((m) => [m.videoId, m])
+    );
+
+    const reorderedMappings: PlaylistVideoItem[] = [];
+    orderedVideoIds.forEach((vid, idx) => {
+      const existing = existingMap.get(vid);
+      if (existing) {
+        reorderedMappings.push({ ...existing, displayOrder: idx + 1 });
+      }
+    });
+
+    if (reorderedMappings.length === 0) return;
+
+    try {
+      const batch = writeBatch(db);
+      reorderedMappings.forEach((m) => {
+        batch.update(doc(db, 'playlist_videos', m.id), { displayOrder: m.displayOrder });
+      });
+      await batch.commit();
+
+      setPlaylistVideos((prev) => {
+        const other = prev.filter((m) => m.playlistId !== playlistId);
+        const updated = [...other, ...reorderedMappings].sort(
+          (a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999)
+        );
+        idbSet(IDB_KEYS.PLAYLIST_VIDEOS, updated);
+        return updated;
+      });
+      await bumpMetadataVersion(db, 'playlists');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `playlist_videos/reorder/${playlistId}`);
+      throw error;
+    }
+  };
+
+  const setVideoPlaylists = async (videoId: string, targetPlaylistIds: string[]) => {
+    if (!videoId) return;
+    const validPlaylistSet = new Set(playlists.map((p) => p.id));
+    const desiredSet = new Set(targetPlaylistIds.filter((pid) => validPlaylistSet.has(pid)));
+    const currentMappings = playlistVideos.filter((m) => m.videoId === videoId);
+    const currentPlaylistSet = new Set(currentMappings.map((m) => m.playlistId));
+
+    const toRemove = currentMappings.filter((m) => !desiredSet.has(m.playlistId));
+    const toAddPlaylistIds = Array.from(desiredSet).filter((pid) => !currentPlaylistSet.has(pid));
+
+    if (toRemove.length === 0 && toAddPlaylistIds.length === 0) return;
+
+    const now = Date.now();
+    const addedMappings: PlaylistVideoItem[] = toAddPlaylistIds.map((pid, idx) => {
+      const existingForPl = playlistVideos.filter((m) => m.playlistId === pid);
+      const maxOrder = existingForPl.reduce((max, m) => Math.max(max, m.displayOrder || 0), 0);
+      return {
+        id: buildPlaylistMappingDocId(pid, videoId),
+        playlistId: pid,
+        videoId,
+        displayOrder: maxOrder + 1,
+        addedAt: now + idx,
+      };
+    });
+
+    try {
+      const batch = writeBatch(db);
+      toRemove.forEach((m) => {
+        batch.delete(doc(db, 'playlist_videos', m.id));
+      });
+      addedMappings.forEach((m) => {
+        batch.set(doc(db, 'playlist_videos', m.id), m);
+      });
+      await batch.commit();
+
+      const removedIds = new Set(toRemove.map((m) => m.id));
+      setPlaylistVideos((prev) => {
+        const updated = [...prev.filter((m) => !removedIds.has(m.id)), ...addedMappings].sort(
+          (a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999)
+        );
+        idbSet(IDB_KEYS.PLAYLIST_VIDEOS, updated);
+        return updated;
+      });
+      await bumpMetadataVersion(db, 'playlists');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `playlist_videos/video/${videoId}`);
+      throw error;
+    }
+  };
+
+  const cleanupVideoPlaylistMappings = async (videoId: string) => {
+    if (!videoId) return;
+    const toRemove = playlistVideos.filter((m) => m.videoId === videoId);
+    if (toRemove.length === 0) return;
+
+    try {
+      const batch = writeBatch(db);
+      toRemove.forEach((m) => {
+        batch.delete(doc(db, 'playlist_videos', m.id));
+      });
+      await batch.commit();
+
+      const removedIds = new Set(toRemove.map((m) => m.id));
+      setPlaylistVideos((prev) => {
+        const updated = prev.filter((m) => !removedIds.has(m.id));
+        idbSet(IDB_KEYS.PLAYLIST_VIDEOS, updated);
+        return updated;
+      });
+      await bumpMetadataVersion(db, 'playlists');
+    } catch (error) {
+      console.warn('Non-fatal cleanup error for deleted video playlist mappings:', error);
+    }
+  };
+
   const stripUndefinedDeep = <T,>(val: T): T => {
     if (Array.isArray(val)) {
       return val.map((item) => stripUndefinedDeep(item)) as unknown as T;
@@ -1343,6 +1719,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (syncRes.newData.categories) setCategories(sortCategoriesByOrder(syncRes.newData.categories));
         if (syncRes.newData.agriIssues) setAgriIssues(syncRes.newData.agriIssues);
         if (syncRes.newData.helplines) setHelplines(syncRes.newData.helplines);
+        if (syncRes.newData.playlists) setPlaylists(syncRes.newData.playlists);
+        if (syncRes.newData.playlistVideos) setPlaylistVideos(syncRes.newData.playlistVideos);
         if (syncRes.newData.appContent) setAppContent(syncRes.newData.appContent);
         if (syncRes.newData.deliveryConfig) setDeliveryConfig(mergeDeliveryConfig(syncRes.newData.deliveryConfig));
       }
@@ -1368,6 +1746,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (syncRes.newData.categories) setCategories(sortCategoriesByOrder(syncRes.newData.categories));
         if (syncRes.newData.agriIssues) setAgriIssues(syncRes.newData.agriIssues);
         if (syncRes.newData.helplines) setHelplines(syncRes.newData.helplines);
+        if (syncRes.newData.playlists) setPlaylists(syncRes.newData.playlists);
+        if (syncRes.newData.playlistVideos) setPlaylistVideos(syncRes.newData.playlistVideos);
         if (syncRes.newData.appContent) setAppContent(syncRes.newData.appContent);
         if (syncRes.newData.deliveryConfig) setDeliveryConfig(mergeDeliveryConfig(syncRes.newData.deliveryConfig));
       }
@@ -1422,6 +1802,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       categories,
       agriIssues,
       helplines,
+      playlists,
+      playlistVideos,
       appContent,
       legalPagesContent,
       invoiceTemplate,
@@ -1451,6 +1833,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addHelpline,
       updateHelpline,
       deleteHelpline,
+      addPlaylist,
+      updatePlaylist,
+      deletePlaylist,
+      reorderPlaylists,
+      addVideosToPlaylist,
+      removeVideoFromPlaylist,
+      reorderPlaylistVideos,
+      setVideoPlaylists,
+      cleanupVideoPlaylistMappings,
       updateAppContent,
       updateFooterContent,
       updateLegalPagesContent,

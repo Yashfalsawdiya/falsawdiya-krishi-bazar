@@ -89,6 +89,25 @@ export interface VideoHubSettings {
   overrides?: Record<string, VideoOverride>;
 }
 
+export interface VideoPlaylist {
+  id: string;
+  name: string;
+  description?: string;
+  thumbnail: string | ImageSource;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface PlaylistVideoItem {
+  id: string;
+  playlistId: string;
+  videoId: string;
+  displayOrder: number;
+  addedAt: number;
+}
+
 export interface CategoryData {
   id: string;
   name: string;
