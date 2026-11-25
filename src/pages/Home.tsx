@@ -18,8 +18,15 @@ import {
   normalizeDeviceBanners, 
   getActiveBannersForDevice 
 } from '../utils/deviceBanners';
-import { normalizeVideos, resolveVideoThumbnail, extractYouTubeVideoId } from '../utils/youtubeUtils';
-import { DeviceBanner } from '../types';
+import {
+  normalizeVideos,
+  resolveVideoThumbnail,
+  extractYouTubeVideoId,
+  getCachedVideoFeed,
+  sanitizeSyncedVideos,
+  sortHomeFeaturedVideos,
+} from '../utils/youtubeUtils';
+import { DeviceBanner, YouTubeVideoItem } from '../types';
 import { sortCategoriesByOrder } from '../utils/categoryUtils';
 import { useFeatureToggle } from '../hooks/useFeatureToggle';
 import { formatHindiDate } from '../lib/dateUtils';
@@ -251,10 +258,143 @@ const Home: React.FC = () => {
   const [zoomImage, setZoomImage] = useState<{ src: string | ImageSource; alt: string } | null>(null);
 
   const banners = appContent?.banners || BANNERS;
+
+  const videoOverrides = appContent?.videoHubSettings?.overrides || {};
+  const [featuredSyncedVideos, setFeaturedSyncedVideos] = useState<YouTubeVideoItem[]>([]);
+
+  useEffect(() => {
+    const channelUrl = (appContent?.youtubeChannel?.url || '').trim();
+    const channelId = (appContent?.videoHubSettings?.resolvedChannelId || '').trim();
+    const channelKey = (channelId || channelUrl).toLowerCase();
+    const overridesMap = appContent?.videoHubSettings?.overrides || {};
+
+    const manualKeys = new Set(
+      normalizeVideos(appContent?.videos, false).map((v) => v.videoId || v.id)
+    );
+    const neededOverrideKeys = Object.values(overridesMap)
+      .filter(
+        (ov) =>
+          ov &&
+          ov.isFeatured === true &&
+          ov.isActive !== false &&
+          ov.isDeleted !== true &&
+          ov.videoId &&
+          !manualKeys.has(ov.videoId)
+      )
+      .map((ov) => ov.videoId);
+
+    if (neededOverrideKeys.length === 0 || !channelKey) {
+      setFeaturedSyncedVideos([]);
+      return;
+    }
+
+    const cached = getCachedVideoFeed(channelKey, true);
+    if (cached && cached.videos.length > 0) {
+      const sanitized = sanitizeSyncedVideos(cached.videos);
+      setFeaturedSyncedVideos(sanitized);
+      const cachedKeys = new Set(sanitized.map((v) => v.videoId || v.id));
+      if (neededOverrideKeys.every((k) => cachedKeys.has(k))) {
+        return;
+      }
+    }
+
+    let cancelled = false;
+    const params = new URLSearchParams();
+    if (channelUrl) params.set('channelUrl', channelUrl);
+    if (channelId) params.set('channelId', channelId);
+
+    fetch(`/api/videos/youtube?${params.toString()}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.success && Array.isArray(data.videos)) {
+          setFeaturedSyncedVideos(sanitizeSyncedVideos(data.videos));
+        }
+      })
+      .catch(() => {
+        // Non-blocking fallback to cached/manual featured videos
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    appContent?.videos,
+    appContent?.youtubeChannel?.url,
+    appContent?.videoHubSettings?.resolvedChannelId,
+    appContent?.videoHubSettings?.overrides,
+  ]);
+
   const videos = React.useMemo(() => {
-    const list = normalizeVideos(appContent?.videos);
-    return list.filter(v => v.isActive !== false);
-  }, [appContent?.videos]);
+    const manualList = normalizeVideos(appContent?.videos, false);
+    const seenKeys = new Set<string>();
+    const featuredList: YouTubeVideoItem[] = [];
+
+    // 1. Curated manual videos in their saved Display Order (strictly isFeatured === true)
+    for (const item of manualList) {
+      const key = item.videoId || item.id;
+      const ov = key ? videoOverrides[key] : undefined;
+      if (ov?.isDeleted === true) continue;
+
+      const isActive = ov?.isActive !== undefined ? ov.isActive : item.isActive;
+      const isFeatured = ov?.isFeatured !== undefined ? ov.isFeatured : item.isFeatured;
+
+      if (key) seenKeys.add(key);
+
+      if (isActive !== false && isFeatured === true) {
+        featuredList.push({
+          ...item,
+          title: ov?.title !== undefined ? ov.title : item.title,
+          description: ov?.description !== undefined ? ov.description : item.description,
+          isShort: ov?.isShort !== undefined ? ov.isShort : item.isShort,
+          isPinned: ov?.isPinned !== undefined ? ov.isPinned : item.isPinned,
+          displayOrder:
+            typeof ov?.displayOrder === 'number' && ov.displayOrder > 0
+              ? ov.displayOrder
+              : item.displayOrder,
+          featuredOrder:
+            typeof ov?.featuredOrder === 'number' && ov.featuredOrder > 0
+              ? ov.featuredOrder
+              : item.featuredOrder,
+          isActive: true,
+          isFeatured: true,
+        });
+      }
+    }
+
+    // 2. Channel-synced videos explicitly marked Featured ON by Admin
+    for (const synced of featuredSyncedVideos) {
+      const key = synced.videoId || synced.id;
+      if (!key || seenKeys.has(key)) continue;
+      const ov = videoOverrides[key];
+      if (!ov || ov.isDeleted === true) continue;
+
+      const isActive = ov.isActive !== undefined ? ov.isActive : synced.isActive;
+      const isFeatured = ov.isFeatured === true;
+
+      if (isActive !== false && isFeatured) {
+        seenKeys.add(key);
+        featuredList.push({
+          ...synced,
+          title: ov.title !== undefined ? ov.title : synced.title,
+          description: ov.description !== undefined ? ov.description : synced.description,
+          isShort: ov.isShort !== undefined ? ov.isShort : synced.isShort,
+          isPinned: ov.isPinned !== undefined ? ov.isPinned : synced.isPinned,
+          displayOrder:
+            typeof ov.displayOrder === 'number' && ov.displayOrder > 0
+              ? ov.displayOrder
+              : synced.displayOrder,
+          featuredOrder:
+            typeof ov.featuredOrder === 'number' && ov.featuredOrder > 0
+              ? ov.featuredOrder
+              : synced.featuredOrder,
+          isActive: true,
+          isFeatured: true,
+        });
+      }
+    }
+
+    return sortHomeFeaturedVideos(featuredList);
+  }, [appContent?.videos, videoOverrides, featuredSyncedVideos]);
   const partners = (appContent?.partners || PARTNERS.map((name, i) => ({ id: `p${i}`, name, logo: '', isActive: true }))).filter(
     (p) => p.isActive !== false
   );

@@ -49,6 +49,8 @@ export interface YouTubeVideoItem {
   thumbnail: string | ImageSource;
   isActive: boolean;
   displayOrder?: number;
+  pinnedOrder?: number;
+  featuredOrder?: number;
   category?: Exclude<VideoCategoryId, 'all'>;
   isShort?: boolean;
   duration?: string;
@@ -70,6 +72,9 @@ export interface VideoOverride {
   isPinned?: boolean;
   isFeatured?: boolean;
   isShort?: boolean;
+  displayOrder?: number;
+  pinnedOrder?: number;
+  featuredOrder?: number;
   category?: Exclude<VideoCategoryId, 'all'>;
   title?: string;
   description?: string;

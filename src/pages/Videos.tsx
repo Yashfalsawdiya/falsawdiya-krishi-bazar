@@ -187,14 +187,9 @@ const Videos: React.FC = () => {
     );
   }, [appContent?.videos, syncedVideos, videoHubSettings?.overrides]);
 
-  // Recently Added Videos sorted strictly newest first
+  // Video Page ordered list: Pinned first (pinnedOrder 1..N), then Normal (displayOrder 1..N)
   const recentlyAddedVideos = useMemo(() => {
-    return [...allMergedVideos].sort((a, b) => {
-      const timeA = a.publishedTimestamp || a.createdAt || 0;
-      const timeB = b.publishedTimestamp || b.createdAt || 0;
-      if (timeB !== timeA) return timeB - timeA;
-      return (a.displayOrder || 9999) - (b.displayOrder || 9999);
-    });
+    return allMergedVideos;
   }, [allMergedVideos]);
 
   // Canonical video lookup map (supports videoId and id)

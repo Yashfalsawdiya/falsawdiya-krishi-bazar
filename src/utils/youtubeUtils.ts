@@ -313,6 +313,12 @@ export function normalizeVideos(
       createdAt: item.createdAt || Date.now(),
     };
 
+    if (typeof item.pinnedOrder === 'number' && !isNaN(item.pinnedOrder) && item.pinnedOrder > 0) {
+      normalizedItem.pinnedOrder = item.pinnedOrder;
+    }
+    if (typeof item.featuredOrder === 'number' && !isNaN(item.featuredOrder) && item.featuredOrder > 0) {
+      normalizedItem.featuredOrder = item.featuredOrder;
+    }
     if (typeof item.duration === 'string' && item.duration.trim()) {
       normalizedItem.duration = item.duration.trim();
     }
@@ -377,6 +383,18 @@ export function mergeHybridVideos(
       isPinned: ov.isPinned !== undefined ? ov.isPinned : item.isPinned,
       isFeatured: ov.isFeatured !== undefined ? ov.isFeatured : item.isFeatured,
       isShort: mergedShort,
+      displayOrder:
+        typeof ov.displayOrder === 'number' && ov.displayOrder > 0
+          ? ov.displayOrder
+          : item.displayOrder,
+      pinnedOrder:
+        typeof ov.pinnedOrder === 'number' && ov.pinnedOrder > 0
+          ? ov.pinnedOrder
+          : item.pinnedOrder,
+      featuredOrder:
+        typeof ov.featuredOrder === 'number' && ov.featuredOrder > 0
+          ? ov.featuredOrder
+          : item.featuredOrder,
       category: mergedCategory,
     };
   };
@@ -424,17 +442,63 @@ export function mergeHybridVideos(
   }
 
   const list = Array.from(byVideoId.values()).filter((v) => includeInactive || v.isActive !== false);
+  return sortVideoPageVideos(list);
+}
 
-  list.sort((a, b) => {
-    if (Boolean(a.isPinned) !== Boolean(b.isPinned)) return a.isPinned ? -1 : 1;
-    if (Boolean(a.isFeatured) !== Boolean(b.isFeatured)) return a.isFeatured ? -1 : 1;
+/**
+ * Independent Video Page Sorting:
+ * 1. Pinned videos always come first, ordered by pinnedOrder (1, 2, 3...).
+ * 2. Normal (unpinned) videos follow, ordered by displayOrder (1, 2, 3...).
+ * 3. Newly synced items without explicit numeric order fall back safely to newest timestamp, then ID.
+ * Never uses isFeatured or featuredOrder.
+ */
+export function sortVideoPageVideos(videos: YouTubeVideoItem[]): YouTubeVideoItem[] {
+  return [...videos].sort((a, b) => {
+    const aPinned = Boolean(a.isPinned);
+    const bPinned = Boolean(b.isPinned);
+    if (aPinned !== bPinned) return aPinned ? -1 : 1;
+
+    if (aPinned && bPinned) {
+      const pinA = typeof a.pinnedOrder === 'number' && a.pinnedOrder > 0 ? a.pinnedOrder : 999999;
+      const pinB = typeof b.pinnedOrder === 'number' && b.pinnedOrder > 0 ? b.pinnedOrder : 999999;
+      if (pinA !== pinB) return pinA - pinB;
+    }
+
+    const orderA = typeof a.displayOrder === 'number' && a.displayOrder > 0 ? a.displayOrder : 999999;
+    const orderB = typeof b.displayOrder === 'number' && b.displayOrder > 0 ? b.displayOrder : 999999;
+    if (orderA !== orderB) return orderA - orderB;
+
     const timeA = a.publishedTimestamp || a.createdAt || 0;
     const timeB = b.publishedTimestamp || b.createdAt || 0;
     if (timeB !== timeA) return timeB - timeA;
-    return (a.displayOrder || 9999) - (b.displayOrder || 9999);
-  });
 
-  return list;
+    return (a.videoId || a.id).localeCompare(b.videoId || b.id);
+  });
+}
+
+/**
+ * Independent Home Page Featured Sorting:
+ * Strictly filters to active Featured ON videos and orders by featuredOrder (1, 2, 3...).
+ * Legacy fallback uses displayOrder then timestamp. Never uses isPinned or pinnedOrder.
+ */
+export function sortHomeFeaturedVideos(videos: YouTubeVideoItem[]): YouTubeVideoItem[] {
+  return videos
+    .filter((v) => v.isActive !== false && v.isFeatured === true)
+    .sort((a, b) => {
+      const featA = typeof a.featuredOrder === 'number' && a.featuredOrder > 0 ? a.featuredOrder : 999999;
+      const featB = typeof b.featuredOrder === 'number' && b.featuredOrder > 0 ? b.featuredOrder : 999999;
+      if (featA !== featB) return featA - featB;
+
+      const orderA = typeof a.displayOrder === 'number' && a.displayOrder > 0 ? a.displayOrder : 999999;
+      const orderB = typeof b.displayOrder === 'number' && b.displayOrder > 0 ? b.displayOrder : 999999;
+      if (orderA !== orderB) return orderA - orderB;
+
+      const timeA = a.publishedTimestamp || a.createdAt || 0;
+      const timeB = b.publishedTimestamp || b.createdAt || 0;
+      if (timeB !== timeA) return timeB - timeA;
+
+      return (a.videoId || a.id).localeCompare(b.videoId || b.id);
+    });
 }
 
 /**
