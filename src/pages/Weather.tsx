@@ -1,732 +1,648 @@
-import React, { useEffect, useState } from 'react';
-import { CloudSun, Wind, Droplets, Sun, CloudRain, Thermometer, Loader2, Cloud, CloudLightning, RefreshCw, Navigation, Moon, CloudMoon, ArrowUp, ArrowDown, Sparkles } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  CloudSun,
+  Wind,
+  Droplets,
+  Sun,
+  CloudRain,
+  CloudFog,
+  CloudHail,
+  Loader2,
+  Cloud,
+  CloudLightning,
+  RefreshCw,
+  MapPin,
+  Moon,
+  CloudMoon,
+  ArrowUp,
+  ArrowDown,
+  Sunrise,
+  Sunset,
+  Eye,
+  Thermometer,
+  WifiOff,
+  Gauge,
+} from 'lucide-react';
 import { motion } from 'motion/react';
-import { fetchWeather, WeatherData } from '../services/weatherService';
-import { 
+import {
+  fetchOfficialWarnings,
+  fetchWeather,
+  OfficialWeatherWarning,
+  WeatherData,
+} from '../services/weatherService';
+import {
+  formatVisibilityHindi,
+  formatWeatherTime,
+  formatWeekday,
   getHindiCondition,
-  formatWeekday, 
-  formatFullDate,
-  formatShortDate,
-  formatWeatherTime, 
+  getWindDirectionHindi,
   parseLocalDate,
-  getLocalizedCity 
 } from '../utils/weatherLocalization';
+import { formatHindiDate, formatHindiDateTime, formatHindiTime } from '../lib/dateUtils';
+import {
+  getDailyRiskMap,
+  getFarmerWeatherAdvice,
+  getNext24hRainMm,
+} from '../utils/agriWeatherEngine';
+import { OfficialWarningBanner } from '../components/weather/OfficialWarningBanner';
+import { FarmerWeatherAdviceCard } from '../components/weather/FarmerWeatherAdviceCard';
 import { cn } from '../lib/utils';
 
-const language = 'hi';
+const DEFAULT_COORDS = {
+  label: 'शामगढ़, मध्य प्रदेश',
+  lat: 24.1864,
+  lon: 75.6328,
+};
 
-/**
- * Atmospheric Dynamic Theme for Weather Hero Visual
- * Automatically maps day, night, cloudy, rainy, and thunder conditions to rich visual states.
- */
-const getWeatherHeroTheme = (condition: string, isNight: boolean) => {
-  const cond = condition.toLowerCase();
-
-  // Thunder / Lightning / Storm
-  if (cond.includes('गरज') || cond.includes('तूफान') || cond.includes('बिजली') || cond.includes('thunder') || cond.includes('lightning')) {
-    return {
-      type: 'thunder' as const,
-      Icon: CloudLightning,
-      bgGradient: 'bg-gradient-to-br from-indigo-950/10 via-purple-50/90 to-amber-50/60',
-      border: 'border-indigo-200/90',
-      ring: 'ring-2 ring-purple-100/70',
-      shadow: 'shadow-xs',
-      iconClass: 'text-indigo-700',
-    };
+function getConditionIcon(condition: string, weatherCode?: number, isNight?: boolean): React.ElementType {
+  if (weatherCode === 96 || weatherCode === 99 || condition.includes('ओले')) return CloudHail;
+  if (weatherCode === 95 || condition.includes('गरज') || condition.includes('तूफान')) return CloudLightning;
+  if (weatherCode === 45 || weatherCode === 48 || condition.includes('कोहरा') || condition.includes('धुंध')) {
+    return CloudFog;
   }
-
-  // Rain / Showers / Drizzle / Hail
-  if (cond.includes('बारिश') || cond.includes('बूंदाबांदी') || cond.includes('बौछार') || cond.includes('वर्षा') || cond.includes('ओले') || cond.includes('rain') || cond.includes('drizzle')) {
-    return {
-      type: 'rainy' as const,
-      Icon: CloudRain,
-      bgGradient: 'bg-gradient-to-br from-sky-50 via-blue-50/90 to-indigo-50/70',
-      border: 'border-sky-200/90',
-      ring: 'ring-2 ring-sky-100/70',
-      shadow: 'shadow-xs',
-      iconClass: 'text-sky-600',
-    };
+  if (
+    (weatherCode !== undefined && [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(weatherCode)) ||
+    condition.includes('बारिश') ||
+    condition.includes('बौछार') ||
+    condition.includes('बूंदाबांदी') ||
+    condition.includes('वर्षा')
+  ) {
+    return CloudRain;
   }
-
-  // Night Conditions
   if (isNight) {
-    if (cond.includes('बादल') || cond.includes('आंशिक') || cond.includes('cloud') || cond.includes('overcast')) {
-      return {
-        type: 'cloudy-night' as const,
-        Icon: CloudMoon,
-        bgGradient: 'bg-gradient-to-br from-slate-50 via-indigo-50/90 to-purple-50/70',
-        border: 'border-indigo-200/90',
-        ring: 'ring-2 ring-indigo-100/70',
-        shadow: 'shadow-xs',
-        iconClass: 'text-indigo-600',
-      };
+    if (weatherCode === 2 || weatherCode === 3 || condition.includes('बादल') || condition.includes('आंशिक')) {
+      return CloudMoon;
     }
-    // Clear Night
+    return Moon;
+  }
+  if (weatherCode === 3 || condition.includes('घने बादल')) return Cloud;
+  if (weatherCode === 2 || condition.includes('आंशिक') || condition.includes('बादल')) return CloudSun;
+  return Sun;
+}
+
+function getHeroIconSurface(condition: string, weatherCode?: number, isNight?: boolean) {
+  if (weatherCode === 45 || weatherCode === 48 || condition.includes('कोहरा')) {
     return {
-      type: 'clear-night' as const,
-      Icon: Moon,
-      bgGradient: 'bg-gradient-to-br from-indigo-50/90 via-slate-100/90 to-indigo-100/80',
-      border: 'border-indigo-200/90',
-      ring: 'ring-2 ring-indigo-100/70',
-      shadow: 'shadow-xs',
-      iconClass: 'text-indigo-600',
+      container: 'bg-slate-100/90 border-slate-200',
+      icon: 'text-slate-600',
     };
   }
-
-  // Day Conditions
-  if (cond.includes('बादल') || cond.includes('आंशिक') || cond.includes('cloud') || cond.includes('overcast')) {
+  if (weatherCode === 95 || weatherCode === 96 || weatherCode === 99 || condition.includes('गरज') || condition.includes('ओले')) {
     return {
-      type: 'cloudy-day' as const,
-      Icon: CloudSun,
-      bgGradient: 'bg-gradient-to-br from-slate-50 via-emerald-50/70 to-teal-50/60',
-      border: 'border-emerald-200/90',
-      ring: 'ring-2 ring-emerald-100/70',
-      shadow: 'shadow-xs',
-      iconClass: 'text-emerald-700',
+      container: 'bg-indigo-50 border-indigo-200',
+      icon: 'text-indigo-700',
     };
   }
-
-  // Sunny / Clear Day (Default)
+  if (
+    (weatherCode !== undefined && [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(weatherCode)) ||
+    condition.includes('बारिश') ||
+    condition.includes('बूंदाबांदी') ||
+    condition.includes('बौछार')
+  ) {
+    return {
+      container: 'bg-sky-50 border-sky-200',
+      icon: 'text-sky-600',
+    };
+  }
+  if (isNight) {
+    return {
+      container: 'bg-slate-100 border-indigo-200/80',
+      icon: 'text-indigo-600',
+    };
+  }
+  if (weatherCode === 2 || weatherCode === 3 || condition.includes('बादल')) {
+    return {
+      container: 'bg-emerald-50/80 border-emerald-200/80',
+      icon: 'text-[#2D5A27]',
+    };
+  }
   return {
-    type: 'sunny' as const,
-    Icon: Sun,
-    bgGradient: 'bg-gradient-to-br from-amber-50 via-orange-50/90 to-amber-100/70',
-    border: 'border-amber-200/90',
-    ring: 'ring-2 ring-amber-100/70',
-    shadow: 'shadow-xs',
-    iconClass: 'text-amber-500',
+    container: 'bg-amber-50/90 border-amber-200',
+    icon: 'text-amber-500',
   };
-};
-
-const WeatherHeroVisual: React.FC<{ condition: string; isNight: boolean }> = ({ condition, isNight }) => {
-  const theme = getWeatherHeroTheme(condition, isNight);
-  const IconComponent = theme.Icon;
-
-  return (
-    <div className="relative shrink-0 flex flex-col items-center select-none group">
-      {/* Clean Multi-Layered Squircle Pod */}
-      <motion.div
-        animate={{ y: [0, -4, 0] }}
-        transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-        className={cn(
-          "relative w-22 h-22 sm:w-26 sm:h-26 rounded-3xl p-3 sm:p-4 flex items-center justify-center border transition-transform duration-300 group-hover:scale-105",
-          theme.bgGradient,
-          theme.border,
-          theme.ring,
-          theme.shadow
-        )}
-      >
-        {/* Crisp Icon Render without glow */}
-        {theme.type === 'sunny' ? (
-          <div className="relative flex items-center justify-center">
-            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-amber-500 stroke-[2] transition-transform duration-500 group-hover:rotate-45" />
-          </div>
-        ) : theme.type === 'clear-night' ? (
-          <div className="relative flex items-center justify-center">
-            <IconComponent className="w-12 h-12 sm:w-14 sm:h-14 text-indigo-600 stroke-[2] transition-transform duration-300 group-hover:-rotate-12" />
-            <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-amber-400 stroke-[2]" />
-          </div>
-        ) : theme.type === 'rainy' ? (
-          <div className="relative flex items-center justify-center">
-            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-sky-600 stroke-[2]" />
-          </div>
-        ) : theme.type === 'thunder' ? (
-          <div className="relative flex items-center justify-center">
-            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-indigo-700 stroke-[2]" />
-          </div>
-        ) : (
-          <div className="relative flex items-center justify-center">
-            <IconComponent className="w-13 h-13 sm:w-15 sm:h-15 text-emerald-700 stroke-[2]" />
-          </div>
-        )}
-      </motion.div>
-    </div>
-  );
-};
+}
 
 const Weather: React.FC = () => {
+  const [activeLoc, setActiveLoc] = useState(DEFAULT_COORDS);
   const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [warnings, setWarnings] = useState<OfficialWeatherWarning[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [locationName, setLocationName] = useState('शामगढ़, मध्य प्रदेश');
 
-  const loadWeather = async (lat: number = 24.1864, lon: number = 75.6328, force: boolean = false) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchWeather(lat, lon, force);
-      setWeather(data);
-    } catch (err: any) {
-      console.error("Weather Page Error:", err);
-      setError("मौसम की जानकारी प्राप्त करने में समस्या आई।");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loadAllWeatherData = useCallback(
+    async (loc: { label: string; lat: number; lon: number }, force: boolean = false, isSilentRefresh: boolean = false) => {
+      if (isSilentRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
+      try {
+        const [weatherRes, warningsRes] = await Promise.allSettled([
+          fetchWeather(loc.lat, loc.lon, force),
+          fetchOfficialWarnings(),
+        ]);
+
+        if (weatherRes.status === 'fulfilled') {
+          setWeather(weatherRes.value);
+        } else {
+          setError('मौसम की जानकारी प्राप्त करने में समस्या आई। कृपया पुनः प्रयास करें।');
+        }
+
+        if (warningsRes.status === 'fulfilled') {
+          setWarnings(warningsRes.value.warnings);
+        }
+      } catch {
+        setError('मौसम की जानकारी प्राप्त करने में समस्या आई।');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
-    loadWeather();
-  }, []);
+    try {
+      localStorage.removeItem('fkb_weather_active_location_v1');
+    } catch {
+      // Ignore
+    }
+    loadAllWeatherData(DEFAULT_COORDS, false, false);
+  }, [loadAllWeatherData]);
 
-  const handleRefresh = () => {
+  const handleManualRefresh = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setLocationName('आपकी वर्तमान लोकेशन');
-          loadWeather(pos.coords.latitude, pos.coords.longitude, true);
+          const gpsLoc = {
+            label: 'आपकी वर्तमान लोकेशन',
+            lat: Number(pos.coords.latitude.toFixed(4)),
+            lon: Number(pos.coords.longitude.toFixed(4)),
+          };
+          setActiveLoc(gpsLoc);
+          loadAllWeatherData(gpsLoc, true, true);
         },
         () => {
-          loadWeather(24.1864, 75.6328, true);
-        }
+          loadAllWeatherData(activeLoc, true, true);
+        },
+        { enableHighAccuracy: false, timeout: 6000 }
       );
     } else {
-      loadWeather(24.1864, 75.6328, true);
+      loadAllWeatherData(activeLoc, true, true);
     }
   };
 
-  const getEstRainProbability = (condition: string): number => {
-    const cond = condition.toLowerCase();
-    if (cond.includes('भारी ओले') || cond.includes('भारी बारिश') || cond.includes('तेज बारिश')) return 90;
-    if (cond.includes('गरज') || cond.includes('बौछारें') || cond.includes('तेज')) return 80;
-    if (cond.includes('बारिश') || cond.includes('बूंदाबांदी') || cond.includes('बौछार')) return 65;
-    if (cond.includes('बादल छाए')) return 40;
-    if (cond.includes('आंशिक')) return 20;
-    if (cond.includes('कोहरा')) return 15;
-    return 10;
-  };
+  const next24hRainMm = useMemo(() => {
+    if (!weather) return 0;
+    return getNext24hRainMm(weather);
+  }, [weather]);
 
-  const getSanitizedHourlyInfo = (hour: { time: string; temp: number; condition: string; rainProb: number; isNight?: boolean; weatherCode?: number }) => {
-    let condition = hour.condition;
-    const rainProb = hour.rainProb;
-    const isNight = hour.isNight ?? false;
-    
-    // Only show rain percentage if rain probability is strictly greater than 40%
-    const showProb = rainProb > 40;
+  const dailyRiskMap = useMemo(() => {
+    if (!weather) return {};
+    return getDailyRiskMap(weather);
+  }, [weather]);
 
-    if (rainProb >= 40) {
-      if (rainProb >= 75) {
-        condition = 'गरज के साथ वर्षा';
-      } else {
-        condition = 'वर्षा';
-      }
-    } else if (rainProb >= 20) {
-      condition = 'आंशिक बादल';
-    } else {
-      condition = isNight ? 'साफ रात' : 'धूप';
-    }
-
-    const isBad = rainProb >= 50 && (condition.includes('वर्षा') || condition.includes('गरज') || condition.includes('बारिश') || condition.includes('ओले') || condition.includes('बौछारें'));
-
-    return {
-      condition,
-      showProb,
-      rainProb,
-      isBad,
-      isNight
-    };
-  };
-
-  const getSanitizedDailyInfo = (item: { day: string; temp: string; condition: string; rainProb?: number; weatherCode?: number; dateStr?: string }) => {
-    let condition = item.condition;
-    const rainProb = item.rainProb ?? getEstRainProbability(item.condition);
-
-    const showProb = rainProb > 30;
-
-    if (rainProb <= 30) {
-      if (condition.includes('बारिश') || condition.includes('बूंदाबांदी') || condition.includes('बौछार') || condition.includes('गरज') || condition.includes('ओले')) {
-        if (rainProb > 15) {
-          condition = 'आंशिक बादल';
-        } else {
-          condition = 'धूप';
-        }
-      }
-    }
-
-    return {
-      condition,
-      showProb,
-      rainProb
-    };
-  };
-
-  const getDynamicAlert = (data: WeatherData) => {
-    const temp = data.temp;
-    const humidity = data.humidity;
-    
-    let maxRainProb = 0;
-    if (data.hourly && data.hourly.length > 0) {
-      maxRainProb = Math.max(...data.hourly.slice(0, 24).map(h => h.rainProb));
-    } else if (data.forecast && data.forecast.length > 0) {
-      maxRainProb = Math.max(...data.forecast.slice(0, 3).map(f => f.rainProb ?? getEstRainProbability(f.condition)));
-    }
-
-    const isWindy = data.windSpeed > 20;
-
-    if (maxRainProb >= 50) {
-      return {
-        title: "वर्षा की चेतावनी (हाई अलर्ट)",
-        message: `अगले 24 घंटे में वर्षा की संभावना अधिक (${maxRainProb}%) है। कीटनाशक छिड़काव और उर्वरक प्रयोग स्थगित रखें। कटी हुई फसलों को सुरक्षित स्थान पर रखें और सिंचाई तुरंत रोकें।`,
-        type: "rain",
-        icon: CloudRain
-      };
-    }
-
-    if (maxRainProb >= 20 && maxRainProb < 50) {
-      return {
-        title: "मौसम सलाह (सामान्य बदलाव)",
-        message: `अगले 24 घंटे में मौसम में आंशिक बदलाव या हल्की वर्षा की सामान्य संभावना (${maxRainProb}%) है। सिंचाई केवल आवश्यकतानुसार ही करें।`,
-        type: "normal",
-        icon: CloudSun
-      };
-    }
-
-    if (temp >= 40) {
-      return {
-        title: "अत्यधिक गर्मी और धूप की चेतावनी",
-        message: "आज वर्षा की संभावना बहुत कम है। तापमान अधिक होने की वजह से दोपहर में सिंचाई न करें, इससे फसल जल सकती है।",
-        type: "heat",
-        icon: Sun
-      };
-    }
-
-    if (isWindy) {
-      return {
-        title: "तेज़ हवा की चेतावनी",
-        message: "तेज़ हवाओं में कीटनाशकों का छिड़काव न करें, क्योंकि दवा हवा के साथ बिखर जाएगी।",
-        type: "wind",
-        icon: Wind
-      };
-    }
-
-    if (humidity > 80) {
-      return {
-        title: "उच्च नमी और आर्दता चेतावनी",
-        message: "हवा में नमी अधिक होने से कीट एवं फफूंद जनित रोगों का खतरा बढ़ सकता है।",
-        type: "humidity",
-        icon: Droplets
-      };
-    }
-
-    if (temp <= 15) {
-      return {
-        title: "शीतलहर और ठंड की चेतावनी",
-        message: "तापमान कम होने से पाला पड़ने की संभावना हो सकती है। फसल में हल्की सिंचाई करें।",
-        type: "cold",
-        icon: Thermometer
-      };
-    }
-
-    return {
-      title: "स्मार्ट निर्णय सलाह (मौसम अनुकूल)",
-      message: "आज वर्षा की संभावना बहुत कम है। मौसम पूर्णतः खेती के अनुकूल है। फसलों में आवश्यकतानुसार सिंचाई की जा सकती है।",
-      type: "normal",
-      icon: CloudSun
-    };
-  };
-
-  const getIcon = (condition: string, isNight?: boolean) => {
-    if (condition.includes('गरज') || condition.includes('thunder')) return CloudLightning;
-    if (condition.includes('बारिश') || condition.includes('बौछारें') || condition.includes('बूंदाबांदी') || condition.includes('वर्षा') || condition.includes('ओले') || condition.includes('rain')) return CloudRain;
-    
-    if (isNight) {
-      if (condition.includes('बादल') || condition.includes('आंशिक') || condition.includes('cloud')) return CloudMoon;
-      if (condition.includes('साफ') || condition.includes('धूप') || condition.includes('मुख्यतः साफ') || condition.includes('रात') || condition.includes('clear')) return Moon;
-      return Cloud;
-    } else {
-      if (condition.includes('बादल') || condition.includes('आंशिक') || condition.includes('cloud')) return CloudSun;
-      if (condition.includes('साफ') || condition.includes('धूप') || condition.includes('मुख्यतः साफ') || condition.includes('clear') || condition.includes('sunny')) return Sun;
-      return Cloud;
-    }
-  };
-
-  const getConditionLabel = (condition: string, weatherCode?: number): string => {
-    return getHindiCondition(condition, weatherCode);
-  };
+  const farmerAdvice = useMemo(() => {
+    if (!weather) return null;
+    return getFarmerWeatherAdvice(weather, warnings);
+  }, [weather, warnings]);
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin" />
-        <p className="text-sm text-gray-500 font-bold">मौसम की जानकारी लोड हो रही है...</p>
+      <div className="flex flex-col items-center justify-center min-h-[320px] gap-3">
+        <Loader2 className="w-9 h-9 text-[#2D5A27] animate-spin" />
+        <p className="text-sm font-semibold text-gray-600">
+          कृषि मौसम और सरकारी अलर्ट लोड हो रहे हैं...
+        </p>
       </div>
     );
   }
 
-  if (error) {
+  if (error || !weather) {
     return (
-      <div className="text-center p-6 bg-red-50 border border-red-200 rounded-2xl">
-        <p className="text-red-800 font-bold">{error}</p>
-        <button onClick={() => loadWeather()} className="mt-2 text-xs text-red-600 underline font-bold">
+      <div className="max-w-xl mx-auto text-center p-6 bg-white border border-rose-200 rounded-2xl space-y-3">
+        <WifiOff className="w-8 h-8 text-rose-600 mx-auto" />
+        <p className="text-sm font-bold text-gray-900">
+          {error || 'मौसम डेटा उपलब्ध नहीं हो सका।'}
+        </p>
+        <button
+          type="button"
+          onClick={() => loadAllWeatherData(activeLoc, true, false)}
+          className="min-h-[44px] px-5 py-2 rounded-xl bg-[#2D5A27] text-white text-sm font-semibold cursor-pointer"
+        >
           दोबारा प्रयास करें
         </button>
       </div>
     );
   }
 
-  if (!weather) return null;
+  const isNowNight =
+    weather.hourly && weather.hourly.length > 0
+      ? Boolean(weather.hourly[0].isNight)
+      : new Date().getHours() < 6 || new Date().getHours() >= 19;
+
+  const heroConditionText = getHindiCondition(weather.condition, weather.weatherCode);
+  const HeroIcon = getConditionIcon(heroConditionText, weather.weatherCode, isNowNight);
+  const heroSurface = getHeroIconSurface(heroConditionText, weather.weatherCode, isNowNight);
+  const sunriseText = weather.sunrise ? formatWeatherTime(weather.sunrise, 'hi') : '';
+  const sunsetText = weather.sunset ? formatWeatherTime(weather.sunset, 'hi') : '';
+
+  const isFetchedToday = weather.fetchedAt
+    ? new Date(weather.fetchedAt).toDateString() === new Date().toDateString()
+    : false;
+  const lastUpdatedLabel = weather.fetchedAt
+    ? isFetchedToday
+      ? `${formatHindiTime(weather.fetchedAt)} (आज)`
+      : formatHindiDateTime(weather.fetchedAt)
+    : null;
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-xl font-bold text-[#4A3728]">
-          मौसम की जानकारी
-        </h2>
-        <p className="text-sm text-gray-500">
-          खेती के लिए सटीक मौसम अपडेट
+    <div className="max-w-5xl mx-auto space-y-6 pb-8">
+      {/* Styled Page Header */}
+      <div className="text-center bg-gradient-to-br from-[#2D5A27]/10 via-[#2D5A27]/5 to-transparent p-6 rounded-3xl border border-[#2D5A27]/10 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D5A27]/5 rounded-full blur-2xl -z-10" />
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl -z-10" />
+
+        <div className="flex justify-center mb-2">
+          <div className="bg-[#2D5A27] text-white p-2.5 rounded-2xl shadow-lg shadow-[#2D5A27]/20 flex items-center justify-center">
+            <CloudSun className="w-6 h-6" />
+          </div>
+        </div>
+        <h2 className="text-2xl font-black text-[#2D5A27] tracking-tight">मौसम की जानकारी</h2>
+        <p className="text-xs text-gray-500 font-medium mt-1">
+          खेती-किसानी के लिए सटीक तापमान, पूर्वानुमान और ताज़ा मौसम अपडेट
         </p>
+
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-3.5">
+          {lastUpdatedLabel ? (
+            <span className="text-[9px] text-gray-500 font-bold bg-gray-100/80 border border-gray-200/50 px-2.5 py-1.5 rounded-full tabular-nums">
+              अंतिम सफल अपडेट: {lastUpdatedLabel}
+            </span>
+          ) : (
+            <span className="text-[9px] text-amber-700 font-bold bg-amber-50 border border-amber-200/60 px-2.5 py-1.5 rounded-full">
+              अपडेट प्रतीक्षित
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Main Card */}
-      {(() => {
-        const isNowNight = weather.hourly && weather.hourly.length > 0 ? weather.hourly[0].isNight : (new Date().getHours() < 6 || new Date().getHours() >= 19);
-
-        return (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100"
+      {/* Honest Stale / Offline / Fallback Notice */}
+      {(weather.isFallback || weather.isStale) && (
+        <div
+          role="status"
+          className="rounded-2xl border border-amber-300 bg-amber-50/90 px-4 py-3 flex items-start justify-between gap-3 text-xs sm:text-sm text-amber-950"
+        >
+          <div className="flex items-start gap-2.5">
+            <WifiOff className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              {weather.isFallback
+                ? 'इंटरनेट या मौसम सर्वर से संपर्क नहीं हो पा रहा है। लाइव डेटा उपलब्ध न होने के कारण तापमान प्रदर्शित नहीं हो सका।'
+                : `इंटरनेट धीमा होने से पिछली सहेजी गई जानकारी दिखाई जा रही है (${
+                    weather.fetchedAt ? formatHindiDateTime(weather.fetchedAt) : 'पुराना डेटा'
+                  })।`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleManualRefresh}
+            className="text-xs font-bold text-[#2D5A27] underline whitespace-nowrap shrink-0 cursor-pointer"
           >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 text-[#2D5A27]">
-                <Navigation className="w-4 h-4" />
-                <span className="text-sm font-bold">
-                  {getLocalizedCity(locationName, language)}
-                </span>
+            पुनः प्रयास
+          </button>
+        </div>
+      )}
+
+      {/* Official IMD / NDMA Sachet Warnings (when active) */}
+      <OfficialWarningBanner warnings={warnings} />
+
+      {/* Current Weather Hero Card */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        aria-label="वर्तमान मौसम"
+        className="bg-white rounded-3xl p-5 sm:p-6 border border-gray-200/80 shadow-xs space-y-5"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-[#2D5A27] min-w-0">
+            <MapPin className="w-4 h-4 shrink-0" />
+            <span className="text-sm font-bold truncate">{activeLoc.label}</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="min-h-[40px] px-3 py-1.5 rounded-xl border border-gray-200 hover:border-[#2D5A27]/40 text-xs font-semibold text-gray-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+            title="मौसम अपडेट करें"
+          >
+            <RefreshCw className={cn('w-3.5 h-3.5 shrink-0', refreshing && 'animate-spin')} />
+            <span>ताज़ा करें</span>
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-2 min-w-0">
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <div className="text-5xl sm:text-6xl font-bold text-gray-900 tabular-nums tracking-tight">
+                {weather.isFallback ? '—' : `${weather.temp}°C`}
               </div>
-              <button 
-                onClick={handleRefresh}
-                className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors cursor-pointer"
-                title="ताज़ा करें"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
+              {!weather.isFallback && weather.feelsLike !== undefined && (
+                <span className="text-xs sm:text-sm font-medium text-gray-600 tabular-nums">
+                  महसूस तापमान: {weather.feelsLike}°C
+                </span>
+              )}
             </div>
 
-            <div className="flex items-center justify-between my-2">
-              <div>
-                <div className="text-5xl sm:text-6xl font-bold text-gray-800">
-                  {weather.temp}°C
-                </div>
-                <p className="text-gray-500 font-medium mt-1">
-                  {getConditionLabel(weather.condition, weather.weatherCode)}
-                </p>
-                {/* Modern High & Low Temperature Indicators */}
-                {(weather.maxTemp !== undefined || weather.minTemp !== undefined) && (
-                  <div className="flex flex-wrap items-center gap-2 mt-3 select-none">
-                    {weather.maxTemp !== undefined && (
-                      <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-50 to-orange-50/70 border border-amber-200/80 px-2.5 py-1 rounded-xl shadow-2xs">
-                        <div className="w-4 h-4 rounded-full bg-amber-500/15 flex items-center justify-center shrink-0">
-                          <ArrowUp className="w-2.5 h-2.5 text-amber-700 stroke-[2.5]" />
-                        </div>
-                        <span className="text-[11px] font-bold text-amber-800">अधिकतम</span>
-                        <span className="text-xs font-black font-mono text-amber-950">{weather.maxTemp}°C</span>
-                      </div>
-                    )}
-                    {weather.minTemp !== undefined && (
-                      <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-sky-50 to-blue-50/70 border border-sky-200/80 px-2.5 py-1 rounded-xl shadow-2xs">
-                        <div className="w-4 h-4 rounded-full bg-sky-500/15 flex items-center justify-center shrink-0">
-                          <ArrowDown className="w-2.5 h-2.5 text-sky-700 stroke-[2.5]" />
-                        </div>
-                        <span className="text-[11px] font-bold text-sky-800">न्यूनतम</span>
-                        <span className="text-xs font-black font-mono text-sky-950">{weather.minTemp}°C</span>
-                      </div>
-                    )}
-                  </div>
+            <p className="text-base font-semibold text-gray-800">
+              {heroConditionText}
+            </p>
+
+            {/* Unboxed High / Low + Sunrise / Sunset Telemetry Row */}
+            {!weather.isFallback && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-gray-600 tabular-nums pt-0.5">
+                <span className="inline-flex items-center gap-1 text-amber-800">
+                  <ArrowUp className="w-3.5 h-3.5 shrink-0" />
+                  अधिकतम {weather.maxTemp}°C
+                </span>
+                <span className="text-gray-300">·</span>
+                <span className="inline-flex items-center gap-1 text-sky-800">
+                  <ArrowDown className="w-3.5 h-3.5 shrink-0" />
+                  न्यूनतम {weather.minTemp}°C
+                </span>
+                {sunriseText && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Sunrise className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      सूर्योदय {sunriseText}
+                    </span>
+                  </>
+                )}
+                {sunsetText && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Sunset className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                      सूर्यास्त {sunsetText}
+                    </span>
+                  </>
                 )}
               </div>
-              <WeatherHeroVisual condition={weather.condition} isNight={isNowNight} />
-            </div>
+            )}
+          </div>
 
-            <div className="grid grid-cols-3 gap-2 border-t border-gray-100 pt-4 mt-4 text-center">
-              <div className="flex flex-col items-center">
-                <Droplets className="w-5 h-5 text-blue-500 mb-1" />
-                <span className="text-xs text-gray-400">नमी</span>
-                <span className="text-sm font-bold text-gray-700">{weather.humidity}%</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <Wind className="w-5 h-5 text-gray-500 mb-1" />
-                <span className="text-xs text-gray-400">हवा</span>
-                <span className="text-sm font-bold text-gray-700">{weather.windSpeed} km/h</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <CloudRain className="w-5 h-5 text-blue-400 mb-1" />
-                <span className="text-xs text-gray-400">बारिश</span>
-                <span className="text-sm font-bold text-gray-700">{weather.rain} mm</span>
-              </div>
-            </div>
-          </motion.div>
-        );
-      })()}
+          <div
+            className={cn(
+              'w-20 h-20 sm:w-24 sm:h-24 rounded-3xl border flex items-center justify-center shrink-0',
+              heroSurface.container
+            )}
+          >
+            <HeroIcon className={cn('w-11 h-11 sm:w-13 sm:h-13 stroke-[1.8]', heroSurface.icon)} />
+          </div>
+        </div>
 
-      {/* Hourly Forecast */}
+        {/* 6-Cell Farmer Telemetry Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-4 border-t border-gray-100 tabular-nums">
+          <div className="rounded-xl bg-[#F5F2ED]/70 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
+              <Droplets className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+              <span>नमी</span>
+            </div>
+            <p className="text-sm font-bold text-gray-900 mt-0.5">
+              {weather.isFallback ? '—' : `${weather.humidity}%`}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-[#F5F2ED]/70 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
+              <Wind className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+              <span>हवा ({getWindDirectionHindi(weather.windDirection)})</span>
+            </div>
+            <p className="text-sm font-bold text-gray-900 mt-0.5">
+              {weather.isFallback
+                ? '—'
+                : weather.windGusts && weather.windGusts > weather.windSpeed + 4
+                ? `${weather.windSpeed} (झोंका ${weather.windGusts}) km/h`
+                : `${weather.windSpeed} km/h`}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-[#F5F2ED]/70 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
+              <CloudRain className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+              <span>वर्षा (24 घंटे)</span>
+            </div>
+            <p className="text-sm font-bold text-gray-900 mt-0.5">
+              {weather.isFallback ? '—' : `${next24hRainMm} mm`}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-[#F5F2ED]/70 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
+              <Thermometer className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+              <span>ओसांक (Dew Point)</span>
+            </div>
+            <p className="text-sm font-bold text-gray-900 mt-0.5">
+              {weather.dewPoint !== undefined ? `${weather.dewPoint}°C` : '—'}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-[#F5F2ED]/70 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
+              <Eye className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+              <span>दृश्यता</span>
+            </div>
+            <p className="text-sm font-bold text-gray-900 mt-0.5">
+              {formatVisibilityHindi(weather.visibility)}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-[#F5F2ED]/70 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
+              <Gauge className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>वाष्पीकरण (ET₀)</span>
+            </div>
+            <p className="text-sm font-bold text-gray-900 mt-0.5">
+              {weather.et0 !== undefined ? `${weather.et0} mm/दिन` : '—'}
+            </p>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Hourly Forecast (Preserving true WMO condition — no fog overwrite bug) */}
       {weather.hourly && weather.hourly.length > 0 && (
-        <div className="space-y-3.5">
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center">
-              <h3 className="font-black text-gray-900 text-sm tracking-tight">
-                प्रति घंटा पूर्वानुमान
-              </h3>
-            </div>
-            <span className="text-[10px] font-bold text-[#2D5A27] bg-[#2D5A27]/10 px-2 py-0.5 rounded-md font-mono">
+        <section aria-label="प्रति घंटा पूर्वानुमान" className="space-y-3">
+          <div className="flex items-baseline justify-between px-1">
+            <h2 className="text-sm sm:text-base font-bold text-[#4A3728]">
+              प्रति घंटा पूर्वानुमान
+            </h2>
+            <span className="text-xs font-medium text-gray-500 tabular-nums">
               अगले 24 घंटे
             </span>
           </div>
 
-          <div className="flex gap-2.5 overflow-x-auto pb-3 pt-1 -mx-4 px-4 hide-scrollbar snap-x scroll-smooth">
+          <div className="flex gap-2.5 overflow-x-auto pb-2 pt-0.5 hide-scrollbar snap-x scroll-smooth">
             {weather.hourly.map((hour, idx) => {
-              const sanitized = getSanitizedHourlyInfo(hour);
-              const Icon = getIcon(sanitized.condition, sanitized.isNight);
-              const isBadWeather = sanitized.isBad;
-              const formattedTime = hour.timeIso ? formatWeatherTime(hour.timeIso, language) : hour.time;
-              const isCurrentHour = idx === 0;
-
-              // Weather-aware icon pod styles
-              const cond = sanitized.condition.toLowerCase();
-              const isRain = cond.includes('बारिश') || cond.includes('बूंदाबांदी') || cond.includes('बौछार') || cond.includes('गरज') || cond.includes('ओले') || sanitized.rainProb >= 40;
-              const isSunny = !sanitized.isNight && (cond.includes('साफ') || cond.includes('धूप') || cond.includes('sunny'));
-              const isNight = sanitized.isNight;
-
-              const iconPodStyle = isRain
-                ? "bg-gradient-to-br from-sky-50 to-blue-100/70 text-sky-600 border-sky-200/80 shadow-sky-500/5"
-                : isSunny
-                ? "bg-gradient-to-br from-amber-50 to-orange-100/70 text-amber-500 border-amber-200/80 shadow-amber-500/5"
-                : isNight
-                ? "bg-gradient-to-br from-indigo-50/80 to-slate-100 text-indigo-500 border-indigo-200/70 shadow-indigo-500/5"
-                : "bg-gradient-to-br from-emerald-50 to-teal-100/70 text-[#2D5A27] border-emerald-200/80 shadow-emerald-500/5";
-
-              const cardStyle = isBadWeather
-                ? "bg-gradient-to-b from-sky-50/80 via-white to-blue-50/40 border-sky-300 shadow-sky-500/5"
-                : "bg-white border-gray-200/80 hover:border-[#2D5A27]/40 shadow-2xs hover:shadow-sm";
+              const condText = getHindiCondition(hour.condition, hour.weatherCode);
+              const IconComp = getConditionIcon(condText, hour.weatherCode, hour.isNight);
+              const formattedTime = hour.timeIso ? formatWeatherTime(hour.timeIso, 'hi') : hour.time;
+              const isRainAlert =
+                hour.rainProb >= 40 || (hour.rainMm !== undefined && hour.rainMm >= 0.5);
+              const isFog = hour.weatherCode === 45 || hour.weatherCode === 48;
 
               return (
-                <motion.div 
-                  key={idx}
-                  initial={{ opacity: 0, scale: 0.92 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: Math.min(idx * 0.02, 0.25) }}
+                <div
+                  key={hour.timeIso || idx}
                   className={cn(
-                    "flex-[0_0_92px] sm:flex-[0_0_98px] snap-start min-w-0 h-[152px] rounded-2xl p-2.5 flex flex-col items-center justify-between border transition-all duration-200 select-none group relative overflow-hidden",
-                    cardStyle
+                    'flex-[0_0_98px] snap-start rounded-2xl p-3 flex flex-col items-center justify-between gap-2 border bg-white tabular-nums',
+                    isRainAlert
+                      ? 'border-sky-300 bg-sky-50/40'
+                      : isFog
+                      ? 'border-slate-300 bg-slate-50/60'
+                      : 'border-gray-200/80'
                   )}
                 >
-                  {/* Top: Time Label (Exact same styling for 'अभी' as other hours) */}
-                  <div className="flex flex-col items-center justify-center w-full min-h-[22px]">
-                    <span className="text-[11px] font-bold text-gray-500 font-mono tracking-tight whitespace-nowrap">
-                      {isCurrentHour ? 'अभी' : formattedTime}
-                    </span>
-                  </div>
+                  <span className="text-[11px] font-semibold text-gray-500 whitespace-nowrap">
+                    {idx === 0 ? 'अभी' : formattedTime}
+                  </span>
 
-                  {/* Center: Modern Squircle Pod + Bold Temperature */}
-                  <div className="flex flex-col items-center gap-1.5 my-auto">
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center border transition-transform duration-200 group-hover:scale-105 shadow-2xs",
-                      iconPodStyle
-                    )}>
-                      <Icon className="w-5 h-5 stroke-[2.2]" />
-                    </div>
-
-                    <div className="flex items-baseline justify-center">
-                      <span className="text-base sm:text-lg font-black text-gray-900 font-mono tracking-tight">
-                        {hour.temp}
-                      </span>
-                      <span className="text-xs font-bold text-[#2D5A27] ml-0.5">°C</span>
-                    </div>
-                  </div>
-
-                  {/* Bottom: Rain Probability, Caution Pill, or Condition */}
-                  <div className="w-full flex items-center justify-center min-h-[20px]">
-                    {sanitized.showProb ? (
-                      <div className="flex items-center gap-1 text-[10px] font-bold text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded-md border border-sky-200/80 shadow-2xs font-mono">
-                        <Droplets className="w-2.5 h-2.5 text-sky-500 shrink-0" />
-                        <span>{sanitized.rainProb}%</span>
-                      </div>
-                    ) : isBadWeather ? (
-                      <span className="text-[9px] font-black text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full shadow-2xs">
-                        सावधान
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-semibold text-gray-400 truncate max-w-full px-1">
-                        {sanitized.condition}
-                      </span>
+                  <IconComp
+                    className={cn(
+                      'w-6 h-6 stroke-[1.9]',
+                      isRainAlert
+                        ? 'text-sky-600'
+                        : isFog
+                        ? 'text-slate-600'
+                        : hour.isNight
+                        ? 'text-indigo-600'
+                        : 'text-amber-500'
                     )}
+                  />
+
+                  <span className="text-base font-bold text-gray-900">
+                    {hour.temp}°C
+                  </span>
+
+                  <span className="text-[11px] text-gray-600 text-center truncate w-full">
+                    {condText}
+                  </span>
+
+                  <div className="text-[10px] text-gray-500 text-center whitespace-nowrap">
+                    {hour.rainProb >= 25
+                      ? `वर्षा ${hour.rainProb}%`
+                      : hour.windSpeed !== undefined
+                      ? `हवा ${hour.windSpeed} km/h`
+                      : ''}
                   </div>
-                </motion.div>
+                </div>
               );
             })}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* 7-Day Forecast */}
-      <div className="space-y-3.5">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center">
-            <h3 className="font-black text-gray-900 text-sm tracking-tight">
-              अगले 7 दिन का पूर्वानुमान
-            </h3>
-          </div>
-          <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md font-mono">
-            दैनिक अपडेट
+      {/* 7-Day Forecast (Strict DD MMMM YYYY + Full Condition Integrity) */}
+      <section aria-label="अगले 7 दिन का पूर्वानुमान" className="space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 px-1">
+          <h2 className="text-sm sm:text-base font-bold text-[#4A3728]">
+            अगले 7 दिन का पूर्वानुमान
+          </h2>
+          <span className="text-xs text-gray-500">
+            दिन 1–3 अधिक सटीक · दिन 4–7 सामान्य रुझान
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {weather.forecast.map((item, idx) => {
-          const sanitized = getSanitizedDailyInfo(item);
-          const Icon = getIcon(sanitized.condition);
-          
-          // Dynamically calculate actual Hindi weekday and full date strictly from date
-          const parsedDate = item.dateStr 
-            ? parseLocalDate(item.dateStr) 
-            : new Date(Date.now() + (idx + 1) * 86400000);
-          const dayLabel = formatWeekday(parsedDate, language);
-          const fullFormattedDate = formatFullDate(parsedDate, language);
-          const conditionLabel = getConditionLabel(sanitized.condition, item.weatherCode);
+          {weather.forecast.map((item, idx) => {
+            const parsedDate = item.dateStr
+              ? parseLocalDate(item.dateStr)
+              : new Date(Date.now() + (idx + 1) * 86400000);
+            const dayLabel = formatWeekday(parsedDate, 'hi');
+            const fullDateLabel = formatHindiDate(parsedDate);
+            const conditionText = getHindiCondition(item.condition, item.weatherCode);
+            const IconComp = getConditionIcon(conditionText, item.weatherCode, false);
+            const maxClean = (item.maxTemp || item.temp || '').replace(/[^0-9.-]/g, '');
+            const minClean = (item.minTemp || '').replace(/[^0-9.-]/g, '');
+            const riskNote = dailyRiskMap[item.dateStr || item.day];
 
-          // Weather-aware icon pod styles
-          const cond = sanitized.condition.toLowerCase();
-          const isRain = cond.includes('बारिश') || cond.includes('बूंदाबांदी') || cond.includes('बौछार') || cond.includes('गरज') || cond.includes('ओले') || sanitized.rainProb >= 40;
-          const isSunny = cond.includes('साफ') || cond.includes('धूप') || cond.includes('sunny');
-
-          const iconPodStyle = isRain
-            ? "bg-gradient-to-br from-sky-50 to-blue-50/80 text-sky-600 border-sky-200/80 shadow-sky-500/5"
-            : isSunny
-            ? "bg-gradient-to-br from-amber-50 to-orange-50/80 text-amber-500 border-amber-200/80 shadow-amber-500/5"
-            : "bg-gradient-to-br from-emerald-50 to-teal-50/80 text-[#2D5A27] border-emerald-200/80 shadow-emerald-500/5";
-
-          // Extract pure numeric temperatures for clean display
-          const maxTempClean = (item.maxTemp || item.temp || '').replace(/[^0-9.-]/g, '');
-          const minTempClean = (item.minTemp || '').replace(/[^0-9.-]/g, '');
-
-          return (
-            <motion.div 
-              key={idx}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(idx * 0.04, 0.3) }}
-              className="group relative bg-white rounded-2xl p-4 flex items-center justify-between border border-gray-200/80 hover:border-[#2D5A27]/40 shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 select-none overflow-hidden"
-            >
-              {/* Left Side: Modern Dual-tone Squircle Icon + Day/Date/Condition Info */}
-              <div className="flex items-center gap-3.5 min-w-0">
-                <div className={cn(
-                  "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border transition-transform duration-200 group-hover:scale-105",
-                  iconPodStyle
-                )}>
-                  <Icon className="w-6 h-6 stroke-[2]" />
-                </div>
-
-                <div className="min-w-0">
-                  <div className="flex items-baseline gap-2 flex-wrap">
-                    <p className="font-black text-gray-900 text-sm sm:text-base tracking-tight whitespace-nowrap group-hover:text-[#2D5A27] transition-colors">
-                      {dayLabel}
-                    </p>
-                    {fullFormattedDate && (
-                      <span className="text-xs font-bold text-gray-500 font-mono tracking-tight whitespace-nowrap">
-                        {fullFormattedDate}
-                      </span>
-                    )}
+            return (
+              <article
+                key={item.dateStr || idx}
+                className="bg-white rounded-2xl p-4 border border-gray-200/80 flex items-center justify-between gap-3 tabular-nums"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-11 h-11 rounded-2xl bg-[#F5F2ED] border border-gray-200/70 flex items-center justify-center shrink-0">
+                    <IconComp
+                      className={cn(
+                        'w-5 h-5 stroke-[2]',
+                        conditionText.includes('बारिश') || conditionText.includes('गरज') || conditionText.includes('बौछार')
+                          ? 'text-sky-600'
+                          : conditionText.includes('कोहरा')
+                          ? 'text-slate-600'
+                          : 'text-[#2D5A27]'
+                      )}
+                    />
                   </div>
 
-                  <p className="text-xs text-gray-500 font-semibold mt-0.5 truncate">
-                    {conditionLabel}
-                  </p>
-
-                  {/* Rain Probability / Weather Indicator */}
-                  {sanitized.showProb ? (
-                    <div className="mt-1.5 flex items-center gap-1 text-[11px] font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200/70 w-fit shadow-2xs">
-                      <Droplets className="w-3 h-3 text-sky-500 shrink-0" />
-                      <span>वर्षा संभावना: <strong className="font-black font-mono">{sanitized.rainProb}%</strong></span>
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span className="text-sm sm:text-base font-bold text-gray-900 whitespace-nowrap">
+                        {dayLabel}
+                      </span>
+                      <span className="text-xs text-gray-500 whitespace-nowrap">
+                        {fullDateLabel}
+                      </span>
                     </div>
-                  ) : (
-                    <div className="mt-1 flex items-center gap-1 text-[10px] font-medium text-gray-400">
-                      <Droplets className="w-2.5 h-2.5 text-gray-300 shrink-0" />
-                      <span>वर्षा: {sanitized.rainProb}%</span>
+
+                    <div className="flex flex-wrap items-center gap-x-2 text-xs text-gray-600">
+                      <span>{conditionText}</span>
+                      {riskNote && (
+                        <>
+                          <span className="text-gray-300">·</span>
+                          <span className="font-semibold text-amber-800">{riskNote}</span>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-2.5 text-[11px] text-gray-500">
+                      {(item.rainProb !== undefined && item.rainProb >= 20) || (item.rainMm !== undefined && item.rainMm > 0) ? (
+                        <span className="text-sky-700 font-medium">
+                          वर्षा: {item.rainProb ?? 0}%{item.rainMm ? ` (${item.rainMm} mm)` : ''}
+                        </span>
+                      ) : (
+                        <span>शुष्क मौसम</span>
+                      )}
+                      {item.windGustsMax !== undefined && item.windGustsMax >= 25 && (
+                        <>
+                          <span className="text-gray-300">·</span>
+                          <span>झोंका {item.windGustsMax} km/h</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0 space-y-0.5">
+                  <div className="text-lg sm:text-xl font-bold text-gray-900">
+                    {maxClean ? `${maxClean}°C` : '—'}
+                  </div>
+                  {minClean && (
+                    <div className="text-xs text-gray-500">
+                      न्यूनतम {minClean}°C
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Right Side: Temperature High/Low Display */}
-              <div className="text-right shrink-0 pl-3 flex flex-col items-end justify-center">
-                <div className="flex items-baseline justify-end gap-0.5">
-                  <span className="text-2xl sm:text-3xl font-black text-gray-900 group-hover:text-[#1B4318] transition-colors tracking-tight font-mono">
-                    {maxTempClean || '30'}
-                  </span>
-                  <span className="text-xs font-bold text-[#2D5A27]">°C</span>
-                </div>
-
-                {minTempClean ? (
-                  <div className="mt-1 flex items-center justify-end gap-1.5 select-none">
-                    {/* Low Temperature Micro-Pill */}
-                    <div 
-                      className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-sky-800 bg-gradient-to-b from-sky-50 to-blue-50/70 border border-sky-200/80 px-1.5 py-0.5 rounded-lg shadow-2xs"
-                      title={`न्यूनतम तापमान: ${minTempClean}°C`}
-                    >
-                      <ArrowDown className="w-2.5 h-2.5 text-sky-600 stroke-[2.5] shrink-0" />
-                      <span className="font-sans font-medium text-[10px] text-sky-700">लो</span>
-                      <span className="text-sky-950 font-black">{minTempClean}°</span>
-                    </div>
-
-                    {/* High Temperature Micro-Pill */}
-                    <div 
-                      className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-amber-900 bg-gradient-to-b from-amber-50 to-orange-50/70 border border-amber-200/80 px-1.5 py-0.5 rounded-lg shadow-2xs"
-                      title={`अधिकतम तापमान: ${maxTempClean}°C`}
-                    >
-                      <ArrowUp className="w-2.5 h-2.5 text-amber-600 stroke-[2.5] shrink-0" />
-                      <span className="font-sans font-medium text-[10px] text-amber-700">हाई</span>
-                      <span className="text-amber-950 font-black">{maxTempClean}°</span>
-                    </div>
-                  </div>
-                ) : (
-                  <span className="text-[10px] font-bold text-gray-400 block mt-0.5">
-                    अधिकतम
-                  </span>
-                )}
-              </div>
-            </motion.div>
-          );
-        })}
+              </article>
+            );
+          })}
         </div>
-      </div>
+      </section>
 
-      {/* Farming Alert & Smart Farmer Advisory Box */}
-      {(() => {
-        const alert = getDynamicAlert(weather);
-        const AlertIcon = alert.icon;
-        const colorClasses = {
-          heat: "bg-amber-50 border-amber-200 text-amber-800",
-          rain: "bg-blue-50 border-blue-200 text-blue-800",
-          wind: "bg-gray-50 border-gray-200 text-gray-800",
-          humidity: "bg-cyan-50 border-cyan-200 text-cyan-800",
-          cold: "bg-indigo-50 border-indigo-200 text-indigo-800",
-          normal: "bg-green-50 border-green-200 text-green-800"
-        }[alert.type as keyof typeof colorClasses] || "bg-green-50 border-green-200 text-green-800";
-
-        const iconBg = {
-          heat: "bg-amber-500",
-          rain: "bg-blue-500",
-          wind: "bg-gray-500",
-          humidity: "bg-cyan-500",
-          cold: "bg-indigo-500",
-          normal: "bg-green-600"
-        }[alert.type as keyof typeof iconBg] || "bg-green-600";
-
-        return (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`${colorClasses} border-2 rounded-2xl p-4 flex items-start gap-4 shadow-sm`}
-          >
-            <div className={`${iconBg} p-2.5 rounded-xl shrink-0 shadow-sm`}>
-              <AlertIcon className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h4 className="font-bold text-base">{alert.title}</h4>
-              <p className="text-sm mt-1 leading-relaxed opacity-95">{alert.message}</p>
-            </div>
-          </motion.div>
-        );
-      })()}
+      {/* Weather-Responsive Farmer Advice Card */}
+      {farmerAdvice && <FarmerWeatherAdviceCard advice={farmerAdvice} />}
     </div>
   );
 };

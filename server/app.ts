@@ -18,6 +18,7 @@ import { handleGetMandiPrices } from './mandiRoutes.js';
 import { handleGetDailyNews, handleSyncNews } from './newsRoutes.js';
 import { handleGetSchemes, handleSyncSchemes } from './schemeRoutes.js';
 import { handleGetYouTubeVideos, handleSyncYouTubeVideos } from './videoRoutes.js';
+import { handleGetWeatherForecast, handleGetOfficialWarnings } from './weatherRoutes.js';
 
 export const app = express();
 
@@ -1569,6 +1570,12 @@ app.post('/api/schemes/sync', handleSyncSchemes);
 // ==========================================
 app.get('/api/videos/youtube', handleGetYouTubeVideos);
 app.post('/api/videos/sync', handleSyncYouTubeVideos);
+
+// ==========================================
+// ADVANCED AGRICULTURE WEATHER & OFFICIAL CAP HUB
+// ==========================================
+app.get('/api/weather/forecast', handleGetWeatherForecast);
+app.get('/api/weather/warnings', handleGetOfficialWarnings);
 
 // Health check endpoint
 app.get('/api/health', async (_req: Request, res: Response) => {

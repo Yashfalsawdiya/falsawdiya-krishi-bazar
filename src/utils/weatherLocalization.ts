@@ -1,8 +1,8 @@
 /**
- * Weather Localization Utility
- * Maps WMO weather condition codes to i18n keys and formats dates/times using centralized Hindi full dates
+ * Weather Localization & Telemetry Formatting Utility
+ * Maps WMO weather condition codes to accurate Hindi descriptions and formats dates/times via dateUtils.ts
  */
-import { HINDI_MONTHS } from '../lib/dateUtils';
+import { HINDI_MONTHS, formatHindiDate, formatHindiTime, parseDateSafe } from '../lib/dateUtils';
 
 export const WMO_CODE_TO_HINDI: Record<number, string> = {
   0: 'साफ मौसम',
@@ -13,20 +13,26 @@ export const WMO_CODE_TO_HINDI: Record<number, string> = {
   48: 'घना कोहरा',
   51: 'हल्की बूंदाबांदी',
   53: 'बूंदाबांदी',
-  55: 'मध्यम बूंदाबांदी',
+  55: 'तेज बूंदाबांदी',
+  56: 'ठंडी बूंदाबांदी',
+  57: 'तेज ठंडी बूंदाबांदी',
   61: 'हल्की बारिश',
   63: 'बारिश',
   65: 'तेज बारिश',
-  71: 'हल्की बर्फबारी/पाला',
-  73: 'पाला',
-  75: 'भारी पाला',
-  77: 'ओलावृष्टि',
+  66: 'ठंडी बारिश',
+  67: 'तेज ठंडी बारिश',
+  71: 'हल्का हिमपात',
+  73: 'हिमपात',
+  75: 'तेज हिमपात',
+  77: 'बर्फ के दाने',
   80: 'हल्की बौछारें',
   81: 'बौछारें',
   82: 'तेज बौछारें',
+  85: 'हल्की बर्फ बौछार',
+  86: 'तेज बर्फ बौछार',
   95: 'गरज के साथ वर्षा',
-  96: 'गरज और ओलावृष्टि',
-  99: 'भारी ओलावृष्टि'
+  96: 'गरज और हल्के ओले',
+  99: 'गरज और भारी ओले',
 };
 
 export const WMO_CODE_TO_KEY: Record<number, string> = {
@@ -39,9 +45,13 @@ export const WMO_CODE_TO_KEY: Record<number, string> = {
   51: 'weather.condition.drizzle',
   53: 'weather.condition.drizzle',
   55: 'weather.condition.drizzle',
+  56: 'weather.condition.drizzle',
+  57: 'weather.condition.drizzle',
   61: 'weather.condition.light_rain',
   63: 'weather.condition.rain',
   65: 'weather.condition.heavy_rain',
+  66: 'weather.condition.rain',
+  67: 'weather.condition.heavy_rain',
   71: 'weather.condition.light_rain',
   73: 'weather.condition.rain',
   75: 'weather.condition.heavy_rain',
@@ -49,27 +59,30 @@ export const WMO_CODE_TO_KEY: Record<number, string> = {
   80: 'weather.condition.showers',
   81: 'weather.condition.showers',
   82: 'weather.condition.showers',
+  85: 'weather.condition.showers',
+  86: 'weather.condition.showers',
   95: 'weather.condition.thunderstorm',
   96: 'weather.condition.hail',
-  99: 'weather.condition.hail'
+  99: 'weather.condition.hail',
 };
 
 export function getHindiCondition(condition: string, weatherCode?: number): string {
   if (weatherCode !== undefined && WMO_CODE_TO_HINDI[weatherCode]) {
     return WMO_CODE_TO_HINDI[weatherCode];
   }
-  const c = condition.toLowerCase();
-  if (c.includes('ओले') || c.includes('hail')) return 'ओलावृष्टि';
+  const c = (condition || '').toLowerCase();
+  if (c.includes('ओले') || c.includes('hail')) return 'गरज और ओले';
   if (c.includes('गरज') || c.includes('thunder')) return 'गरज के साथ वर्षा';
   if (c.includes('तेज बारिश') || c.includes('heavy')) return 'तेज बारिश';
   if (c.includes('बौछार') || c.includes('shower')) return 'बौछारें';
   if (c.includes('बारिश') || c.includes('वर्षा') || c.includes('rain')) return 'बारिश';
   if (c.includes('बूंदाबांदी') || c.includes('drizzle')) return 'बूंदाबांदी';
-  if (c.includes('कोहरा') || c.includes('fog')) return 'कोहरा';
+  if (c.includes('घना कोहरा')) return 'घना कोहरा';
+  if (c.includes('कोहरा') || c.includes('धुंध') || c.includes('fog') || c.includes('mist')) return 'कोहरा';
   if (c.includes('आंशिक') || c.includes('partly')) return 'आंशिक बादल';
-  if (c.includes('बादल') || c.includes('cloud')) return 'घने बादल';
+  if (c.includes('बादल') || c.includes('cloud') || c.includes('overcast')) return 'घने बादल';
   if (c.includes('रात') || c.includes('night')) return 'साफ रात';
-  if (c.includes('धूप') || c.includes('sunny')) return 'धूप / साफ';
+  if (c.includes('धूप') || c.includes('sunny') || c.includes('clear')) return 'साफ मौसम';
   return condition || 'साफ मौसम';
 }
 
@@ -94,16 +107,13 @@ export function parseLocalDate(input: Date | string | number): Date {
       }
     }
   }
-  const d = new Date(input);
-  if (!isNaN(d.getTime())) {
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+  const parsed = parseDateSafe(input);
+  if (parsed) {
+    return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 12, 0, 0);
   }
-  return d;
+  return new Date();
 }
 
-/**
- * Formats day name using Hindi weekday array or Intl
- */
 export function formatWeekday(dateInput: Date | string | number, lang: string = 'hi'): string {
   try {
     const date = parseLocalDate(dateInput);
@@ -117,17 +127,13 @@ export function formatWeekday(dateInput: Date | string | number, lang: string = 
   }
 }
 
-/**
- * Formats full date in strict "DD MMMM YYYY" format with complete month name
- * Example: "19 अक्टूबर 2026" or "19 October 2026"
- */
 export function formatFullDate(dateInput: Date | string | number, lang: string = 'hi'): string {
   try {
     const date = parseLocalDate(dateInput);
     if (isNaN(date.getTime())) return '';
-    const day = String(date.getDate()).padStart(2, '0');
-    const year = date.getFullYear();
     if (lang === 'hi') {
+      const day = String(date.getDate()).padStart(2, '0');
+      const year = date.getFullYear();
       return `${day} ${HINDI_MONTHS[date.getMonth()]} ${year}`;
     }
     return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
@@ -136,35 +142,67 @@ export function formatFullDate(dateInput: Date | string | number, lang: string =
   }
 }
 
-/**
- * Formats short date (e.g., "19 अक्टू" or "19 Oct")
- */
 export function formatShortDate(dateInput: Date | string | number, lang: string): string {
   return formatFullDate(dateInput, lang);
 }
 
-/**
- * Formats time according to selected locale (e.g. 2:00 pm)
- */
-export function formatWeatherTime(dateInput: Date | string | number, lang: string): string {
+export function formatWeatherTime(dateInput: Date | string | number, lang: string = 'hi'): string {
   try {
+    if (typeof dateInput === 'string') {
+      const isoMatch = dateInput.match(/T(\d{2}):(\d{2})/);
+      if (isoMatch) {
+        const h24 = parseInt(isoMatch[1], 10);
+        const min = isoMatch[2];
+        const suffix = h24 >= 12 ? 'PM' : 'AM';
+        const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+        return `${h12}:${min} ${suffix}`;
+      }
+    }
+    if (lang === 'hi') {
+      return formatHindiTime(dateInput) || String(dateInput);
+    }
     const date = new Date(dateInput);
-    const locale = lang === 'hi' ? 'hi-IN' : 'en-IN';
-    return new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: 'numeric', hour12: true }).format(date);
+    return new Intl.DateTimeFormat('en-IN', { hour: 'numeric', minute: 'numeric', hour12: true }).format(date);
   } catch {
     return String(dateInput);
   }
 }
 
-/**
- * Translates city and state locations
- */
+export function formatDayAndFullDateHindi(dateInput: Date | string | number): string {
+  const day = formatWeekday(dateInput, 'hi');
+  const full = formatHindiDate(parseLocalDate(dateInput));
+  return `${day}, ${full}`;
+}
+
+export function getWindDirectionHindi(degrees?: number): string {
+  if (degrees === undefined || !Number.isFinite(degrees)) return '—';
+  const normalized = ((degrees % 360) + 360) % 360;
+  const dirs = [
+    'उत्तर',
+    'उत्तर-पूर्व',
+    'पूर्व',
+    'दक्षिण-पूर्व',
+    'दक्षिण',
+    'दक्षिण-पश्चिम',
+    'पश्चिम',
+    'उत्तर-पश्चिम',
+  ];
+  const idx = Math.round(normalized / 45) % 8;
+  return dirs[idx];
+}
+
+export function formatVisibilityHindi(meters?: number): string {
+  if (meters === undefined || !Number.isFinite(meters)) return '—';
+  if (meters < 1000) return `${Math.round(meters)} मी`;
+  const km = meters / 1000;
+  return `${km >= 10 ? Math.round(km) : km.toFixed(1)} किमी`;
+}
+
 export function getLocalizedCity(name: string, lang: string): string {
   if (!name) return '';
   const isEn = lang === 'en';
-
   if (name.includes('शामगढ़') || name.includes('Shamgarh')) {
-    return isEn ? 'Shamgarh, Madhya Pradesh' : 'शामगढ़, मध्य प्रदेश';
+    return isEn ? 'Shamgarh, Mandsaur (MP)' : 'शामगढ़, मंदसौर (म.प्र.)';
   }
   if (name.includes('वर्तमान') || name.includes('Current')) {
     return isEn ? 'Your Current Location' : 'आपकी वर्तमान लोकेशन';
