@@ -27,6 +27,7 @@ import {
   GripVertical,
   LayoutList,
   ArrowUpDown,
+  KeyRound,
 } from 'lucide-react';
 import {
   YouTubeVideoItem,
@@ -105,6 +106,8 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
   const [syncedChannelVideos, setSyncedChannelVideos] = useState<YouTubeVideoItem[]>([]);
   const [isSyncingChannel, setIsSyncingChannel] = useState(false);
   const [hasApiKeyConfigured, setHasApiKeyConfigured] = useState<boolean>(false);
+  const [activeSyncMode, setActiveSyncMode] = useState<'api' | 'rss' | 'none'>('none');
+  const [serverSyncWarning, setServerSyncWarning] = useState<string | null>(null);
 
   // Admin Sort View Mode & Drag-and-Drop state
   const [sortViewTab, setSortViewTab] = useState<AdminSortViewTab>('video_page');
@@ -145,18 +148,22 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
     }
   }, [statusMessage]);
 
-  // Load initial synced channel cache on mount if channel URL exists
+  // Load initial synced channel cache & API status on mount
   const fetchChannelStatus = useCallback(async () => {
     const channelUrl = (contentForm?.youtubeChannel?.url || '').trim();
     const channelId = (hubSettings?.resolvedChannelId || '').trim();
     const key = (channelId || channelUrl).toLowerCase();
-    if (!key) return;
 
-    const cached = getCachedVideoFeed(key, true);
-    if (cached) {
-      setSyncedChannelVideos(sanitizeSyncedVideos(cached.videos));
-      if (typeof cached.hasApiKeyConfigured === 'boolean') {
-        setHasApiKeyConfigured(cached.hasApiKeyConfigured);
+    if (key) {
+      const cached = getCachedVideoFeed(key, true);
+      if (cached) {
+        setSyncedChannelVideos(sanitizeSyncedVideos(cached.videos));
+        if (typeof cached.hasApiKeyConfigured === 'boolean') {
+          setHasApiKeyConfigured(cached.hasApiKeyConfigured);
+        }
+        if (cached.mode) {
+          setActiveSyncMode(cached.mode);
+        }
       }
     }
 
@@ -164,22 +171,28 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
       const params = new URLSearchParams();
       if (channelUrl) params.set('channelUrl', channelUrl);
       if (channelId) params.set('channelId', channelId);
-      const res = await fetch(`/api/videos/youtube?${params.toString()}`);
+      const query = params.toString();
+      const res = await fetch(query ? `/api/videos/youtube?${query}` : '/api/videos/youtube');
       if (!res.ok) return;
       const data = await res.json();
-      if (data?.success && Array.isArray(data.videos)) {
-        const normalized = sanitizeSyncedVideos(data.videos);
-        setSyncedChannelVideos(normalized);
+      if (data?.success) {
         setHasApiKeyConfigured(Boolean(data.hasApiKeyConfigured));
-        setCachedVideoFeed({
-          channelKey: key,
-          channelId: data.channelId || channelId,
-          channelTitle: data.channelTitle || '',
-          mode: data.mode || 'rss',
-          hasApiKeyConfigured: Boolean(data.hasApiKeyConfigured),
-          lastSyncAt: data.lastSyncAt || Date.now(),
-          videos: normalized,
-        });
+        setActiveSyncMode(data.mode || 'none');
+        setServerSyncWarning(data.warning || null);
+
+        if (key && Array.isArray(data.videos)) {
+          const normalized = sanitizeSyncedVideos(data.videos);
+          setSyncedChannelVideos(normalized);
+          setCachedVideoFeed({
+            channelKey: key,
+            channelId: data.channelId || channelId,
+            channelTitle: data.channelTitle || '',
+            mode: data.mode || 'rss',
+            hasApiKeyConfigured: Boolean(data.hasApiKeyConfigured),
+            lastSyncAt: data.lastSyncAt || Date.now(),
+            videos: normalized,
+          });
+        }
       }
     } catch {
       // Non-blocking
@@ -332,6 +345,8 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
       const normalized = sanitizeSyncedVideos(data.videos || []);
       setSyncedChannelVideos(normalized);
       setHasApiKeyConfigured(Boolean(data.hasApiKeyConfigured));
+      setActiveSyncMode(data.mode || 'rss');
+      setServerSyncWarning(data.warning || null);
 
       const cacheKey = (data.channelId || channelUrl).toLowerCase();
       setCachedVideoFeed({
@@ -356,9 +371,11 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
             lastSyncCount: normalized.length,
           },
         }),
-        `${normalized.length} वीडियो सफलतापूर्वक सिंक और सेव हुए (${
-          data.mode === 'api' ? 'YouTube API v3' : 'मुफ्त YouTube RSS'
-        })।`
+        data.warning
+          ? `${data.warning} (${normalized.length} वीडियो सिंक हुए)`
+          : `${normalized.length} वीडियो सफलतापूर्वक सिंक और सेव हुए (${
+              data.mode === 'api' ? 'YouTube Data API v3' : 'मुफ्त YouTube RSS'
+            })।`
       );
     } catch {
       setStatusMessage({
@@ -1065,11 +1082,24 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
           <div>
             <h3 className="font-bold text-[#4A3728] text-lg flex items-center gap-2 flex-wrap">
               <span>कृषि वीडियो व हाइब्रिड चैनल प्रबंधन</span>
-              <span className="text-xs bg-emerald-50 text-[#2D5A27] border border-emerald-200 px-2.5 py-0.5 rounded-full font-semibold inline-flex items-center gap-1">
+              <span
+                className={cn(
+                  'text-xs px-2.5 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 border',
+                  hasApiKeyConfigured && !serverSyncWarning
+                    ? 'bg-emerald-50 text-[#2D5A27] border-emerald-200'
+                    : hasApiKeyConfigured && serverSyncWarning
+                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                      : 'bg-sky-50 text-sky-800 border-sky-200'
+                )}
+              >
                 <Radio className="w-3 h-3" />
-                {hasApiKeyConfigured || hubSettings.lastSyncMode === 'api'
-                  ? 'YouTube API v3 + RSS'
-                  : 'फ्री YouTube RSS हाइब्रिड'}
+                {hasApiKeyConfigured && !serverSyncWarning
+                  ? activeSyncMode === 'api' || hubSettings.lastSyncMode === 'api'
+                    ? 'YouTube Data API v3 सक्रिय'
+                    : 'API Key जुड़ी है · सिंक तैयार'
+                  : hasApiKeyConfigured && serverSyncWarning
+                    ? 'RSS बैकअप सक्रिय (API चेतावनी)'
+                    : 'फ्री YouTube RSS मोड सक्रिय'}
               </span>
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -1260,6 +1290,113 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Live API Key & Active Sync Mode Status */}
+        <div
+          className={cn(
+            'rounded-2xl p-3.5 sm:p-4 border transition-colors',
+            hasApiKeyConfigured && !serverSyncWarning
+              ? 'bg-emerald-50/70 border-emerald-200'
+              : hasApiKeyConfigured && serverSyncWarning
+                ? 'bg-amber-50/80 border-amber-200'
+                : 'bg-slate-50 border-slate-200'
+          )}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div
+                className={cn(
+                  'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border',
+                  hasApiKeyConfigured && !serverSyncWarning
+                    ? 'bg-white text-[#2D5A27] border-emerald-200'
+                    : hasApiKeyConfigured && serverSyncWarning
+                      ? 'bg-white text-amber-700 border-amber-200'
+                      : 'bg-white text-slate-600 border-slate-200'
+                )}
+              >
+                <KeyRound className="w-4 h-4" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-[#4A3728]">
+                    API Key व सक्रिय मोड स्थिति:
+                  </span>
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full border',
+                      hasApiKeyConfigured
+                        ? 'bg-emerald-100/80 text-emerald-800 border-emerald-300'
+                        : 'bg-gray-100 text-gray-700 border-gray-300'
+                    )}
+                  >
+                    {hasApiKeyConfigured ? (
+                      <>
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>YOUTUBE_API_KEY जुड़ी हुई है</span>
+                      </>
+                    ) : (
+                      <>
+                        <Info className="w-3 h-3" />
+                        <span>YOUTUBE_API_KEY नहीं जुड़ी है</span>
+                      </>
+                    )}
+                  </span>
+
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full border',
+                      hasApiKeyConfigured && !serverSyncWarning
+                        ? 'bg-[#2D5A27] text-white border-[#2D5A27]'
+                        : hasApiKeyConfigured && serverSyncWarning
+                          ? 'bg-amber-600 text-white border-amber-600'
+                          : 'bg-sky-600 text-white border-sky-600'
+                    )}
+                  >
+                    <Radio className="w-3 h-3" />
+                    <span>
+                      {hasApiKeyConfigured && !serverSyncWarning
+                        ? activeSyncMode === 'api' || hubSettings.lastSyncMode === 'api'
+                          ? 'सक्रिय मोड: YouTube Data API v3'
+                          : activeSyncMode === 'rss'
+                            ? 'API Key जुड़ी है — सिंक अपडेट करें'
+                            : 'सक्रिय मोड: YouTube Data API v3 (तैयार)'
+                        : hasApiKeyConfigured && serverSyncWarning
+                          ? 'सक्रिय मोड: फ्री RSS बैकअप (API त्रुटि)'
+                          : 'सक्रिय मोड: फ्री YouTube RSS (बिना Key)'}
+                    </span>
+                  </span>
+                </div>
+
+                <p className="text-[11px] leading-relaxed text-gray-600">
+                  {hasApiKeyConfigured && !serverSyncWarning ? (
+                    activeSyncMode === 'api' || hubSettings.lastSyncMode === 'api' ? (
+                      <>
+                        चैनल के सभी नए व पुराने वीडियो (100+ तक), वीडियो समय (Duration) और शॉर्ट्स सीधे{' '}
+                        <strong>YouTube Data API v3</strong> से सिंक हो रहे हैं। (चैनल पर वीडियो अपलोड होने के बाद{' '}
+                        <strong>चैनल अभी सिंक करें</strong> से तुरंत अपडेट करें।)
+                      </>
+                    ) : (
+                      <>
+                        सर्वर पर <strong>YOUTUBE_API_KEY</strong> मिल गई है। YouTube Data API v3 मोड से तुरंत ताज़ा डेटा लाने के लिए ऊपर{' '}
+                        <strong>चैनल अभी सिंक करें</strong> बटन पर क्लिक करें।
+                      </>
+                    )
+                  ) : hasApiKeyConfigured && serverSyncWarning ? (
+                    <span className="text-amber-800 font-medium">{serverSyncWarning}</span>
+                  ) : (
+                    <>
+                      बिना API Key के <strong>फ्री YouTube RSS मोड</strong> सक्रिय है — इससे चैनल के नवीनतम 15 वीडियो स्वतः सिंक होते हैं। सभी पुराने वीडियो व Duration के लिए सर्वर पर{' '}
+                      <code className="font-mono bg-white px-1 rounded border border-slate-200">
+                        YOUTUBE_API_KEY
+                      </code>{' '}
+                      जोड़ें।
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Feedback Toast Banner */}
@@ -1301,12 +1438,16 @@ const AdminYouTubeVideoManager: React.FC<AdminYouTubeVideoManagerProps> = ({
       {/* Rule Notice */}
       <div className="bg-amber-50/70 border border-amber-200/70 rounded-2xl p-4 flex items-start gap-3 text-xs text-amber-800">
         <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-        <div>
-          <span className="font-bold">नियम व हाइब्रिड मोड: </span>
-          बिना API Key के फ्री RSS से नवीनतम 15 चैनल वीडियो अपने आप आते हैं; सर्वर पर{' '}
-          <code className="font-mono bg-amber-100 px-1 rounded">YOUTUBE_API_KEY</code> जुड़ने पर
-          सभी पुराने वीडियो व समय (Duration) भी स्वतः जुड़ जाएंगे। आप किसी भी वीडियो को पिन, Featured,
-          शॉर्ट्स, छिपाने या हटाने (Delete) का कार्य सीधे यहाँ से कर सकते हैं।
+        <div className="space-y-1">
+          <p>
+            <span className="font-bold">दोनों मोड कैसे काम करते हैं: </span>
+            <strong>1) बिना API Key:</strong>{' '}
+            <strong>फ्री YouTube RSS मोड</strong> सक्रिय रहता है जिससे चैनल के नवीनतम 15 वीडियो अपने आप आते हैं।{' '}
+            <strong>2) Key जोड़ने पर:</strong> सर्वर पर{' '}
+            <code className="font-mono bg-amber-100 px-1 rounded">YOUTUBE_API_KEY</code> जुड़ते ही{' '}
+            <strong>YouTube Data API v3 मोड</strong> सक्रिय हो जाता है, जिससे सभी नए व पुराने वीडियो (100+ तक),
+            वीडियो समय (Duration) और शॉर्ट्स सीधे YouTube से जुड़ते हैं (API त्रुटि होने पर फ्री RSS बैकअप चलता है)।
+          </p>
         </div>
       </div>
 

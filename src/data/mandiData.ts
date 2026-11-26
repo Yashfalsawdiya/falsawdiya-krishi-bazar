@@ -1,6 +1,6 @@
 import { formatHindiDate } from '../lib/dateUtils';
 
-export type MandiSourceType = 'govt' | 'mandipulse' | 'market_report' | 'estimated';
+export type MandiSourceType = 'govt' | 'mandipulse' | 'market_report' | 'estimated' | 'unavailable';
 
 // Mandi Pulse Database structure & stable fallback generator
 export interface MandiItem {

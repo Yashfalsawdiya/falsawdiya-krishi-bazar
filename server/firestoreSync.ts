@@ -188,3 +188,80 @@ export async function deleteRemoteFirestoreDoc(collection: string, docId: string
     return false;
   }
 }
+
+export interface VerifiedAdminUser {
+  uid: string;
+  email: string;
+  emailVerified: boolean;
+}
+
+const BOOTSTRAP_ADMIN_EMAIL = 'yashfalsawdiya36@gmail.com';
+
+/**
+ * Verifies a Firebase ID Token using Identity Toolkit accounts:lookup and ensures the user is an Admin.
+ */
+export async function verifyAdminFirebaseToken(idToken: string): Promise<VerifiedAdminUser | null> {
+  try {
+    const cleanToken = (idToken || '').trim();
+    if (!cleanToken || !API_KEY) {
+      return null;
+    }
+
+    const lookupRes = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(API_KEY)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: cleanToken }),
+      }
+    );
+
+    if (!lookupRes.ok) {
+      return null;
+    }
+
+    const lookupJson: any = await lookupRes.json();
+    const user = Array.isArray(lookupJson?.users) ? lookupJson.users[0] : null;
+    if (!user || !user.localId || !user.email) {
+      return null;
+    }
+
+    const emailLower = String(user.email).toLowerCase().trim();
+    const emailVerified = Boolean(user.emailVerified);
+
+    if (!emailVerified) {
+      return null;
+    }
+
+    if (emailLower === BOOTSTRAP_ADMIN_EMAIL) {
+      return {
+        uid: String(user.localId),
+        email: emailLower,
+        emailVerified,
+      };
+    }
+
+    const [contentDoc, userDoc] = await Promise.all([
+      getRemoteFirestoreDoc<{ adminEmails?: string[] }>('settings', 'content'),
+      getRemoteFirestoreDoc<{ role?: string }>('users', String(user.localId)),
+    ]);
+
+    const adminEmails = Array.isArray(contentDoc?.adminEmails)
+      ? contentDoc!.adminEmails.map((e) => String(e).toLowerCase().trim())
+      : [];
+
+    if (adminEmails.includes(emailLower) || userDoc?.role === 'admin') {
+      return {
+        uid: String(user.localId),
+        email: emailLower,
+        emailVerified,
+      };
+    }
+
+    return null;
+  } catch (err: any) {
+    console.warn('[FirestoreSync] verifyAdminFirebaseToken error:', err?.message || err);
+    return null;
+  }
+}
+

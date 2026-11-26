@@ -8,7 +8,7 @@ import {
   ListFilter, Bug, Search, Smartphone, ShieldCheck, Users, Ban, CheckCircle,
   Truck, FileText, Facebook, Instagram, Package, CreditCard, Layers, MessageSquare,
   Zap, Radio, Clock, Send, Eye, EyeOff, SlidersHorizontal, AlertCircle, LayoutGrid,
-  Calculator, Award, ListVideo
+  Calculator, Award, ListVideo, TrendingUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fileToBase64, cn, compressImage, getDirectImageURL } from '../lib/utils';
@@ -31,6 +31,7 @@ const AdminYouTubeVideoManager = lazy(() => import('../components/AdminYouTubeVi
 const AdminPlaylistManager = lazy(() => import('../components/AdminPlaylistManager'));
 const AdminFooterManager = lazy(() => import('../components/AdminFooterManager'));
 const AdminFeaturesManager = lazy(() => import('../components/AdminFeaturesManager'));
+const AdminMandiManager = lazy(() => import('../components/AdminMandiManager'));
 const AccountingDashboard = lazy(() => import('../components/accounting/AccountingDashboard'));
 
 const AdminTabFallback: React.FC = () => (
@@ -40,7 +41,7 @@ const AdminTabFallback: React.FC = () => (
   </div>
 );
 
-type AdminTabType = 'accounting' | 'orders' | 'delivery' | 'features' | 'content' | 'heroBanners' | 'popularBrands' | 'youtube' | 'playlists' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate' | 'footer';
+type AdminTabType = 'accounting' | 'orders' | 'delivery' | 'features' | 'mandi' | 'content' | 'heroBanners' | 'popularBrands' | 'youtube' | 'playlists' | 'products' | 'categories' | 'encyclopedia' | 'helplines' | 'users' | 'featured' | 'categoryInfo' | 'legalPages' | 'razorpay' | 'invoiceTemplate' | 'footer';
 
 interface AdminNavSectionItem {
   id: AdminTabType;
@@ -60,6 +61,7 @@ const ADMIN_NAV_SECTIONS: AdminNavSectionItem[] = [
   { id: 'youtube', titleHi: 'YouTube', subtitleEn: '(Videos & Channel)', icon: YoutubeIcon },
   { id: 'playlists', titleHi: 'Playlist Management', subtitleEn: '(Playlists & Order)', icon: ListVideo },
   { id: 'features', titleHi: 'फ़ीचर्स नियंत्रण', subtitleEn: '(Features)', icon: SlidersHorizontal },
+  { id: 'mandi', titleHi: 'मंडी भाव API', subtitleEn: '(Govt OGD & Sync)', icon: TrendingUp },
   { id: 'products', titleHi: 'उत्पाद', subtitleEn: '(Products)', icon: ShoppingBag },
   { id: 'categories', titleHi: 'श्रेणियाँ', subtitleEn: '(Categories)', icon: ListFilter },
   { id: 'categoryInfo', titleHi: 'महत्वपूर्ण जानकारी', subtitleEn: '(Category Info)', icon: ShieldCheck },
@@ -1923,6 +1925,12 @@ const Admin: React.FC = () => {
         <Suspense fallback={<AdminTabFallback />}>
           <AdminFeaturesManager />
         </Suspense>
+      ) : activeTab === 'mandi' ? (
+        <SafeErrorBoundary fallbackTitle="सरकारी मंडी API प्रबंधक लोड करने में समस्या आई">
+          <Suspense fallback={<AdminTabFallback />}>
+            <AdminMandiManager />
+          </Suspense>
+        </SafeErrorBoundary>
       ) : activeTab === 'heroBanners' ? (
         <form onSubmit={handleHeroBannersSubmit} className="space-y-6" id="admin-hero-banners-tab-section">
           {contentForm ? (

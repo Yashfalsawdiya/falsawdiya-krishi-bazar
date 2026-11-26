@@ -14,7 +14,15 @@ import {
   DeliveryEmailTemplateConfig,
   DEFAULT_SERVER_DELIVERY_TEMPLATE,
 } from './emailTemplates.js';
-import { handleGetMandiPrices } from './mandiRoutes.js';
+import {
+  handleGetMandiPrices,
+  handleGetAdminMandiSettings,
+  handleUpdateAdminMandiSettings,
+  handleBuildAdminMandiSyncUrl,
+  handleTestAdminMandiConnection,
+  handleSyncAdminMandiGovt,
+  handleImportAdminMandiCache,
+} from './mandiRoutes.js';
 import { handleGetDailyNews, handleSyncNews } from './newsRoutes.js';
 import { handleGetSchemes, handleSyncSchemes } from './schemeRoutes.js';
 import { handleGetYouTubeVideos, handleSyncYouTubeVideos } from './videoRoutes.js';
@@ -1552,10 +1560,16 @@ app.get('/api/delivery/in-app-otp/:orderId', async (req: Request, res: Response)
 });
 
 // ==========================================
-// MANDI BHAV LIVE PRICES ROUTE
+// MANDI BHAV LIVE PRICES & ADMIN GOVT OGD ROUTES
 // ==========================================
 app.get('/api/mandi/prices', handleGetMandiPrices);
 app.get('/mandi/prices', handleGetMandiPrices);
+app.get('/api/admin/mandi/settings', handleGetAdminMandiSettings);
+app.post('/api/admin/mandi/settings', handleUpdateAdminMandiSettings);
+app.get('/api/admin/mandi/build-sync-url', handleBuildAdminMandiSyncUrl);
+app.post('/api/admin/mandi/test-connection', handleTestAdminMandiConnection);
+app.post('/api/admin/mandi/sync', handleSyncAdminMandiGovt);
+app.post('/api/admin/mandi/import-cache', handleImportAdminMandiCache);
 
 // ==========================================
 // CENTRALIZED AGRI NEWS & SCHEMES HUB

@@ -282,7 +282,14 @@ async function fetchChannelViaYouTubeApi(
   const chUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails&id=${encodeURIComponent(channelId)}&key=${encodeURIComponent(apiKey)}`;
   const chRes = await fetch(chUrl);
   if (!chRes.ok) {
-    throw new Error(`YouTube API channels.list failed (${chRes.status})`);
+    let errDetail = '';
+    try {
+      const errJson: any = await chRes.json();
+      errDetail = errJson?.error?.message || '';
+    } catch {
+      // Ignore parse failure
+    }
+    throw new Error(`YouTube API channels.list failed (${chRes.status})${errDetail ? `: ${errDetail}` : ''}`);
   }
   const chData: any = await chRes.json();
   const channelItem = chData?.items?.[0];
@@ -509,9 +516,11 @@ async function syncChannelHybrid(
 
   const now = Date.now();
   const existing = channelCaches.get(cacheKey);
+  const needsApiUpgrade = hasApiKeyConfigured && existing?.mode === 'rss';
 
   if (
     !forceRefresh &&
+    !needsApiUpgrade &&
     existing &&
     now - existing.lastSyncAt < CACHE_TTL_MS &&
     existing.videos.length > 0
@@ -559,6 +568,7 @@ async function syncChannelHybrid(
   let fetchedVideos: SyncedYouTubeVideo[] = [];
   let mode: 'api' | 'rss' = 'rss';
   let warning: string | undefined;
+  let apiSucceeded = false;
 
   // Try Mode A (Official API) first if configured
   if (apiKey) {
@@ -567,14 +577,18 @@ async function syncChannelHybrid(
       fetchedVideos = apiResult.videos;
       if (apiResult.channelTitle) channelTitle = apiResult.channelTitle;
       mode = 'api';
+      apiSucceeded = true;
     } catch (err: any) {
-      console.warn('[YouTube Hybrid] API mode failed, falling back to free RSS:', err?.message || err);
-      warning = 'YouTube API सीमा या अस्थायी त्रुटि के कारण फ्री RSS बैकअप उपयोग किया गया।';
+      const errMsg = err?.message || '';
+      console.warn('[YouTube Hybrid] API mode failed, falling back to free RSS:', errMsg);
+      warning = errMsg.includes('API key not valid') || errMsg.includes('403') || errMsg.includes('400')
+        ? 'सर्वर पर जुड़ी YouTube API Key अमान्य है या YouTube Data API v3 चालू नहीं है — अभी फ्री RSS बैकअप उपयोग हो रहा है।'
+        : 'YouTube API सीमा या अस्थायी त्रुटि के कारण फ्री RSS बैकअप उपयोग किया गया।';
     }
   }
 
-  // Fallback or Primary Mode B (Free Public RSS)
-  if (fetchedVideos.length === 0) {
+  // Fallback or Primary Mode B (Free Public RSS) only if API is not configured or failed
+  if (!apiSucceeded) {
     try {
       const rssResult = await fetchChannelViaPublicRSS(channelId);
       fetchedVideos = rssResult.videos;

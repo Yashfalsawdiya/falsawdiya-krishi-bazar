@@ -1552,15 +1552,15 @@ const Home: React.FC = () => {
       </div>
 
       {/* AI Krishi Sahayak & Daily Farming Tip Card */}
-      <section className="relative bg-white rounded-3xl border border-emerald-900/10 shadow-[0_10px_30px_-12px_rgba(27,67,24,0.14)] overflow-hidden">
+      <section className="relative bg-gradient-to-br from-emerald-50/60 via-white to-green-50/40 rounded-3xl border border-emerald-200/80 shadow-[0_10px_30px_-12px_rgba(34,197,94,0.16)] overflow-hidden">
         {/* Subtle Ambient Light Accent */}
-        <div className="pointer-events-none absolute -top-16 -right-16 w-48 h-48 rounded-full bg-emerald-500/8 blur-3xl" />
+        <div className="pointer-events-none absolute -top-16 -right-16 w-48 h-48 rounded-full bg-emerald-400/12 blur-3xl" />
 
         {/* Main Interactive Zone */}
         <div className="relative p-4 sm:p-6 2xl:p-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
           {/* Identity & Heading */}
           <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-[#2D5A27] to-[#1B4318] text-white flex items-center justify-center shadow-md shadow-[#2D5A27]/20 ring-4 ring-[#2D5A27]/10 shrink-0">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-500 text-white flex items-center justify-center shadow-md shadow-emerald-400/25 ring-4 ring-emerald-100 shrink-0">
               <MessageCircle className="w-6 h-6 text-white" />
             </div>
             <div className="min-w-0">
@@ -1579,22 +1579,22 @@ const Home: React.FC = () => {
               type="button"
               onClick={handleOpenChat}
               disabled={isAiLoading}
-              className="group w-full min-h-[52px] flex items-center justify-between gap-2.5 bg-gradient-to-r from-[#F6FBF5] via-white to-[#F6FBF5] hover:from-[#EDF7EC] hover:to-[#F3FAF2] active:scale-[0.985] border-[1.5px] border-[#2D5A27]/30 hover:border-[#2D5A27] p-1.5 pl-2 rounded-2xl shadow-[0_8px_22px_-8px_rgba(27,67,24,0.22)] hover:shadow-[0_12px_26px_-8px_rgba(27,67,24,0.34)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D5A27] focus-visible:ring-offset-2 transition-all duration-200 disabled:opacity-50 cursor-pointer"
+              className="group w-full min-h-[52px] flex items-center justify-between gap-2.5 bg-gradient-to-r from-emerald-50/80 via-white to-green-50/80 hover:from-emerald-100/70 hover:to-green-100/70 active:scale-[0.985] border-[1.5px] border-emerald-300 hover:border-emerald-500 p-1.5 pl-2 rounded-2xl shadow-[0_8px_22px_-8px_rgba(34,197,94,0.2)] hover:shadow-[0_12px_26px_-8px_rgba(34,197,94,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 transition-all duration-200 disabled:opacity-50 cursor-pointer"
               title="खेती से जुड़ा सवाल पूछें और AI कृषि सहायक से बात करें"
             >
               <span className="flex items-center gap-2.5 min-w-0">
-                <span className="w-9 h-9 rounded-xl bg-[#EAF4E8] border border-[#2D5A27]/20 flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105">
+                <span className="w-9 h-9 rounded-xl bg-emerald-100/80 border border-emerald-200 flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105">
                   {isAiLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-[#2D5A27]" />
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
                   ) : (
-                    <Wheat className="w-[18px] h-[18px] text-[#2D5A27]" />
+                    <Wheat className="w-[18px] h-[18px] text-emerald-600" />
                   )}
                 </span>
-                <span className="text-[13.5px] sm:text-[15px] font-extrabold text-[#1B4318] tracking-tight truncate">
+                <span className="text-[13.5px] sm:text-[15px] font-extrabold text-emerald-700 tracking-tight truncate">
                   AI कृषि सहायक से सवाल पूछें
                 </span>
               </span>
-              <span className="w-10 h-9 rounded-xl bg-gradient-to-br from-[#2D5A27] to-[#1B4318] group-hover:from-[#234A1E] group-hover:to-[#133210] text-white shadow-sm shadow-[#2D5A27]/30 flex items-center justify-center shrink-0 transition-all duration-200">
+              <span className="w-10 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-green-500 group-hover:from-emerald-500 group-hover:to-green-600 text-white shadow-sm shadow-emerald-400/30 flex items-center justify-center shrink-0 transition-all duration-200">
                 <Send className="w-4 h-4 text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
               </span>
             </button>
@@ -1602,12 +1602,12 @@ const Home: React.FC = () => {
         </div>
 
         {/* Hairline-Separated Daily Tip Footer Band */}
-        <div className="bg-[#F3F8F2] border-t border-emerald-900/8 px-4 sm:px-6 2xl:px-7 py-3 sm:py-3.5 flex items-center gap-3">
-          <span className="w-8 h-8 rounded-xl bg-white border border-emerald-900/10 shadow-2xs flex items-center justify-center shrink-0">
-            <Sprout className="w-4 h-4 text-[#2D5A27]" />
+        <div className="bg-emerald-50/70 border-t border-emerald-200/70 px-4 sm:px-6 2xl:px-7 py-3 sm:py-3.5 flex items-center gap-3">
+          <span className="w-8 h-8 rounded-xl bg-white border border-emerald-200/80 shadow-2xs flex items-center justify-center shrink-0">
+            <Sprout className="w-4 h-4 text-emerald-600" />
           </span>
           <p className="text-xs sm:text-[13px] leading-relaxed text-gray-700 font-medium">
-            <span className="font-bold text-[#1B4318]">आज की सलाह: </span>
+            <span className="font-bold text-emerald-700">आज की सलाह: </span>
             {aiAdvice || translateText(dailyTip)}
           </p>
         </div>

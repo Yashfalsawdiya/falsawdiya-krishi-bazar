@@ -1,26 +1,29 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { getFriendlyAiError } from "../utils/aiErrorHandler";
-import { MandiItem, MandiDetails, generateFallbackMandiDetails } from "../data/mandiData";
-
-const getAI = (userApiKey?: string) => {
-  const apiKey = userApiKey;
-  if (!apiKey || apiKey.trim() === "") {
-    return null;
-  }
-  return new GoogleGenAI({ 
-    apiKey: apiKey.trim(),
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build'
-      }
-    }
-  });
-};
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../firebase";
+import { MandiItem, MandiDetails } from "../data/mandiData";
+import { formatHindiDate, formatHindiTime } from "../lib/dateUtils";
 
 // Backwards compatibility types
 export type { MandiItem, MandiDetails as MandiData };
 
-// Location and word normalization helpers for client-side direct fallback
+// Location and word normalization helpers for client-side fallback
+const CLIENT_LOCATION_ALIASES: Record<string, string[]> = {
+  'chhattisgarh': ['chattisgarh'],
+  'chattisgarh': ['chhattisgarh'],
+  'odisha': ['orissa'],
+  'orissa': ['odisha'],
+  'bengaluru': ['bangalore'],
+  'bangalore': ['bengaluru'],
+  'belgaum': ['belgavi', 'belagavi'],
+  'belgavi': ['belgaum', 'belagavi'],
+  'narmadapuram': ['hoshangabad'],
+  'hoshangabad': ['narmadapuram'],
+  'delhincr': ['delhi', 'nctofdelhi'],
+  'newdelhi': ['delhi', 'nctofdelhi'],
+  'pipliya': ['pipaliya', 'pipliamandi'],
+  'shamgarh': ['samgarh'],
+};
+
 function normalizeClientWord(s: string): string {
   if (!s) return '';
   return s
@@ -67,12 +70,19 @@ function checkClientLocationMatch(candidate: string | undefined | null, targetFu
   const target = cleanClientLocation(targetFull);
   const targetEnNorm = normalizeClientWord(target.english);
   const targetHiNorm = normalizeClientWord(target.hindi);
+  const targetEnNoSpace = targetEnNorm.replace(/\s+/g, '');
+  const targetHiNoSpace = targetHiNorm.replace(/\s+/g, '');
+
+  const aliasKeys = [targetEnNoSpace, targetHiNoSpace];
+  for (const k of [targetEnNoSpace, targetHiNoSpace]) {
+    if (CLIENT_LOCATION_ALIASES[k]) aliasKeys.push(...CLIENT_LOCATION_ALIASES[k]);
+  }
 
   if (candNorm === targetEnNorm || candNorm === targetHiNorm) return true;
-  if (candNoSpace === targetEnNorm.replace(/\s+/g, '') || candNoSpace === targetHiNorm.replace(/\s+/g, '')) return true;
+  if (aliasKeys.includes(candNoSpace)) return true;
 
-  const candWords = candNorm.split(' ').filter(w => w.length >= 3);
-  const targetWords = [...targetEnNorm.split(' '), ...targetHiNorm.split(' ')].filter(w => w.length >= 3);
+  const candWords = candNorm.split(' ').filter((w) => w.length >= 3);
+  const targetWords = [...targetEnNorm.split(' '), ...targetHiNorm.split(' ')].filter((w) => w.length >= 3);
 
   for (const tw of targetWords) {
     if (candWords.includes(tw)) return true;
@@ -82,9 +92,15 @@ function checkClientLocationMatch(candidate: string | undefined | null, targetFu
 }
 
 const CLIENT_COMMODITY_MAP: Record<string, string> = {
+  'bengal gram (gram)(whole)': 'चना (साबुत)',
   'bengal gram': 'चना (साबुत)',
-  'gram': 'चना',
-  'chana': 'चना',
+  'kabuli chana': 'काबुली चना',
+  'black gram': 'उड़द',
+  'green gram': 'मूंग',
+  'red gram': 'तुअर (अरहर)',
+  'pigeon pea': 'तुअर (अरहर)',
+  'green chilli': 'हरी मिर्च',
+  'red chilli': 'लाल मिर्च',
   'soyabean': 'सोयाबीन',
   'soybean': 'सोयाबीन',
   'wheat': 'गेहूँ',
@@ -95,9 +111,7 @@ const CLIENT_COMMODITY_MAP: Record<string, string> = {
   'cotton': 'कपास',
   'kapas': 'कपास',
   'urad': 'उड़द',
-  'black gram': 'उड़द',
   'moong': 'मूंग',
-  'green gram': 'मूंग',
   'onion': 'प्याज़',
   'pyaz': 'प्याज़',
   'garlic': 'लहसुन',
@@ -109,26 +123,114 @@ const CLIENT_COMMODITY_MAP: Record<string, string> = {
   'fenugreek': 'मेथी',
   'methi': 'मेथी',
   'lentil': 'मसूर',
+  'masoor': 'मसूर',
   'peanut': 'मूंगफली',
   'groundnut': 'मूंगफली',
   'arhar': 'तुअर',
   'tur': 'तुअर',
+  'gram': 'चना',
+  'chana': 'चना',
   'sesamum': 'तिल',
   'sesame': 'तिल',
+  'cumin': 'जीरा',
+  'isabgol': 'ईसबगोल',
+  'barley': 'जौ',
+  'jowar': 'ज्वार',
+  'bajra': 'बाजरा',
+  'paddy': 'धान',
+  'rice': 'चावल',
 };
+
+const SORTED_CLIENT_COMMODITIES = Object.entries(CLIENT_COMMODITY_MAP).sort(
+  ([a], [b]) => b.length - a.length
+);
 
 function normalizeClientCommodity(name: string): string {
   const lower = name.toLowerCase().trim();
-  for (const [key, val] of Object.entries(CLIENT_COMMODITY_MAP)) {
+  for (const [key, val] of SORTED_CLIENT_COMMODITIES) {
     if (lower.includes(key)) return val;
   }
   return name.trim();
 }
 
+const SHARED_GOVT_CACHE_LS_KEY = 'mandi_shared_govt_cache_v1';
+const SHARED_GOVT_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+/**
+ * Fallback lookup against shared Firestore `_metadata/mandi_govt_cache`
+ * (cached locally in localStorage for 2 hours so 10 lakh farmers cost near ₹0 reads).
+ */
+async function fetchClientSharedGovtCache(
+  state: string,
+  district: string,
+  mandi: string
+): Promise<MandiDetails | null> {
+  try {
+    let cacheDoc: any = null;
+    const rawLs = localStorage.getItem(SHARED_GOVT_CACHE_LS_KEY);
+    if (rawLs) {
+      const parsed = JSON.parse(rawLs);
+      if (parsed && parsed.fetchedAt && Date.now() - parsed.fetchedAt < SHARED_GOVT_CACHE_TTL_MS && parsed.doc?.markets) {
+        cacheDoc = parsed.doc;
+      }
+    }
+
+    if (!cacheDoc) {
+      const snap = await getDoc(doc(db, '_metadata', 'mandi_govt_cache'));
+      if (snap.exists()) {
+        cacheDoc = snap.data();
+        try {
+          localStorage.setItem(
+            SHARED_GOVT_CACHE_LS_KEY,
+            JSON.stringify({ fetchedAt: Date.now(), doc: cacheDoc })
+          );
+        } catch {
+          // Ignore localStorage quota error cleanly
+        }
+      }
+    }
+
+    const markets = cacheDoc?.markets ? Object.values(cacheDoc.markets) : [];
+    if (!Array.isArray(markets) || markets.length === 0) return null;
+
+    let bestEntry: any = null;
+    for (const entry of markets as any[]) {
+      const sOk = checkClientLocationMatch(entry.state, state);
+      const dOk = checkClientLocationMatch(entry.district, district);
+      const mOk = checkClientLocationMatch(entry.market, mandi);
+      if (sOk && dOk && mOk && Array.isArray(entry.items) && entry.items.length > 0) {
+        if (!bestEntry || (entry.dateScore || 0) > (bestEntry.dateScore || 0)) {
+          bestEntry = entry;
+        }
+      }
+    }
+
+    if (bestEntry) {
+      const now = new Date();
+      return {
+        mandiName: mandi,
+        district,
+        state,
+        date: formatHindiDate(bestEntry.sourceDate || now),
+        items: bestEntry.items,
+        sourceType: 'govt',
+        sourceName: 'AGMARKNET (भारत सरकार OGD डेटासेट)',
+        sourceDate: formatHindiDate(bestEntry.sourceDate || now),
+        fetchedAt: `${formatHindiDate(now)}, ${formatHindiTime(now)}`,
+        isLive: true,
+        isEstimated: false,
+        statusMessage: 'सरकारी पोर्टल (AGMARKNET OGD साझा कैश) से प्राप्त प्रमाणित दैनिक दरें',
+      };
+    }
+  } catch {
+    // Non-fatal fallback
+  }
+  return null;
+}
+
 /**
  * Direct browser fallback to MandiPulse API using CORS (access-control-allow-origin: *).
- * Ensures that even if Vercel serverless function times out or gets challenged by Cloudflare,
- * the client browser in India can retrieve live verified MandiPulse data directly!
+ * Kept intact as verified backup when Government sources are unavailable!
  */
 async function fetchClientMandiPulse(
   state: string,
@@ -150,7 +252,7 @@ async function fetchClientMandiPulse(
 
     const res = await fetch(`https://mandipulse.com/embed/data?type=market-prices&market=${marketSlug}&language=hi`, {
       signal: controller.signal,
-      headers: { 'Accept': 'application/json' }
+      headers: { 'Accept': 'application/json' },
     });
     clearTimeout(timeout);
 
@@ -161,13 +263,13 @@ async function fetchClientMandiPulse(
 
     const items: MandiItem[] = [];
     const seen = new Set<string>();
+    const formattedReportDate = formatHindiDate(json.updated_at || new Date());
 
     for (const it of rawItems) {
       const rawName = (it.name || it.commodity || '').trim();
       if (!rawName) continue;
       const cropName = normalizeClientCommodity(rawName);
 
-      // Strict validation against selected State, District, and Mandi
       const stateOk = checkClientLocationMatch(it.state, state);
       const distOk = checkClientLocationMatch(it.district, district);
       const mandiOk = checkClientLocationMatch(it.market, mandi);
@@ -192,60 +294,58 @@ async function fetchClientMandiPulse(
         avgPrice: effectiveModal.toString(),
         unit: 'क्विंटल',
         arrival: it.arrival ? `${it.arrival} बोरी` : 'मंडी आवक',
-        quality: it.variety || 'मानक गुणवत्ता (FAQ)',
-        lastUpdated: it.updated_at || json.updated_at || 'आज'
+        quality: it.variety && String(it.variety).toLowerCase() !== 'other' ? it.variety : 'मानक गुणवत्ता (FAQ)',
+        lastUpdated: formatHindiDate(it.updated_at || json.updated_at || new Date()),
       });
     }
 
     if (items.length > 0) {
-      console.log(`[Mandi Client] Direct Browser Fallback found ${items.length} records in MandiPulse for ${mandi}`);
+      console.log(`[Mandi Client] Direct Browser Backup found ${items.length} records in MandiPulse for ${mandi}`);
       const now = new Date();
       return {
         mandiName: mandi,
         district,
         state,
-        date: json.updated_at || 'आज',
+        date: formattedReportDate,
         items,
         sourceType: 'mandipulse',
         sourceName: 'मंडी पल्स (MandiPulse.com)',
-        sourceDate: json.updated_at || 'आज',
-        fetchedAt: now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+        sourceDate: formattedReportDate,
+        fetchedAt: `${formatHindiDate(now)}, ${formatHindiTime(now)}`,
         isLive: true,
         isEstimated: false,
-        statusMessage: 'सरकारी पोर्टल पर डेटा न मिलने पर मंडी पल्स (MandiPulse.com) से प्राप्त सत्यापित लाइव भाव'
+        statusMessage: 'सरकारी पोर्टल पर डेटा न मिलने पर मंडी पल्स (MandiPulse.com) बैकअप से प्राप्त सत्यापित लाइव भाव',
       };
     }
   } catch {
-    // MandiPulse is an optional 3rd-party fallback; silently fall through to primary data sources
+    // Silent fallback
   }
   return null;
 }
 
 /**
  * Fetches Mandi Bhav for a specific State, District, and Mandi.
- * 1. Checks local cache (< 30 minutes, only if items > 0).
- * 2. Queries backend server route `/api/mandi/prices` (Official OGD AGMARKNET + MandiPulse + Gemini Grounding).
- * 3. Browser-Direct MandiPulse Fallback via CORS if server is unavailable or returns 0 records.
- * 4. Transparent offline message if no verified records exist for this exact sub-mandi.
+ * 1. Local cache (< 30 minutes, only if items > 0).
+ * 2. Backend server route `/api/mandi/prices` (Shared Govt Cache -> Live Govt OGD -> MandiPulse Backup -> Gemini).
+ * 3. Client Shared Govt Cache fallback (`_metadata/mandi_govt_cache` cached 2h in localStorage).
+ * 4. Browser-Direct MandiPulse Backup via CORS.
+ * 5. Honest empty state (`sourceType: 'unavailable'`).
  */
 export async function fetchMandiBhav(
   stateOrMandi: string = "मध्यप्रदेश (Madhya Pradesh)",
   districtOrApiKey?: string,
   mandiName?: string,
-  userApiKey?: string,
+  _userApiKey?: string,
   forceRefresh: boolean = false
 ): Promise<MandiDetails> {
   const now = new Date();
-  
+
   let state = "मध्यप्रदेश (Madhya Pradesh)";
   let district = "मंदसौर (Mandsaur)";
   let mandi = "शामगढ़ (Shamgarh)";
-  let apiKey = userApiKey;
 
-  // Detect signature: fetchMandiBhav(mandiName, apiKey) vs fetchMandiBhav(state, district, mandi, apiKey)
   if (mandiName === undefined) {
     const legacyMandi = stateOrMandi;
-    apiKey = districtOrApiKey;
 
     if (legacyMandi.toLowerCase().includes("shamgarh") || legacyMandi.includes("शामगढ़")) {
       mandi = "शामगढ़ (Shamgarh)";
@@ -280,27 +380,24 @@ export async function fetchMandiBhav(
     mandi = mandiName;
   }
 
-  const cacheKey = `mandi_pulse_${state}_${district}_${mandi}`.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]+/g, '_');
+  const cacheKey = `mandi_v2_${state}_${district}_${mandi}`.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]+/g, '_');
   const cacheTimeKey = `${cacheKey}_timestamp`;
-  const cacheDuration = 30 * 60 * 1000; // 30 minutes caching
+  const cacheDuration = 30 * 60 * 1000;
 
   const cachedData = localStorage.getItem(cacheKey);
   const cachedTime = localStorage.getItem(cacheTimeKey);
 
-  console.log(`[Mandi Client] Fetching: State="${state}", District="${district}", Mandi="${mandi}", forceRefresh=${forceRefresh}`);
-
-  // 1. Return cached data if fresh and CONTAINS ITEMS (never lock an empty response into cache)
+  // 1. Return cached data if fresh and CONTAINS ITEMS
   if (!forceRefresh && cachedData && cachedTime) {
     const age = now.getTime() - parseInt(cachedTime, 10);
     if (age < cacheDuration) {
       try {
         const parsed: MandiDetails = JSON.parse(cachedData);
         if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
-          console.log(`[Mandi Client Cache Hit] Loaded ${parsed.items.length} records for ${mandi}`);
           return parsed;
         }
-      } catch (e) {
-        console.warn("Error parsing cached Mandi data:", e);
+      } catch {
+        // Ignore corrupted cache
       }
     }
   }
@@ -311,7 +408,7 @@ export async function fetchMandiBhav(
       state,
       district,
       mandi,
-      forceRefresh: forceRefresh ? 'true' : 'false'
+      forceRefresh: forceRefresh ? 'true' : 'false',
     });
 
     const serverRes = await fetch(`/api/mandi/prices?${queryParams.toString()}`);
@@ -320,11 +417,11 @@ export async function fetchMandiBhav(
       if (serverJson.success && serverJson.data) {
         const liveData: MandiDetails = serverJson.data;
 
-        // Only cache and return if server returned actual matching records
         if (Array.isArray(liveData.items) && liveData.items.length > 0) {
-          console.log(`[Mandi Client] Server returned ${liveData.items.length} records for ${mandi} (Source: ${liveData.sourceType})`);
-          localStorage.setItem(cacheKey, JSON.stringify(liveData));
-          localStorage.setItem(cacheTimeKey, now.getTime().toString());
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(liveData));
+            localStorage.setItem(cacheTimeKey, now.getTime().toString());
+          } catch {}
           return liveData;
         }
       }
@@ -333,33 +430,172 @@ export async function fetchMandiBhav(
     console.warn("[Mandi Client] Server endpoint error:", serverErr);
   }
 
-  // 3. Secondary Strategy: Browser-Direct MandiPulse Fallback via CORS
-  // If server is on Vercel and was cold-started or blocked by Cloudflare,
-  // the client browser in India can fetch directly from MandiPulse without restrictions!
-  console.log(`[Mandi Client] Attempting Browser-Direct MandiPulse fallback for ${mandi}...`);
+  // 3. Secondary Govt Strategy: Shared Govt Cache doc `_metadata/mandi_govt_cache`
+  const sharedGovtData = await fetchClientSharedGovtCache(state, district, mandi);
+  if (sharedGovtData && sharedGovtData.items.length > 0) {
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(sharedGovtData));
+      localStorage.setItem(cacheTimeKey, now.getTime().toString());
+    } catch {}
+    return sharedGovtData;
+  }
+
+  // 4. Verified Backup Strategy: Browser-Direct MandiPulse Fallback via CORS
   const directMandiPulseData = await fetchClientMandiPulse(state, district, mandi);
   if (directMandiPulseData && directMandiPulseData.items.length > 0) {
-    localStorage.setItem(cacheKey, JSON.stringify(directMandiPulseData));
-    localStorage.setItem(cacheTimeKey, now.getTime().toString());
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(directMandiPulseData));
+      localStorage.setItem(cacheTimeKey, now.getTime().toString());
+    } catch {}
     return directMandiPulseData;
   }
 
-  // 4. Honest empty state when neither Server nor MandiPulse has data for this exact mandi
-  // NEVER show fake data or data from other mandis!
-  const emptyStateData: MandiDetails = {
+  // 5. Honest empty state (never falsely mark empty state as 'govt')
+  return {
     mandiName: mandi,
     district,
     state,
-    date: 'आज',
+    date: formatHindiDate(now),
     items: [],
-    sourceType: 'govt',
+    sourceType: 'unavailable',
     sourceName: 'आधिकारिक मंडी रिकॉर्ड (AGMARKNET / MandiPulse)',
-    sourceDate: 'आज',
-    fetchedAt: now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+    sourceDate: formatHindiDate(now),
+    fetchedAt: `${formatHindiDate(now)}, ${formatHindiTime(now)}`,
     isLive: false,
     isEstimated: false,
-    statusMessage: `${mandi} (${district.split(' (')[0]}, ${state.split(' (')[0]}) मंडी के लिए आज का आधिकारिक डेटा उपलब्ध नहीं है।`
+    statusMessage: `${mandi} (${district.split(' (')[0]}, ${state.split(' (')[0]}) मंडी के लिए आज का आधिकारिक डेटा उपलब्ध नहीं है।`,
   };
+}
 
-  return emptyStateData;
+// ==========================================
+// ADMIN MANDI GOVT OGD API CLIENT HELPERS
+// ==========================================
+export interface AdminMandiSettingsResponse {
+  success: boolean;
+  configured: boolean;
+  keySource: 'env' | 'admin' | 'none';
+  maskedKey: string;
+  enabled: boolean;
+  defaultLimit: number;
+  syncStateFilter: string;
+  lastSyncAt: number;
+  lastSyncStatus: 'success' | 'blocked' | 'error' | 'never';
+  lastSyncSource: string;
+  lastSyncMessage: string;
+  lastSyncRecordsCount: number;
+  updatedAt: number;
+  cachedMandisCount: number;
+  cachedRecordsCount: number;
+  cacheUpdatedAt: number;
+  syncSource: string;
+  previewMarkets: Array<{
+    state: string;
+    district: string;
+    market: string;
+    sourceDate: string;
+    cropCount: number;
+  }>;
+}
+
+async function getAdminAuthHeaders(): Promise<Record<string, string>> {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('Admin प्रमाणीकरण सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।');
+  }
+  const token = await user.getIdToken();
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+  };
+}
+
+export async function getAdminMandiSettings(): Promise<AdminMandiSettingsResponse> {
+  const headers = await getAdminAuthHeaders();
+  const res = await fetch('/api/admin/mandi/settings', { headers });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'मंडी API सेटिंग्स लोड नहीं हो सकीं।');
+  }
+  return data;
+}
+
+export async function saveAdminMandiSettings(payload: {
+  apiKey?: string;
+  clearKey?: boolean;
+  enabled?: boolean;
+  defaultLimit?: number;
+  syncStateFilter?: string;
+}): Promise<any> {
+  const headers = await getAdminAuthHeaders();
+  const res = await fetch('/api/admin/mandi/settings', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'सेटिंग्स सेव करने में विफल रहा।');
+  }
+  return data;
+}
+
+export async function testAdminMandiConnection(apiKey?: string): Promise<{
+  success: boolean;
+  reachable?: boolean;
+  blockedFromServer?: boolean;
+  message: string;
+}> {
+  const headers = await getAdminAuthHeaders();
+  const res = await fetch('/api/admin/mandi/test-connection', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(apiKey ? { apiKey } : {}),
+  });
+  return await res.json();
+}
+
+export async function buildAdminMandiSyncUrl(params?: {
+  limit?: number;
+  state?: string;
+  apiKey?: string;
+}): Promise<{ success: boolean; syncUrl?: string; error?: string }> {
+  const headers = await getAdminAuthHeaders();
+  const qs = new URLSearchParams();
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.state) qs.set('state', params.state);
+  if (params?.apiKey) qs.set('apiKey', params.apiKey);
+  const res = await fetch(`/api/admin/mandi/build-sync-url?${qs.toString()}`, { headers });
+  return await res.json();
+}
+
+export async function syncAdminMandiGovt(params?: {
+  apiKey?: string;
+  limit?: number;
+  stateFilter?: string;
+}): Promise<any> {
+  const headers = await getAdminAuthHeaders();
+  const res = await fetch('/api/admin/mandi/sync', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(params || {}),
+  });
+  return await res.json();
+}
+
+export async function importAdminMandiCache(params: {
+  rawPayload: any;
+  mergeExisting?: boolean;
+  sourceLabel?: string;
+}): Promise<any> {
+  const headers = await getAdminAuthHeaders();
+  const res = await fetch('/api/admin/mandi/import-cache', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(params),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'डेटा इम्पोर्ट करने में त्रुटि हुई।');
+  }
+  return data;
 }

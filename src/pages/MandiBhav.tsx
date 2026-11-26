@@ -196,7 +196,8 @@ const MandiBhav: React.FC = () => {
 
   // Generate WhatsApp Share string
   const getWhatsAppShareLink = (mandiName: string, item: MandiItem) => {
-    const text = `🌾 *फल्सावदिया कृषि बाजार* 🌾\n📍 *मंडी:* ${mandiName}\n📌 *फसल:* ${item.commodity}\n💰 *मॉडल भाव:* ₹${item.avgPrice}/-\n📈 *रेंज:* ₹${item.minPrice} - ₹${item.maxPrice}\n📦 *आवक:* ${item.arrival || "सामान्य"}\n✨ *गुणवत्ता:* ${item.quality || "सामान्य"}\n🕒 *अपडेट:* ${item.lastUpdated}\n\n👉 *ताज़ा भावों के लिए फल्सावदिया कृषि बाजार ऐप देखें!*`;
+    const cleanDate = formatHindiDate(item.lastUpdated) || item.lastUpdated;
+    const text = `फल्सावदिया कृषि बाजार\nमंडी: ${mandiName}\nफसल: ${item.commodity}\nमॉडल भाव: ₹${item.avgPrice}/-\nरेंज: ₹${item.minPrice} - ₹${item.maxPrice}\nआवक: ${item.arrival || "सामान्य"}\nगुणवत्ता: ${item.quality || "सामान्य"}\nअपडेट: ${cleanDate}\n\nताज़ा भावों के लिए फल्सावदिया कृषि बाजार ऐप देखें!`;
     return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
   };
 
@@ -252,6 +253,11 @@ const MandiBhav: React.FC = () => {
             <div className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
               {isHindi ? 'सत्यापित स्थानीय मंडी रिपोर्ट' : 'Verified Local Mandi Report'}
+            </div>
+          ) : data?.sourceType === 'unavailable' ? (
+            <div className="bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+              <Clock className="w-3 h-3 text-slate-500" />
+              {isHindi ? 'आधिकारिक बुलेटिन प्रतीक्षारत' : 'Official Bulletin Pending'}
             </div>
           ) : (
             <div className="bg-orange-50 text-orange-800 border border-orange-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
@@ -438,7 +444,9 @@ const MandiBhav: React.FC = () => {
                         : data.sourceType === 'mandipulse'
                         ? 'text-teal-700'
                         : data.sourceType === 'market_report' 
-                        ? 'text-amber-700' 
+                        ? 'text-amber-700'
+                        : data.sourceType === 'unavailable'
+                        ? 'text-slate-600'
                         : 'text-orange-700'
                     }`}>
                       {data.sourceType === 'govt' ? (
@@ -455,6 +463,11 @@ const MandiBhav: React.FC = () => {
                         <>
                           <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                           {isHindi ? 'सत्यापित मंडी रिपोर्ट' : 'Verified Mandi Report'}
+                        </>
+                      ) : data.sourceType === 'unavailable' ? (
+                        <>
+                          <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          {isHindi ? 'आधिकारिक डेटा प्रतीक्षारत' : 'Bulletin Pending'}
                         </>
                       ) : (
                         <>
@@ -1061,7 +1074,7 @@ const MandiBhav: React.FC = () => {
                               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                                 <div className="flex items-center gap-1.5 text-[11px] text-gray-500 font-semibold">
                                   <Clock className="w-3.5 h-3.5 text-gray-400" />
-                                  <span>{isHindi ? 'अपडेट:' : 'Updated:'} {item.lastUpdated}</span>
+                                  <span>{isHindi ? 'अपडेट:' : 'Updated:'} {formatHindiDate(item.lastUpdated) || item.lastUpdated}</span>
                                 </div>
                                 
                                 <a 
