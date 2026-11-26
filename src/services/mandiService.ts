@@ -1,7 +1,8 @@
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { MandiItem, MandiDetails } from "../data/mandiData";
-import { formatHindiDate, formatHindiTime } from "../lib/dateUtils";
+import { formatHindiDate, formatHindiTime, HINDI_MONTHS } from "../lib/dateUtils";
+import { MandiHistoryPoint } from "../utils/mandiHistoryManager";
 
 // Backwards compatibility types
 export type { MandiItem, MandiDetails as MandiData };
@@ -155,9 +156,11 @@ function normalizeClientCommodity(name: string): string {
 
 const SHARED_GOVT_CACHE_LS_KEY = 'mandi_shared_govt_cache_v1';
 const SHARED_GOVT_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+const MANDI_HISTORY_LS_PREFIX = 'mandi_central_hist_v1_';
+const MANDI_HISTORY_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 /**
- * Fallback lookup against shared Firestore `_metadata/mandi_govt_cache`
+ * Fallback lookup against shared Firestore `_metadata/mandi_cache_{stateSlug}` and `_metadata/mandi_govt_cache`
  * (cached locally in localStorage for 2 hours so 10 lakh farmers cost near ₹0 reads).
  */
 async function fetchClientSharedGovtCache(
@@ -166,26 +169,55 @@ async function fetchClientSharedGovtCache(
   mandi: string
 ): Promise<MandiDetails | null> {
   try {
+    const { english: stateEnglish } = cleanClientLocation(state);
+    const stateSlug = getClientStateSlug(stateEnglish);
+    const stateLsKey = `${SHARED_GOVT_CACHE_LS_KEY}_${stateSlug}`;
+
     let cacheDoc: any = null;
-    const rawLs = localStorage.getItem(SHARED_GOVT_CACHE_LS_KEY);
-    if (rawLs) {
-      const parsed = JSON.parse(rawLs);
-      if (parsed && parsed.fetchedAt && Date.now() - parsed.fetchedAt < SHARED_GOVT_CACHE_TTL_MS && parsed.doc?.markets) {
-        cacheDoc = parsed.doc;
+
+    // Try state-wise cache first (smaller, complete for selected state)
+    if (stateSlug) {
+      try {
+        const rawStateLs = localStorage.getItem(stateLsKey);
+        if (rawStateLs) {
+          const parsed = JSON.parse(rawStateLs);
+          if (parsed && parsed.fetchedAt && Date.now() - parsed.fetchedAt < SHARED_GOVT_CACHE_TTL_MS && parsed.doc?.markets) {
+            cacheDoc = parsed.doc;
+          }
+        }
+      } catch {}
+
+      if (!cacheDoc) {
+        const stateSnap = await getDoc(doc(db, '_metadata', `mandi_cache_${stateSlug}`)).catch(() => null);
+        if (stateSnap && stateSnap.exists()) {
+          cacheDoc = stateSnap.data();
+          try {
+            localStorage.setItem(stateLsKey, JSON.stringify({ fetchedAt: Date.now(), doc: cacheDoc }));
+          } catch {}
+        }
       }
     }
 
+    // Fallback to primary combined govt cache
     if (!cacheDoc) {
-      const snap = await getDoc(doc(db, '_metadata', 'mandi_govt_cache'));
-      if (snap.exists()) {
-        cacheDoc = snap.data();
-        try {
-          localStorage.setItem(
-            SHARED_GOVT_CACHE_LS_KEY,
-            JSON.stringify({ fetchedAt: Date.now(), doc: cacheDoc })
-          );
-        } catch {
-          // Ignore localStorage quota error cleanly
+      const rawLs = localStorage.getItem(SHARED_GOVT_CACHE_LS_KEY);
+      if (rawLs) {
+        const parsed = JSON.parse(rawLs);
+        if (parsed && parsed.fetchedAt && Date.now() - parsed.fetchedAt < SHARED_GOVT_CACHE_TTL_MS && parsed.doc?.markets) {
+          cacheDoc = parsed.doc;
+        }
+      }
+
+      if (!cacheDoc) {
+        const snap = await getDoc(doc(db, '_metadata', 'mandi_govt_cache')).catch(() => null);
+        if (snap && snap.exists()) {
+          cacheDoc = snap.data();
+          try {
+            localStorage.setItem(
+              SHARED_GOVT_CACHE_LS_KEY,
+              JSON.stringify({ fetchedAt: Date.now(), doc: cacheDoc })
+            );
+          } catch {}
         }
       }
     }
@@ -467,9 +499,204 @@ export async function fetchMandiBhav(
   };
 }
 
+export interface MandiHistoryResponse {
+  success: boolean;
+  isAuthentic: boolean;
+  daysCount: number;
+  commodities: Record<string, MandiHistoryPoint[]>;
+}
+
+/**
+ * Fetches 30-day centralized Govt history for ONLY the selected mandi (~5-12 KB).
+ * Caches locally for 4 hours, with Firestore `_metadata/mandi_history_{stateSlug}` fallback.
+ */
+export async function fetchMandiHistory(
+  state: string,
+  district: string,
+  mandi: string,
+  forceRefresh: boolean = false
+): Promise<MandiHistoryResponse> {
+  const lsKey = `${MANDI_HISTORY_LS_PREFIX}${state}_${district}_${mandi}`
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0900-\u097F]+/g, '_');
+
+  if (!forceRefresh) {
+    try {
+      const raw = localStorage.getItem(lsKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.fetchedAt && Date.now() - parsed.fetchedAt < MANDI_HISTORY_TTL_MS && parsed.payload) {
+          return parsed.payload;
+        }
+      }
+    } catch {}
+  }
+
+  try {
+    const qs = new URLSearchParams({ state, district, mandi });
+    const res = await fetch(`/api/mandi/history?${qs.toString()}`);
+    if (res.ok) {
+      const data: MandiHistoryResponse = await res.json();
+      if (data.success && data.isAuthentic) {
+        try {
+          localStorage.setItem(lsKey, JSON.stringify({ fetchedAt: Date.now(), payload: data }));
+        } catch {}
+      }
+      return data;
+    }
+  } catch {}
+
+  // Fallback directly to Firestore state history bucket if API route unavailable
+  try {
+    const { english: stateEnglish } = cleanClientLocation(state);
+    const stateSlug = getClientStateSlug(stateEnglish);
+    if (stateSlug) {
+      const snap = await getDoc(doc(db, '_metadata', `mandi_history_${stateSlug}`));
+      if (snap.exists()) {
+        const bucket = snap.data() as { markets?: Record<string, Record<string, string[]>> };
+        let matchedCrops: Record<string, string[]> | null = null;
+        for (const [mktKey, crops] of Object.entries(bucket?.markets || {})) {
+          const [distPart = '', mktPart = ''] = mktKey.split('|');
+          if (checkClientLocationMatch(distPart, district) && checkClientLocationMatch(mktPart, mandi)) {
+            matchedCrops = crops;
+            break;
+          }
+        }
+        if (matchedCrops) {
+          const commodities: Record<string, MandiHistoryPoint[]> = {};
+          let maxDays = 0;
+          for (const [cropName, rows] of Object.entries(matchedCrops)) {
+            if (!Array.isArray(rows) || rows.length === 0) continue;
+            const points: MandiHistoryPoint[] = [];
+            let prev = 0;
+            for (const rowStr of rows) {
+              const [scoreStr, avgStr, minStr, maxStr] = String(rowStr).split('|');
+              const score = parseInt(scoreStr || '0', 10);
+              const avg = parseInt(avgStr || '0', 10);
+              const minP = parseInt(minStr || '0', 10) || avg;
+              const maxP = parseInt(maxStr || '0', 10) || avg;
+              if (!score || avg <= 0) continue;
+              const y = Math.floor(score / 10000);
+              const m = Math.floor((score % 10000) / 100);
+              const d = score % 100;
+              const fullDate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+              const date = `${String(d).padStart(2, '0')} ${HINDI_MONTHS[m - 1] || ''}`.trim();
+              const change = points.length === 0 ? 0 : avg - prev;
+              const changePercent = prev > 0 ? parseFloat(((change / prev) * 100).toFixed(1)) : 0;
+              points.push({ date, fullDate, price: avg, minPrice: minP, maxPrice: maxP, change, changePercent });
+              prev = avg;
+            }
+            if (points.length > 0) {
+              commodities[cropName] = points;
+              if (points.length > maxDays) maxDays = points.length;
+            }
+          }
+          const payload: MandiHistoryResponse = {
+            success: true,
+            isAuthentic: maxDays > 0,
+            daysCount: maxDays,
+            commodities,
+          };
+          if (maxDays > 0) {
+            try {
+              localStorage.setItem(lsKey, JSON.stringify({ fetchedAt: Date.now(), payload }));
+            } catch {}
+          }
+          return payload;
+        }
+      }
+    }
+  } catch {}
+
+  return { success: false, isAuthentic: false, daysCount: 0, commodities: {} };
+}
+
+export function clearClientMandiLocalCaches(): void {
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (
+        k &&
+        (k.startsWith('mandi_v2_') ||
+          k.startsWith(SHARED_GOVT_CACHE_LS_KEY) ||
+          k.startsWith(MANDI_HISTORY_LS_PREFIX))
+      ) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  } catch {}
+}
+
+/**
+ * Publishes all Admin sync result docs (primary cache, state caches, 30-day history buckets, sync status) to Firestore.
+ */
+export async function publishMandiSyncDocsToFirestore(syncResponse: any): Promise<boolean> {
+  if (!syncResponse) return false;
+  let anySuccess = false;
+  const tasks: Promise<void>[] = [];
+
+  if (syncResponse.firestoreCacheDoc?.markets) {
+    tasks.push(
+      setDoc(doc(db, '_metadata', 'mandi_govt_cache'), syncResponse.firestoreCacheDoc)
+        .then(() => { anySuccess = true; })
+        .catch(() => {})
+    );
+  }
+
+  if (syncResponse.stateCacheDocs && typeof syncResponse.stateCacheDocs === 'object') {
+    for (const [docId, docPayload] of Object.entries(syncResponse.stateCacheDocs)) {
+      if (docPayload) {
+        tasks.push(
+          setDoc(doc(db, '_metadata', docId), docPayload)
+            .then(() => { anySuccess = true; })
+            .catch(() => {})
+        );
+      }
+    }
+  }
+
+  if (syncResponse.historyDocs && typeof syncResponse.historyDocs === 'object') {
+    for (const [docId, docPayload] of Object.entries(syncResponse.historyDocs)) {
+      if (docPayload) {
+        tasks.push(
+          setDoc(doc(db, '_metadata', docId), docPayload)
+            .then(() => { anySuccess = true; })
+            .catch(() => {})
+        );
+      }
+    }
+  }
+
+  if (syncResponse.syncStatusDoc) {
+    tasks.push(
+      setDoc(doc(db, '_metadata', 'mandi_sync_status'), syncResponse.syncStatusDoc)
+        .then(() => { anySuccess = true; })
+        .catch(() => {})
+    );
+  }
+
+  await Promise.all(tasks);
+  clearClientMandiLocalCaches();
+  return anySuccess;
+}
+
 // ==========================================
 // ADMIN MANDI GOVT OGD API CLIENT HELPERS
 // ==========================================
+export interface AdminMandiSyncHistoryItem {
+  timestamp: number;
+  trigger: 'auto_cron' | 'admin_manual' | 'live_fallback';
+  status: 'success' | 'no_change' | 'blocked' | 'error';
+  rawCount: number;
+  newMarkets: number;
+  updatedMarkets: number;
+  unchangedMarkets: number;
+  message: string;
+  error?: string;
+}
+
 export interface AdminMandiSettingsResponse {
   success: boolean;
   configured: boolean;
@@ -479,10 +706,19 @@ export interface AdminMandiSettingsResponse {
   defaultLimit: number;
   syncStateFilter: string;
   lastSyncAt: number;
-  lastSyncStatus: 'success' | 'blocked' | 'error' | 'never';
+  lastSuccessfulSyncAt?: number;
+  lastSyncStatus: 'success' | 'no_change' | 'blocked' | 'error' | 'never';
   lastSyncSource: string;
   lastSyncMessage: string;
+  lastError?: string;
   lastSyncRecordsCount: number;
+  nextScheduledSyncAt?: number;
+  consecutiveFailures?: number;
+  rateLimitRemaining?: number | null;
+  serviceAccountConfigured?: boolean;
+  cronSecretConfigured?: boolean;
+  historyMarketsCount?: number;
+  syncHistory?: AdminMandiSyncHistoryItem[];
   updatedAt: number;
   cachedMandisCount: number;
   cachedRecordsCount: number;

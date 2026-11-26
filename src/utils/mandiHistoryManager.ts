@@ -1,16 +1,17 @@
+import { HINDI_MONTHS, parseDateSafe } from '../lib/dateUtils';
+
 /**
  * Falsawdiya Krishi Bazaar - Mandi Price History 30-Day Rolling Buffer Manager
- * 
+ *
  * Strictly preserves a 30-day FIFO (First-In, First-Out) rolling window for mandi commodity prices.
- * - Max 30 records per commodity (Microscopic ~9 KB storage, zero memory bloat).
- * - Automatic daily archival of authentic rates.
- * - Drops Day 1 when Day 31 arrives.
- * - Supports 7-day, 15-day, and 30-day filtering with real dates and change metrics.
+ * - Prefers centralized authentic government history from `/api/mandi/history` / `_metadata/mandi_history_*`.
+ * - Drops Day 1 when Day 31 arrives (max 30 trading days).
+ * - Formats all dates using full Hindi month names (DD MMMM) per global date standard.
  */
 
 export interface MandiHistoryPoint {
-  date: string;       // Formatted date: "17 Oct"
-  fullDate: string;   // ISO date: "2026-10-17"
+  date: string;       // Formatted full Hindi month date: "26 नवंबर"
+  fullDate: string;   // ISO date: "2026-11-26"
   price: number;      // Modal rate
   minPrice: number;   // Minimum rate
   maxPrice: number;   // Maximum rate
@@ -30,12 +31,16 @@ export function getMandiHistoryKey(mandiName: string, commodity: string): string
 }
 
 /**
- * Formats a date object to "D MMM" (e.g., "17 Oct")
+ * Formats a Date or ISO date string to "DD MMMM" using full Hindi month names (e.g., "26 नवंबर")
  */
-function formatDateShort(d: Date): string {
-  const day = d.getDate();
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${day} ${months[d.getMonth()]}`;
+function formatDateShort(input: Date | string): string {
+  const d = typeof input === 'string' ? parseDateSafe(input) : input;
+  if (!d || isNaN(d.getTime())) {
+    const fallback = new Date();
+    return `${String(fallback.getDate()).padStart(2, '0')} ${HINDI_MONTHS[fallback.getMonth()]}`;
+  }
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${day} ${HINDI_MONTHS[d.getMonth()]}`;
 }
 
 /**
@@ -48,9 +53,25 @@ function formatDateISO(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function normalizeHistoryLabels(points: MandiHistoryPoint[]): MandiHistoryPoint[] {
+  let prevPrice = 0;
+  return points.map((pt, idx) => {
+    const cleanDate = pt.fullDate ? formatDateShort(pt.fullDate) : pt.date;
+    const change = idx === 0 ? 0 : pt.price - prevPrice;
+    const changePercent =
+      idx === 0 || prevPrice <= 0 ? 0 : parseFloat(((change / prevPrice) * 100).toFixed(1));
+    prevPrice = pt.price;
+    return {
+      ...pt,
+      date: cleanDate,
+      change,
+      changePercent,
+    };
+  });
+}
+
 /**
- * Generates an initial realistic 30-day trading history anchored on current price.
- * Skips Sundays (when mandis are officially closed across India) to maintain realism.
+ * Generates a realistic 30-day fallback trajectory only when zero centralized authentic history exists.
  */
 function generateInitial30DayHistory(
   currentPrice: number,
@@ -61,20 +82,18 @@ function generateInitial30DayHistory(
   const result: MandiHistoryPoint[] = [];
   const base = Math.max(100, currentPrice);
   const spreadRatio = base > 0 ? (currentMax - currentMin) / base : 0.2;
-  
+
   const today = new Date();
   const tradingDays: Date[] = [];
-  
-  // Step backward collecting 30 trading days (skipping Sundays)
+
   const cursor = new Date(today);
   while (tradingDays.length < MAX_HISTORY_RECORDS) {
-    if (cursor.getDay() !== 0) { // 0 = Sunday
+    if (cursor.getDay() !== 0) {
       tradingDays.unshift(new Date(cursor));
     }
     cursor.setDate(cursor.getDate() - 1);
   }
 
-  // Generate smooth, market-realistic price trajectory anchored on today's real price
   let prevPrice = base;
   for (let i = 0; i < tradingDays.length; i++) {
     const isToday = i === tradingDays.length - 1;
@@ -87,12 +106,11 @@ function generateInitial30DayHistory(
       minP = currentMin;
       maxP = currentMax;
     } else {
-      // Gentle pseudo-random walk tied to commodity seed
-      const stepsFromToday = (tradingDays.length - 1) - i;
-      const wave = Math.sin((seedIndex * 7) + (stepsFromToday * 0.45)) * 0.04;
-      const microNoise = Math.cos((seedIndex * 13) + (stepsFromToday * 0.8)) * 0.02;
+      const stepsFromToday = tradingDays.length - 1 - i;
+      const wave = Math.sin(seedIndex * 7 + stepsFromToday * 0.45) * 0.04;
+      const microNoise = Math.cos(seedIndex * 13 + stepsFromToday * 0.8) * 0.02;
       const deltaPercent = wave + microNoise;
-      
+
       price = Math.round(base * (1 + deltaPercent));
       const dynamicSpread = Math.round(price * (spreadRatio || 0.15));
       minP = Math.max(50, price - Math.round(dynamicSpread * 0.6));
@@ -119,7 +137,65 @@ function generateInitial30DayHistory(
 }
 
 /**
- * Retrieves the 30-day rolling history for a commodity, archiving today's live rate.
+ * Merges centralized 30-day authentic Govt history with live today's price, or falls back to local buffer.
+ */
+export function mergeCentralizedMandiHistory(
+  mandiName: string,
+  commodity: string,
+  serverPoints: MandiHistoryPoint[] | undefined,
+  currentPrice: number,
+  currentMin: number,
+  currentMax: number,
+  seedIndex: number = 0
+): { points: MandiHistoryPoint[]; isAuthentic: boolean; authenticDaysCount: number } {
+  if (Array.isArray(serverPoints) && serverPoints.length > 0) {
+    const sorted = [...serverPoints]
+      .filter((p) => p && p.fullDate && p.price > 0)
+      .sort((a, b) => a.fullDate.localeCompare(b.fullDate));
+
+    if (sorted.length > 0) {
+      const todayStr = formatDateISO(new Date());
+      const last = sorted[sorted.length - 1];
+      if (currentPrice > 0) {
+        if (last.fullDate === todayStr) {
+          last.price = currentPrice;
+          last.minPrice = currentMin || currentPrice;
+          last.maxPrice = currentMax || currentPrice;
+        } else if (last.fullDate < todayStr) {
+          sorted.push({
+            date: formatDateShort(todayStr),
+            fullDate: todayStr,
+            price: currentPrice,
+            minPrice: currentMin || currentPrice,
+            maxPrice: currentMax || currentPrice,
+            change: 0,
+            changePercent: 0,
+          });
+        }
+      }
+
+      const capped = sorted.slice(-MAX_HISTORY_RECORDS);
+      const normalized = normalizeHistoryLabels(capped);
+      return {
+        points: normalized,
+        isAuthentic: true,
+        authenticDaysCount: normalized.length,
+      };
+    }
+  }
+
+  const localPoints = normalizeHistoryLabels(
+    getOrUpdateCommodityHistory(mandiName, commodity, currentPrice, currentMin, currentMax, seedIndex)
+  );
+  return {
+    points: localPoints,
+    isAuthentic: false,
+    authenticDaysCount: 0,
+  };
+}
+
+/**
+ * Retrieves the 30-day local rolling history for a commodity, archiving today's live rate.
  */
 export function getOrUpdateCommodityHistory(
   mandiName: string,
@@ -151,7 +227,6 @@ export function getOrUpdateCommodityHistory(
     console.warn('[MandiHistory] Error reading cache', err);
   }
 
-  // If no history exists, generate initial 30-day baseline
   if (history.length === 0) {
     history = generateInitial30DayHistory(currentPrice, currentMin, currentMax, seedIndex);
     try {
@@ -162,20 +237,19 @@ export function getOrUpdateCommodityHistory(
     return history;
   }
 
-  // Check if today is already recorded
   const lastEntry = history[history.length - 1];
   if (lastEntry && lastEntry.fullDate === todayStr) {
-    // Update today's live price
     lastEntry.price = currentPrice;
     lastEntry.minPrice = currentMin;
     lastEntry.maxPrice = currentMax;
+    lastEntry.date = todayShort;
     if (history.length > 1) {
       const prev = history[history.length - 2];
       lastEntry.change = currentPrice - prev.price;
-      lastEntry.changePercent = prev.price > 0 ? parseFloat(((lastEntry.change / prev.price) * 100).toFixed(1)) : 0;
+      lastEntry.changePercent =
+        prev.price > 0 ? parseFloat(((lastEntry.change / prev.price) * 100).toFixed(1)) : 0;
     }
   } else {
-    // New day has arrived! Calculate change and append
     const prevPrice = lastEntry ? lastEntry.price : currentPrice;
     const change = currentPrice - prevPrice;
     const changePercent = prevPrice > 0 ? parseFloat(((change / prevPrice) * 100).toFixed(1)) : 0;
@@ -190,11 +264,12 @@ export function getOrUpdateCommodityHistory(
       changePercent,
     });
 
-    // Enforce 30-day FIFO Rolling Window cap: Drop Day 1 when Day 31 arrives
     if (history.length > MAX_HISTORY_RECORDS) {
       history = history.slice(-MAX_HISTORY_RECORDS);
     }
   }
+
+  history = normalizeHistoryLabels(history);
 
   try {
     localStorage.setItem(key, JSON.stringify(history));
@@ -243,13 +318,14 @@ export function calculatePeriodMetrics(slice: MandiHistoryPoint[]): {
     };
   }
 
-  const prices = slice.map(p => p.price);
+  const prices = slice.map((p) => p.price);
   const high = Math.max(...prices);
   const low = Math.min(...prices);
   const startPrice = slice[0].price;
   const latestPrice = slice[slice.length - 1].price;
   const periodChange = latestPrice - startPrice;
-  const periodChangePercent = startPrice > 0 ? parseFloat(((periodChange / startPrice) * 100).toFixed(1)) : 0;
+  const periodChangePercent =
+    startPrice > 0 ? parseFloat(((periodChange / startPrice) * 100).toFixed(1)) : 0;
 
   return {
     high,

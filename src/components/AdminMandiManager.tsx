@@ -17,6 +17,12 @@ import {
   Building2,
   SlidersHorizontal,
   Globe,
+  CalendarClock,
+  Activity,
+  History,
+  Server,
+  Lock,
+  AlertTriangle,
 } from 'lucide-react';
 import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
@@ -29,6 +35,7 @@ import {
   syncAdminMandiGovt,
   importAdminMandiCache,
   buildAdminMandiSyncUrl,
+  publishMandiSyncDocsToFirestore,
 } from '../services/mandiService';
 import { cn } from '../lib/utils';
 
@@ -65,6 +72,14 @@ const AdminMandiManager: React.FC = () => {
     message: string;
   } | null>(null);
 
+  const [lastSyncDelta, setLastSyncDelta] = useState<{
+    rawCount: number;
+    newMarketsCount: number;
+    updatedMarketsCount: number;
+    unchangedCount: number;
+    noChange?: boolean;
+  } | null>(null);
+
   const getValidatedLimit = (): number | null => {
     const trimmed = limitInput.trim();
     if (!trimmed) return null;
@@ -75,14 +90,9 @@ const AdminMandiManager: React.FC = () => {
     return parsed;
   };
 
-  const publishFirestoreSharedCache = async (firestoreCacheDoc: any) => {
-    if (!firestoreCacheDoc || !firestoreCacheDoc.markets) return false;
+  const publishFirestoreSharedCache = async (syncPayload: any) => {
     try {
-      await setDoc(doc(db, '_metadata', 'mandi_govt_cache'), firestoreCacheDoc);
-      try {
-        localStorage.removeItem('mandi_shared_govt_cache_v1');
-      } catch {}
-      return true;
+      return await publishMandiSyncDocsToFirestore(syncPayload);
     } catch (err) {
       console.warn('[AdminMandi] Failed publishing shared cache to Firestore:', err);
       return false;
@@ -262,10 +272,17 @@ const AdminMandiManager: React.FC = () => {
       });
 
       if (serverRes.success) {
-        const fsOk = await publishFirestoreSharedCache(serverRes.firestoreCacheDoc);
+        const fsOk = await publishFirestoreSharedCache(serverRes);
+        setLastSyncDelta({
+          rawCount: serverRes.rawCount || 0,
+          newMarketsCount: serverRes.newMarketsCount || 0,
+          updatedMarketsCount: serverRes.updatedMarketsCount || 0,
+          unchangedCount: serverRes.unchangedCount || 0,
+          noChange: Boolean(serverRes.noChange),
+        });
         setStatusMessage({
           type: 'success',
-          text: `${serverRes.message}${fsOk ? ' सभी किसानों के लिए क्लाउड साझा कैश अपडेट हो गया है।' : ''}`,
+          text: `${serverRes.message}${fsOk ? ' सभी किसानों के लिए राज्यवार साझा कैश व 30-दिन इतिहास अपडेट हो गया है।' : ''}`,
         });
         await loadData();
         return;
@@ -294,7 +311,13 @@ const AdminMandiManager: React.FC = () => {
                 mergeExisting: true,
                 sourceLabel: 'browser_sync',
               });
-              const fsOk = await publishFirestoreSharedCache(importRes.firestoreCacheDoc);
+              const fsOk = await publishFirestoreSharedCache(importRes);
+              setLastSyncDelta({
+                rawCount: importRes.rawCount || 0,
+                newMarketsCount: importRes.newMarketsCount || 0,
+                updatedMarketsCount: 0,
+                unchangedCount: 0,
+              });
               setStatusMessage({
                 type: 'success',
                 text: `भारत ब्राउज़र डायरेक्ट सिंक सफल! ${importRes.message}${fsOk ? ' साझा कैश लाइव हो गया।' : ''}`,
@@ -398,23 +421,101 @@ const AdminMandiManager: React.FC = () => {
         </div>
       )}
 
-      {/* Architecture Priority Info Strip */}
-      <div className="bg-gradient-to-r from-emerald-50 via-teal-50/50 to-white border border-emerald-200/80 rounded-3xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <ShieldCheck className="w-5 h-5 text-[#2D5A27] shrink-0 mt-0.5" />
-          <div className="text-xs space-y-0.5">
-            <p className="font-black text-[#1B4318]">
-              हाइब्रिड प्राथमिकता प्रणाली (Zero Downtime Architecture)
-            </p>
-            <p className="text-[11px] text-gray-600 font-medium leading-relaxed">
-              1) साझा सरकारी कैश व लाइव AGMARKNET OGD (प्राथमिक) → 2) MandiPulse.com लाइव बैकअप (कभी नहीं हटेगा) → 3) 10 लाख किसानों के लिए न्यूनतम सर्वर लागत।
-            </p>
+      {/* Auto-Sync Scheduler Status & Zero-Cost Architecture Strip */}
+      <div className="bg-gradient-to-r from-emerald-50 via-teal-50/50 to-white border border-emerald-200/80 rounded-3xl p-4 sm:p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="w-5 h-5 text-[#2D5A27] shrink-0 mt-0.5" />
+            <div className="text-xs space-y-0.5">
+              <p className="font-black text-[#1B4318]">
+                100% मुफ्त स्वचालित सरकारी सिंक एवं 30-दिन इतिहास सिस्टम
+              </p>
+              <p className="text-[11px] text-gray-600 font-medium leading-relaxed">
+                1) दिन में 10 बार स्वतः AGMARKNET OGD सिंक (09:30 AM – 11:00 PM IST) → 2) राज्यवार 10-दिन स्मार्ट कैश + 30-दिन FIFO इतिहास → 3) MandiPulse लाइव बैकअप सदा चालू।
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-200">
+              <CalendarClock className="w-3 h-3 text-emerald-700" />
+              10 बार/दिन ऑटो सिंक (IST)
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200">
+              <Radio className="w-3 h-3 text-teal-600" />
+              MandiPulse बैकअप: चालू
+            </span>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200 shrink-0 self-start sm:self-center">
-          <Radio className="w-3 h-3 text-teal-600" />
-          MandiPulse बैकअप: चालू
-        </span>
+
+        {/* Readiness & Auto-Cron Telemetry Pills */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 border-t border-emerald-200/50">
+          <div className="bg-white/90 rounded-2xl p-2.5 border border-emerald-100">
+            <span className="text-[10px] font-bold text-gray-500 flex items-center gap-1">
+              <Server className="w-3 h-3 text-[#2D5A27]" />
+              <span>Service Account</span>
+            </span>
+            <span className={cn(
+              'text-[11px] font-black mt-0.5 block',
+              settings?.serviceAccountConfigured ? 'text-emerald-700' : 'text-amber-700'
+            )}>
+              {settings?.serviceAccountConfigured ? 'सक्रिय (Spark Auto-Write)' : 'सेटअप प्रतीक्षारत'}
+            </span>
+          </div>
+
+          <div className="bg-white/90 rounded-2xl p-2.5 border border-emerald-100">
+            <span className="text-[10px] font-bold text-gray-500 flex items-center gap-1">
+              <Lock className="w-3 h-3 text-[#2D5A27]" />
+              <span>Cron Secret सुरक्षा</span>
+            </span>
+            <span className={cn(
+              'text-[11px] font-black mt-0.5 block',
+              settings?.cronSecretConfigured ? 'text-emerald-700' : 'text-amber-700'
+            )}>
+              {settings?.cronSecretConfigured ? 'सक्रिय (Verified)' : 'सेटअप प्रतीक्षारत'}
+            </span>
+          </div>
+
+          <div className="bg-white/90 rounded-2xl p-2.5 border border-emerald-100">
+            <span className="text-[10px] font-bold text-gray-500 flex items-center gap-1">
+              <Activity className="w-3 h-3 text-[#2D5A27]" />
+              <span>OGD API शेष कोटा</span>
+            </span>
+            <span className="text-[11px] font-black text-gray-900 font-mono mt-0.5 block">
+              {settings?.rateLimitRemaining !== null && settings?.rateLimitRemaining !== undefined
+                ? `${settings.rateLimitRemaining} कॉल शेष`
+                : 'सामान्य (उपलब्ध)'}
+            </span>
+          </div>
+
+          <div className="bg-white/90 rounded-2xl p-2.5 border border-emerald-100">
+            <span className="text-[10px] font-bold text-gray-500 flex items-center gap-1">
+              <History className="w-3 h-3 text-[#2D5A27]" />
+              <span>30-दिन इतिहास ट्रैक</span>
+            </span>
+            <span className="text-[11px] font-black text-gray-900 font-mono mt-0.5 block">
+              {settings?.historyMarketsCount ?? 0} मंडियाँ संग्रहित
+            </span>
+          </div>
+        </div>
+
+        {/* Warning banner when background failures > 0 or Vercel Secrets missing */}
+        {((settings?.consecutiveFailures || 0) > 0 || !settings?.serviceAccountConfigured || !settings?.cronSecretConfigured) && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-start gap-2.5 text-amber-950 text-[11px]">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              {(settings?.consecutiveFailures || 0) > 0 && (
+                <p className="font-black text-red-800">
+                  लगातार {settings?.consecutiveFailures} बार सिंक विफल रहा: {settings?.lastError || settings?.lastSyncMessage}
+                </p>
+              )}
+              {(!settings?.serviceAccountConfigured || !settings?.cronSecretConfigured) && (
+                <p className="font-semibold text-amber-900">
+                  बैकग्राउंड ऑटो-सिंक चालू करने हेतु Vercel Environment Variables में CRON_SYNC_SECRET और FIREBASE_SERVICE_ACCOUNT_JSON सेट करें (जब तक सेट न हो, तब तक नीचे 1-Click बटन से मैन्युअल सिंक करें)।
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Form: API Key + Custom Fetch Limit + State Filter */}
@@ -630,18 +731,50 @@ const AdminMandiManager: React.FC = () => {
             </span>
           </div>
 
-          <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100 col-span-2">
-            <span className="text-[10px] font-bold text-gray-400 block flex items-center gap-1">
+          <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100">
+            <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              <span>अंतिम सिंक समय</span>
+              <span>अंतिम सफल सिंक</span>
             </span>
             <span className="text-xs font-black text-gray-800 mt-1 block">
-              {settings?.cacheUpdatedAt
+              {settings?.lastSuccessfulSyncAt
+                ? formatHindiDateTime(settings.lastSuccessfulSyncAt)
+                : settings?.cacheUpdatedAt
                 ? formatHindiDateTime(settings.cacheUpdatedAt)
-                : 'अभी तक सिंक नहीं हुआ (MandiPulse बैकअप सक्रिय)'}
+                : 'अभी तक सिंक नहीं हुआ'}
+            </span>
+          </div>
+
+          <div className="bg-emerald-50/70 rounded-2xl p-3 border border-emerald-100">
+            <span className="text-[10px] font-bold text-emerald-800 flex items-center gap-1">
+              <CalendarClock className="w-3 h-3" />
+              <span>अगला स्वचालित सिंक (IST)</span>
+            </span>
+            <span className="text-xs font-black text-emerald-950 mt-1 block">
+              {settings?.nextScheduledSyncAt
+                ? formatHindiDateTime(settings.nextScheduledSyncAt)
+                : 'सुबह 09:30 AM – रात 11:00 PM'}
             </span>
           </div>
         </div>
+
+        {/* Last Delta Summary Strip */}
+        {lastSyncDelta && (
+          <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] font-bold">
+            <span className="px-2.5 py-1 rounded-lg bg-gray-100 text-gray-800">
+              प्राप्त रिकॉर्ड: {lastSyncDelta.rawCount}
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+              नई मंडियाँ: {lastSyncDelta.newMarketsCount}
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-teal-50 text-teal-800 border border-teal-200">
+              अपडेट मंडियाँ: {lastSyncDelta.updatedMarketsCount}
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-slate-50 text-slate-700 border border-slate-200">
+              अपरिवर्तित: {lastSyncDelta.unchangedCount}
+            </span>
+          </div>
+        )}
 
         {/* Preview of Cached Markets */}
         {settings?.previewMarkets && settings.previewMarkets.length > 0 && (
@@ -659,6 +792,62 @@ const AdminMandiManager: React.FC = () => {
                   <span>
                     {m.market} ({m.district}) — {m.cropCount} फसलें • {m.sourceDate}
                   </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Sync History Log (Last 20 Runs) */}
+        {settings?.syncHistory && settings.syncHistory.length > 0 && (
+          <div className="space-y-2.5 pt-3 border-t border-gray-100">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black text-gray-700 flex items-center gap-1.5">
+                <History className="w-3.5 h-3.5 text-[#2D5A27]" />
+                <span>पिछले सिंक इतिहास लॉग (अंतिम {settings.syncHistory.length} रन)</span>
+              </span>
+            </div>
+            <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+              {settings.syncHistory.map((entry, idx) => (
+                <div
+                  key={`${entry.timestamp}_${idx}`}
+                  className="p-2.5 rounded-2xl bg-gray-50 border border-gray-100 text-[11px] flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                >
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span
+                        className={cn(
+                          'text-[9px] font-black px-2 py-0.5 rounded-md border',
+                          entry.status === 'success'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : entry.status === 'no_change'
+                            ? 'bg-slate-100 text-slate-700 border-slate-200'
+                            : 'bg-red-50 text-red-800 border-red-200'
+                        )}
+                      >
+                        {entry.status === 'success'
+                          ? 'सफल'
+                          : entry.status === 'no_change'
+                          ? 'कोई बदलाव नहीं'
+                          : entry.status === 'blocked'
+                          ? 'ब्लॉक'
+                          : 'त्रुटि'}
+                      </span>
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-white border border-gray-200 text-gray-700">
+                        {entry.trigger === 'auto_cron' ? 'ऑटो Cron' : 'Admin मैन्युअल'}
+                      </span>
+                      <span className="text-[10px] font-bold text-gray-500">
+                        {formatHindiDateTime(entry.timestamp)}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-700 font-medium truncate">
+                      {entry.error ? entry.error : entry.message}
+                    </p>
+                  </div>
+
+                  <div className="text-[10px] font-mono font-bold text-gray-500 shrink-0">
+                    {entry.rawCount} रिकार्ड • +{entry.newMarkets} नई • ~{entry.updatedMarkets} अपडेट
+                  </div>
                 </div>
               ))}
             </div>

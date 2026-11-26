@@ -1,11 +1,20 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { fetchMandiBhav, MandiData, MandiItem } from '../services/mandiService';
+import {
+  fetchMandiBhav,
+  fetchMandiHistory,
+  syncAdminMandiGovt,
+  publishMandiSyncDocsToFirestore,
+  clearClientMandiLocalCaches,
+  MandiData,
+  MandiItem,
+  MandiHistoryResponse,
+} from '../services/mandiService';
 import { 
   STATE_MANDI_DATA, 
   CROPS_LIST, 
   getHindiCropName
 } from '../data/mandiData';
-import { formatHindiDate } from '../lib/dateUtils';
+import { formatHindiDate, formatHindiDateTime } from '../lib/dateUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
@@ -26,19 +35,15 @@ import {
   Share2, 
   ChevronDown, 
   ChevronUp, 
-  Key, 
   Scale, 
   Truck 
 } from 'lucide-react';
 import { 
-  getOrUpdateCommodityHistory, 
+  mergeCentralizedMandiHistory,
   getHistorySlice, 
-  calculatePeriodMetrics, 
-  MandiHistoryPoint 
+  calculatePeriodMetrics,
 } from '../utils/mandiHistoryManager';
 import { useAppContext } from '../context/AppContext';
-import ApiKeyModal from '../components/ApiKeyModal';
-import useAiGuard from '../hooks/useAiGuard';
 import { cn } from '../lib/utils';
 
 const isHindi = true;
@@ -49,15 +54,7 @@ const translateText = (t: any): string => {
 };
 
 const MandiBhav: React.FC = () => {
-  const { loading: appLoading } = useAppContext();
-  const { 
-    apiKey: effectiveApiKey, 
-    requireApiKey, 
-    isApiKeyModalOpen, 
-    apiKeyModalMessage, 
-    openApiKeyModal, 
-    closeApiKeyModal 
-  } = useAiGuard();
+  const { loading: appLoading, isAdmin } = useAppContext();
   
   // State variables for navigation
   const [selectedState, setSelectedState] = useState<string>("मध्यप्रदेश (Madhya Pradesh)");
@@ -77,7 +74,10 @@ const MandiBhav: React.FC = () => {
 
   // Data fetching state
   const [data, setData] = useState<MandiData | null>(null);
+  const [serverHistory, setServerHistory] = useState<MandiHistoryResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [adminSyncing, setAdminSyncing] = useState<boolean>(false);
+  const [adminSyncBanner, setAdminSyncBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [currentTime] = useState<Date>(new Date());
   
   // Loading tips
@@ -144,30 +144,64 @@ const MandiBhav: React.FC = () => {
     setSelectedMandi(mandi);
   };
 
-  // Load Mandi Bhav
-  const loadData = async (stateVal: string, distVal: string, mandiVal: string, forceRefresh: boolean = false) => {
+  // Load Mandi Bhav + Centralized 30-Day History (Zero farmer forceRefresh)
+  const loadData = async (stateVal: string, distVal: string, mandiVal: string, bypassLocalCache: boolean = false) => {
     if (appLoading) return;
     const reqId = ++activeReqIdRef.current;
     setData(null);
+    setServerHistory(null);
     setLoading(true);
     setExpandedCardIndex(null);
     try {
-      console.log(`[Mandi UI Request] ${stateVal} -> ${distVal} -> ${mandiVal} (id: ${reqId})`);
-      const result = await fetchMandiBhav(stateVal, distVal, mandiVal, effectiveApiKey, forceRefresh);
-      
+      const [result, histRes] = await Promise.all([
+        fetchMandiBhav(stateVal, distVal, mandiVal, undefined, false),
+        fetchMandiHistory(stateVal, distVal, mandiVal, bypassLocalCache),
+      ]);
+
       // Strict race condition prevention: If user switched mandis while loading, drop stale response!
       if (activeReqIdRef.current !== reqId) {
-        console.warn(`[Mandi UI Race Condition] Discarding stale response for ${mandiVal}`);
         return;
       }
 
       setData(result);
+      setServerHistory(histRes);
     } catch (error: any) {
       console.warn("Mandi load failed", error);
     } finally {
       if (activeReqIdRef.current === reqId) {
         setLoading(false);
       }
+    }
+  };
+
+  // Admin-Only Instant Govt Sync (never shown to regular farmers)
+  const handleAdminInstantSync = async () => {
+    if (!isAdmin || adminSyncing) return;
+    setAdminSyncing(true);
+    setAdminSyncBanner(null);
+    try {
+      const syncRes = await syncAdminMandiGovt();
+      if (syncRes?.success) {
+        await publishMandiSyncDocsToFirestore(syncRes);
+        clearClientMandiLocalCaches();
+        setAdminSyncBanner({
+          type: 'success',
+          text: syncRes.message || 'सरकारी मंडी भाव सफलतापूर्वक अपडेट हो गए हैं।',
+        });
+        await loadData(selectedState, selectedDistrict, selectedMandi, true);
+      } else {
+        setAdminSyncBanner({
+          type: 'error',
+          text: syncRes?.error || 'सरकारी पोर्टल से तुरंत सिंक नहीं हो सका।',
+        });
+      }
+    } catch (err: any) {
+      setAdminSyncBanner({
+        type: 'error',
+        text: err?.message || 'Admin सिंक करने में त्रुटि हुई।',
+      });
+    } finally {
+      setAdminSyncing(false);
     }
   };
 
@@ -203,12 +237,6 @@ const MandiBhav: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-16">
-      <ApiKeyModal 
-        isOpen={isApiKeyModalOpen} 
-        onClose={closeApiKeyModal} 
-        message={apiKeyModalMessage}
-      />
-
       {/* Hero Header */}
       <div className="text-center bg-gradient-to-br from-[#2D5A27]/10 via-[#2D5A27]/5 to-transparent p-6 rounded-3xl border border-[#2D5A27]/10 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D5A27]/5 rounded-full blur-2xl -z-10" />
@@ -228,9 +256,7 @@ const MandiBhav: React.FC = () => {
           <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm border border-[#2D5A27]/10">
             <Calendar className="w-3.5 h-3.5 text-[#2D5A27]" />
             <span className="text-[11px] font-bold text-[#2D5A27]">
-              {isHindi
-                ? formatHindiDate(currentTime)
-                : currentTime.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
+              {formatHindiDate(currentTime)}
             </span>
           </div>
 
@@ -419,18 +445,39 @@ const MandiBhav: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => loadData(selectedState, selectedDistrict, selectedMandi, true)}
-                      disabled={loading}
-                      className="px-3.5 py-2 rounded-xl bg-[#2D5A27]/10 hover:bg-[#2D5A27]/15 text-[#2D5A27] text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
-                      title={isHindi ? 'ताज़ा लाइव भाव दोबारा फेच करें' : 'Fetch fresh live rates'}
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                      <span>{loading ? (isHindi ? 'लोड हो रहा...' : 'Loading...') : (isHindi ? 'रिफ्रेश' : 'Refresh')}</span>
-                    </button>
-                  </div>
+                  {isAdmin && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleAdminInstantSync}
+                        disabled={adminSyncing || loading}
+                        className="px-3.5 py-2 rounded-xl bg-[#2D5A27] hover:bg-[#23461e] text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 shadow-sm cursor-pointer"
+                        title="केवल Admin: सरकारी पोर्टल से तुरंत लाइव मंडी भाव सिंक करें"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${adminSyncing ? 'animate-spin' : ''}`} />
+                        <span>{adminSyncing ? 'सिंक हो रहा...' : 'Admin लाइव सिंक'}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
+
+                {isAdmin && adminSyncBanner && (
+                  <div
+                    className={cn(
+                      'p-3 rounded-2xl border text-xs font-bold flex items-start gap-2',
+                      adminSyncBanner.type === 'success'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                        : 'bg-red-50 border-red-200 text-red-900'
+                    )}
+                  >
+                    {adminSyncBanner.type === 'success' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    )}
+                    <span>{adminSyncBanner.text}</span>
+                  </div>
+                )}
 
                 {/* Metadata Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
@@ -494,7 +541,7 @@ const MandiBhav: React.FC = () => {
                     </span>
                     <span className="font-bold text-gray-700 flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-                      {data.fetchedAt || currentTime.toLocaleTimeString(isHindi ? 'hi-IN' : 'en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      {data.fetchedAt || formatHindiDateTime(currentTime)}
                     </span>
                   </div>
                 </div>
@@ -533,8 +580,8 @@ const MandiBhav: React.FC = () => {
                       </p>
                       <p className="text-orange-800 text-[10px]">
                         {isHindi 
-                          ? 'आज इस उप-मंडी का लाइव डेटा सरकारी पोर्टल (AGMARKNET) पर अभी अपलोड नहीं हुआ है। अतः संदर्भ हेतु सांकेतिक आधार भाव प्रदर्शित हैं। ऊपर रिफ्रेश बटन दबाकर नया डेटा चेक कर सकते हैं।' 
-                          : 'Official bulletin for this market is not yet uploaded to the government portal today. Indicative prices shown. Tap refresh to check for live updates.'}
+                          ? 'आज इस उप-मंडी का लाइव डेटा सरकारी पोर्टल (AGMARKNET) पर अभी अपलोड नहीं हुआ है। अतः संदर्भ हेतु सांकेतिक आधार भाव प्रदर्शित हैं। स्वचालित सिंक द्वारा नया डेटा उपलब्ध होते ही यहाँ अपडेट हो जाएगा।' 
+                          : 'Official bulletin for this market is not yet uploaded to the government portal today. Indicative prices shown.'}
                       </p>
                     </div>
                   </div>
@@ -556,21 +603,24 @@ const MandiBhav: React.FC = () => {
                     </h4>
                     <p className="text-xs text-gray-500 font-medium leading-relaxed">
                       {isHindi 
-                        ? 'सरकारी AGMARKNET पोर्टल व मंडी पल्स पर आज इस उप-मंडी का नया बुलेटिन अभी अपलोड नहीं हुआ है। कृपया अन्य नजदीकी मंडी चुनें या बाद में पुनः प्रयास करें।' 
-                        : 'Official data for this mandi is not yet uploaded to AGMARKNET or MandiPulse today. Please select another nearby mandi or check back later.'}
+                        ? 'सरकारी AGMARKNET पोर्टल व मंडी पल्स पर आज इस उप-मंडी का नया बुलेटिन अभी अपलोड नहीं हुआ है। कृपया अन्य नजदीकी मंडी चुनें या स्वचालित अपडेट के बाद देखें।' 
+                        : 'Official data for this mandi is not yet uploaded to AGMARKNET or MandiPulse today. Please select another nearby mandi.'}
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
-                    <button
-                      onClick={() => loadData(selectedState, selectedDistrict, selectedMandi, true)}
-                      disabled={loading}
-                      className="px-4 py-2.5 rounded-xl bg-[#2D5A27] text-white text-xs font-bold flex items-center gap-2 hover:bg-[#23461e] transition-all shadow-sm active:scale-95 disabled:opacity-50"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                      <span>{loading ? (isHindi ? 'जाँच हो रही है...' : 'Checking...') : (isHindi ? 'पुनः प्रयास करें (Refresh)' : 'Retry (Refresh)')}</span>
-                    </button>
-                  </div>
+                  {isAdmin && (
+                    <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleAdminInstantSync}
+                        disabled={adminSyncing || loading}
+                        className="px-4 py-2.5 rounded-xl bg-[#2D5A27] text-white text-xs font-bold flex items-center gap-2 hover:bg-[#23461e] transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${adminSyncing ? 'animate-spin' : ''}`} />
+                        <span>{adminSyncing ? 'सिंक हो रहा है...' : 'Admin: तुरंत सरकारी सिंक करें'}</span>
+                      </button>
+                    </div>
+                  )}
 
                   {/* Nearby Mandis Suggestions from same district */}
                   {mandis.filter(m => m !== selectedMandi).length > 0 && (
@@ -638,9 +688,11 @@ const MandiBhav: React.FC = () => {
                     const modalPercent = spread > 0 ? Math.min(94, Math.max(6, ((avgP - minP) / spread) * 100)) : 50;
 
                     const selectedTimeframe = activeTimeframes[idx] || 7;
-                    const fullHistory = getOrUpdateCommodityHistory(
+                    const serverCropPoints = serverHistory?.commodities?.[item.commodity];
+                    const { points: fullHistory, isAuthentic, authenticDaysCount } = mergeCentralizedMandiHistory(
                       data?.mandiName || selectedMandi,
                       item.commodity,
+                      serverCropPoints,
                       avgP,
                       minP,
                       maxP,
@@ -649,7 +701,7 @@ const MandiBhav: React.FC = () => {
                     const currentSlice = getHistorySlice(fullHistory, selectedTimeframe);
                     const metrics = calculatePeriodMetrics(currentSlice);
 
-                    // Generate SVG coordinates for sparkline chart
+                    // Generate SVG coordinates for sparkline chart (centers cleanly when 1 point exists)
                     const chartWidth = 320;
                     const chartHeight = 90;
                     const paddingX = 14;
@@ -663,16 +715,18 @@ const MandiBhav: React.FC = () => {
                     const priceRange = (maxHist - minHist) || Math.max(50, Math.round(avgP * 0.05));
 
                     const pointsCoords = currentSlice.map((pt, index) => {
-                      const x = paddingX + (index / Math.max(1, currentSlice.length - 1)) * usableWidth;
+                      const x = currentSlice.length === 1
+                        ? chartWidth / 2
+                        : paddingX + (index / Math.max(1, currentSlice.length - 1)) * usableWidth;
                       const y = chartHeight - paddingY - ((pt.price - minHist) / priceRange) * usableHeight;
                       return { x, y, pt, index };
                     });
 
-                    const pathD = pointsCoords.length > 0 
+                    const pathD = pointsCoords.length >= 2 
                       ? `M ${pointsCoords[0].x} ${pointsCoords[0].y} ` + pointsCoords.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ')
                       : "";
 
-                    const areaD = pointsCoords.length > 0
+                    const areaD = pointsCoords.length >= 2
                       ? `${pathD} L ${pointsCoords[pointsCoords.length - 1].x} ${chartHeight} L ${pointsCoords[0].x} ${chartHeight} Z`
                       : "";
 
@@ -850,7 +904,9 @@ const MandiBhav: React.FC = () => {
                                         <span className="text-[10px] font-bold text-gray-500 font-mono">({selectedTimeframe} दिन)</span>
                                       </h5>
                                       <p className="text-[10px] text-gray-400 font-medium">
-                                        {isHindi ? 'सक्रिय नीलामी इतिहास (30-दिवसीय बफ़र)' : 'Auction History (30-day buffer)'}
+                                        {isAuthentic
+                                          ? `केंद्रीकृत सरकारी इतिहास (${authenticDaysCount} दिन • स्वतः 30-दिन बफ़र)`
+                                          : 'सक्रिय नीलामी इतिहास (30-दिवसीय बफ़र)'}
                                       </p>
                                     </div>
                                   </div>
@@ -961,18 +1017,20 @@ const MandiBhav: React.FC = () => {
                                       <line x1={paddingX} y1="46" x2={chartWidth - paddingX} y2="46" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
                                       <line x1={paddingX} y1="76" x2={chartWidth - paddingX} y2="76" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
 
-                                      {/* Shaded Area */}
-                                      <path d={areaD} fill={`url(#chartGradient-${idx})`} />
-                                      
-                                      {/* Main Line Stroke */}
-                                      <path 
-                                        d={pathD} 
-                                        fill="none" 
-                                        stroke="#2D5A27" 
-                                        strokeWidth="2.5" 
-                                        strokeLinecap="round" 
-                                        strokeLinejoin="round" 
-                                      />
+                                      {/* Shaded Area & Main Line Stroke (when >= 2 days exist) */}
+                                      {pointsCoords.length >= 2 && (
+                                        <>
+                                          <path d={areaD} fill={`url(#chartGradient-${idx})`} />
+                                          <path 
+                                            d={pathD} 
+                                            fill="none" 
+                                            stroke="#2D5A27" 
+                                            strokeWidth="2.5" 
+                                            strokeLinecap="round" 
+                                            strokeLinejoin="round" 
+                                          />
+                                        </>
+                                      )}
 
                                       {/* Selected Point Vertical Indicator Line */}
                                       {activeTooltipPoint?.cardIdx === idx && pointsCoords[activeTooltipPoint.pointIdx] && (
@@ -1111,19 +1169,22 @@ const MandiBhav: React.FC = () => {
                 </div>
               </div>
 
-              {/* Manual Refresh Button */}
-              <button 
-                onClick={() => loadData(selectedState, selectedDistrict, selectedMandi, true)}
-                disabled={loading}
-                className="w-full py-4 rounded-2xl border-2 border-[#2D5A27] text-[#2D5A27] bg-white font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-[#2D5A27]/5 disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                <span>
-                  {loading 
-                    ? (isHindi ? 'ताज़ा भाव फेच हो रहे हैं...' : 'Fetching fresh rates...') 
-                    : (isHindi ? 'ताज़ा भाव अपडेट करें' : 'Sync Live Rates')}
-                </span>
-              </button>
+              {/* Admin-Only Bottom Sync Button (Farmers see clean automatic updates only) */}
+              {isAdmin && (
+                <button 
+                  type="button"
+                  onClick={handleAdminInstantSync}
+                  disabled={adminSyncing || loading}
+                  className="w-full py-4 rounded-2xl border-2 border-[#2D5A27] text-[#2D5A27] bg-white font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-[#2D5A27]/5 disabled:opacity-50 cursor-pointer"
+                >
+                  <RefreshCw className={`w-4 h-4 ${adminSyncing ? 'animate-spin' : ''}`} />
+                  <span>
+                    {adminSyncing 
+                      ? 'सरकारी मंडी भाव सिंक हो रहे हैं...' 
+                      : 'Admin: सभी मंडियों के ताज़ा सरकारी भाव तुरंत सिंक करें'}
+                  </span>
+                </button>
+              )}
             </motion.div>
           ) : (
             <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm mx-1">
@@ -1132,14 +1193,18 @@ const MandiBhav: React.FC = () => {
                 {isHindi ? 'मंडी डेटा लोड नहीं हो सका।' : 'Could not load mandi data.'}
               </p>
               <p className="text-xs text-gray-400 mt-1 mb-4">
-                {isHindi ? 'कृपया अपना इंटरनेट कनेक्शन चेक करें या दोबारा प्रयास करें।' : 'Please check your internet connection or try again.'}
+                {isHindi ? 'कृपया अपना इंटरनेट कनेक्शन चेक करें या थोड़ी देर बाद देखें।' : 'Please check your internet connection or try again later.'}
               </p>
-              <button
-                onClick={() => loadData(selectedState, selectedDistrict, selectedMandi, true)}
-                className="px-6 py-2.5 bg-[#2D5A27] text-white text-xs font-bold rounded-full shadow-md active:scale-95 cursor-pointer"
-              >
-                {isHindi ? 'पुनः प्रयास करें' : 'Try Again'}
-              </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={handleAdminInstantSync}
+                  disabled={adminSyncing}
+                  className="px-6 py-2.5 bg-[#2D5A27] text-white text-xs font-bold rounded-full shadow-md active:scale-95 cursor-pointer"
+                >
+                  {adminSyncing ? 'सिंक हो रहा है...' : 'Admin: पुनः सिंक करें'}
+                </button>
+              )}
             </div>
           )}
         </div>

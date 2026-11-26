@@ -1,0 +1,52 @@
+name: Mandi Bhav Auto Sync (Free Tier - 10x Daily IST)
+
+on:
+  schedule:
+    # 10 daily runs aligned to active Indian Mandi trading hours (IST = UTC+5:30):
+    # 09:30 AM, 11:00 AM, 12:30 PM, 02:00 PM, 03:30 PM, 05:00 PM, 06:30 PM, 08:00 PM, 09:30 PM, 11:00 PM IST
+    - cron: '0 4 * * *'
+    - cron: '30 5 * * *'
+    - cron: '0 7 * * *'
+    - cron: '30 8 * * *'
+    - cron: '0 10 * * *'
+    - cron: '30 11 * * *'
+    - cron: '0 13 * * *'
+    - cron: '30 14 * * *'
+    - cron: '0 16 * * *'
+    - cron: '30 17 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync-mandi-prices:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Trigger Vercel Mumbai Govt Mandi Sync
+        env:
+          VERCEL_APP_URL: ${{ secrets.VERCEL_APP_URL }}
+          CRON_SYNC_SECRET: ${{ secrets.CRON_SYNC_SECRET }}
+        run: |
+          if [ -z "$VERCEL_APP_URL" ] || [ -z "$CRON_SYNC_SECRET" ]; then
+            echo "::warning::VERCEL_APP_URL or CRON_SYNC_SECRET secret is not configured in GitHub Repository Secrets. Skipping run cleanly."
+            exit 0
+          fi
+
+          BASE_URL="${VERCEL_APP_URL%/}"
+          ENDPOINT="${BASE_URL}/api/cron/mandi-sync"
+
+          echo "Calling $ENDPOINT ..."
+          HTTP_STATUS=$(curl -sS -w "%{http_code}" -o /tmp/mandi_sync_response.json \
+            -X POST "$ENDPOINT" \
+            -H "Authorization: Bearer ${CRON_SYNC_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{"trigger":"github_actions_cron"}')
+
+          cat /tmp/mandi_sync_response.json
+          echo ""
+          echo "HTTP Status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "::error::Mandi sync endpoint returned HTTP $HTTP_STATUS"
+            exit 1
+          fi

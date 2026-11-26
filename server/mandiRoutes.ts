@@ -1,8 +1,13 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { GoogleGenAI, Type } from '@google/genai';
-import { getRemoteFirestoreDoc, verifyAdminFirebaseToken } from './firestoreSync.js';
+import {
+  getRemoteFirestoreDoc,
+  hasServerFirestoreWriteAccess,
+  setRemoteFirestoreDocDetailed,
+  verifyAdminFirebaseToken,
+} from './firestoreSync.js';
 
 export type MandiSourceType = 'govt' | 'mandipulse' | 'market_report' | 'estimated' | 'unavailable';
 
@@ -38,8 +43,8 @@ export interface GovtMandiConfig {
   defaultLimit: number;
   syncStateFilter: string;
   lastSyncAt?: number;
-  lastSyncStatus?: 'success' | 'blocked' | 'error' | 'never';
-  lastSyncSource?: 'server_ogd' | 'browser_sync' | 'json_import' | 'firestore_restore';
+  lastSyncStatus?: 'success' | 'no_change' | 'blocked' | 'error' | 'never';
+  lastSyncSource?: 'server_ogd' | 'auto_cron' | 'browser_sync' | 'json_import' | 'firestore_restore';
   lastSyncMessage?: string;
   lastSyncRecordsCount?: number;
   updatedAt: number;
@@ -65,21 +70,97 @@ export interface GovtMandiCacheStore {
   markets: Record<string, CachedGovtMarketEntry>;
 }
 
+export interface MandiSyncHistoryEntry {
+  timestamp: number;
+  trigger: 'auto_cron' | 'admin_manual' | 'admin_browser';
+  status: 'success' | 'no_change' | 'blocked' | 'error';
+  rawRecords: number;
+  newMarketsCount: number;
+  updatedMarketsCount: number;
+  unchangedCount: number;
+  durationMs: number;
+  message: string;
+  error?: string;
+  rateLimitRemaining?: number;
+}
+
+export interface MandiSyncStatusStore {
+  lastSyncAt: number;
+  lastSuccessfulSyncAt: number;
+  lastSyncStatus: 'success' | 'no_change' | 'blocked' | 'error' | 'never';
+  lastSyncTrigger: string;
+  lastSyncMessage: string;
+  lastError: string;
+  nextScheduledSyncAt: number;
+  inProgressUntil: number;
+  dataHash: string;
+  consecutiveFailures: number;
+  rateLimitRemaining: number | null;
+  lastAlertSentAt: number;
+  syncHistory: MandiSyncHistoryEntry[];
+}
+
+// Compact 30-day rolling history store (per stateSlug -> dist|market -> commodity -> ["YYYYMMDD|avg|min|max", ...])
+export interface StateMandiHistoryBucket {
+  version: number;
+  updatedAt: number;
+  stateSlug: string;
+  markets: Record<string, Record<string, string[]>>;
+}
+
 const DATA_DIR = path.join(process.cwd(), 'data');
 const GOVT_CONFIG_FILE = path.join(DATA_DIR, 'mandi-govt-config.json');
 const GOVT_CONFIG_TMP_FILE = '/tmp/falsawdiya-mandi-govt-config.json';
 const GOVT_CACHE_FILE = path.join(DATA_DIR, 'mandi-govt-cache.json');
 const GOVT_CACHE_TMP_FILE = '/tmp/falsawdiya-mandi-govt-cache.json';
+const SYNC_STATUS_FILE = path.join(DATA_DIR, 'mandi-sync-status.json');
+const SYNC_STATUS_TMP_FILE = '/tmp/falsawdiya-mandi-sync-status.json';
+const HISTORY_CACHE_FILE = path.join(DATA_DIR, 'mandi-history-cache.json');
+const HISTORY_CACHE_TMP_FILE = '/tmp/falsawdiya-mandi-history-cache.json';
 
 const OGD_RESOURCE_URL = 'https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070';
 const FIRESTORE_DOC_BYTE_BUDGET = 760 * 1024; // Safe margin well below Firestore's 1 MB limit
+const HISTORY_DOC_BYTE_BUDGET = 700 * 1024;
 const GOVT_CACHE_FRESH_MS = 48 * 60 * 60 * 1000; // 48 hours for shared govt cache before preferring live fallback
-const FIRESTORE_CACHE_POLL_MS = 15 * 60 * 1000; // Refresh from Firestore _metadata/mandi_govt_cache at most once every 15 mins on cold server
+const FIRESTORE_CACHE_POLL_MS = 15 * 60 * 1000; // Poll Firestore at most once every 15 mins on cold server
+const MAX_MARKET_AGE_DAYS = 10; // Auto-prune markets older than 10 days to prevent stale cache bloat
+const MAX_HISTORY_TRADING_DAYS = 30; // Strict 30-day FIFO rolling history
+const SYNC_LOCK_TTL_MS = 90 * 1000; // 90s distributed lock against concurrent cron/sync hits
+const ALERT_COOLDOWN_MS = 12 * 60 * 60 * 1000; // Max 1 alert email per 12 hours
+const ADMIN_ALERT_EMAIL = 'yashfalsawdiya36@gmail.com';
+
+// 10 active IST market sync slots (minutes from 00:00 IST):
+// 09:30 AM, 11:00 AM, 12:30 PM, 02:00 PM, 03:30 PM, 05:00 PM, 06:30 PM, 08:00 PM, 09:30 PM, 11:00 PM IST
+const IST_SYNC_SLOTS_MINUTES = [
+  9 * 60 + 30,
+  11 * 60,
+  12 * 60 + 30,
+  14 * 60,
+  15 * 60 + 30,
+  17 * 60,
+  18 * 60 + 30,
+  20 * 60,
+  21 * 60 + 30,
+  23 * 60,
+];
+
+type MandiAlertMailerFn = (opts: {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}) => Promise<{ success: boolean; error?: string }>;
+
+let mandiAlertMailer: MandiAlertMailerFn | null = null;
+
+export function setMandiAlertMailer(fn: MandiAlertMailerFn): void {
+  mandiAlertMailer = fn;
+}
 
 let govtConfig: GovtMandiConfig = {
   enabled: true,
   apiKey: '',
-  defaultLimit: 1000,
+  defaultLimit: 3000,
   syncStateFilter: 'Madhya Pradesh',
   lastSyncStatus: 'never',
   updatedAt: Date.now(),
@@ -93,7 +174,30 @@ let govtCacheStore: GovtMandiCacheStore = {
   markets: {},
 };
 
+let syncStatusStore: MandiSyncStatusStore = {
+  lastSyncAt: 0,
+  lastSuccessfulSyncAt: 0,
+  lastSyncStatus: 'never',
+  lastSyncTrigger: 'none',
+  lastSyncMessage: '',
+  lastError: '',
+  nextScheduledSyncAt: 0,
+  inProgressUntil: 0,
+  dataHash: '',
+  consecutiveFailures: 0,
+  rateLimitRemaining: null,
+  lastAlertSentAt: 0,
+  syncHistory: [],
+};
+
+// Map stateSlug -> StateMandiHistoryBucket
+let mandiHistoryByState: Record<string, StateMandiHistoryBucket> = {};
+const lastHistoryStatePollAt: Record<string, number> = {};
+
 let lastFirestoreCacheCheckAt = 0;
+let lastSyncStatusPollAt = 0;
+let isLocalSyncInFlight = false;
+const inFlightOgdRequests = new Map<string, Promise<{ items: ServerMandiItem[]; sourceDate: string } | null>>();
 
 // In-memory cache for final mandi responses (30 min TTL)
 interface CacheEntry {
@@ -101,6 +205,7 @@ interface CacheEntry {
   timestamp: number;
 }
 const mandiCache = new Map<string, CacheEntry>();
+const historyApiCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 function ensureDataDir(): void {
@@ -202,9 +307,91 @@ function saveGovtCacheToDisk(store: GovtMandiCacheStore): void {
   }
 }
 
+function loadSyncStatusFromDisk(): void {
+  try {
+    const fileToRead = fs.existsSync(SYNC_STATUS_FILE)
+      ? SYNC_STATUS_FILE
+      : fs.existsSync(SYNC_STATUS_TMP_FILE)
+      ? SYNC_STATUS_TMP_FILE
+      : null;
+    if (!fileToRead) return;
+    const raw = fs.readFileSync(fileToRead, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      syncStatusStore = {
+        ...syncStatusStore,
+        ...parsed,
+        syncHistory: Array.isArray(parsed.syncHistory) ? parsed.syncHistory.slice(0, 20) : [],
+      };
+    }
+  } catch (err) {
+    console.warn('[Mandi Sync Status] Failed loading disk status:', err);
+  }
+}
+
+function saveSyncStatusToDisk(status: MandiSyncStatusStore): void {
+  syncStatusStore = {
+    ...status,
+    syncHistory: Array.isArray(status.syncHistory) ? status.syncHistory.slice(0, 20) : [],
+  };
+  ensureDataDir();
+  const payload = JSON.stringify(syncStatusStore, null, 2);
+  try {
+    if (fs.existsSync(DATA_DIR)) {
+      fs.writeFileSync(SYNC_STATUS_FILE, payload, 'utf-8');
+      return;
+    }
+  } catch {
+    // Fall through to /tmp
+  }
+  try {
+    fs.writeFileSync(SYNC_STATUS_TMP_FILE, payload, 'utf-8');
+  } catch (err) {
+    console.warn('[Mandi Sync Status] Failed saving status:', err);
+  }
+}
+
+function loadHistoryCacheFromDisk(): void {
+  try {
+    const fileToRead = fs.existsSync(HISTORY_CACHE_FILE)
+      ? HISTORY_CACHE_FILE
+      : fs.existsSync(HISTORY_CACHE_TMP_FILE)
+      ? HISTORY_CACHE_TMP_FILE
+      : null;
+    if (!fileToRead) return;
+    const raw = fs.readFileSync(fileToRead, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      mandiHistoryByState = parsed;
+    }
+  } catch (err) {
+    console.warn('[Mandi History] Failed loading disk history:', err);
+  }
+}
+
+function saveHistoryCacheToDisk(): void {
+  ensureDataDir();
+  const payload = JSON.stringify(mandiHistoryByState);
+  try {
+    if (fs.existsSync(DATA_DIR)) {
+      fs.writeFileSync(HISTORY_CACHE_FILE, payload, 'utf-8');
+      return;
+    }
+  } catch {
+    // Fall through to /tmp
+  }
+  try {
+    fs.writeFileSync(HISTORY_CACHE_TMP_FILE, payload, 'utf-8');
+  } catch (err) {
+    console.warn('[Mandi History] Failed saving disk history:', err);
+  }
+}
+
 // Initialize at module load
 loadGovtConfigFromDisk();
 loadGovtCacheFromDisk();
+loadSyncStatusFromDisk();
+loadHistoryCacheFromDisk();
 
 function getActiveGovtApiKey(): { key: string; source: 'env' | 'admin' | 'none' } {
   const envKey = (process.env.DATA_GOV_IN_API_KEY || '').trim();
@@ -725,6 +912,43 @@ function normalizeRawOgdRecordsToMarkets(rawRecords: any[]): Record<string, Cach
   return marketsOut;
 }
 
+function getStateSlugKey(stateRaw: string): string {
+  const cleaned = cleanLocation(stateRaw).english || stateRaw || 'india';
+  const s = cleaned.toLowerCase().trim();
+  if (s.includes('chhattisgarh') || s.includes('chattisgarh')) return 'chhattisgarh';
+  if (s.includes('odisha') || s.includes('orissa')) return 'odisha';
+  if (s.includes('delhi')) return 'delhi';
+  if (s.includes('kerala')) return 'kerala';
+  return s.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'india';
+}
+
+function dateScoreToEpochDays(score: number): number {
+  const y = Math.floor(score / 10000);
+  const m = Math.floor((score % 10000) / 100);
+  const d = score % 100;
+  if (!y || !m || !d) return 0;
+  return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+}
+
+function pruneMarketCache(
+  markets: Record<string, CachedGovtMarketEntry>,
+  maxAgeDays: number = MAX_MARKET_AGE_DAYS
+): Record<string, CachedGovtMarketEntry> {
+  const todayDays = dateScoreToEpochDays(getCurrentIstDateScore());
+  const pruned: Record<string, CachedGovtMarketEntry> = {};
+
+  for (const [k, entry] of Object.entries(markets || {})) {
+    if (!entry || !Array.isArray(entry.items) || entry.items.length === 0) continue;
+    const entryDays = dateScoreToEpochDays(entry.dateScore || 0);
+    if (todayDays > 0 && entryDays > 0 && todayDays - entryDays > maxAgeDays) {
+      continue;
+    }
+    pruned[k] = entry;
+  }
+
+  return pruned;
+}
+
 function mergeMarketCaches(
   existingMarkets: Record<string, CachedGovtMarketEntry>,
   incomingMarkets: Record<string, CachedGovtMarketEntry>
@@ -738,7 +962,208 @@ function mergeMarketCaches(
     }
   }
 
-  return merged;
+  return pruneMarketCache(merged, MAX_MARKET_AGE_DAYS);
+}
+
+function computeMarketDeltaAndHash(
+  prevMarkets: Record<string, CachedGovtMarketEntry>,
+  incomingMarkets: Record<string, CachedGovtMarketEntry>,
+  mergedMarkets: Record<string, CachedGovtMarketEntry>
+): {
+  newMarketsCount: number;
+  updatedMarketsCount: number;
+  unchangedCount: number;
+  dataHash: string;
+  hasMeaningfulChange: boolean;
+} {
+  let newMarketsCount = 0;
+  let updatedMarketsCount = 0;
+  let unchangedCount = 0;
+
+  const serializeMarketFingerprint = (m: CachedGovtMarketEntry) =>
+    `${m.dateScore}|${m.items.map((i) => `${i.commodity}:${i.avgPrice}:${i.minPrice}:${i.maxPrice}`).join(',')}`;
+
+  for (const [key, inc] of Object.entries(incomingMarkets)) {
+    const prev = prevMarkets[key];
+    if (!prev) {
+      newMarketsCount++;
+    } else if (
+      inc.dateScore > prev.dateScore ||
+      (inc.dateScore === prev.dateScore && serializeMarketFingerprint(inc) !== serializeMarketFingerprint(prev))
+    ) {
+      updatedMarketsCount++;
+    } else {
+      unchangedCount++;
+    }
+  }
+
+  const sortedKeys = Object.keys(mergedMarkets).sort();
+  const hashInput = sortedKeys
+    .map((k) => `${k}=${serializeMarketFingerprint(mergedMarkets[k])}`)
+    .join('\n');
+  const dataHash = crypto.createHash('sha256').update(hashInput).digest('hex').slice(0, 24);
+
+  return {
+    newMarketsCount,
+    updatedMarketsCount,
+    unchangedCount,
+    dataHash,
+    hasMeaningfulChange: newMarketsCount > 0 || updatedMarketsCount > 0,
+  };
+}
+
+/**
+ * Updates centralized 30-day FIFO rolling history for all incoming Govt markets.
+ * Format per crop: "YYYYMMDD|avg|min|max" (tiny ~22 bytes/day, auto-drops Day 1 after 30 days).
+ */
+function updateCentralizedHistoryFromMarkets(
+  incomingMarkets: Record<string, CachedGovtMarketEntry>
+): { changedStateSlugs: string[]; totalMarketsTracked: number } {
+  const changedStates = new Set<string>();
+
+  for (const entry of Object.values(incomingMarkets)) {
+    if (!entry || !entry.dateScore || !Array.isArray(entry.items) || entry.items.length === 0) continue;
+    const stateSlug = getStateSlugKey(entry.state);
+    if (!mandiHistoryByState[stateSlug]) {
+      mandiHistoryByState[stateSlug] = {
+        version: 1,
+        updatedAt: Date.now(),
+        stateSlug,
+        markets: {},
+      };
+    }
+
+    const bucket = mandiHistoryByState[stateSlug];
+    const mktKey = `${entry.distNorm}|${entry.marketNorm}`;
+    if (!bucket.markets[mktKey]) {
+      bucket.markets[mktKey] = {};
+    }
+    const cropMap = bucket.markets[mktKey];
+    let marketChanged = false;
+
+    for (const item of entry.items) {
+      const avg = Math.round(Number(item.avgPrice) || 0);
+      const min = Math.round(Number(item.minPrice) || avg);
+      const max = Math.round(Number(item.maxPrice) || avg);
+      if (avg <= 0) continue;
+
+      const rowStr = `${entry.dateScore}|${avg}|${min}|${max}`;
+      const existingList = Array.isArray(cropMap[item.commodity]) ? [...cropMap[item.commodity]] : [];
+
+      const byScore = new Map<number, string>();
+      for (const line of existingList) {
+        const sc = parseInt(String(line).split('|')[0] || '0', 10);
+        if (sc > 0) byScore.set(sc, line);
+      }
+
+      const prevForScore = byScore.get(entry.dateScore);
+      if (prevForScore !== rowStr) {
+        byScore.set(entry.dateScore, rowStr);
+        marketChanged = true;
+      }
+
+      const sortedRows = Array.from(byScore.entries())
+        .sort(([a], [b]) => a - b)
+        .slice(-MAX_HISTORY_TRADING_DAYS)
+        .map(([, val]) => val);
+
+      cropMap[item.commodity] = sortedRows;
+    }
+
+    if (marketChanged) {
+      bucket.updatedAt = Date.now();
+      bucket.version = (bucket.version || 1) + 1;
+      changedStates.add(stateSlug);
+    }
+  }
+
+  if (changedStates.size > 0) {
+    saveHistoryCacheToDisk();
+    historyApiCache.clear();
+  }
+
+  const totalMarketsTracked = Object.values(mandiHistoryByState).reduce(
+    (sum, b) => sum + Object.keys(b.markets || {}).length,
+    0
+  );
+
+  return {
+    changedStateSlugs: Array.from(changedStates),
+    totalMarketsTracked,
+  };
+}
+
+function buildCompactStateHistoryDoc(stateSlug: string): {
+  docId: string;
+  payload: StateMandiHistoryBucket;
+} | null {
+  const bucket = mandiHistoryByState[stateSlug];
+  if (!bucket || !bucket.markets) return null;
+
+  const entries = Object.entries(bucket.markets);
+  const compactMarkets: Record<string, Record<string, string[]>> = {};
+  let runningBytes = 250;
+
+  // Sort most recently updated markets first so active markets always fit safely within 700 KB
+  entries.sort(([, cropsA], [, cropsB]) => {
+    const getMaxScore = (cMap: Record<string, string[]>) => {
+      let maxS = 0;
+      for (const rows of Object.values(cMap)) {
+        const last = rows[rows.length - 1];
+        const sc = last ? parseInt(last.split('|')[0] || '0', 10) : 0;
+        if (sc > maxS) maxS = sc;
+      }
+      return maxS;
+    };
+    return getMaxScore(cropsB) - getMaxScore(cropsA);
+  });
+
+  for (const [mktKey, crops] of entries) {
+    const size = Buffer.byteLength(JSON.stringify(crops), 'utf8') + mktKey.length + 8;
+    if (runningBytes + size > HISTORY_DOC_BYTE_BUDGET) {
+      break;
+    }
+    compactMarkets[mktKey] = crops;
+    runningBytes += size;
+  }
+
+  return {
+    docId: `mandi_history_${stateSlug}`,
+    payload: {
+      version: bucket.version || 1,
+      updatedAt: bucket.updatedAt || Date.now(),
+      stateSlug,
+      markets: compactMarkets,
+    },
+  };
+}
+
+function computeNextScheduledSyncAt(nowMs: number = Date.now()): number {
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts = fmt.formatToParts(new Date(nowMs));
+  const y = parseInt(parts.find((p) => p.type === 'year')?.value || '2026', 10);
+  const m = parseInt(parts.find((p) => p.type === 'month')?.value || '1', 10);
+  const d = parseInt(parts.find((p) => p.type === 'day')?.value || '1', 10);
+  const hh = parseInt(parts.find((p) => p.type === 'hour')?.value || '0', 10);
+  const mm = parseInt(parts.find((p) => p.type === 'minute')?.value || '0', 10);
+  const currentMinutes = hh * 60 + mm;
+
+  const istStartOfDayUtc = Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000;
+  for (const slotMin of IST_SYNC_SLOTS_MINUTES) {
+    if (slotMin > currentMinutes + 1) {
+      return istStartOfDayUtc + slotMin * 60 * 1000;
+    }
+  }
+  // Otherwise first slot tomorrow IST (09:30 AM IST)
+  return istStartOfDayUtc + 24 * 60 * 60 * 1000 + IST_SYNC_SLOTS_MINUTES[0] * 60 * 1000;
 }
 
 /**
@@ -753,7 +1178,7 @@ function buildCompactFirestoreCacheDoc(store: GovtMandiCacheStore): {
   totalItems: number;
   markets: Record<string, CachedGovtMarketEntry>;
 } {
-  const entries = Object.entries(store.markets || {});
+  const entries = Object.entries(pruneMarketCache(store.markets || {}, MAX_MARKET_AGE_DAYS));
   const priorityScore = (e: CachedGovtMarketEntry): number => {
     const s = e.stateNorm;
     let stateRank = 1;
@@ -768,7 +1193,6 @@ function buildCompactFirestoreCacheDoc(store: GovtMandiCacheStore): {
   const compactMarkets: Record<string, CachedGovtMarketEntry> = {};
   let totalItems = 0;
 
-  // Incremental byte size estimation so we never cross Firestore's 1 MB document cap
   let runningBytes = 350;
   for (const [k, entry] of entries) {
     const entrySize = Buffer.byteLength(JSON.stringify(entry), 'utf8') + k.length + 6;
@@ -790,10 +1214,85 @@ function buildCompactFirestoreCacheDoc(store: GovtMandiCacheStore): {
   };
 }
 
-async function ensureFirestoreCacheLoaded(): Promise<void> {
+function buildStateCacheDocs(store: GovtMandiCacheStore): Array<{
+  docId: string;
+  payload: {
+    version: number;
+    updatedAt: number;
+    syncSource: string;
+    stateSlug: string;
+    totalMarkets: number;
+    totalItems: number;
+    markets: Record<string, CachedGovtMarketEntry>;
+  };
+}> {
+  const byState = new Map<string, Array<[string, CachedGovtMarketEntry]>>();
+  const cleaned = pruneMarketCache(store.markets || {}, MAX_MARKET_AGE_DAYS);
+
+  for (const [k, entry] of Object.entries(cleaned)) {
+    const slug = getStateSlugKey(entry.state);
+    if (!byState.has(slug)) byState.set(slug, []);
+    byState.get(slug)!.push([k, entry]);
+  }
+
+  const out: Array<{ docId: string; payload: any }> = [];
+  for (const [stateSlug, entries] of byState.entries()) {
+    entries.sort(([, a], [, b]) => (b.dateScore || 0) - (a.dateScore || 0));
+    const markets: Record<string, CachedGovtMarketEntry> = {};
+    let totalItems = 0;
+    let runningBytes = 320;
+    for (const [k, entry] of entries) {
+      const sz = Buffer.byteLength(JSON.stringify(entry), 'utf8') + k.length + 6;
+      if (runningBytes + sz > FIRESTORE_DOC_BYTE_BUDGET) break;
+      markets[k] = entry;
+      totalItems += entry.items.length;
+      runningBytes += sz;
+    }
+    out.push({
+      docId: `mandi_cache_${stateSlug}`,
+      payload: {
+        version: store.version || 1,
+        updatedAt: store.updatedAt || Date.now(),
+        syncSource: store.syncSource || 'auto_sync',
+        stateSlug,
+        totalMarkets: Object.keys(markets).length,
+        totalItems,
+        markets,
+      },
+    });
+  }
+  return out;
+}
+
+async function ensureFirestoreCacheLoaded(preferredStateRaw?: string): Promise<void> {
   const now = Date.now();
   const hasAny = Object.keys(govtCacheStore.markets || {}).length > 0;
   const isFresh = hasAny && now - (govtCacheStore.updatedAt || 0) < GOVT_CACHE_FRESH_MS;
+
+  if (preferredStateRaw) {
+    const stateSlug = getStateSlugKey(preferredStateRaw);
+    const hasState = Object.values(govtCacheStore.markets || {}).some(
+      (m) => getStateSlugKey(m.state) === stateSlug
+    );
+    if (!hasState && now - lastFirestoreCacheCheckAt >= FIRESTORE_CACHE_POLL_MS) {
+      try {
+        const stateRemote = await getRemoteFirestoreDoc<any>('_metadata', `mandi_cache_${stateSlug}`);
+        if (stateRemote?.markets && typeof stateRemote.markets === 'object') {
+          const merged = mergeMarketCaches(govtCacheStore.markets || {}, stateRemote.markets);
+          saveGovtCacheToDisk({
+            version: Number(stateRemote.version) || govtCacheStore.version || 1,
+            updatedAt: Math.max(govtCacheStore.updatedAt || 0, Number(stateRemote.updatedAt) || now),
+            syncSource: String(stateRemote.syncSource || 'firestore_state_cache'),
+            totalRawRecords: Number(stateRemote.totalItems) || govtCacheStore.totalRawRecords || 0,
+            markets: merged,
+          });
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
+  }
+
   if (isFresh && now - lastFirestoreCacheCheckAt < FIRESTORE_CACHE_POLL_MS) {
     return;
   }
@@ -823,19 +1322,55 @@ async function ensureFirestoreCacheLoaded(): Promise<void> {
   }
 }
 
+async function ensureSyncStatusLoaded(force: boolean = false): Promise<void> {
+  const now = Date.now();
+  if (!force && now - lastSyncStatusPollAt < FIRESTORE_CACHE_POLL_MS && syncStatusStore.lastSyncAt > 0) {
+    return;
+  }
+  lastSyncStatusPollAt = now;
+  try {
+    const remote = await getRemoteFirestoreDoc<Partial<MandiSyncStatusStore>>('_metadata', 'mandi_sync_status');
+    if (remote && typeof remote === 'object') {
+      if ((Number(remote.lastSyncAt) || 0) >= (syncStatusStore.lastSyncAt || 0)) {
+        const merged: MandiSyncStatusStore = {
+          ...syncStatusStore,
+          ...remote,
+          syncHistory: Array.isArray(remote.syncHistory) ? remote.syncHistory.slice(0, 20) : syncStatusStore.syncHistory,
+        };
+        saveSyncStatusToDisk(merged);
+      }
+    }
+  } catch {
+    // Non-fatal
+  }
+}
+
+function getCurrentIstDateScore(): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'numeric',
+    year: 'numeric',
+  }).formatToParts(new Date());
+  const dd = parseInt(parts.find((p) => p.type === 'day')?.value || '1', 10);
+  const mm = parseInt(parts.find((p) => p.type === 'month')?.value || '1', 10);
+  const yyyy = parseInt(parts.find((p) => p.type === 'year')?.value || '2026', 10);
+  return yyyy * 10000 + mm * 100 + dd;
+}
+
 async function lookupSharedGovtCache(
   rawState: string,
   rawDistrict: string,
   rawMandi: string
-): Promise<{ items: ServerMandiItem[]; sourceDate: string; marketLabel: string } | null> {
-  await ensureFirestoreCacheLoaded();
+): Promise<{ items: ServerMandiItem[]; sourceDate: string; marketLabel: string; isFreshToday: boolean } | null> {
+  await ensureFirestoreCacheLoaded(rawState);
 
   const markets = govtCacheStore.markets || {};
   const entries = Object.values(markets);
   if (entries.length === 0) return null;
 
-  // Reject stale shared cache older than 72 hours unless nothing else works; prefer 48h window
-  if (govtCacheStore.updatedAt && Date.now() - govtCacheStore.updatedAt > 72 * 60 * 60 * 1000) {
+  const cacheAgeMs = govtCacheStore.updatedAt ? Date.now() - govtCacheStore.updatedAt : Infinity;
+  if (cacheAgeMs > 48 * 60 * 60 * 1000) {
     return null;
   }
 
@@ -852,16 +1387,20 @@ async function lookupSharedGovtCache(
   }
 
   if (bestMatch && bestMatch.items.length > 0) {
+    const todayScore = getCurrentIstDateScore();
+    const isFreshToday =
+      (bestMatch.dateScore || 0) >= todayScore && cacheAgeMs < 6 * 60 * 60 * 1000;
     return {
       items: bestMatch.items,
       sourceDate: bestMatch.sourceDate || formatIndianDate(),
       marketLabel: bestMatch.market,
+      isFreshToday,
     };
   }
   return null;
 }
 
-// Helper to query OGD AGMARKNET API with pagination & smart fallbacks
+// Helper to query OGD AGMARKNET API with pagination & rate-limit tracking
 async function fetchOgdRecords(params: {
   apiKey: string;
   limit?: number;
@@ -870,7 +1409,7 @@ async function fetchOgdRecords(params: {
   districtFilter?: string;
   marketFilter?: string;
   timeoutMs?: number;
-}): Promise<{ records: any[]; total?: number; httpStatus: number }> {
+}): Promise<{ records: any[]; total?: number; httpStatus: number; rateLimitRemaining?: number | null }> {
   const url = new URL(OGD_RESOURCE_URL);
   url.searchParams.set('api-key', params.apiKey.trim());
   url.searchParams.set('format', 'json');
@@ -901,20 +1440,82 @@ async function fetchOgdRecords(params: {
     });
     clearTimeout(timeout);
 
+    const remainingHeader = res.headers.get('x-ratelimit-remaining');
+    const rateLimitRemaining = remainingHeader !== null && remainingHeader !== '' && Number.isFinite(Number(remainingHeader))
+      ? Number(remainingHeader)
+      : null;
+
     if (!res.ok) {
-      return { records: [], httpStatus: res.status };
+      return { records: [], httpStatus: res.status, rateLimitRemaining };
     }
 
     const json: any = await res.json();
     const records = Array.isArray(json?.records) ? json.records : Array.isArray(json?.data) ? json.data : [];
-    return { records, total: Number(json?.total) || records.length, httpStatus: res.status };
+    return {
+      records,
+      total: Number(json?.total) || records.length,
+      httpStatus: res.status,
+      rateLimitRemaining,
+    };
   } catch (err) {
     clearTimeout(timeout);
     throw err;
   }
 }
 
-// 1. Query Official Government OGD (data.gov.in / AGMARKNET dataset)
+async function fetchPaginatedOgdRecords(params: {
+  apiKey: string;
+  targetLimit: number;
+  stateFilter?: string;
+  timeoutMs?: number;
+}): Promise<{
+  records: any[];
+  httpStatus: number;
+  rateLimitRemaining: number | null;
+}> {
+  const pageSize = Math.min(1000, Math.max(1, params.targetLimit));
+  let combinedRaw: any[] = [];
+  let offset = 0;
+  let lastStatus = 200;
+  let lastRemaining: number | null = null;
+
+  while (combinedRaw.length < params.targetLimit) {
+    const remaining = params.targetLimit - combinedRaw.length;
+    const batchLimit = Math.min(pageSize, remaining);
+    const resPage = await fetchOgdRecords({
+      apiKey: params.apiKey,
+      limit: batchLimit,
+      offset,
+      stateFilter: params.stateFilter || 'ALL',
+      timeoutMs: params.timeoutMs || 10000,
+    });
+
+    lastStatus = resPage.httpStatus;
+    if (resPage.rateLimitRemaining !== undefined && resPage.rateLimitRemaining !== null) {
+      lastRemaining = resPage.rateLimitRemaining;
+    }
+
+    if (resPage.httpStatus !== 200) {
+      if (combinedRaw.length === 0) {
+        return { records: [], httpStatus: resPage.httpStatus, rateLimitRemaining: lastRemaining };
+      }
+      break;
+    }
+
+    if (resPage.records.length === 0) break;
+    combinedRaw = combinedRaw.concat(resPage.records);
+    if (resPage.records.length < batchLimit) break;
+    offset += batchLimit;
+  }
+
+  return {
+    records: combinedRaw,
+    httpStatus: lastStatus,
+    rateLimitRemaining: lastRemaining,
+  };
+}
+
+// 1. Query Official Government OGD (data.gov.in / AGMARKNET dataset) with Single-Flight Deduplication
 // Strict rule: Record MUST match selected state, district, AND mandi
 async function fetchFromGovtOgd(
   rawState: string,
@@ -927,95 +1528,106 @@ async function fetchFromGovtOgd(
     return null;
   }
 
-  const { english: stateEnglish } = cleanLocation(rawState);
-  const { english: districtEnglish } = cleanLocation(rawDistrict);
-  const { english: mandiEnglish } = cleanLocation(rawMandi);
-  const queryLimit = Math.min(10000, Math.max(1, govtConfig.defaultLimit || 500));
+  const dedupKey = `${normalizeNoSpace(rawState)}|${normalizeNoSpace(rawDistrict)}|${normalizeNoSpace(rawMandi)}`;
+  const existingFlight = inFlightOgdRequests.get(dedupKey);
+  if (existingFlight) {
+    return existingFlight;
+  }
 
-  try {
-    let allRawRecords: any[] = [];
+  const flightPromise = (async (): Promise<{ items: ServerMandiItem[]; sourceDate: string } | null> => {
+    const { english: stateEnglish } = cleanLocation(rawState);
+    const { english: districtEnglish } = cleanLocation(rawDistrict);
+    const { english: mandiEnglish } = cleanLocation(rawMandi);
+    // Keep live per-mandi queries fast & safely capped at 1000 records per request
+    const queryLimit = Math.min(1000, Math.max(100, govtConfig.defaultLimit || 500));
 
-    // Primary attempt: Query State + District with higher limit (500-1000)
-    const primaryRes = await fetchOgdRecords({
-      apiKey,
-      limit: queryLimit,
-      stateFilter: stateEnglish,
-      districtFilter: districtEnglish,
-      timeoutMs: 7000,
-    });
+    try {
+      let allRawRecords: any[] = [];
 
-    if (primaryRes.records.length > 0) {
-      allRawRecords = primaryRes.records;
-    } else if (stateEnglish === 'Delhi / NCR' || stateEnglish === 'Chhattisgarh') {
-      // Alias state retry if primary returned empty
-      const aliasState = stateEnglish === 'Chhattisgarh' ? 'Chattisgarh' : 'NCT of Delhi';
-      const aliasRes = await fetchOgdRecords({
+      const primaryRes = await fetchOgdRecords({
         apiKey,
         limit: queryLimit,
-        stateFilter: aliasState,
+        stateFilter: stateEnglish,
         districtFilter: districtEnglish,
-        timeoutMs: 6000,
-      }).catch(() => ({ records: [], httpStatus: 0 }));
-      allRawRecords = aliasRes.records;
-    }
+        timeoutMs: 7000,
+      });
 
-    // Parse & normalize all retrieved market entries
-    let normalizedMarkets = normalizeRawOgdRecordsToMarkets(allRawRecords);
+      if (primaryRes.records.length > 0) {
+        allRawRecords = primaryRes.records;
+      } else if (stateEnglish === 'Delhi / NCR' || stateEnglish === 'Chhattisgarh') {
+        const aliasState = stateEnglish === 'Chhattisgarh' ? 'Chattisgarh' : 'NCT of Delhi';
+        const aliasRes = await fetchOgdRecords({
+          apiKey,
+          limit: queryLimit,
+          stateFilter: aliasState,
+          districtFilter: districtEnglish,
+          timeoutMs: 6000,
+        }).catch(() => ({ records: [], httpStatus: 0 }));
+        allRawRecords = aliasRes.records;
+      }
 
-    // Check if the exact requested mandi is in normalizedMarkets
-    const findMatch = (markets: Record<string, CachedGovtMarketEntry>) => {
-      for (const entry of Object.values(markets)) {
-        const sOk = checkLocationMatch(entry.state, rawState, 'state').match;
-        const dOk = checkLocationMatch(entry.district, rawDistrict, 'district').match;
-        const mOk = checkLocationMatch(entry.market, rawMandi, 'mandi').match;
-        if (sOk && dOk && mOk && entry.items.length > 0) {
-          return entry;
+      let normalizedMarkets = normalizeRawOgdRecordsToMarkets(allRawRecords);
+
+      const findMatch = (markets: Record<string, CachedGovtMarketEntry>) => {
+        for (const entry of Object.values(markets)) {
+          const sOk = checkLocationMatch(entry.state, rawState, 'state').match;
+          const dOk = checkLocationMatch(entry.district, rawDistrict, 'district').match;
+          const mOk = checkLocationMatch(entry.market, rawMandi, 'mandi').match;
+          if (sOk && dOk && mOk && entry.items.length > 0) {
+            return entry;
+          }
+        }
+        return null;
+      };
+
+      let matchedEntry = findMatch(normalizedMarkets);
+
+      if (!matchedEntry && mandiEnglish) {
+        const mktRes = await fetchOgdRecords({
+          apiKey,
+          limit: 200,
+          stateFilter: stateEnglish,
+          marketFilter: mandiEnglish,
+          timeoutMs: 6000,
+        }).catch(() => ({ records: [], httpStatus: 0 }));
+
+        if (mktRes.records.length > 0) {
+          const mktNormalized = normalizeRawOgdRecordsToMarkets(mktRes.records);
+          normalizedMarkets = mergeMarketCaches(normalizedMarkets, mktNormalized);
+          matchedEntry = findMatch(normalizedMarkets);
         }
       }
-      return null;
-    };
 
-    let matchedEntry = findMatch(normalizedMarkets);
-
-    // Fallback targeted market query if district had > queryLimit rows or district spelling differed
-    if (!matchedEntry && mandiEnglish) {
-      const mktRes = await fetchOgdRecords({
-        apiKey,
-        limit: 200,
-        stateFilter: stateEnglish,
-        marketFilter: mandiEnglish,
-        timeoutMs: 6000,
-      }).catch(() => ({ records: [], httpStatus: 0 }));
-
-      if (mktRes.records.length > 0) {
-        const mktNormalized = normalizeRawOgdRecordsToMarkets(mktRes.records);
-        normalizedMarkets = mergeMarketCaches(normalizedMarkets, mktNormalized);
-        matchedEntry = findMatch(normalizedMarkets);
+      if (Object.keys(normalizedMarkets).length > 0) {
+        const updatedMarkets = mergeMarketCaches(govtCacheStore.markets || {}, normalizedMarkets);
+        saveGovtCacheToDisk({
+          version: (govtCacheStore.version || 1) + 1,
+          updatedAt: Date.now(),
+          syncSource: 'live_ogd',
+          totalRawRecords: Object.values(updatedMarkets).reduce((s, m) => s + m.items.length, 0),
+          markets: updatedMarkets,
+        });
+        updateCentralizedHistoryFromMarkets(normalizedMarkets);
       }
-    }
 
-    // Silently cache any valid Govt markets discovered from this live OGD call
-    if (Object.keys(normalizedMarkets).length > 0) {
-      const updatedMarkets = mergeMarketCaches(govtCacheStore.markets || {}, normalizedMarkets);
-      saveGovtCacheToDisk({
-        version: (govtCacheStore.version || 1) + 1,
-        updatedAt: Date.now(),
-        syncSource: 'live_ogd',
-        totalRawRecords: Object.values(updatedMarkets).reduce((s, m) => s + m.items.length, 0),
-        markets: updatedMarkets,
-      });
+      if (matchedEntry) {
+        return {
+          items: matchedEntry.items,
+          sourceDate: matchedEntry.sourceDate || formatIndianDate(),
+        };
+      }
+      return null;
+    } catch (err) {
+      console.warn('[OGD Govt API] Error fetching:', (err as any)?.message || err);
+      return null;
     }
+  })();
 
-    if (matchedEntry) {
-      return {
-        items: matchedEntry.items,
-        sourceDate: matchedEntry.sourceDate || formatIndianDate(),
-      };
-    }
-    return null;
-  } catch (err) {
-    console.warn('[OGD Govt API] Error fetching:', (err as any)?.message || err);
-    return null;
+  inFlightOgdRequests.set(dedupKey, flightPromise);
+  try {
+    return await flightPromise;
+  } finally {
+    inFlightOgdRequests.delete(dedupKey);
   }
 }
 
@@ -1206,140 +1818,7 @@ async function fetchFromMandiPulse(
   }
 }
 
-// Track cooldown when Gemini hits 429 / quota exhaustion (circuit breaker)
-let geminiQuotaCooldownUntil = 0;
-
-function isQuotaOrRateLimitError(err: any): boolean {
-  const status = err?.status || err?.code || err?.error?.code || err?.error?.status;
-  const msg = (err?.message || JSON.stringify(err) || '').toLowerCase();
-  return (
-    status === 429 ||
-    status === 'RESOURCE_EXHAUSTED' ||
-    msg.includes('429') ||
-    msg.includes('quota') ||
-    msg.includes('resource_exhausted') ||
-    msg.includes('rate-limit') ||
-    msg.includes('rate limit')
-  );
-}
-
-// 3. Fetch real market rates using Gemini Search Grounding (Server-Side)
-async function fetchFromGeminiGrounding(
-  stateClean: string,
-  districtClean: string,
-  mandiClean: string
-): Promise<{ items: ServerMandiItem[]; sourceName: string; sourceDate: string } | null> {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-  if (!apiKey || apiKey.trim() === '') {
-    return null;
-  }
-
-  if (Date.now() < geminiQuotaCooldownUntil) {
-    return null;
-  }
-
-  try {
-    const ai = new GoogleGenAI({
-      apiKey: apiKey.trim(),
-      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
-    });
-
-    const now = new Date();
-    const dateStr = formatIndianDate(now);
-
-    const prompt = `आज (${dateStr}) और हाल के दिनों के लिए ${stateClean} राज्य के ${districtClean} जिले की ${mandiClean} मंडी के वास्तविक और नवीनतम मंडी भाव (Mandi Bhav / Market Rates) खोजें।
-
-कृपया विश्वसनीय स्रोतों जैसे 'Agmarknet', 'Mandi Pulse', 'MP Mandi Bhav', या राज्य कृषि विपणन बोर्ड बुलेटिन से डेटा खोजें।
-
-आवश्यक नियम:
-1. सोयाबीन, गेहूँ, चना, सरसों, मक्का, लहसुन, प्याज, धनिया, मेथी, उड़द, मूंग आदि उपलब्ध फसलों के वास्तविक भाव निकालें।
-2. भाव (minPrice, maxPrice, avgPrice) प्रति क्विंटल में संख्यात्मक होने चाहिए।
-3. आवक (उदा. '250 बोरी') और गुणवत्ता (उदा. 'सुपर बोल्ड', 'FAQ') यदि मिले तो जोड़ें।
-4. डेटा किस तारीख का मिला है वो sourceDate में दर्ज करें (उदा. '${dateStr}')।
-5. जिस वेबसाइट या रिपोर्ट से भाव मिले हैं उसका नाम sourceName में दें (उदा. 'Agmarknet / Mandi Pulse')।
-6. केवल नीचे दिए गए JSON स्कीमा में ही शुद्ध परिणाम दें।`;
-
-    const schema = {
-      type: Type.OBJECT,
-      properties: {
-        sourceName: { type: Type.STRING },
-        sourceDate: { type: Type.STRING },
-        items: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              commodity: { type: Type.STRING, description: 'फसल का नाम हिंदी में' },
-              minPrice: { type: Type.STRING, description: 'न्यूनतम भाव' },
-              maxPrice: { type: Type.STRING, description: 'अधिकतम भाव' },
-              avgPrice: { type: Type.STRING, description: 'मॉडल / औसत भाव' },
-              unit: { type: Type.STRING, description: 'इकाई (क्विंटल)' },
-              arrival: { type: Type.STRING, description: 'आवक' },
-              quality: { type: Type.STRING, description: 'गुणवत्ता' },
-              lastUpdated: { type: Type.STRING, description: 'अपडेट तारीख' },
-            },
-            required: ['commodity', 'minPrice', 'maxPrice', 'avgPrice', 'unit'],
-          },
-        },
-      },
-      required: ['sourceName', 'sourceDate', 'items'],
-    };
-
-    const candidateModels = ['gemini-3.6-flash', 'gemini-3.5-flash'];
-    let responseText = '';
-
-    for (const modelName of candidateModels) {
-      try {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: prompt,
-          config: {
-            systemInstruction:
-              "You are the Mandi Market Reporter for 'Falsawdiya Krishi Bazaar'. Extract real market prices from Google Search results. Never hallucinate fake numbers when real reports exist. Ensure all crop names are in Hindi.",
-            tools: [{ googleSearch: {} }],
-            responseMimeType: 'application/json',
-            responseSchema: schema,
-          },
-        });
-        if (response.text && response.text.trim()) {
-          responseText = response.text.trim();
-          break;
-        }
-      } catch (groundingErr: any) {
-        if (isQuotaOrRateLimitError(groundingErr)) {
-          geminiQuotaCooldownUntil = Date.now() + 15 * 60 * 1000;
-          return null;
-        }
-      }
-    }
-
-    if (!responseText) return null;
-
-    const parsed = JSON.parse(responseText || '{}');
-    if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
-      const validItems: ServerMandiItem[] = parsed.items.map((it: any) => ({
-        commodity: normalizeCommodityName(it.commodity || 'फसल'),
-        minPrice: it.minPrice?.toString() || it.avgPrice?.toString() || '0',
-        maxPrice: it.maxPrice?.toString() || it.avgPrice?.toString() || '0',
-        avgPrice: it.avgPrice?.toString() || '0',
-        unit: it.unit || 'क्विंटल',
-        arrival: it.arrival || 'उपलब्ध नहीं',
-        quality: it.quality || 'सामान्य',
-        lastUpdated: it.lastUpdated || parsed.sourceDate || dateStr,
-      }));
-
-      return {
-        items: validItems,
-        sourceName: parsed.sourceName || 'सत्यापित स्थानीय मंडी रिपोर्ट (Mandi Pulse / Agmarknet Web)',
-        sourceDate: parsed.sourceDate || dateStr,
-      };
-    }
-    return null;
-  } catch (err) {
-    console.warn('[Gemini Grounding Mandi] Error:', err);
-    return null;
-  }
-}
+// Zero-Cost Policy: Server-side Paid AI fallback removed cleanly so zero AI billing risk exists.
 
 // ==========================================
 // ADMIN AUTHENTICATION MIDDLEWARE HELPER
@@ -1400,9 +1879,17 @@ export const handleGetAdminMandiSettings = async (req: Request, res: Response): 
   const admin = await requireVerifiedAdmin(req, res);
   if (!admin) return;
 
-  await ensureFirestoreCacheLoaded();
+  await Promise.all([
+    ensureFirestoreCacheLoaded(),
+    ensureSyncStatusLoaded(true),
+  ]);
+
   const { key, source } = getActiveGovtApiKey();
   const cacheStats = getCacheSummaryStats();
+  const historyMarketsCount = Object.values(mandiHistoryByState).reduce(
+    (sum, b) => sum + Object.keys(b.markets || {}).length,
+    0
+  );
 
   res.json({
     success: true,
@@ -1412,11 +1899,20 @@ export const handleGetAdminMandiSettings = async (req: Request, res: Response): 
     enabled: govtConfig.enabled,
     defaultLimit: govtConfig.defaultLimit,
     syncStateFilter: govtConfig.syncStateFilter,
-    lastSyncAt: govtConfig.lastSyncAt || 0,
-    lastSyncStatus: govtConfig.lastSyncStatus || 'never',
-    lastSyncSource: govtConfig.lastSyncSource || 'none',
-    lastSyncMessage: govtConfig.lastSyncMessage || '',
+    lastSyncAt: syncStatusStore.lastSyncAt || govtConfig.lastSyncAt || 0,
+    lastSuccessfulSyncAt: syncStatusStore.lastSuccessfulSyncAt || govtConfig.lastSyncAt || 0,
+    lastSyncStatus: syncStatusStore.lastSyncStatus !== 'never' ? syncStatusStore.lastSyncStatus : (govtConfig.lastSyncStatus || 'never'),
+    lastSyncSource: govtConfig.lastSyncSource || syncStatusStore.lastSyncTrigger || 'none',
+    lastSyncMessage: syncStatusStore.lastSyncMessage || govtConfig.lastSyncMessage || '',
+    lastError: syncStatusStore.lastError || '',
     lastSyncRecordsCount: govtConfig.lastSyncRecordsCount || 0,
+    nextScheduledSyncAt: computeNextScheduledSyncAt(),
+    consecutiveFailures: syncStatusStore.consecutiveFailures || 0,
+    rateLimitRemaining: syncStatusStore.rateLimitRemaining ?? null,
+    serviceAccountConfigured: hasServerFirestoreWriteAccess(),
+    cronSecretConfigured: Boolean((process.env.CRON_SYNC_SECRET || '').trim()),
+    historyMarketsCount,
+    syncHistory: syncStatusStore.syncHistory || [],
     updatedAt: govtConfig.updatedAt,
     ...cacheStats,
   });
@@ -1488,7 +1984,7 @@ export const handleBuildAdminMandiSyncUrl = async (req: Request, res: Response):
     return;
   }
 
-  const limit = Math.min(10000, Math.max(1, Number(req.query.limit) || govtConfig.defaultLimit || 1000));
+  const limit = Math.min(10000, Math.max(1, Number(req.query.limit) || govtConfig.defaultLimit || 3000));
   const stateFilter = typeof req.query.state === 'string' ? req.query.state.trim() : govtConfig.syncStateFilter;
 
   const url = new URL(OGD_RESOURCE_URL);
@@ -1538,6 +2034,7 @@ export const handleTestAdminMandiConnection = async (req: Request, res: Response
         reachable: true,
         httpStatus: 200,
         recordCount: result.records.length,
+        rateLimitRemaining: result.rateLimitRemaining ?? null,
         message: `कनेक्शन सफल! सरकारी OGD सर्वर से ${result.records.length} टेस्ट रिकॉर्ड प्राप्त हुए (कुल उपलब्ध: ${result.total ?? result.records.length})।`,
       });
       return;
@@ -1573,11 +2070,453 @@ export const handleTestAdminMandiConnection = async (req: Request, res: Response
       reachable: false,
       blockedFromServer: isBlocked,
       message: isBlocked
-        ? 'यह क्लाउड सर्वर भारत से बाहर स्थित होने के कारण data.gov.in ने डायरेक्ट सर्वर कनेक्शन ब्लॉक किया है। भारत में स्थित ब्राउज़र से "1-Click सरकारी डेटा सिंक करें" चलाएँ या भारत-आधारित सर्वर पर चलाएँ; तब तक MandiPulse लाइव बैकअप चालू है।'
+        ? 'यह क्लाउड सर्वर भारत से बाहर स्थित होने के कारण data.gov.in ने डायरेक्ट सर्वर कनेक्शन ब्लॉक किया है। भारत-आधारित सर्वर (जैसे Vercel Mumbai) पर यह स्वतः चालू रहता है; तब तक MandiPulse लाइव बैकअप सक्रिय है।'
         : `कनेक्शन जांच विफल: ${err?.message || 'Network Error'}`,
     });
   }
 };
+
+async function maybeSendAdminFailureAlert(params: {
+  reasonTitle: string;
+  errorDetails: string;
+  consecutiveFailures: number;
+  rateLimitRemaining: number | null;
+}): Promise<void> {
+  if (!mandiAlertMailer) return;
+  const now = Date.now();
+  if (syncStatusStore.lastAlertSentAt && now - syncStatusStore.lastAlertSentAt < ALERT_COOLDOWN_MS) {
+    return;
+  }
+
+  try {
+    const res = await mandiAlertMailer({
+      to: ADMIN_ALERT_EMAIL,
+      subject: `फल्सावदिया कृषि बाजार अलर्ट: मंडी सिंक चेतावनी (${params.reasonTitle})`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 600px;">
+          <h2 style="color: #991b1b; margin-top: 0;">मंडी भाव ऑटो-सिंक चेतावनी</h2>
+          <p><strong>कारण:</strong> ${params.reasonTitle}</p>
+          <p><strong>तकनीकी विवरण:</strong> ${params.errorDetails}</p>
+          <p><strong>लगातार विफल प्रयास:</strong> ${params.consecutiveFailures}</p>
+          <p><strong>शेष API कोटा (यदि उपलब्ध):</strong> ${params.rateLimitRemaining ?? 'अज्ञात'}</p>
+          <p><strong>समय:</strong> ${formatIndianTime(new Date(now))}</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 16px 0;" />
+          <p style="font-size: 12px; color: #6b7280;">किसानों के लिए ऐप में MandiPulse लाइव बैकअप व पिछला साझा कैश सुरक्षित रूप से चालू है।</p>
+        </div>
+      `,
+      text: `मंडी भाव ऑटो-सिंक चेतावनी: ${params.reasonTitle} | ${params.errorDetails}`,
+    });
+
+    if (res.success) {
+      saveSyncStatusToDisk({
+        ...syncStatusStore,
+        lastAlertSentAt: now,
+      });
+    }
+  } catch (err) {
+    console.warn('[Mandi Alert Mailer] Failed sending alert email:', err);
+  }
+}
+
+async function executeFullGovtMandiSync(options: {
+  trigger: 'auto_cron' | 'admin_manual';
+  apiKey: string;
+  targetLimit: number;
+  stateFilter: string;
+  persistToFirestoreServer: boolean;
+}): Promise<{
+  success: boolean;
+  noChange?: boolean;
+  blockedFromServer?: boolean;
+  statusCode?: number;
+  message: string;
+  error?: string;
+  rawCount: number;
+  newMarketsCount: number;
+  updatedMarketsCount: number;
+  unchangedCount: number;
+  rateLimitRemaining: number | null;
+  firestorePublished?: boolean;
+  firestorePublishError?: string;
+  firestoreCacheDoc?: any;
+  stateCacheDocs?: Array<{ docId: string; payload: any }>;
+  historyDocs?: Array<{ docId: string; payload: any }>;
+  syncStatusDoc?: MandiSyncStatusStore;
+}> {
+  const startMs = Date.now();
+
+  if (isLocalSyncInFlight) {
+    return {
+      success: false,
+      statusCode: 409,
+      message: 'एक मंडी सिंक प्रक्रिया पहले से चल रही है। कृपया कुछ सेकंड प्रतीक्षा करें।',
+      error: 'Sync already in flight',
+      rawCount: 0,
+      newMarketsCount: 0,
+      updatedMarketsCount: 0,
+      unchangedCount: 0,
+      rateLimitRemaining: syncStatusStore.rateLimitRemaining,
+    };
+  }
+
+  await Promise.all([ensureFirestoreCacheLoaded(), ensureSyncStatusLoaded(true)]);
+
+  // Distributed lock check (across serverless invocations)
+  if (syncStatusStore.inProgressUntil && Date.now() < syncStatusStore.inProgressUntil) {
+    return {
+      success: false,
+      statusCode: 409,
+      message: 'अन्य सर्वर इंस्टेंस पर सिंक अभी सक्रिय है। डुप्लिकेट API कॉल रोकी गई।',
+      error: 'Distributed sync lock active',
+      rawCount: 0,
+      newMarketsCount: 0,
+      updatedMarketsCount: 0,
+      unchangedCount: 0,
+      rateLimitRemaining: syncStatusStore.rateLimitRemaining,
+    };
+  }
+
+  isLocalSyncInFlight = true;
+  const lockExpiresAt = Date.now() + SYNC_LOCK_TTL_MS;
+  saveSyncStatusToDisk({ ...syncStatusStore, inProgressUntil: lockExpiresAt });
+
+  try {
+    const resFetch = await fetchPaginatedOgdRecords({
+      apiKey: options.apiKey,
+      targetLimit: options.targetLimit,
+      stateFilter: options.stateFilter,
+      timeoutMs: 10000,
+    });
+
+    const durationMs = Date.now() - startMs;
+
+    if (resFetch.httpStatus !== 200) {
+      const errReason =
+        resFetch.httpStatus === 429
+          ? 'सरकारी API की दर सीमा (HTTP 429 Too Many Requests) पूरी हो गई।'
+          : resFetch.httpStatus === 401 || resFetch.httpStatus === 403
+          ? `सरकारी API Key अमान्य या ब्लॉक हुई (HTTP ${resFetch.httpStatus})।`
+          : `सरकारी OGD API ने HTTP ${resFetch.httpStatus} त्रुटि दी।`;
+
+      const failures = (syncStatusStore.consecutiveFailures || 0) + 1;
+      const historyEntry: MandiSyncHistoryEntry = {
+        timestamp: Date.now(),
+        trigger: options.trigger,
+        status: 'error',
+        rawRecords: 0,
+        newMarketsCount: 0,
+        updatedMarketsCount: 0,
+        unchangedCount: 0,
+        durationMs,
+        message: errReason,
+        error: `HTTP ${resFetch.httpStatus}`,
+        rateLimitRemaining: resFetch.rateLimitRemaining ?? undefined,
+      };
+
+      const nextStatus: MandiSyncStatusStore = {
+        ...syncStatusStore,
+        lastSyncAt: Date.now(),
+        lastSyncStatus: 'error',
+        lastSyncTrigger: options.trigger,
+        lastSyncMessage: errReason,
+        lastError: `HTTP ${resFetch.httpStatus}: ${errReason}`,
+        nextScheduledSyncAt: computeNextScheduledSyncAt(),
+        inProgressUntil: 0,
+        consecutiveFailures: failures,
+        rateLimitRemaining: resFetch.rateLimitRemaining,
+        syncHistory: [historyEntry, ...(syncStatusStore.syncHistory || [])].slice(0, 20),
+      };
+
+      saveSyncStatusToDisk(nextStatus);
+      saveGovtConfigToDisk({
+        lastSyncAt: Date.now(),
+        lastSyncStatus: 'error',
+        lastSyncMessage: errReason,
+      });
+
+      if (options.persistToFirestoreServer && hasServerFirestoreWriteAccess()) {
+        await setRemoteFirestoreDocDetailed('_metadata', 'mandi_sync_status', nextStatus);
+      }
+
+      if (resFetch.httpStatus === 429 || resFetch.httpStatus === 401 || resFetch.httpStatus === 403 || failures >= 3) {
+        await maybeSendAdminFailureAlert({
+          reasonTitle: `HTTP ${resFetch.httpStatus}`,
+          errorDetails: errReason,
+          consecutiveFailures: failures,
+          rateLimitRemaining: resFetch.rateLimitRemaining,
+        });
+      }
+
+      return {
+        success: false,
+        blockedFromServer: false,
+        statusCode: 200,
+        message: errReason,
+        error: errReason,
+        rawCount: 0,
+        newMarketsCount: 0,
+        updatedMarketsCount: 0,
+        unchangedCount: 0,
+        rateLimitRemaining: resFetch.rateLimitRemaining,
+        syncStatusDoc: nextStatus,
+      };
+    }
+
+    if (resFetch.records.length === 0) {
+      const emptyMsg = 'सरकारी API से इस समय कोई नया मंडी रिकॉर्ड प्राप्त नहीं हुआ (पिछला वैध डेटा सुरक्षित है)।';
+      const staleHours = syncStatusStore.lastSuccessfulSyncAt
+        ? (Date.now() - syncStatusStore.lastSuccessfulSyncAt) / (60 * 60 * 1000)
+        : 0;
+      const historyEntry: MandiSyncHistoryEntry = {
+        timestamp: Date.now(),
+        trigger: options.trigger,
+        status: 'no_change',
+        rawRecords: 0,
+        newMarketsCount: 0,
+        updatedMarketsCount: 0,
+        unchangedCount: Object.keys(govtCacheStore.markets || {}).length,
+        durationMs,
+        message: emptyMsg,
+        rateLimitRemaining: resFetch.rateLimitRemaining ?? undefined,
+      };
+      const nextStatus: MandiSyncStatusStore = {
+        ...syncStatusStore,
+        lastSyncAt: Date.now(),
+        lastSyncStatus: 'no_change',
+        lastSyncTrigger: options.trigger,
+        lastSyncMessage: emptyMsg,
+        lastError: '',
+        nextScheduledSyncAt: computeNextScheduledSyncAt(),
+        inProgressUntil: 0,
+        rateLimitRemaining: resFetch.rateLimitRemaining,
+        syncHistory: [historyEntry, ...(syncStatusStore.syncHistory || [])].slice(0, 20),
+      };
+      saveSyncStatusToDisk(nextStatus);
+
+      if (options.persistToFirestoreServer && hasServerFirestoreWriteAccess()) {
+        await setRemoteFirestoreDocDetailed('_metadata', 'mandi_sync_status', nextStatus);
+      }
+
+      if (staleHours >= 48) {
+        await maybeSendAdminFailureAlert({
+          reasonTitle: '48+ घंटे से नया सरकारी डेटा नहीं',
+          errorDetails: emptyMsg,
+          consecutiveFailures: syncStatusStore.consecutiveFailures || 0,
+          rateLimitRemaining: resFetch.rateLimitRemaining,
+        });
+      }
+
+      return {
+        success: true,
+        noChange: true,
+        message: emptyMsg,
+        rawCount: 0,
+        newMarketsCount: 0,
+        updatedMarketsCount: 0,
+        unchangedCount: Object.keys(govtCacheStore.markets || {}).length,
+        rateLimitRemaining: resFetch.rateLimitRemaining,
+        syncStatusDoc: nextStatus,
+      };
+    }
+
+    const prevMarkets = govtCacheStore.markets || {};
+    const normalizedNew = normalizeRawOgdRecordsToMarkets(resFetch.records);
+    const mergedMarkets = mergeMarketCaches(prevMarkets, normalizedNew);
+    const delta = computeMarketDeltaAndHash(prevMarkets, normalizedNew, mergedMarkets);
+
+    const isSameHash =
+      Boolean(syncStatusStore.dataHash) &&
+      syncStatusStore.dataHash === delta.dataHash &&
+      !delta.hasMeaningfulChange;
+
+    // Even if prices didn't change since last sync, ensure centralized history is up-to-date
+    const historyResult = updateCentralizedHistoryFromMarkets(normalizedNew);
+
+    const newStore: GovtMandiCacheStore = {
+      version: isSameHash ? govtCacheStore.version || 1 : (govtCacheStore.version || 1) + 1,
+      updatedAt: Date.now(),
+      syncSource: options.trigger === 'auto_cron' ? 'auto_cron' : 'server_ogd',
+      totalRawRecords: resFetch.records.length,
+      markets: mergedMarkets,
+    };
+
+    saveGovtCacheToDisk(newStore);
+    mandiCache.clear();
+
+    const firestoreCacheDoc = buildCompactFirestoreCacheDoc(newStore);
+    const stateCacheDocs = buildStateCacheDocs(newStore);
+    const historyDocs = historyResult.changedStateSlugs
+      .map((slug) => buildCompactStateHistoryDoc(slug))
+      .filter((d): d is { docId: string; payload: StateMandiHistoryBucket } => Boolean(d));
+
+    const summaryMsg = isSameHash
+      ? `सरकारी पोर्टल जाँचा गया (${resFetch.records.length} रिकॉर्ड) — भाव पहले से अप-टू-डेट हैं (कोई नया बदलाव नहीं)।`
+      : `नए: ${delta.newMarketsCount} मंडियाँ • अपडेट: ${delta.updatedMarketsCount} मंडियाँ • अपरिवर्तित: ${delta.unchangedCount} (${resFetch.records.length} रिकॉर्ड)।`;
+
+    const historyEntry: MandiSyncHistoryEntry = {
+      timestamp: Date.now(),
+      trigger: options.trigger,
+      status: isSameHash ? 'no_change' : 'success',
+      rawRecords: resFetch.records.length,
+      newMarketsCount: delta.newMarketsCount,
+      updatedMarketsCount: delta.updatedMarketsCount,
+      unchangedCount: delta.unchangedCount,
+      durationMs,
+      message: summaryMsg,
+      rateLimitRemaining: resFetch.rateLimitRemaining ?? undefined,
+    };
+
+    const nextStatus: MandiSyncStatusStore = {
+      ...syncStatusStore,
+      lastSyncAt: Date.now(),
+      lastSuccessfulSyncAt: Date.now(),
+      lastSyncStatus: isSameHash ? 'no_change' : 'success',
+      lastSyncTrigger: options.trigger,
+      lastSyncMessage: summaryMsg,
+      lastError: '',
+      nextScheduledSyncAt: computeNextScheduledSyncAt(),
+      inProgressUntil: 0,
+      dataHash: delta.dataHash,
+      consecutiveFailures: 0,
+      rateLimitRemaining: resFetch.rateLimitRemaining,
+      syncHistory: [historyEntry, ...(syncStatusStore.syncHistory || [])].slice(0, 20),
+    };
+
+    saveSyncStatusToDisk(nextStatus);
+    saveGovtConfigToDisk({
+      lastSyncAt: Date.now(),
+      lastSyncStatus: isSameHash ? 'no_change' : 'success',
+      lastSyncSource: options.trigger === 'auto_cron' ? 'auto_cron' : 'server_ogd',
+      lastSyncRecordsCount: resFetch.records.length,
+      lastSyncMessage: summaryMsg,
+    });
+
+    let firestorePublished = false;
+    let firestorePublishError: string | undefined;
+
+    if (options.persistToFirestoreServer) {
+      if (hasServerFirestoreWriteAccess()) {
+        try {
+          if (!isSameHash) {
+            const mainWrite = await setRemoteFirestoreDocDetailed('_metadata', 'mandi_govt_cache', firestoreCacheDoc);
+            if (!mainWrite.ok) {
+              firestorePublishError = mainWrite.error || `HTTP ${mainWrite.status}`;
+            } else {
+              firestorePublished = true;
+            }
+            for (const sDoc of stateCacheDocs) {
+              await setRemoteFirestoreDocDetailed('_metadata', sDoc.docId, sDoc.payload);
+            }
+          } else {
+            firestorePublished = true;
+          }
+
+          for (const hDoc of historyDocs) {
+            await setRemoteFirestoreDocDetailed('_metadata', hDoc.docId, hDoc.payload);
+          }
+
+          await setRemoteFirestoreDocDetailed('_metadata', 'mandi_sync_status', nextStatus);
+        } catch (fsErr: any) {
+          firestorePublishError = fsErr?.message || 'Firestore write failed';
+        }
+      } else {
+        firestorePublishError = 'FIREBASE_SERVICE_ACCOUNT_JSON सेट न होने से सर्वर-साइड Firestore लेखन छोड़ा गया';
+      }
+    }
+
+    return {
+      success: true,
+      noChange: isSameHash,
+      message: summaryMsg,
+      rawCount: resFetch.records.length,
+      newMarketsCount: delta.newMarketsCount,
+      updatedMarketsCount: delta.updatedMarketsCount,
+      unchangedCount: delta.unchangedCount,
+      rateLimitRemaining: resFetch.rateLimitRemaining,
+      firestorePublished,
+      firestorePublishError,
+      firestoreCacheDoc,
+      stateCacheDocs,
+      historyDocs,
+      syncStatusDoc: nextStatus,
+    };
+  } catch (err: any) {
+    const durationMs = Date.now() - startMs;
+    const errMsg = String(err?.cause?.code || err?.code || err?.message || '');
+    const isBlocked =
+      errMsg.includes('ECONNREFUSED') ||
+      errMsg.includes('ETIMEDOUT') ||
+      errMsg.includes('ENOTFOUND') ||
+      errMsg.includes('fetch failed') ||
+      errMsg.includes('AbortError');
+
+    const readableErr = isBlocked
+      ? 'क्लाउड सर्वर भारत के बाहर होने से data.gov.in ने कनेक्शन ब्लॉक किया (Vercel Mumbai bom1 आवश्यक)'
+      : err?.message || 'सिंक करने में नेटवर्क त्रुटि हुई';
+
+    const failures = (syncStatusStore.consecutiveFailures || 0) + 1;
+    const historyEntry: MandiSyncHistoryEntry = {
+      timestamp: Date.now(),
+      trigger: options.trigger,
+      status: isBlocked ? 'blocked' : 'error',
+      rawRecords: 0,
+      newMarketsCount: 0,
+      updatedMarketsCount: 0,
+      unchangedCount: 0,
+      durationMs,
+      message: readableErr,
+      error: errMsg || readableErr,
+    };
+
+    const nextStatus: MandiSyncStatusStore = {
+      ...syncStatusStore,
+      lastSyncAt: Date.now(),
+      lastSyncStatus: isBlocked ? 'blocked' : 'error',
+      lastSyncTrigger: options.trigger,
+      lastSyncMessage: readableErr,
+      lastError: readableErr,
+      nextScheduledSyncAt: computeNextScheduledSyncAt(),
+      inProgressUntil: 0,
+      consecutiveFailures: failures,
+      syncHistory: [historyEntry, ...(syncStatusStore.syncHistory || [])].slice(0, 20),
+    };
+
+    saveSyncStatusToDisk(nextStatus);
+    saveGovtConfigToDisk({
+      lastSyncAt: Date.now(),
+      lastSyncStatus: isBlocked ? 'blocked' : 'error',
+      lastSyncMessage: readableErr,
+    });
+
+    if (options.persistToFirestoreServer && hasServerFirestoreWriteAccess()) {
+      await setRemoteFirestoreDocDetailed('_metadata', 'mandi_sync_status', nextStatus);
+    }
+
+    if (failures >= 3) {
+      await maybeSendAdminFailureAlert({
+        reasonTitle: isBlocked ? 'Server IP Block' : 'Sync Network Error',
+        errorDetails: readableErr,
+        consecutiveFailures: failures,
+        rateLimitRemaining: syncStatusStore.rateLimitRemaining,
+      });
+    }
+
+    return {
+      success: false,
+      blockedFromServer: isBlocked,
+      message: readableErr,
+      error: readableErr,
+      rawCount: 0,
+      newMarketsCount: 0,
+      updatedMarketsCount: 0,
+      unchangedCount: 0,
+      rateLimitRemaining: syncStatusStore.rateLimitRemaining,
+      syncStatusDoc: nextStatus,
+    };
+  } finally {
+    isLocalSyncInFlight = false;
+  }
+}
 
 export const handleSyncAdminMandiGovt = async (req: Request, res: Response): Promise<void> => {
   const admin = await requireVerifiedAdmin(req, res);
@@ -1595,114 +2534,234 @@ export const handleSyncAdminMandiGovt = async (req: Request, res: Response): Pro
     return;
   }
 
-  const targetLimit = Math.min(10000, Math.max(1, Number(req.body?.limit) || govtConfig.defaultLimit || 1000));
+  const targetLimit = Math.min(10000, Math.max(1, Number(req.body?.limit) || govtConfig.defaultLimit || 3000));
   const stateFilter = typeof req.body?.stateFilter === 'string' ? req.body.stateFilter.trim() : govtConfig.syncStateFilter;
 
+  const result = await executeFullGovtMandiSync({
+    trigger: 'admin_manual',
+    apiKey: activeKey,
+    targetLimit,
+    stateFilter,
+    persistToFirestoreServer: hasServerFirestoreWriteAccess(),
+  });
+
+  if (!result.success) {
+    res.json({
+      success: false,
+      blockedFromServer: Boolean(result.blockedFromServer),
+      error: result.error || result.message,
+      syncStatusDoc: result.syncStatusDoc,
+    });
+    return;
+  }
+
+  const stats = getCacheSummaryStats();
+  res.json({
+    success: true,
+    noChange: Boolean(result.noChange),
+    message: result.message,
+    rawCount: result.rawCount,
+    newMarketsCount: result.newMarketsCount,
+    updatedMarketsCount: result.updatedMarketsCount,
+    unchangedCount: result.unchangedCount,
+    rateLimitRemaining: result.rateLimitRemaining,
+    firestoreCacheDoc: result.firestoreCacheDoc,
+    stateCacheDocs: result.stateCacheDocs,
+    historyDocs: result.historyDocs,
+    syncStatusDoc: result.syncStatusDoc,
+    ...stats,
+  });
+};
+
+/**
+ * Authenticated Cron Endpoint for Zero-Cost GitHub Actions Scheduler (10x/day IST)
+ */
+export const handleCronMandiSync = async (req: Request, res: Response): Promise<void> => {
+  const configuredSecret = (process.env.CRON_SYNC_SECRET || '').trim();
+  if (!configuredSecret) {
+    res.status(503).json({
+      success: false,
+      error: 'CRON_SYNC_SECRET एनवायरनमेंट वेरिएबल सेट नहीं है।',
+    });
+    return;
+  }
+
+  const authHeader = req.headers.authorization || '';
+  const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+  const providedSecret = (bearerMatch ? bearerMatch[1] : (req.headers['x-cron-secret'] as string) || '').trim();
+
+  if (!providedSecret || providedSecret !== configuredSecret) {
+    res.status(401).json({
+      success: false,
+      error: 'अनधिकृत Cron अनुरोध: अमान्य Secret।',
+    });
+    return;
+  }
+
+  const { key: activeKey } = getActiveGovtApiKey();
+  if (!activeKey) {
+    res.status(400).json({
+      success: false,
+      error: 'DATA_GOV_IN_API_KEY सेट नहीं है।',
+    });
+    return;
+  }
+
+  const result = await executeFullGovtMandiSync({
+    trigger: 'auto_cron',
+    apiKey: activeKey,
+    targetLimit: Math.min(10000, Math.max(1, Number(process.env.MANDI_CRON_LIMIT) || govtConfig.defaultLimit || 3000)),
+    stateFilter: (process.env.MANDI_CRON_STATE || govtConfig.syncStateFilter || 'Madhya Pradesh').trim(),
+    persistToFirestoreServer: true,
+  });
+
+  if (!result.success) {
+    res.status(result.statusCode || 500).json({
+      success: false,
+      blockedFromServer: Boolean(result.blockedFromServer),
+      error: result.error || result.message,
+      rateLimitRemaining: result.rateLimitRemaining,
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    noChange: Boolean(result.noChange),
+    message: result.message,
+    rawCount: result.rawCount,
+    newMarketsCount: result.newMarketsCount,
+    updatedMarketsCount: result.updatedMarketsCount,
+    unchangedCount: result.unchangedCount,
+    firestorePublished: Boolean(result.firestorePublished),
+    firestorePublishError: result.firestorePublishError || null,
+    rateLimitRemaining: result.rateLimitRemaining,
+    nextScheduledSyncAt: result.syncStatusDoc?.nextScheduledSyncAt || computeNextScheduledSyncAt(),
+  });
+};
+
+/**
+ * Public Lightweight Endpoint: Returns 30-day centralized Govt history for ONLY the selected mandi (~5-12 KB).
+ */
+export const handleGetMandiHistory = async (req: Request, res: Response): Promise<void> => {
   try {
-    const pageSize = Math.min(1000, targetLimit);
-    let combinedRaw: any[] = [];
-    let offset = 0;
+    const rawState = (req.query.state as string) || 'मध्यप्रदेश (Madhya Pradesh)';
+    const rawDistrict = (req.query.district as string) || 'मंदसौर (Mandsaur)';
+    const rawMandi = (req.query.mandi as string) || 'शामगढ़ (Shamgarh)';
+    const stateSlug = getStateSlugKey(rawState);
 
-    while (combinedRaw.length < targetLimit) {
-      const remaining = targetLimit - combinedRaw.length;
-      const batchLimit = Math.min(pageSize, remaining);
-      const resPage = await fetchOgdRecords({
-        apiKey: activeKey,
-        limit: batchLimit,
-        offset,
-        stateFilter: stateFilter || 'ALL',
-        timeoutMs: 10000,
-      });
-
-      if (resPage.httpStatus !== 200) {
-        if (combinedRaw.length === 0) {
-          saveGovtConfigToDisk({
-            lastSyncAt: Date.now(),
-            lastSyncStatus: 'error',
-            lastSyncMessage: `HTTP ${resPage.httpStatus}`,
-          });
-          res.json({
-            success: false,
-            blockedFromServer: false,
-            error: `सरकारी API ने HTTP ${resPage.httpStatus} उत्तर दिया। कृपया API Key जांचें।`,
-          });
-          return;
-        }
-        break;
-      }
-
-      if (resPage.records.length === 0) break;
-      combinedRaw = combinedRaw.concat(resPage.records);
-      if (resPage.records.length < batchLimit) break;
-      offset += batchLimit;
-    }
-
-    if (combinedRaw.length === 0) {
-      res.json({
-        success: false,
-        blockedFromServer: false,
-        error: 'सरकारी API से आज अभी कोई मंडी रिकॉर्ड प्राप्त नहीं हुआ।',
-      });
+    const cacheKey = `hist_${stateSlug}_${normalizeNoSpace(rawDistrict)}_${normalizeNoSpace(rawMandi)}`;
+    const now = Date.now();
+    const cached = historyApiCache.get(cacheKey);
+    if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+      res.json(cached.data);
       return;
     }
 
-    const normalizedNew = normalizeRawOgdRecordsToMarkets(combinedRaw);
-    const mergedMarkets = mergeMarketCaches(govtCacheStore.markets || {}, normalizedNew);
+    // Load from Firestore _metadata/mandi_history_{stateSlug} if missing or stale (> 15m)
+    const lastPoll = lastHistoryStatePollAt[stateSlug] || 0;
+    if (!mandiHistoryByState[stateSlug] || now - lastPoll > FIRESTORE_CACHE_POLL_MS) {
+      lastHistoryStatePollAt[stateSlug] = now;
+      const remoteHist = await getRemoteFirestoreDoc<StateMandiHistoryBucket>(
+        '_metadata',
+        `mandi_history_${stateSlug}`
+      );
+      if (remoteHist && remoteHist.markets && typeof remoteHist.markets === 'object') {
+        mandiHistoryByState[stateSlug] = remoteHist;
+        saveHistoryCacheToDisk();
+      }
+    }
 
-    const newStore: GovtMandiCacheStore = {
-      version: (govtCacheStore.version || 1) + 1,
-      updatedAt: Date.now(),
-      syncSource: 'server_ogd',
-      totalRawRecords: combinedRaw.length,
-      markets: mergedMarkets,
+    const bucket = mandiHistoryByState[stateSlug];
+    if (!bucket || !bucket.markets) {
+      res.json({ success: true, isAuthentic: false, daysCount: 0, commodities: {} });
+      return;
+    }
+
+    let matchedCrops: Record<string, string[]> | null = null;
+    for (const [mktKey, crops] of Object.entries(bucket.markets)) {
+      const [distPart = '', mktPart = ''] = mktKey.split('|');
+      const dOk = checkLocationMatch(distPart, rawDistrict, 'district').match;
+      const mOk = checkLocationMatch(mktPart, rawMandi, 'mandi').match;
+      if (dOk && mOk) {
+        matchedCrops = crops;
+        break;
+      }
+    }
+
+    if (!matchedCrops) {
+      const emptyPayload = { success: true, isAuthentic: false, daysCount: 0, commodities: {} };
+      historyApiCache.set(cacheKey, { data: emptyPayload, timestamp: now });
+      res.json(emptyPayload);
+      return;
+    }
+
+    const commoditiesOut: Record<
+      string,
+      Array<{
+        date: string;
+        fullDate: string;
+        price: number;
+        minPrice: number;
+        maxPrice: number;
+        change: number;
+        changePercent: number;
+      }>
+    > = {};
+
+    let maxDays = 0;
+
+    for (const [cropName, rows] of Object.entries(matchedCrops)) {
+      if (!Array.isArray(rows) || rows.length === 0) continue;
+      const points: any[] = [];
+      let prevPrice = 0;
+
+      for (const rowStr of rows) {
+        const [scoreStr, avgStr, minStr, maxStr] = String(rowStr).split('|');
+        const score = parseInt(scoreStr || '0', 10);
+        const avg = parseInt(avgStr || '0', 10);
+        const minP = parseInt(minStr || '0', 10) || avg;
+        const maxP = parseInt(maxStr || '0', 10) || avg;
+        if (!score || avg <= 0) continue;
+
+        const y = Math.floor(score / 10000);
+        const m = Math.floor((score % 10000) / 100);
+        const d = score % 100;
+        const fullDate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const hindiDateLabel = `${String(d).padStart(2, '0')} ${SERVER_HINDI_MONTHS[m - 1] || ''}`.trim();
+
+        const change = points.length === 0 ? 0 : avg - prevPrice;
+        const changePercent = prevPrice > 0 ? parseFloat(((change / prevPrice) * 100).toFixed(1)) : 0;
+
+        points.push({
+          date: hindiDateLabel,
+          fullDate,
+          price: avg,
+          minPrice: minP,
+          maxPrice: maxP,
+          change,
+          changePercent,
+        });
+        prevPrice = avg;
+      }
+
+      if (points.length > 0) {
+        commoditiesOut[cropName] = points;
+        if (points.length > maxDays) maxDays = points.length;
+      }
+    }
+
+    const responsePayload = {
+      success: true,
+      isAuthentic: maxDays > 0,
+      daysCount: maxDays,
+      commodities: commoditiesOut,
     };
 
-    saveGovtCacheToDisk(newStore);
-    mandiCache.clear();
-
-    const stats = getCacheSummaryStats();
-    const firestoreCacheDoc = buildCompactFirestoreCacheDoc(newStore);
-
-    saveGovtConfigToDisk({
-      lastSyncAt: Date.now(),
-      lastSyncStatus: 'success',
-      lastSyncSource: 'server_ogd',
-      lastSyncRecordsCount: combinedRaw.length,
-      lastSyncMessage: `${Object.keys(normalizedNew).length} मंडियों के ${combinedRaw.length} सरकारी रिकॉर्ड सिंक हुए।`,
-    });
-
-    res.json({
-      success: true,
-      message: `सरकारी OGD से ${combinedRaw.length} रिकॉर्ड (${Object.keys(normalizedNew).length} मंडियां) सफलतापूर्वक सिंक हो गए।`,
-      rawCount: combinedRaw.length,
-      newMarketsCount: Object.keys(normalizedNew).length,
-      firestoreCacheDoc,
-      ...stats,
-    });
+    historyApiCache.set(cacheKey, { data: responsePayload, timestamp: now });
+    res.json(responsePayload);
   } catch (err: any) {
-    const errMsg = String(err?.cause?.code || err?.code || err?.message || '');
-    const isBlocked =
-      errMsg.includes('ECONNREFUSED') ||
-      errMsg.includes('ETIMEDOUT') ||
-      errMsg.includes('ENOTFOUND') ||
-      errMsg.includes('fetch failed') ||
-      errMsg.includes('AbortError');
-
-    saveGovtConfigToDisk({
-      lastSyncAt: Date.now(),
-      lastSyncStatus: isBlocked ? 'blocked' : 'error',
-      lastSyncMessage: isBlocked
-        ? 'विदेशी सर्वर से data.gov.in ब्लॉक — भारत ब्राउज़र सिंक उपयोग करें'
-        : err?.message || 'Sync Error',
-    });
-
-    res.json({
-      success: false,
-      blockedFromServer: isBlocked,
-      error: isBlocked
-        ? 'क्लाउड सर्वर भारत के बाहर होने से data.gov.in ने डायरेक्ट सर्वर अनुरोध अस्वीकार किया। भारत ब्राउज़र सिंक का उपयोग करें।'
-        : err?.message || 'सिंक करने में त्रुटि हुई।',
-    });
+    res.json({ success: false, isAuthentic: false, daysCount: 0, commodities: {}, error: err?.message });
   }
 };
 
@@ -1835,44 +2894,31 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
       res.json({ success: true, data: responseData });
     };
 
-    // Tier 1A (Fast Shared Govt Cache) when not explicitly forcing live OGD re-fetch
-    if (!forceRefresh && govtConfig.enabled) {
-      const sharedMatch = await lookupSharedGovtCache(rawState, rawDistrict, rawMandi);
-      if (sharedMatch && sharedMatch.items.length > 0) {
-        console.log(`[Mandi Route Success] Shared Govt Cache hit (${sharedMatch.items.length} crops) for ${rawMandi}`);
-        sendGovtSuccess(
-          sharedMatch.items,
-          sharedMatch.sourceDate,
-          'सरकारी पोर्टल (AGMARKNET OGD) से प्राप्त प्रमाणित दैनिक दरें'
-        );
-        return;
-      }
+    // Tier 1A (Fast Shared Govt Cache) ONLY if it is already fresh for today's IST date (< 6 hours old)
+    const sharedMatch = govtConfig.enabled
+      ? await lookupSharedGovtCache(rawState, rawDistrict, rawMandi)
+      : null;
+
+    if (!forceRefresh && sharedMatch && sharedMatch.items.length > 0 && sharedMatch.isFreshToday) {
+      console.log(`[Mandi Route Success] Fresh Today Shared Govt Cache hit (${sharedMatch.items.length} crops) for ${rawMandi}`);
+      sendGovtSuccess(
+        sharedMatch.items,
+        sharedMatch.sourceDate,
+        'सरकारी पोर्टल (AGMARKNET OGD) से प्राप्त प्रमाणित दैनिक दरें'
+      );
+      return;
     }
 
-    // Tier 1B: Try Live Official Government OGD API (High limit + alias + market fallback)
+    // Tier 1B: Automatically fetch Live Official Government OGD API when a new day starts, cache > 6h, or forceRefresh=true
     const ogdResult = await fetchFromGovtOgd(rawState, rawDistrict, rawMandi);
     if (ogdResult && ogdResult.items.length > 0) {
-      console.log(`[Mandi Route Success] Found ${ogdResult.items.length} records in Live Govt AGMARKNET for ${rawMandi}`);
+      console.log(`[Mandi Route Success] Auto-fetched ${ogdResult.items.length} records in Live Govt AGMARKNET for ${rawMandi}`);
       sendGovtSuccess(
         ogdResult.items,
         ogdResult.sourceDate,
         'सरकारी पोर्टल (AGMARKNET OGD) से लाइव प्राप्त प्रमाणित दैनिक दरें'
       );
       return;
-    }
-
-    // If forceRefresh was true and live OGD failed/was blocked, still check Shared Govt Cache before falling back
-    if (forceRefresh && govtConfig.enabled) {
-      const sharedMatch = await lookupSharedGovtCache(rawState, rawDistrict, rawMandi);
-      if (sharedMatch && sharedMatch.items.length > 0) {
-        console.log(`[Mandi Route Success] Shared Govt Cache fallback after live OGD for ${rawMandi}`);
-        sendGovtSuccess(
-          sharedMatch.items,
-          sharedMatch.sourceDate,
-          'सरकारी पोर्टल (AGMARKNET OGD साझा कैश) से प्राप्त प्रमाणित दैनिक दरें'
-        );
-        return;
-      }
     }
 
     // Tier 2: Dedicated Backup -> Mandi Pulse (mandipulse.com) (Strict State + District + Mandi match)
@@ -1899,31 +2945,18 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
       return;
     }
 
-    // Tier 3: Server-side Gemini Search Grounding if configured
-    const geminiResult = await fetchFromGeminiGrounding(rawState, rawDistrict, rawMandi);
-    if (geminiResult && geminiResult.items.length > 0) {
-      console.log(`[Mandi Route Success] Found ${geminiResult.items.length} records via Gemini Grounding for ${rawMandi}`);
-      const responseData: ServerMandiDetails = {
-        mandiName: rawMandi,
-        district: rawDistrict,
-        state: rawState,
-        date: geminiResult.sourceDate,
-        items: geminiResult.items,
-        sourceType: 'market_report',
-        sourceName: geminiResult.sourceName,
-        sourceDate: geminiResult.sourceDate,
-        fetchedAt: fetchedAtStr,
-        isLive: true,
-        isEstimated: false,
-        statusMessage: `${rawMandi} मंडी के लिए सार्वजनिक स्रोतों व ई-मंडी बुलेटिन से संकलित सत्यापित भाव`,
-      };
-
-      mandiCache.set(cacheKey, { data: responseData, timestamp: now });
-      res.json({ success: true, data: responseData });
+    // Tier 2B: If Live OGD & MandiPulse had no newer update yet today, gracefully serve recent Shared Govt Cache (< 48h)
+    if (sharedMatch && sharedMatch.items.length > 0) {
+      console.log(`[Mandi Route Success] Recent Shared Govt Cache fallback for ${rawMandi} (${sharedMatch.sourceDate})`);
+      sendGovtSuccess(
+        sharedMatch.items,
+        sharedMatch.sourceDate,
+        'सरकारी पोर्टल (AGMARKNET OGD साझा कैश) से प्राप्त नवीनतम उपलब्ध दरें'
+      );
       return;
     }
 
-    // Tier 4: Clean empty response (never mark unavailable data as govt!)
+    // Tier 4: Clean empty response (never mark unavailable data as govt, and zero paid AI fallback!)
     console.log(`[Mandi Route Complete] No official records found for ${rawMandi}. Returning clean empty state.`);
     const cleanEmptyDetails: ServerMandiDetails = {
       mandiName: rawMandi,
@@ -1940,7 +2973,7 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
       statusMessage: `${rawMandi} (${rawDistrict.split(' (')[0]}, ${rawState.split(' (')[0]}) मंडी के लिए आज का आधिकारिक डेटा उपलब्ध नहीं है।`,
     };
 
-    const emptyCacheDurationMs = Date.now() < geminiQuotaCooldownUntil ? 10 * 60 * 1000 : 3 * 60 * 1000;
+    const emptyCacheDurationMs = 3 * 60 * 1000;
     mandiCache.set(cacheKey, { data: cleanEmptyDetails, timestamp: now - (CACHE_TTL_MS - emptyCacheDurationMs) });
     res.json({
       success: true,

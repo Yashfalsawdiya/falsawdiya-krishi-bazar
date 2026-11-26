@@ -16,12 +16,15 @@ import {
 } from './emailTemplates.js';
 import {
   handleGetMandiPrices,
+  handleGetMandiHistory,
+  handleCronMandiSync,
   handleGetAdminMandiSettings,
   handleUpdateAdminMandiSettings,
   handleBuildAdminMandiSyncUrl,
   handleTestAdminMandiConnection,
   handleSyncAdminMandiGovt,
   handleImportAdminMandiCache,
+  setMandiAlertMailer,
 } from './mandiRoutes.js';
 import { handleGetDailyNews, handleSyncNews } from './newsRoutes.js';
 import { handleGetSchemes, handleSyncSchemes } from './schemeRoutes.js';
@@ -447,6 +450,9 @@ async function sendSmtpEmail(mailOptions: {
     }
   }
 }
+
+// Register SMTP failure/rate-limit mailer for automated mandi sync alerts
+setMandiAlertMailer(sendSmtpEmail);
 
 // Global Middlewares
 app.use(express.json({
@@ -1564,6 +1570,8 @@ app.get('/api/delivery/in-app-otp/:orderId', async (req: Request, res: Response)
 // ==========================================
 app.get('/api/mandi/prices', handleGetMandiPrices);
 app.get('/mandi/prices', handleGetMandiPrices);
+app.get('/api/mandi/history', handleGetMandiHistory);
+app.all('/api/cron/mandi-sync', handleCronMandiSync);
 app.get('/api/admin/mandi/settings', handleGetAdminMandiSettings);
 app.post('/api/admin/mandi/settings', handleUpdateAdminMandiSettings);
 app.get('/api/admin/mandi/build-sync-url', handleBuildAdminMandiSyncUrl);

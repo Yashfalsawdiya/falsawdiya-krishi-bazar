@@ -7,3 +7,5 @@ coverage/
 .env*
 !.env.example
 data/mandi-govt-config.json
+data/mandi-sync-status.json
+data/mandi-history-cache.json
