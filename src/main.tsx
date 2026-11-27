@@ -4,6 +4,14 @@ import App from './App.tsx';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 import { checkAppVersion, setupChunkErrorHandling } from './utils/cacheManager';
+import { installVercelPauseInterceptor } from './utils/vercelPauseDetector';
+
+// Install Vercel Deployment Pause (402) auto-detector for installed PWA offline resilience
+try {
+  installVercelPauseInterceptor();
+} catch (e) {
+  console.warn("installVercelPauseInterceptor warning:", e);
+}
 
 // Setup chunk error handling (hard reload on chunk load failure)
 try {

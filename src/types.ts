@@ -1026,6 +1026,16 @@ export interface AppContent {
   footer?: FooterConfig;
   featureToggles?: Record<string, boolean>;
   videoHubSettings?: VideoHubSettings;
+  monthlyLimitNotice?: MonthlyLimitNoticeConfig;
+}
+
+export interface MonthlyLimitNoticeConfig {
+  enabled?: boolean;
+  autoDetectVercelPause?: boolean;
+  badgeText?: string;
+  title?: string;
+  message?: string;
+  signature?: string;
 }
 
 export interface FooterLinkItem {

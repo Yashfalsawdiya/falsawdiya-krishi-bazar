@@ -197,7 +197,6 @@ const lastHistoryStatePollAt: Record<string, number> = {};
 let lastFirestoreCacheCheckAt = 0;
 let lastSyncStatusPollAt = 0;
 let isLocalSyncInFlight = false;
-const inFlightOgdRequests = new Map<string, Promise<{ items: ServerMandiItem[]; sourceDate: string } | null>>();
 
 // In-memory cache for final mandi responses (30 min TTL)
 interface CacheEntry {
@@ -1515,121 +1514,8 @@ async function fetchPaginatedOgdRecords(params: {
   };
 }
 
-// 1. Query Official Government OGD (data.gov.in / AGMARKNET dataset) with Single-Flight Deduplication
-// Strict rule: Record MUST match selected state, district, AND mandi
-async function fetchFromGovtOgd(
-  rawState: string,
-  rawDistrict: string,
-  rawMandi: string
-): Promise<{ items: ServerMandiItem[]; sourceDate: string } | null> {
-  if (!govtConfig.enabled) return null;
-  const { key: apiKey } = getActiveGovtApiKey();
-  if (!apiKey) {
-    return null;
-  }
-
-  const dedupKey = `${normalizeNoSpace(rawState)}|${normalizeNoSpace(rawDistrict)}|${normalizeNoSpace(rawMandi)}`;
-  const existingFlight = inFlightOgdRequests.get(dedupKey);
-  if (existingFlight) {
-    return existingFlight;
-  }
-
-  const flightPromise = (async (): Promise<{ items: ServerMandiItem[]; sourceDate: string } | null> => {
-    const { english: stateEnglish } = cleanLocation(rawState);
-    const { english: districtEnglish } = cleanLocation(rawDistrict);
-    const { english: mandiEnglish } = cleanLocation(rawMandi);
-    // Keep live per-mandi queries fast & safely capped at 1000 records per request
-    const queryLimit = Math.min(1000, Math.max(100, govtConfig.defaultLimit || 500));
-
-    try {
-      let allRawRecords: any[] = [];
-
-      const primaryRes = await fetchOgdRecords({
-        apiKey,
-        limit: queryLimit,
-        stateFilter: stateEnglish,
-        districtFilter: districtEnglish,
-        timeoutMs: 7000,
-      });
-
-      if (primaryRes.records.length > 0) {
-        allRawRecords = primaryRes.records;
-      } else if (stateEnglish === 'Delhi / NCR' || stateEnglish === 'Chhattisgarh') {
-        const aliasState = stateEnglish === 'Chhattisgarh' ? 'Chattisgarh' : 'NCT of Delhi';
-        const aliasRes = await fetchOgdRecords({
-          apiKey,
-          limit: queryLimit,
-          stateFilter: aliasState,
-          districtFilter: districtEnglish,
-          timeoutMs: 6000,
-        }).catch(() => ({ records: [], httpStatus: 0 }));
-        allRawRecords = aliasRes.records;
-      }
-
-      let normalizedMarkets = normalizeRawOgdRecordsToMarkets(allRawRecords);
-
-      const findMatch = (markets: Record<string, CachedGovtMarketEntry>) => {
-        for (const entry of Object.values(markets)) {
-          const sOk = checkLocationMatch(entry.state, rawState, 'state').match;
-          const dOk = checkLocationMatch(entry.district, rawDistrict, 'district').match;
-          const mOk = checkLocationMatch(entry.market, rawMandi, 'mandi').match;
-          if (sOk && dOk && mOk && entry.items.length > 0) {
-            return entry;
-          }
-        }
-        return null;
-      };
-
-      let matchedEntry = findMatch(normalizedMarkets);
-
-      if (!matchedEntry && mandiEnglish) {
-        const mktRes = await fetchOgdRecords({
-          apiKey,
-          limit: 200,
-          stateFilter: stateEnglish,
-          marketFilter: mandiEnglish,
-          timeoutMs: 6000,
-        }).catch(() => ({ records: [], httpStatus: 0 }));
-
-        if (mktRes.records.length > 0) {
-          const mktNormalized = normalizeRawOgdRecordsToMarkets(mktRes.records);
-          normalizedMarkets = mergeMarketCaches(normalizedMarkets, mktNormalized);
-          matchedEntry = findMatch(normalizedMarkets);
-        }
-      }
-
-      if (Object.keys(normalizedMarkets).length > 0) {
-        const updatedMarkets = mergeMarketCaches(govtCacheStore.markets || {}, normalizedMarkets);
-        saveGovtCacheToDisk({
-          version: (govtCacheStore.version || 1) + 1,
-          updatedAt: Date.now(),
-          syncSource: 'live_ogd',
-          totalRawRecords: Object.values(updatedMarkets).reduce((s, m) => s + m.items.length, 0),
-          markets: updatedMarkets,
-        });
-        updateCentralizedHistoryFromMarkets(normalizedMarkets);
-      }
-
-      if (matchedEntry) {
-        return {
-          items: matchedEntry.items,
-          sourceDate: matchedEntry.sourceDate || formatIndianDate(),
-        };
-      }
-      return null;
-    } catch (err) {
-      console.warn('[OGD Govt API] Error fetching:', (err as any)?.message || err);
-      return null;
-    }
-  })();
-
-  inFlightOgdRequests.set(dedupKey, flightPromise);
-  try {
-    return await flightPromise;
-  } finally {
-    inFlightOgdRequests.delete(dedupKey);
-  }
-}
+// Strict Zero-User-API-Call Rule: Public farmer requests NEVER call data.gov.in directly.
+// Official data.gov.in OGD syncing runs ONLY via 10x/day Cron (/api/cron/mandi-sync) and verified Admin (/api/admin/mandi/sync).
 
 // Helper to derive state slug for mandipulse.com
 function getStateSlug(stateEnglish: string): string {
@@ -2654,6 +2540,7 @@ export const handleGetMandiHistory = async (req: Request, res: Response): Promis
     const now = Date.now();
     const cached = historyApiCache.get(cacheKey);
     if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+      res.setHeader('Cache-Control', 'public, s-maxage=21600, stale-while-revalidate=43200');
       res.json(cached.data);
       return;
     }
@@ -2759,6 +2646,7 @@ export const handleGetMandiHistory = async (req: Request, res: Response): Promis
     };
 
     historyApiCache.set(cacheKey, { data: responsePayload, timestamp: now });
+    res.setHeader('Cache-Control', 'public, s-maxage=21600, stale-while-revalidate=43200');
     res.json(responsePayload);
   } catch (err: any) {
     res.json({ success: false, isAuthentic: false, daysCount: 0, commodities: {}, error: err?.message });
@@ -2849,27 +2737,26 @@ export const handleImportAdminMandiCache = async (req: Request, res: Response): 
 
 // ==========================================
 // MAIN PUBLIC ROUTE HANDLER: /api/mandi/prices
+// Strict Zero-User-API-Call Rule: NEVER calls data.gov.in directly!
 // ==========================================
 export const handleGetMandiPrices = async (req: Request, res: Response): Promise<void> => {
   try {
     const rawState = (req.query.state as string) || 'मध्यप्रदेश (Madhya Pradesh)';
     const rawDistrict = (req.query.district as string) || 'मंदसौर (Mandsaur)';
     const rawMandi = (req.query.mandi as string) || 'शामगढ़ (Shamgarh)';
-    const forceRefresh = req.query.forceRefresh === 'true';
 
     const cacheKey = `mandi_${normalizeNoSpace(rawState)}_${normalizeNoSpace(rawDistrict)}_${normalizeNoSpace(rawMandi)}`;
     const now = Date.now();
 
-    if (!forceRefresh) {
-      const cached = mandiCache.get(cacheKey);
-      if (cached && now - cached.timestamp < CACHE_TTL_MS) {
-        res.json({
-          success: true,
-          cached: true,
-          data: cached.data,
-        });
-        return;
-      }
+    const cached = mandiCache.get(cacheKey);
+    if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+      res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
+      res.json({
+        success: true,
+        cached: true,
+        data: cached.data,
+      });
+      return;
     }
 
     const fetchedAtStr = formatIndianTime();
@@ -2891,37 +2778,26 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
         statusMessage,
       };
       mandiCache.set(cacheKey, { data: responseData, timestamp: now });
+      res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
       res.json({ success: true, data: responseData });
     };
 
-    // Tier 1A (Fast Shared Govt Cache) ONLY if it is already fresh for today's IST date (< 6 hours old)
+    // Tier 1: Shared Govt Cache (populated exclusively by 10x/day Auto-Cron & Admin Sync)
     const sharedMatch = govtConfig.enabled
       ? await lookupSharedGovtCache(rawState, rawDistrict, rawMandi)
       : null;
 
-    if (!forceRefresh && sharedMatch && sharedMatch.items.length > 0 && sharedMatch.isFreshToday) {
-      console.log(`[Mandi Route Success] Fresh Today Shared Govt Cache hit (${sharedMatch.items.length} crops) for ${rawMandi}`);
+    if (sharedMatch && sharedMatch.items.length > 0 && sharedMatch.isFreshToday) {
+      console.log(`[Mandi Route Success] Shared Govt Cache hit (${sharedMatch.items.length} crops) for ${rawMandi}`);
       sendGovtSuccess(
         sharedMatch.items,
         sharedMatch.sourceDate,
-        'सरकारी पोर्टल (AGMARKNET OGD) से प्राप्त प्रमाणित दैनिक दरें'
+        'सरकारी पोर्टल (AGMARKNET OGD साझा कैश) से प्राप्त प्रमाणित दैनिक दरें'
       );
       return;
     }
 
-    // Tier 1B: Automatically fetch Live Official Government OGD API when a new day starts, cache > 6h, or forceRefresh=true
-    const ogdResult = await fetchFromGovtOgd(rawState, rawDistrict, rawMandi);
-    if (ogdResult && ogdResult.items.length > 0) {
-      console.log(`[Mandi Route Success] Auto-fetched ${ogdResult.items.length} records in Live Govt AGMARKNET for ${rawMandi}`);
-      sendGovtSuccess(
-        ogdResult.items,
-        ogdResult.sourceDate,
-        'सरकारी पोर्टल (AGMARKNET OGD) से लाइव प्राप्त प्रमाणित दैनिक दरें'
-      );
-      return;
-    }
-
-    // Tier 2: Dedicated Backup -> Mandi Pulse (mandipulse.com) (Strict State + District + Mandi match)
+    // Tier 2: Dedicated Backup -> Mandi Pulse (mandipulse.com) (Strict State + District + Mandi match, zero data.gov.in load)
     const mandiPulseResult = await fetchFromMandiPulse(rawState, rawDistrict, rawMandi);
     if (mandiPulseResult && mandiPulseResult.items.length > 0) {
       console.log(`[Mandi Route Success] Backup MandiPulse found ${mandiPulseResult.items.length} records for ${rawMandi}`);
@@ -2937,15 +2813,16 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
         fetchedAt: fetchedAtStr,
         isLive: true,
         isEstimated: false,
-        statusMessage: 'सरकारी पोर्टल पर डेटा न मिलने पर मंडी पल्स (MandiPulse.com) बैकअप से प्राप्त सत्यापित लाइव भाव',
+        statusMessage: 'सरकारी पोर्टल साझा कैश प्रतीक्षारत होने पर मंडी पल्स (MandiPulse.com) से प्राप्त सत्यापित लाइव भाव',
       };
 
       mandiCache.set(cacheKey, { data: responseData, timestamp: now });
+      res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
       res.json({ success: true, data: responseData });
       return;
     }
 
-    // Tier 2B: If Live OGD & MandiPulse had no newer update yet today, gracefully serve recent Shared Govt Cache (< 48h)
+    // Tier 3: Recent Shared Govt Cache fallback (keeps latest verified govt rates available up to 10 days)
     if (sharedMatch && sharedMatch.items.length > 0) {
       console.log(`[Mandi Route Success] Recent Shared Govt Cache fallback for ${rawMandi} (${sharedMatch.sourceDate})`);
       sendGovtSuccess(
@@ -2956,8 +2833,8 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
       return;
     }
 
-    // Tier 4: Clean empty response (never mark unavailable data as govt, and zero paid AI fallback!)
-    console.log(`[Mandi Route Complete] No official records found for ${rawMandi}. Returning clean empty state.`);
+    // Tier 4: Clean empty response (zero data.gov.in call, zero paid AI fallback)
+    console.log(`[Mandi Route Complete] No official records in cache/backup for ${rawMandi}. Returning clean empty state.`);
     const cleanEmptyDetails: ServerMandiDetails = {
       mandiName: rawMandi,
       district: rawDistrict,
@@ -2975,6 +2852,7 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
 
     const emptyCacheDurationMs = 3 * 60 * 1000;
     mandiCache.set(cacheKey, { data: cleanEmptyDetails, timestamp: now - (CACHE_TTL_MS - emptyCacheDurationMs) });
+    res.setHeader('Cache-Control', 'public, s-maxage=180, stale-while-revalidate=300');
     res.json({
       success: true,
       data: cleanEmptyDetails,
@@ -2987,3 +2865,13 @@ export const handleGetMandiPrices = async (req: Request, res: Response): Promise
     });
   }
 };
+
+export function clearMandiMemoryCaches(): void {
+  mandiCache.clear();
+  historyApiCache.clear();
+  lastFirestoreCacheCheckAt = 0;
+  for (const k of Object.keys(lastHistoryStatePollAt)) {
+    delete lastHistoryStatePollAt[k];
+  }
+}
+

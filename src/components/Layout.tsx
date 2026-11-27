@@ -5,11 +5,15 @@ import BottomNav from './BottomNav';
 import Footer from './Footer';
 import OfflineIndicator from './OfflineIndicator';
 import SmartImage from './SmartImage';
+import MonthlyLimitNoticeScreen from './MonthlyLimitNoticeScreen';
 import { useAppContext } from '../context/AppContext';
+import { useVercelPauseDetected, recheckVercelAvailability } from '../utils/vercelPauseDetector';
 import { LogIn, Sprout, Loader2, ShieldCheck, ArrowRight, Lock } from 'lucide-react';
 
 const Layout: React.FC = () => {
-  const { user, loading, login, appContent, isAdmin } = useAppContext();
+  const { user, loading, login, appContent, isAdmin, forceSyncCatalog } = useAppContext();
+  const vercelPaused = useVercelPauseDetected();
+  const [retryingService, setRetryingService] = useState(false);
 
   // Dynamic header top offset strictly for Laptop & Desktop (window.innerWidth >= 1024)
   const [desktopHeaderOffset, setDesktopHeaderOffset] = useState<number | null>(null);
@@ -64,6 +68,31 @@ const Layout: React.FC = () => {
         <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin" />
         <p className="mt-4 text-sm font-bold text-[#2D5A27]">लोड हो रहा है...</p>
       </div>
+    );
+  }
+
+  // Monthly Free Limit / Vercel Service Pause Notice (Manual Admin trigger OR auto-detected 402 pause)
+  const isMonthlyLimitManual = appContent?.monthlyLimitNotice?.enabled === true;
+  const isMonthlyLimitAuto = vercelPaused && appContent?.monthlyLimitNotice?.autoDetectVercelPause !== false;
+  if ((isMonthlyLimitManual || isMonthlyLimitAuto) && !isAdmin) {
+    return (
+      <MonthlyLimitNoticeScreen
+        config={appContent?.monthlyLimitNotice}
+        logo={appContent?.branding?.logo}
+        isAutoDetected={!isMonthlyLimitManual && isMonthlyLimitAuto}
+        retrying={retryingService}
+        onRetry={async () => {
+          setRetryingService(true);
+          try {
+            const ok = await recheckVercelAvailability();
+            if (ok || isMonthlyLimitManual) {
+              await forceSyncCatalog();
+            }
+          } finally {
+            setRetryingService(false);
+          }
+        }}
+      />
     );
   }
 

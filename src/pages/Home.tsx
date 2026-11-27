@@ -30,6 +30,7 @@ import { DeviceBanner, YouTubeVideoItem } from '../types';
 import { sortCategoriesByOrder } from '../utils/categoryUtils';
 import { useFeatureToggle } from '../hooks/useFeatureToggle';
 import { formatHindiDate } from '../lib/dateUtils';
+import { withCdnEpoch } from '../utils/cdnCacheBuster';
 
 const BANNERS = [
   {
@@ -303,7 +304,7 @@ const Home: React.FC = () => {
     if (channelUrl) params.set('channelUrl', channelUrl);
     if (channelId) params.set('channelId', channelId);
 
-    fetch(`/api/videos/youtube?${params.toString()}`)
+    fetch(withCdnEpoch(`/api/videos/youtube?${params.toString()}`))
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!cancelled && data?.success && Array.isArray(data.videos)) {

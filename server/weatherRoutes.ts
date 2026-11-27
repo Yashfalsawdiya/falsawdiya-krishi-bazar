@@ -556,6 +556,7 @@ export async function handleGetWeatherForecast(req: Request, res: Response): Pro
     now - cached.fetchedAt < FORECAST_CACHE_TTL_MS &&
     cached.dateStr === todayYmd
   ) {
+    res.setHeader('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=3600');
     res.json({ success: true, data: { ...cached, isStale: false } });
     return;
   }
@@ -564,6 +565,7 @@ export async function handleGetWeatherForecast(req: Request, res: Response): Pro
     const fresh = await fetchFromOpenMeteo(lat, lon);
     forecastMemoryCache.set(cacheKey, fresh);
     persistForecastCache();
+    res.setHeader('Cache-Control', force ? 'no-store' : 'public, s-maxage=1800, stale-while-revalidate=3600');
     res.json({ success: true, data: fresh });
     return;
   } catch (err) {
@@ -574,6 +576,7 @@ export async function handleGetWeatherForecast(req: Request, res: Response): Pro
     const fallbackWttr = await fetchFromWttr(lat, lon);
     forecastMemoryCache.set(cacheKey, fallbackWttr);
     persistForecastCache();
+    res.setHeader('Cache-Control', force ? 'no-store' : 'public, s-maxage=1800, stale-while-revalidate=3600');
     res.json({ success: true, data: fallbackWttr });
     return;
   } catch (err) {
@@ -581,6 +584,7 @@ export async function handleGetWeatherForecast(req: Request, res: Response): Pro
   }
 
   if (cached) {
+    res.setHeader('Cache-Control', force ? 'no-store' : 'public, s-maxage=180, stale-while-revalidate=300');
     res.json({
       success: true,
       data: {
@@ -673,6 +677,7 @@ export async function handleGetOfficialWarnings(_req: Request, res: Response): P
       const expMs = new Date(w.expires).getTime();
       return isNaN(expMs) || expMs > now;
     });
+    res.setHeader('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=3600');
     res.json({
       success: true,
       source: 'NDMA Sachet / IMD CAP',
@@ -705,6 +710,7 @@ export async function handleGetOfficialWarnings(_req: Request, res: Response): P
       };
       warningsMemoryCache = updatedState;
       persistWarningsCache(updatedState);
+      res.setHeader('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=3600');
       res.json({
         success: true,
         source: 'NDMA Sachet / IMD CAP',
@@ -821,6 +827,7 @@ export async function handleGetOfficialWarnings(_req: Request, res: Response): P
     warningsMemoryCache = nextState;
     persistWarningsCache(nextState);
 
+    res.setHeader('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=3600');
     res.json({
       success: true,
       source: 'NDMA Sachet / IMD CAP',
@@ -830,6 +837,7 @@ export async function handleGetOfficialWarnings(_req: Request, res: Response): P
     });
   } catch (err) {
     console.warn('[Weather Warnings Hub] Sachet CAP feed unavailable:', err);
+    res.setHeader('Cache-Control', 'public, s-maxage=180, stale-while-revalidate=300');
     res.json({
       success: true,
       source: 'NDMA Sachet / IMD CAP',
@@ -841,3 +849,9 @@ export async function handleGetOfficialWarnings(_req: Request, res: Response): P
     });
   }
 }
+
+export function clearWeatherMemoryCaches(): void {
+  forecastMemoryCache.clear();
+  warningsMemoryCache = null;
+}
+

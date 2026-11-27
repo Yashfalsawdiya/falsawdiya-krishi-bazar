@@ -33,6 +33,7 @@ const AdminFooterManager = lazy(() => import('../components/AdminFooterManager')
 const AdminFeaturesManager = lazy(() => import('../components/AdminFeaturesManager'));
 const AdminMandiManager = lazy(() => import('../components/AdminMandiManager'));
 const AccountingDashboard = lazy(() => import('../components/accounting/AccountingDashboard'));
+const AdminMonthlyLimitNoticeManager = lazy(() => import('../components/AdminMonthlyLimitNoticeManager'));
 
 const AdminTabFallback: React.FC = () => (
   <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white rounded-3xl border border-gray-100 shadow-sm">
@@ -2333,6 +2334,18 @@ const Admin: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Monthly Free Limit Notice & Live Farmer Preview */}
+          <SafeErrorBoundary>
+            <Suspense fallback={<AdminTabFallback />}>
+              <AdminMonthlyLimitNoticeManager
+                contentForm={contentForm}
+                setContentForm={setContentForm}
+                onSaveContent={updateAppContent}
+                onForcePush={forcePushAllUpdates}
+              />
+            </Suspense>
+          </SafeErrorBoundary>
 
           {/* Treatment Plan Visibility Setting Card (Crop Doctor / Disease Report) */}
           <div className="space-y-4">

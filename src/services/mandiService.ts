@@ -3,6 +3,7 @@ import { auth, db } from "../firebase";
 import { MandiItem, MandiDetails } from "../data/mandiData";
 import { formatHindiDate, formatHindiTime, HINDI_MONTHS } from "../lib/dateUtils";
 import { MandiHistoryPoint } from "../utils/mandiHistoryManager";
+import { withCdnEpoch } from "../utils/cdnCacheBuster";
 
 // Backwards compatibility types
 export type { MandiItem, MandiDetails as MandiData };
@@ -414,7 +415,7 @@ export async function fetchMandiBhav(
 
   const cacheKey = `mandi_v2_${state}_${district}_${mandi}`.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]+/g, '_');
   const cacheTimeKey = `${cacheKey}_timestamp`;
-  const cacheDuration = 30 * 60 * 1000;
+  const cacheDuration = 2 * 60 * 60 * 1000; // 2 hours client cache
 
   const cachedData = localStorage.getItem(cacheKey);
   const cachedTime = localStorage.getItem(cacheTimeKey);
@@ -434,16 +435,15 @@ export async function fetchMandiBhav(
     }
   }
 
-  // 2. Primary Strategy: Call Server Backend (/api/mandi/prices)
+  // 2. Primary Strategy: Call Server Backend (/api/mandi/prices — CDN & Shared Cache only, zero data.gov.in user calls)
   try {
     const queryParams = new URLSearchParams({
       state,
       district,
       mandi,
-      forceRefresh: forceRefresh ? 'true' : 'false',
     });
 
-    const serverRes = await fetch(`/api/mandi/prices?${queryParams.toString()}`);
+    const serverRes = await fetch(withCdnEpoch(`/api/mandi/prices?${queryParams.toString()}`));
     if (serverRes.ok) {
       const serverJson = await serverRes.json();
       if (serverJson.success && serverJson.data) {
@@ -534,7 +534,7 @@ export async function fetchMandiHistory(
 
   try {
     const qs = new URLSearchParams({ state, district, mandi });
-    const res = await fetch(`/api/mandi/history?${qs.toString()}`);
+    const res = await fetch(withCdnEpoch(`/api/mandi/history?${qs.toString()}`));
     if (res.ok) {
       const data: MandiHistoryResponse = await res.json();
       if (data.success && data.isAuthentic) {

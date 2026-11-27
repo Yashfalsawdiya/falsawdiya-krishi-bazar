@@ -233,10 +233,25 @@ function getDocumentUrl(collection: string, docId: string, useKeyParam: boolean 
   return `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/${dbPath}/documents/${collection}/${docId}${keyParam}`;
 }
 
+function getCollectionUrl(collection: string, useKeyParam: boolean = true, pageToken?: string): string {
+  const dbPath = DATABASE_ID ? `(default)` === DATABASE_ID ? '(default)' : DATABASE_ID : '(default)';
+  const params = new URLSearchParams({ pageSize: '300' });
+  if (useKeyParam && API_KEY) {
+    params.set('key', API_KEY);
+  }
+  if (pageToken) {
+    params.set('pageToken', pageToken);
+  }
+  return `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/${dbPath}/documents/${collection}?${params.toString()}`;
+}
+
 /**
- * Fetch a document from Firestore REST API
+ * Fetch a document from Firestore REST API with status metadata
  */
-export async function getRemoteFirestoreDoc<T = any>(collection: string, docId: string): Promise<T | null> {
+export async function getRemoteFirestoreDocStatus<T = any>(
+  collection: string,
+  docId: string
+): Promise<{ ok: boolean; exists: boolean; data: T | null; status?: number }> {
   try {
     const accessToken = await getServiceAccountAccessToken();
     const url = getDocumentUrl(collection, docId, !accessToken);
@@ -248,23 +263,80 @@ export async function getRemoteFirestoreDoc<T = any>(collection: string, docId: 
     const res = await fetch(url, { headers });
 
     if (res.status === 404) {
-      return null;
+      return { ok: true, exists: false, data: null, status: 404 };
     }
 
     if (!res.ok) {
       const errText = await res.text();
       console.warn(`[FirestoreSync] getDoc ${collection}/${docId} returned status ${res.status}:`, errText);
-      return null;
+      return { ok: false, exists: false, data: null, status: res.status };
     }
 
     const data: any = await res.json();
     if (data && data.fields) {
-      return fromFirestoreFields(data.fields) as T;
+      return { ok: true, exists: true, data: fromFirestoreFields(data.fields) as T, status: 200 };
     }
-    return null;
+    return { ok: true, exists: false, data: null, status: 200 };
   } catch (err: any) {
     console.warn(`[FirestoreSync] getDoc ${collection}/${docId} error:`, err.message);
-    return null;
+    return { ok: false, exists: false, data: null };
+  }
+}
+
+/**
+ * Fetch a document from Firestore REST API
+ */
+export async function getRemoteFirestoreDoc<T = any>(collection: string, docId: string): Promise<T | null> {
+  const result = await getRemoteFirestoreDocStatus<T>(collection, docId);
+  return result.exists ? result.data : null;
+}
+
+/**
+ * List all documents in a public Firestore collection via REST API (handles pagination).
+ */
+export async function listRemoteFirestoreCollection<T = Record<string, any>>(
+  collection: string
+): Promise<{ ok: boolean; items: Array<T & { id: string }>; status?: number }> {
+  try {
+    const accessToken = await getServiceAccountAccessToken();
+    const headers: Record<string, string> = { 'Accept': 'application/json' };
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+
+    const items: Array<T & { id: string }> = [];
+    let pageToken: string | undefined = undefined;
+    let pageCount = 0;
+
+    do {
+      const url = getCollectionUrl(collection, !accessToken, pageToken);
+      const res = await fetch(url, { headers });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        console.warn(`[FirestoreSync] listCollection ${collection} returned status ${res.status}:`, errText);
+        return { ok: false, items: [], status: res.status };
+      }
+
+      const data: any = await res.json();
+      const docs = Array.isArray(data?.documents) ? data.documents : [];
+      for (const docItem of docs) {
+        const namePath = String(docItem?.name || '');
+        const docId = namePath.split('/').pop() || '';
+        const fieldsData = docItem?.fields ? fromFirestoreFields(docItem.fields) : {};
+        if (docId) {
+          items.push({ id: docId, ...(fieldsData as T) });
+        }
+      }
+
+      pageToken = typeof data?.nextPageToken === 'string' && data.nextPageToken ? data.nextPageToken : undefined;
+      pageCount += 1;
+    } while (pageToken && pageCount < 25);
+
+    return { ok: true, items, status: 200 };
+  } catch (err: any) {
+    console.warn(`[FirestoreSync] listCollection ${collection} error:`, err?.message || err);
+    return { ok: false, items: [] };
   }
 }
 

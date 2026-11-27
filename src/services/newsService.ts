@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { getFriendlyAiError } from "../utils/aiErrorHandler";
 import { HINDI_MONTHS } from "../lib/dateUtils";
+import { withCdnEpoch } from "../utils/cdnCacheBuster";
 
 const getAI = (userApiKey?: string) => {
   const apiKey = userApiKey;
@@ -361,7 +362,7 @@ export const fetchAgriNews = async (userApiKey?: string, forceRefresh: boolean =
 
   // 2. Centralized Real News Hub (Powered by live verified agricultural RSS feeds)
   try {
-    const srvRes = await fetch(`/api/news/daily?forceRefresh=${forceRefresh ? 'true' : 'false'}`);
+    const srvRes = await fetch(withCdnEpoch(`/api/news/daily?forceRefresh=${forceRefresh ? 'true' : 'false'}`));
     if (srvRes.ok) {
       const srvJson = await srvRes.json();
       if (srvJson.success && Array.isArray(srvJson.items) && srvJson.items.length > 0) {

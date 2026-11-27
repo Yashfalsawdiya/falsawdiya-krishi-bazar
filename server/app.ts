@@ -5,7 +5,8 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { 
   getRemoteFirestoreDoc, 
-  setRemoteFirestoreDoc 
+  setRemoteFirestoreDoc,
+  verifyAdminFirebaseToken,
 } from './firestoreSync.js';
 import {
   renderDeliveryOtpEmailHtml,
@@ -25,11 +26,17 @@ import {
   handleSyncAdminMandiGovt,
   handleImportAdminMandiCache,
   setMandiAlertMailer,
+  clearMandiMemoryCaches,
 } from './mandiRoutes.js';
-import { handleGetDailyNews, handleSyncNews } from './newsRoutes.js';
+import { handleGetDailyNews, handleSyncNews, clearNewsMemoryCache } from './newsRoutes.js';
 import { handleGetSchemes, handleSyncSchemes } from './schemeRoutes.js';
-import { handleGetYouTubeVideos, handleSyncYouTubeVideos } from './videoRoutes.js';
-import { handleGetWeatherForecast, handleGetOfficialWarnings } from './weatherRoutes.js';
+import { handleGetYouTubeVideos, handleSyncYouTubeVideos, clearVideoMemoryCaches } from './videoRoutes.js';
+import { handleGetWeatherForecast, handleGetOfficialWarnings, clearWeatherMemoryCaches } from './weatherRoutes.js';
+import {
+  handleGetCatalogVersion,
+  handleGetCatalogData,
+  clearCatalogMemoryCaches,
+} from './catalogRoutes.js';
 
 export const app = express();
 
@@ -1598,6 +1605,41 @@ app.post('/api/videos/sync', handleSyncYouTubeVideos);
 // ==========================================
 app.get('/api/weather/forecast', handleGetWeatherForecast);
 app.get('/api/weather/warnings', handleGetOfficialWarnings);
+
+// ==========================================
+// VERCEL EDGE CDN PUBLIC CATALOG HUB
+// ==========================================
+app.get('/api/catalog/version', handleGetCatalogVersion);
+app.get('/api/catalog/data', handleGetCatalogData);
+
+// Admin Force-Push Cache Purge (clears server RAM caches so fresh data is served immediately)
+app.post('/api/admin/cache/purge', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const match = authHeader.match(/^Bearer\s+(.+)$/i);
+    const idToken = match ? match[1].trim() : '';
+    const adminUser = await verifyAdminFirebaseToken(idToken);
+    if (!adminUser) {
+      res.status(401).json({ success: false, error: 'केवल सत्यापित Admin ही कैश रीसेट कर सकते हैं।' });
+      return;
+    }
+
+    clearMandiMemoryCaches();
+    clearNewsMemoryCache();
+    clearVideoMemoryCaches();
+    clearWeatherMemoryCaches();
+    clearCatalogMemoryCaches();
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      success: true,
+      purgedAt: Date.now(),
+      message: 'सभी सर्वर मेमोरी कैश सफलतापूर्वक रीसेट हो गए हैं।',
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Cache purge error' });
+  }
+});
 
 // Health check endpoint
 app.get('/api/health', async (_req: Request, res: Response) => {

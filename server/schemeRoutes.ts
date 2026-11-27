@@ -451,10 +451,15 @@ export const handleGetSchemes = async (req: Request, res: Response): Promise<voi
     const forceRefresh = req.query.forceRefresh === 'true';
     const now = Date.now();
 
+    const cdnHeader = forceRefresh
+      ? 'no-store'
+      : 'public, s-maxage=21600, stale-while-revalidate=43200';
+
     // 1. Fast Cache Hit
     if (!forceRefresh && centralSchemesCache && centralSchemesCache.items.length > 0) {
       const isStillFresh = now - centralSchemesCache.timestamp < CACHE_TTL_MS;
       if (isStillFresh) {
+        res.setHeader('Cache-Control', cdnHeader);
         res.json({
           success: true,
           cached: true,
@@ -544,6 +549,7 @@ export const handleGetSchemes = async (req: Request, res: Response): Promise<voi
             saveCacheToDisk(centralSchemesCache);
             console.log(`[Central Scheme Cache] Successfully merged schemes. Total active library: ${merged.length} items.`);
 
+            res.setHeader('Cache-Control', cdnHeader);
             res.json({
               success: true,
               cached: false,
@@ -564,6 +570,7 @@ export const handleGetSchemes = async (req: Request, res: Response): Promise<voi
       ? centralSchemesCache.items 
       : VERIFIED_SEED_SCHEMES;
 
+    res.setHeader('Cache-Control', cdnHeader);
     res.json({
       success: true,
       cached: true,

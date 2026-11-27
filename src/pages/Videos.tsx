@@ -43,6 +43,7 @@ import {
 } from '../utils/youtubeUtils';
 import SmartImage from '../components/SmartImage';
 import YouTubeEmbedPlayer from '../components/YouTubeEmbedPlayer';
+import { withCdnEpoch } from '../utils/cdnCacheBuster';
 import { cn } from '../lib/utils';
 
 type FormatTab = 'videos' | 'shorts';
@@ -135,7 +136,7 @@ const Videos: React.FC = () => {
         if (channelId) params.set('channelId', channelId);
         if (forceRefresh) params.set('forceRefresh', 'true');
 
-        const res = await fetch(`/api/videos/youtube?${params.toString()}`);
+        const res = await fetch(withCdnEpoch(`/api/videos/youtube?${params.toString()}`));
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 

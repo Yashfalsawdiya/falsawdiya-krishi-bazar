@@ -388,16 +388,6 @@ const AdminMandiManager: React.FC = () => {
             </p>
           </div>
         </div>
-
-        <button
-          type="button"
-          onClick={loadData}
-          disabled={loading}
-          className="px-3.5 py-2 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 text-xs font-bold text-gray-700 flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>रिफ्रेश करें</span>
-        </button>
       </div>
 
       {/* Status Alert */}

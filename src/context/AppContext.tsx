@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Product, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig, DeliveryEmailTemplateConfig, DeviceType, DeviceBanner, DeviceBannersMap, YouTubeVideoItem, FooterConfig, VideoPlaylist, PlaylistVideoItem } from '../types';
+import { Product, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig, DeliveryEmailTemplateConfig, DeviceType, DeviceBanner, DeviceBannersMap, YouTubeVideoItem, FooterConfig, VideoPlaylist, PlaylistVideoItem, MonthlyLimitNoticeConfig } from '../types';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
 import { DEFAULT_INVOICE_TEMPLATE, mergeInvoiceTemplate } from '../data/defaultInvoiceTemplate';
 import { DEFAULT_DELIVERY_EMAIL_TEMPLATE, mergeDeliveryEmailTemplate } from '../data/defaultDeliveryEmailTemplate';
@@ -41,12 +41,14 @@ import {
   bumpMetadataVersion, 
   forcePushMetadataVersion, 
   syncBroadcastChannel, 
-  MetadataVersionRecord, 
+  MetadataVersionRecord,
+  MetadataCollectionKey,
   IDB_KEYS 
 } from '../utils/dataSyncManager';
 import { idbSet, idbGet } from '../utils/idbStorage';
 import { sortCategoriesByOrder } from '../utils/categoryUtils';
 import { formatWeightSlabLabel } from '../utils/deliveryCalculator';
+import { syncCdnEpochFromMetadata } from '../utils/cdnCacheBuster';
 
 export interface AppContent {
   branding: {
@@ -103,6 +105,7 @@ export interface AppContent {
   footer?: FooterConfig;
   featureToggles?: Record<string, boolean>;
   videoHubSettings?: import('../types').VideoHubSettings;
+  monthlyLimitNotice?: MonthlyLimitNoticeConfig;
 }
 
 export interface UserSettings {
@@ -164,12 +167,13 @@ interface AppContextType {
   resetDeliveryEmailTemplate: () => Promise<void>;
   updateDeliveryConfig: (config: DynamicDeliveryConfig) => Promise<void>;
   resetDeliveryConfig: () => Promise<void>;
-  forcePushAllUpdates: (message?: string) => Promise<{
+  forcePushAllUpdates: (message?: string, changedCollections?: MetadataCollectionKey[]) => Promise<{
     success: boolean;
     version: number;
     timestamp: number;
     productsCount: number;
     categoriesCount: number;
+    syncedCollections?: MetadataCollectionKey[];
     message: string;
   }>;
   forceSyncCatalog: () => Promise<void>;
@@ -512,7 +516,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (cached.invoiceTemplate) setInvoiceTemplate(mergeInvoiceTemplate(cached.invoiceTemplate));
       if (cached.deliveryEmailTemplate) setDeliveryEmailTemplate(mergeDeliveryEmailTemplate(cached.deliveryEmailTemplate));
 
-      // 2. Intelligent single version check on launch
+      // 2. Intelligent version check on launch (Vercel Edge CDN with 2h throttle = 0 Firestore reads & low Vercel requests; direct for Admin)
       try {
         const syncRes = await syncDataIfVersionChanged(db, { isAdmin });
         if (syncRes.updated && syncRes.newData) {
@@ -525,36 +529,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     initData();
 
-    // 3. Real-Time Metadata Version Listener for ALL Active Online Users
-    // (Consumes 0 incremental reads after connection until an admin bumps or force-pushes updates!)
-    const unsubMetadataVersion = onSnapshot(doc(db, 'settings', 'metadata_version'), async (snapshot) => {
-      if (!isMounted || !snapshot.exists()) return;
-      const remoteData = snapshot.data() as MetadataVersionRecord;
-      const localVersion = await idbGet<MetadataVersionRecord>(IDB_KEYS.METADATA_VERSION);
+    // 3. Real-Time Metadata Version Listener (Admin-only so 100k+ regular farmers consume 0 Firestore connections & reads)
+    let unsubMetadataVersion: Unsubscribe | undefined;
+    if (isAdmin) {
+      unsubMetadataVersion = onSnapshot(doc(db, 'settings', 'metadata_version'), async (snapshot) => {
+        if (!isMounted || !snapshot.exists()) return;
+        const remoteData = snapshot.data() as MetadataVersionRecord;
+        const localVersion = await idbGet<MetadataVersionRecord>(IDB_KEYS.METADATA_VERSION);
 
-      const isNewer = !localVersion || remoteData.version > (localVersion.version || 0);
-      const isCritical = Boolean(remoteData.criticalUpdate && remoteData.criticalTimestamp && (!localVersion || remoteData.criticalTimestamp > (localVersion.criticalTimestamp || 0)));
+        const isNewer = !localVersion || remoteData.version > (localVersion.version || 0);
+        const isCritical = Boolean(remoteData.criticalUpdate && remoteData.criticalTimestamp && (!localVersion || remoteData.criticalTimestamp > (localVersion.criticalTimestamp || 0)));
 
-      if (isNewer || isCritical) {
-        console.log('[SyncManager] Live metadata version update detected:', remoteData.version, 'Syncing fresh catalog...');
-        try {
-          const syncRes = await syncDataIfVersionChanged(db, { forceSync: true, isAdmin });
-          if (syncRes.updated && syncRes.newData) {
-            applySyncData(syncRes.newData);
-          }
-        } catch (err) {
-          console.warn('[SyncManager] Live update sync error:', err);
+        if (remoteData.criticalTimestamp) {
+          syncCdnEpochFromMetadata(remoteData.criticalTimestamp, true);
         }
-      }
-    }, (err) => {
-      console.warn('[SyncManager] Metadata version listener warning:', err);
-    });
+
+        if (isNewer || isCritical) {
+          console.log('[SyncManager] Live metadata version update detected:', remoteData.version, 'Syncing fresh catalog...');
+          try {
+            const syncRes = await syncDataIfVersionChanged(db, { forceSync: true, isAdmin });
+            if (syncRes.updated && syncRes.newData) {
+              applySyncData(syncRes.newData);
+            }
+          } catch (err) {
+            console.warn('[SyncManager] Live update sync error:', err);
+          }
+        }
+      }, (err) => {
+        console.warn('[SyncManager] Metadata version listener warning:', err);
+      });
+    }
 
     // 4. Offline Reconnection Sync (When device reconnects to Wi-Fi/4G/5G)
     const handleOnline = async () => {
       console.log('[SyncManager] Device reconnected to internet. Verifying latest catalog...');
       try {
-        const syncRes = await syncDataIfVersionChanged(db, { forceSync: true, isAdmin });
+        const syncRes = await syncDataIfVersionChanged(db, {
+          isAdmin,
+          bypassCdnThrottle: true,
+          forceSync: isAdmin,
+        });
         if (syncRes.updated && syncRes.newData) {
           applySyncData(syncRes.newData);
         }
@@ -582,6 +596,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const handleBroadcastMessage = async (event: MessageEvent) => {
       if (event.data?.type === 'FORCE_PUSH' || event.data?.type === 'VERSION_BUMP') {
         console.log('[SyncManager] Cross-tab broadcast received:', event.data);
+        if (event.data?.type === 'FORCE_PUSH' && event.data?.timestamp) {
+          syncCdnEpochFromMetadata(Number(event.data.timestamp), true);
+        }
         try {
           const syncRes = await syncDataIfVersionChanged(db, { forceSync: true, isAdmin });
           if (syncRes.updated && syncRes.newData) {
@@ -971,10 +988,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
 
       await batch.commit();
+      await bumpMetadataVersion(db, 'products');
     } catch (error) {
       console.warn("Batch remove featured write failed, trying individual fallback:", error);
       try {
         await setDoc(doc(db, 'products', productId), { isFeatured: false, featuredOrder: 0 }, { merge: true });
+        await bumpMetadataVersion(db, 'products');
       } catch (fallbackErr) {
         handleFirestoreError(fallbackErr, OperationType.UPDATE, `products/${productId}`);
       }
@@ -1007,6 +1026,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       });
       await batch.commit();
+      await bumpMetadataVersion(db, 'products');
     } catch (error) {
       console.warn("Batch reorder write failed, falling back to individual updates:", error);
       try {
@@ -1015,6 +1035,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setDoc(doc(db, 'products', p.id), { featuredOrder: p.featuredOrder }, { merge: true })
           )
         );
+        await bumpMetadataVersion(db, 'products');
       } catch (fallbackErr) {
         handleFirestoreError(fallbackErr, OperationType.UPDATE, 'products/reorder');
       }
@@ -1710,9 +1731,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const forcePushAllUpdates = async (message?: string) => {
+  const forcePushAllUpdates = async (message?: string, changedCollections?: MetadataCollectionKey[]) => {
     try {
-      const pushRes = await forcePushMetadataVersion(db, message);
+      // 1. Purge server RAM caches first so the fresh CDN epoch pulls 100% live data immediately
+      try {
+        const idToken = await auth.currentUser?.getIdToken();
+        if (idToken) {
+          await fetch('/api/admin/cache/purge', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`,
+            },
+          }).catch(() => {});
+        }
+      } catch {}
+
+      const pushRes = await forcePushMetadataVersion(db, message, changedCollections);
       const syncRes = await syncDataIfVersionChanged(db, { forceSync: true, isAdmin: true });
       if (syncRes.updated && syncRes.newData) {
         if (syncRes.newData.products) setProducts(syncRes.newData.products);
@@ -1723,6 +1758,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (syncRes.newData.playlistVideos) setPlaylistVideos(syncRes.newData.playlistVideos);
         if (syncRes.newData.appContent) setAppContent(syncRes.newData.appContent);
         if (syncRes.newData.deliveryConfig) setDeliveryConfig(mergeDeliveryConfig(syncRes.newData.deliveryConfig));
+        if (syncRes.newData.legalPages) setLegalPagesContent(mergeLegalPages(syncRes.newData.legalPages));
+        if (syncRes.newData.invoiceTemplate) setInvoiceTemplate(mergeInvoiceTemplate(syncRes.newData.invoiceTemplate));
+        if (syncRes.newData.deliveryEmailTemplate) setDeliveryEmailTemplate(mergeDeliveryEmailTemplate(syncRes.newData.deliveryEmailTemplate));
       }
       return {
         success: true,
@@ -1730,6 +1768,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         timestamp: pushRes.timestamp,
         productsCount: syncRes.newData?.products?.length ?? products.length,
         categoriesCount: syncRes.newData?.categories?.length ?? categories.length,
+        syncedCollections: syncRes.syncedCollections,
         message: 'सफलतापूर्वक नया लाइव वर्ज़न तुरंत पुश कर दिया गया है!'
       };
     } catch (error) {

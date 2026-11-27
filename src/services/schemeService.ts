@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { getFriendlyAiError } from "../utils/aiErrorHandler";
 import { formatHindiDate } from "../lib/dateUtils";
+import { withCdnEpoch } from "../utils/cdnCacheBuster";
 
 export interface Scheme {
   title: string;
@@ -433,7 +434,7 @@ export const fetchSchemes = async (userApiKey?: string, forceRefresh: boolean = 
   // Fetches verified schemes from backend server so all users share the exact same synchronized library
   try {
     const url = forceRefresh ? '/api/schemes/all?forceRefresh=true' : '/api/schemes/all';
-    const srvRes = await fetch(url);
+    const srvRes = await fetch(withCdnEpoch(url));
     if (srvRes.ok) {
       const srvJson = await srvRes.json();
       if (srvJson.success && Array.isArray(srvJson.items) && srvJson.items.length > 0) {

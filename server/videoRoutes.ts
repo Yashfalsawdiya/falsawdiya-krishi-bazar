@@ -47,7 +47,7 @@ interface ChannelCacheRecord {
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const VIDEOS_CACHE_FILE = path.join(DATA_DIR, 'youtube-videos-cache.json');
-const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours centralized cache
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours centralized cache
 
 const channelCaches = new Map<string, ChannelCacheRecord>();
 const resolvedHandleCache = new Map<string, { channelId: string; channelTitle?: string }>();
@@ -654,6 +654,10 @@ export const handleGetYouTubeVideos = async (req: Request, res: Response): Promi
     const forceRefresh = req.query.forceRefresh === 'true';
 
     const result = await syncChannelHybrid(channelUrl, channelId, forceRefresh);
+    res.setHeader(
+      'Cache-Control',
+      forceRefresh ? 'no-store' : 'public, s-maxage=21600, stale-while-revalidate=43200'
+    );
     res.json({
       success: true,
       ...result,
@@ -700,3 +704,9 @@ export const handleSyncYouTubeVideos = async (req: Request, res: Response): Prom
     });
   }
 };
+
+export function clearVideoMemoryCaches(): void {
+  channelCaches.clear();
+  resolvedHandleCache.clear();
+}
+

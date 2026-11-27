@@ -1,3 +1,5 @@
+import { withCdnEpoch } from '../utils/cdnCacheBuster';
+
 export interface HourlyWeatherPoint {
   time: string;
   timeIso?: string;
@@ -417,9 +419,11 @@ export const fetchWeather = async (
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 9000);
     const hubRes = await fetch(
-      `/api/weather/forecast?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}${
-        force ? '&force=true' : ''
-      }`,
+      withCdnEpoch(
+        `/api/weather/forecast?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}${
+          force ? '&force=true' : ''
+        }`
+      ),
       { signal: controller.signal }
     );
     clearTimeout(timer);
@@ -563,7 +567,7 @@ export const fetchOfficialWarnings = async (): Promise<OfficialWarningsResult> =
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 7000);
-    const res = await fetch('/api/weather/warnings', { signal: controller.signal });
+    const res = await fetch(withCdnEpoch('/api/weather/warnings'), { signal: controller.signal });
     clearTimeout(timer);
 
     if (res.ok) {

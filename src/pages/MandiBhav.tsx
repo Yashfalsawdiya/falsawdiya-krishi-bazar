@@ -36,7 +36,9 @@ import {
   ChevronDown, 
   ChevronUp, 
   Scale, 
-  Truck 
+  Truck,
+  MapPin,
+  ArrowLeft
 } from 'lucide-react';
 import { 
   mergeCentralizedMandiHistory,
@@ -53,13 +55,16 @@ const translateText = (t: any): string => {
   return t.hi || t.en || '';
 };
 
+const ACTIVE_MANDI_STATE = "मध्यप्रदेश (Madhya Pradesh)";
+
 const MandiBhav: React.FC = () => {
   const { loading: appLoading, isAdmin } = useAppContext();
   
   // State variables for navigation
-  const [selectedState, setSelectedState] = useState<string>("मध्यप्रदेश (Madhya Pradesh)");
+  const [selectedState, setSelectedState] = useState<string>(ACTIVE_MANDI_STATE);
   const [selectedDistrict, setSelectedDistrict] = useState<string>("मंदसौर (Mandsaur)");
   const [selectedMandi, setSelectedMandi] = useState<string>("शामगढ़ (Shamgarh)");
+  const isMadhyaPradeshSelected = selectedState === ACTIVE_MANDI_STATE;
   
   // Search and filter variables
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -124,11 +129,15 @@ const MandiBhav: React.FC = () => {
   // Handle cascading state changes
   const handleStateChange = (state: string) => {
     setData(null);
+    setServerHistory(null);
     setSelectedState(state);
     const firstDistrict = Object.keys(STATE_MANDI_DATA[state])[0];
     setSelectedDistrict(firstDistrict);
     const firstMandi = STATE_MANDI_DATA[state][firstDistrict][0];
     setSelectedMandi(firstMandi);
+    if (state !== ACTIVE_MANDI_STATE) {
+      setLoading(false);
+    }
   };
 
   const handleDistrictChange = (district: string) => {
@@ -144,14 +153,20 @@ const MandiBhav: React.FC = () => {
     setSelectedMandi(mandi);
   };
 
-  // Load Mandi Bhav + Centralized 30-Day History (Zero farmer forceRefresh)
+  // Load Mandi Bhav + Centralized 30-Day History (Zero farmer forceRefresh, Zero call outside MP)
   const loadData = async (stateVal: string, distVal: string, mandiVal: string, bypassLocalCache: boolean = false) => {
     if (appLoading) return;
     const reqId = ++activeReqIdRef.current;
     setData(null);
     setServerHistory(null);
-    setLoading(true);
     setExpandedCardIndex(null);
+
+    if (stateVal !== ACTIVE_MANDI_STATE) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     try {
       const [result, histRes] = await Promise.all([
         fetchMandiBhav(stateVal, distVal, mandiVal, undefined, false),
@@ -260,7 +275,12 @@ const MandiBhav: React.FC = () => {
             </span>
           </div>
 
-          {loading ? (
+          {!isMadhyaPradeshSelected ? (
+            <div className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+              <MapPin className="w-3 h-3 text-amber-600" />
+              {isHindi ? 'केवल मध्य प्रदेश में सक्रिय' : 'Active for Madhya Pradesh only'}
+            </div>
+          ) : loading ? (
             <div className="bg-gray-100 text-gray-700 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-gray-200">
               <Loader2 className="w-3 h-3 animate-spin text-[#2D5A27]" />
               {isHindi ? 'लाइव भाव खोज रहे हैं...' : 'Fetching live rates...'}
@@ -320,7 +340,9 @@ const MandiBhav: React.FC = () => {
               >
                 {Object.keys(STATE_MANDI_DATA).map((state) => (
                   <option key={state} value={state}>
-                    {translateText(state)}
+                    {state === ACTIVE_MANDI_STATE
+                      ? translateText(state)
+                      : `${translateText(state)} (जल्द उपलब्ध)`}
                   </option>
                 ))}
               </select>
@@ -336,8 +358,9 @@ const MandiBhav: React.FC = () => {
             <div className="relative">
               <select
                 value={selectedDistrict}
+                disabled={!isMadhyaPradeshSelected}
                 onChange={(e) => handleDistrictChange(e.target.value)}
-                className="w-full pl-3 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] appearance-none"
+                className="w-full pl-3 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {districts.map((district) => (
                   <option key={district} value={district}>
@@ -357,8 +380,9 @@ const MandiBhav: React.FC = () => {
             <div className="relative">
               <select
                 value={selectedMandi}
+                disabled={!isMadhyaPradeshSelected}
                 onChange={(e) => handleMandiChange(e.target.value)}
-                className="w-full pl-3 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] appearance-none"
+                className="w-full pl-3 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {mandis.map((mandi) => (
                   <option key={mandi} value={mandi}>
@@ -374,6 +398,43 @@ const MandiBhav: React.FC = () => {
 
       {/* VIEW: SINGLE MANDI RATE VIEW */}
       <div className="space-y-4">
+          {!isMadhyaPradeshSelected ? (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-3xl p-6 sm:p-8 border border-[#2D5A27]/15 shadow-sm text-center space-y-5"
+            >
+              <div className="w-16 h-16 bg-[#2D5A27]/10 rounded-2xl flex items-center justify-center mx-auto text-[#2D5A27] border border-[#2D5A27]/15">
+                <MapPin className="w-8 h-8" />
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold">
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <span>{selectedState.split(' (')[0]} — सेवा जल्द आ रही है</span>
+              </div>
+
+              <div className="space-y-2.5 max-w-lg mx-auto">
+                <h4 className="text-base sm:text-lg font-black text-gray-800 leading-snug">
+                  यह सेवा अभी केवल मध्य प्रदेश के लिए सक्रिय है
+                </h4>
+                <p className="text-xs sm:text-sm text-gray-600 font-medium leading-relaxed">
+                  फल्सावदिया कृषि बाजार पर लाइव मंडी भाव वर्तमान में केवल मध्य प्रदेश की मंडियों के लिए उपलब्ध है। हम जल्द ही अन्य राज्यों की मंडियों के लिए भी इस सुविधा को शुरू करने पर काम कर रहे हैं।
+                </p>
+              </div>
+
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleStateChange(ACTIVE_MANDI_STATE)}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#2D5A27] hover:bg-[#23461e] text-white text-xs sm:text-sm font-black shadow-sm shadow-[#2D5A27]/20 transition-all active:scale-95 cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>मध्य प्रदेश की मंडियाँ देखें</span>
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            <>
           {/* Live Search and Crop Filter Bar */}
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
@@ -1206,6 +1267,8 @@ const MandiBhav: React.FC = () => {
                 </button>
               )}
             </div>
+          )}
+            </>
           )}
         </div>
     </div>

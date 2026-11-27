@@ -19,7 +19,7 @@ interface NewsCacheState {
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const NEWS_CACHE_FILE = path.join(DATA_DIR, 'agri-news-cache.json');
-const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours server cache TTL for breaking news freshness
+const CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours server cache TTL for news freshness
 
 let centralNewsCache: NewsCacheState | null = null;
 
@@ -200,11 +200,16 @@ export const handleGetDailyNews = async (req: Request, res: Response): Promise<v
     const now = Date.now();
     const todayStr = getTodayDateStr();
 
+    const cdnHeader = forceRefresh
+      ? 'no-store'
+      : 'public, s-maxage=14400, stale-while-revalidate=28800';
+
     // 1. Check in-memory central cache if not forced and still fresh
     if (!forceRefresh && centralNewsCache && centralNewsCache.items.length > 0) {
       const isStillFresh = now - centralNewsCache.timestamp < CACHE_TTL_MS;
       if (isStillFresh) {
         console.log(`[Central News Cache Hit] Serving ${centralNewsCache.items.length} items to client`);
+        res.setHeader('Cache-Control', cdnHeader);
         res.json({
           success: true,
           cached: true,
@@ -229,6 +234,7 @@ export const handleGetDailyNews = async (req: Request, res: Response): Promise<v
       saveCacheToDisk(centralNewsCache);
       console.log(`[Central News Cache] Successfully loaded ${liveItems.length} fresh real-time news items`);
 
+      res.setHeader('Cache-Control', cdnHeader);
       res.json({
         success: true,
         cached: false,
@@ -242,6 +248,7 @@ export const handleGetDailyNews = async (req: Request, res: Response): Promise<v
     // 3. If live fetch returned 0 items, serve cached data if available
     if (centralNewsCache && centralNewsCache.items.length > 0) {
       console.log(`[Central News Cache Stale Fallback] Serving ${centralNewsCache.items.length} existing items`);
+      res.setHeader('Cache-Control', forceRefresh ? 'no-store' : 'public, s-maxage=300, stale-while-revalidate=900');
       res.json({
         success: true,
         cached: true,
@@ -253,6 +260,7 @@ export const handleGetDailyNews = async (req: Request, res: Response): Promise<v
       return;
     }
 
+    res.setHeader('Cache-Control', forceRefresh ? 'no-store' : 'public, s-maxage=60, stale-while-revalidate=120');
     res.json({
       success: false,
       cached: false,
@@ -300,3 +308,8 @@ export const handleSyncNews = async (req: Request, res: Response): Promise<void>
     res.status(500).json({ success: false, error: err.message || 'Sync failed' });
   }
 };
+
+export function clearNewsMemoryCache(): void {
+  centralNewsCache = null;
+}
+
