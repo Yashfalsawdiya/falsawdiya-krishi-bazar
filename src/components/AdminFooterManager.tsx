@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Save, 
-  RotateCcw, 
   Check, 
   AlertCircle, 
   Phone, 
@@ -21,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { FooterConfig, FooterColumn, FooterLinkItem, FooterTrustHighlight } from '../types';
-import { getDefaultFooterConfig, mergeFooterConfig } from '../utils/footerDefaults';
+import { mergeFooterConfig } from '../utils/footerDefaults';
 
 export const AdminFooterManager: React.FC = () => {
   const { appContent, updateFooterContent, legalPagesContent } = useAppContext();
@@ -171,27 +170,6 @@ export const AdminFooterManager: React.FC = () => {
     });
   };
 
-  // Reset to default
-  const handleResetToDefault = () => {
-    if (window.confirm('क्या आप फुटर को मूल डिफ़ॉल्ट सेटिंग्स पर रीसेट करना चाहते हैं?')) {
-      const def = getDefaultFooterConfig({
-        brandName: branding.name,
-        tagline: branding.tagline,
-        phone: initialPhone,
-        address: initialAddress,
-        whatsappUrl: initialWhatsapp,
-        facebookUrl: initialFb,
-        instagramUrl: initialIg,
-        youtubeUrl: initialYt
-      });
-      setConfig(def);
-      setNotification({
-        type: 'success',
-        message: 'डिफ़ॉल्ट सेटिंग्स लोड कर दी गई हैं। सुरक्षित करने के लिए "सुरक्षित करें" बटन दबाएं।'
-      });
-    }
-  };
-
   // Save changes to Firebase
   const handleSave = async () => {
     setIsSaving(true);
@@ -219,39 +197,30 @@ export const AdminFooterManager: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-[#1b4317] to-[#2D5A27] text-white p-6 rounded-3xl shadow-sm border border-emerald-900/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white text-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-semibold text-emerald-200 mb-2">
-            <Layers className="w-3.5 h-3.5 text-amber-300" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 border border-emerald-200/80 rounded-full text-xs font-semibold text-[#2D5A27] mb-2">
+            <Layers className="w-3.5 h-3.5 text-[#2D5A27]" />
             डेस्कटॉप / कंप्यूटर फुटर एडिटर
           </div>
-          <h2 className="text-xl md:text-2xl font-black tracking-tight">
+          <h2 className="text-xl md:text-2xl font-black tracking-tight text-gray-900">
             वेबसाइट फुटर सामग्री प्रबंधन (Footer Editor)
           </h2>
-          <p className="text-xs md:text-sm text-emerald-100/80 mt-1 max-w-2xl">
+          <p className="text-xs md:text-sm text-gray-500 mt-1 max-w-2xl">
             वेबसाइट के नीचे दिखने वाले पूरे फुटर की टेक्स्ट, लिंक्स, संपर्क, सोशल मीडिया, मेनू कॉलम व पेमेंट बैज बिना कोड बदले यहाँ से सीधे एडिट करें।
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={handleResetToDefault}
-            className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-            title="डिफ़ॉल्ट पर रीसेट करें"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            रीसेट
-          </button>
+        <div className="flex items-center shrink-0">
           <button
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="px-5 py-2.5 bg-[#EAB308] hover:bg-[#d4a107] text-[#16311A] rounded-xl text-xs font-black flex items-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-50"
+            className="px-5 py-2.5 bg-[#2D5A27] hover:bg-[#23461e] text-white rounded-xl text-xs font-black flex items-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
           >
             {isSaving ? (
               <>
-                <div className="w-3.5 h-3.5 border-2 border-[#16311A] border-t-transparent rounded-full animate-spin" />
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 सेव हो रहा है...
               </>
             ) : (

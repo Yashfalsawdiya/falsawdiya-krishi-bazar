@@ -81,13 +81,13 @@ function getConditionIcon(condition: string, weatherCode?: number, isNight?: boo
 }
 
 function getHeroIconSurface(condition: string, weatherCode?: number, isNight?: boolean) {
-  if (weatherCode === 45 || weatherCode === 48 || condition.includes('कोहरा')) {
+  if (weatherCode === 45 || weatherCode === 48 || condition.includes('कोहरा') || condition.includes('धुंध')) {
     return {
       container: 'bg-slate-100/90 border-slate-200',
       icon: 'text-slate-600',
     };
   }
-  if (weatherCode === 95 || weatherCode === 96 || weatherCode === 99 || condition.includes('गरज') || condition.includes('ओले')) {
+  if (weatherCode === 95 || weatherCode === 96 || weatherCode === 99 || condition.includes('गरज') || condition.includes('तूफान') || condition.includes('ओले')) {
     return {
       container: 'bg-indigo-50 border-indigo-200',
       icon: 'text-indigo-700',
@@ -97,7 +97,8 @@ function getHeroIconSurface(condition: string, weatherCode?: number, isNight?: b
     (weatherCode !== undefined && [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(weatherCode)) ||
     condition.includes('बारिश') ||
     condition.includes('बूंदाबांदी') ||
-    condition.includes('बौछार')
+    condition.includes('बौछार') ||
+    condition.includes('वर्षा')
   ) {
     return {
       container: 'bg-sky-50 border-sky-200',
@@ -110,10 +111,16 @@ function getHeroIconSurface(condition: string, weatherCode?: number, isNight?: b
       icon: 'text-indigo-600',
     };
   }
-  if (weatherCode === 2 || weatherCode === 3 || condition.includes('बादल')) {
+  if (weatherCode === 3 || condition.includes('घने बादल')) {
     return {
-      container: 'bg-emerald-50/80 border-emerald-200/80',
-      icon: 'text-[#2D5A27]',
+      container: 'bg-cyan-50/90 border-cyan-200',
+      icon: 'text-cyan-700',
+    };
+  }
+  if (weatherCode === 2 || condition.includes('आंशिक') || condition.includes('बादल')) {
+    return {
+      container: 'bg-orange-50/90 border-orange-200',
+      icon: 'text-orange-500',
     };
   }
   return {
@@ -564,6 +571,7 @@ const Weather: React.FC = () => {
             const fullDateLabel = formatHindiDate(parsedDate);
             const conditionText = getHindiCondition(item.condition, item.weatherCode);
             const IconComp = getConditionIcon(conditionText, item.weatherCode, false);
+            const daySurface = getHeroIconSurface(conditionText, item.weatherCode, false);
             const maxClean = (item.maxTemp || item.temp || '').replace(/[^0-9.-]/g, '');
             const minClean = (item.minTemp || '').replace(/[^0-9.-]/g, '');
             const riskNote = dailyRiskMap[item.dateStr || item.day];
@@ -574,15 +582,16 @@ const Weather: React.FC = () => {
                 className="bg-white rounded-2xl p-4 border border-gray-200/80 flex items-center justify-between gap-3 tabular-nums"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-11 h-11 rounded-2xl bg-[#F5F2ED] border border-gray-200/70 flex items-center justify-center shrink-0">
+                  <div
+                    className={cn(
+                      'w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0',
+                      daySurface.container
+                    )}
+                  >
                     <IconComp
                       className={cn(
                         'w-5 h-5 stroke-[2]',
-                        conditionText.includes('बारिश') || conditionText.includes('गरज') || conditionText.includes('बौछार')
-                          ? 'text-sky-600'
-                          : conditionText.includes('कोहरा')
-                          ? 'text-slate-600'
-                          : 'text-[#2D5A27]'
+                        daySurface.icon
                       )}
                     />
                   </div>
