@@ -66,6 +66,20 @@ export const getFriendlyAiError = (error: any): FriendlyError => {
     lowerStr.includes('resource_exhausted') ||
     lowerStr.includes('rate limit')
   ) {
+    const isPerMinuteOnly =
+      (lowerStr.includes('minute') || lowerStr.includes('rpm') || lowerStr.includes('rate limit')) &&
+      !lowerStr.includes('perday') &&
+      !lowerStr.includes('per day') &&
+      !lowerStr.includes('daily');
+
+    if (isPerMinuteOnly) {
+      return {
+        type: 'quota',
+        message: 'प्रति मिनट रफ़्तार सीमा (Rate Limit) पूरी हुई है। आपकी आज की दैनिक लिमिट अभी बची है — कृपया 30–60 सेकंड रुककर "पुनः प्रयास करें" दबाएँ।',
+        originalError: error
+      };
+    }
+
     return {
       type: 'quota',
       message: 'दैनिक फ्री कोटा समाप्त: आपकी Key का आज का कोटा पूरा हो चुका है। यह भारतीय समयानुसार दोपहर 12:30 बजे (Midnight PT) स्वतः रीसेट हो जाएगा।',

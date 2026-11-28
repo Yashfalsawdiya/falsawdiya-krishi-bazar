@@ -21,6 +21,7 @@ export const CANDIDATE_GEMINI_MODELS = [
 ];
 
 const modelFailureCooldowns = new Map<string, number>();
+let searchGroundingCooldownUntil = 0;
 
 export function isModelTemporarilyUnhealthy(model: string): boolean {
   const expiry = modelFailureCooldowns.get(model);
@@ -1095,10 +1096,10 @@ function isFatalChatError(error: any, externalSignal?: AbortSignal): boolean {
     return true;
   }
   const friendly = getFriendlyAiError(error);
+  // NEVER abort on 'quota' (429): quota is per-model and Google Search grounding has a separate free cap
   return (
     friendly.type === 'key_missing' ||
-    friendly.type === 'key_invalid' ||
-    friendly.type === 'quota'
+    friendly.type === 'key_invalid'
   );
 }
 
@@ -1370,50 +1371,60 @@ export async function askAiQuestion(
     let lastError: any = null;
     let apiCallsCount = 0;
 
-    // Fast Direct Google Search Path (no slow manual verification delays; never cuts mid-response)
-    const searchModels = getPrioritizedModels([PRIMARY_GEMINI_MODEL, FALLBACK_GEMINI_MODEL]);
-    for (let idx = 0; idx < searchModels.length; idx++) {
-      const model = searchModels[idx];
-      callbacks?.onStatus?.(
-        idx === 0
-          ? 'Google से तेज़ उत्तर खोजा जा रहा है...'
-          : 'वैकल्पिक तेज़ मॉडल से उत्तर लाया जा रहा है...'
-      );
-      apiCallsCount += 1;
-      try {
-        const attempt = await executeChatStreamAttempt({
-          ai,
-          model,
-          contents,
-          systemInstruction,
-          useSearch: true,
-          lowLatencyThinking: true,
-          firstChunkTimeoutMs: 14000,
-          inactivityTimeoutMs: 15000,
-          externalSignal: callbacks?.signal,
-          onTextUpdate: callbacks?.onChunk
-        });
-        if (attempt.rawText.trim()) {
-          result = attempt;
-          usedSearchTool = true;
-          break;
+    // Fast Direct Google Search Path (skips automatically if Search tool quota is cooling down)
+    const isSearchCoolingDown = Date.now() < searchGroundingCooldownUntil;
+    if (!isSearchCoolingDown) {
+      const searchModels = getPrioritizedModels([PRIMARY_GEMINI_MODEL, FALLBACK_GEMINI_MODEL]);
+      for (let idx = 0; idx < searchModels.length; idx++) {
+        const model = searchModels[idx];
+        callbacks?.onStatus?.(
+          idx === 0
+            ? 'Google से तेज़ उत्तर खोजा जा रहा है...'
+            : 'वैकल्पिक तेज़ मॉडल से उत्तर लाया जा रहा है...'
+        );
+        apiCallsCount += 1;
+        try {
+          const attempt = await executeChatStreamAttempt({
+            ai,
+            model,
+            contents,
+            systemInstruction,
+            useSearch: true,
+            lowLatencyThinking: true,
+            firstChunkTimeoutMs: 14000,
+            inactivityTimeoutMs: 15000,
+            externalSignal: callbacks?.signal,
+            onTextUpdate: callbacks?.onChunk
+          });
+          if (attempt.rawText.trim()) {
+            result = attempt;
+            usedSearchTool = true;
+            break;
+          }
+        } catch (searchErr: any) {
+          lastError = searchErr;
+          if (isFatalChatError(searchErr, callbacks?.signal)) {
+            throw searchErr;
+          }
+          if (isQuotaError(searchErr)) {
+            // Google Search Grounding often has a separate smaller free quota on Gemini Free Tier;
+            // cool down search briefly and switch straight to non-search direct models without penalizing chat quota.
+            searchGroundingCooldownUntil = Date.now() + 2 * 60 * 1000;
+            console.warn(`[askAiQuestion] Search grounding 429 on ${model}, falling back immediately to direct chat quota.`);
+            break;
+          }
+          markModelTemporaryFailure(model, searchErr);
+          console.warn(`[askAiQuestion] Fast Google stream on ${model} failed:`, searchErr?.status, searchErr?.message);
         }
-      } catch (searchErr: any) {
-        lastError = searchErr;
-        if (isFatalChatError(searchErr, callbacks?.signal)) {
-          throw searchErr;
-        }
-        markModelTemporaryFailure(model, searchErr);
-        console.warn(`[askAiQuestion] Fast Google stream on ${model} failed:`, searchErr?.status, searchErr?.message);
       }
     }
 
-    // Fast direct fallback without search tool if search tool failed or stalled
+    // Fast direct fallback without search tool across all locked models (PRIMARY -> FALLBACK -> TERTIARY)
     if (!result?.rawText?.trim()) {
       const directModels = getPrioritizedModels([
-        TERTIARY_GEMINI_MODEL,
+        PRIMARY_GEMINI_MODEL,
         FALLBACK_GEMINI_MODEL,
-        PRIMARY_GEMINI_MODEL
+        TERTIARY_GEMINI_MODEL
       ]);
       for (const model of directModels) {
         callbacks?.onStatus?.('सीधे त्वरित कृषि ज्ञान से उत्तर तैयार हो रहा है...');
