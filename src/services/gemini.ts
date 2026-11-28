@@ -814,8 +814,18 @@ export interface KrishiChatResponse {
   queryMode?: KrishiQueryMode;
 }
 
+export interface KrishiShopProductItem {
+  name: string;
+  brand?: string;
+  description?: string;
+  crops?: string[];
+  inStock?: boolean;
+  dosage?: string;
+}
+
 export interface KrishiShopContext {
   productNames?: string[];
+  catalogItems?: KrishiShopProductItem[];
 }
 
 export interface KrishiChatStreamCallbacks {
@@ -948,15 +958,34 @@ function stripStreamingVerificationTag(raw: string): string {
     .trimEnd();
 }
 
+function buildCompactProductLine(item: KrishiShopProductItem): string {
+  const parts: string[] = [item.name.trim()];
+  if (item.brand?.trim()) {
+    parts.push(`[${item.brand.trim()}]`);
+  }
+  const metaParts: string[] = [];
+  if (item.crops && item.crops.length > 0) {
+    metaParts.push(`फसल: ${item.crops.slice(0, 3).join(', ')}`);
+  }
+  if (item.description?.trim()) {
+    const cleanDesc = item.description.replace(/\s+/g, ' ').trim();
+    const snippet = cleanDesc.length > 95 ? `${cleanDesc.slice(0, 95)}...` : cleanDesc;
+    metaParts.push(`टेक्निकल/विवरण: ${snippet}`);
+  }
+  if (item.dosage?.trim()) {
+    metaParts.push(`डोज़: ${item.dosage.trim()}`);
+  }
+  if (metaParts.length > 0) {
+    parts.push(`(${metaParts.join(' | ')})`);
+  }
+  return parts.join(' ');
+}
+
 function selectRelevantCatalogProducts(
-  productNames: string[] | undefined,
+  shopContext: KrishiShopContext | undefined,
   question: string,
   history: KrishiChatTurn[]
 ): string[] {
-  if (!Array.isArray(productNames) || productNames.length === 0) return [];
-  const uniqueNames = Array.from(new Set(productNames.map((n) => n.trim()).filter(Boolean)));
-  if (uniqueNames.length <= 25) return uniqueNames;
-
   const recentText = [
     question,
     ...history.slice(-4).map((h) => h.text)
@@ -972,6 +1001,44 @@ function selectRelevantCatalogProducts(
         .filter((w) => w.length >= 2)
     )
   );
+
+  // Preferred rich mode: match across Name + Brand + Crops + Technical/Description (in-stock first)
+  if (Array.isArray(shopContext?.catalogItems) && shopContext.catalogItems.length > 0) {
+    const inStockItems = shopContext.catalogItems.filter(
+      (item) => item && item.name?.trim() && item.inStock !== false
+    );
+    const pool = inStockItems.length > 0 ? inStockItems : shopContext.catalogItems.filter((i) => i?.name?.trim());
+
+    const scored = pool.map((item, index) => {
+      const searchable = [
+        item.name,
+        item.brand || '',
+        item.description || '',
+        ...(item.crops || [])
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      let score = 0;
+      for (const kw of keywords) {
+        if (searchable.includes(kw)) {
+          score += 2;
+          if ((item.description || '').toLowerCase().includes(kw)) score += 1;
+          if ((item.crops || []).some((c) => c.toLowerCase().includes(kw))) score += 1;
+        }
+      }
+      return { item, score, index };
+    });
+
+    scored.sort((a, b) => (b.score !== a.score ? b.score - a.score : a.index - b.index));
+    return scored.slice(0, 12).map(({ item }) => buildCompactProductLine(item));
+  }
+
+  // Backward-compatible fallback if only productNames are passed
+  const productNames = shopContext?.productNames;
+  if (!Array.isArray(productNames) || productNames.length === 0) return [];
+  const uniqueNames = Array.from(new Set(productNames.map((n) => n.trim()).filter(Boolean)));
+  if (uniqueNames.length <= 12) return uniqueNames;
 
   const matched = uniqueNames.filter((name) => {
     const lowerName = name.toLowerCase();
@@ -1274,17 +1341,19 @@ export async function askAiQuestion(
     ];
 
     const catalogList = selectRelevantCatalogProducts(
-      shopContext?.productNames,
+      shopContext,
       trimmedQuestion,
       alignedHistory
     );
     const catalogContextLine = catalogList.length > 0
-      ? `दुकान के उपलब्ध मुख्य उत्पाद: ${catalogList.join(', ')}`
+      ? `दुकान के उपलब्ध उत्पाद (नाम, ब्रांड, फसल व टेक्निकल/विवरण): ${catalogList.join(' ; ')}`
       : `किसी उत्पाद के स्टॉक की गारंटी न दें, दुकान पर पुष्टि करने को कहें।`;
 
     const isFollowUp = alignedHistory.length > 0;
     const systemInstruction = `You are a fast, practical Indian agricultural assistant for 'फल्सावदिया कृषि बाजार' (Shamgarh, Mandsaur, MP).
-- Context: ${weatherContext} | ${catalogContextLine}
+- Context: ${weatherContext}
+- Shop Inventory: ${catalogContextLine}
+- Product & Technical Rule: If a suitable solution/technical salt from the Shop Inventory matches the farmer's crop or problem, recommend both its **Product Name** and **Technical/Ingredients** clearly (mentioning it is available at 'फल्सावदिया कृषि बाजार'). Never claim unlisted products are in stock.
 - Multi-turn: Continue naturally from chat history (handle follow-ups like "पूरा जवाब दो", "इसकी मात्रा"). If asked to complete an earlier reply, continue cleanly without repeating from the start.
 - ${isFollowUp ? "Do NOT repeat greeting or shop address." : "Start briefly with 'जय राम जी की किसान भाई!'."}
 - Speed & Style: Use Google Search directly when needed for fast, accurate answers. Reply in clear, crisp Hindi with short ### headings, * bullet points, and **bold** terms (no emojis). Keep replies focused, easy to read on mobile, and ALWAYS complete your final sentence. Always write 'फल्सावदिया' (never 'फालसावदिया').`;

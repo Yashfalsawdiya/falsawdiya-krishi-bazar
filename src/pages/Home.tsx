@@ -555,12 +555,23 @@ const Home: React.FC = () => {
         .map((p) => (p.hindiName || p.name || '').trim())
         .filter(Boolean);
 
+      const catalogItems = products
+        .filter((p) => (p.hindiName || p.name || '').trim().length > 0)
+        .map((p) => ({
+          name: (p.hindiName || p.name || '').trim(),
+          brand: (p.brand || '').trim() || undefined,
+          description: (p.description || '').replace(/\s+/g, ' ').trim() || undefined,
+          crops: Array.isArray(p.crops) ? p.crops : undefined,
+          inStock: p.inStock !== false,
+          dosage: p.dosage?.show && p.dosage?.value ? p.dosage.value : undefined,
+        }));
+
       const response = await askAiQuestion(
         question,
         weather,
         effectiveApiKey,
         historyForApi,
-        { productNames: shopProductNames },
+        { productNames: shopProductNames, catalogItems },
         {
           signal: controller.signal,
           onStatus: (statusMsg) => {
