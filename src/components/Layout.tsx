@@ -6,6 +6,7 @@ import Footer from './Footer';
 import OfflineIndicator from './OfflineIndicator';
 import SmartImage from './SmartImage';
 import MonthlyLimitNoticeScreen from './MonthlyLimitNoticeScreen';
+import MaintenanceScreen from './MaintenanceScreen';
 import { useAppContext } from '../context/AppContext';
 import { useVercelPauseDetected, recheckVercelAvailability } from '../utils/vercelPauseDetector';
 import { LogIn, Sprout, Loader2, ShieldCheck, ArrowRight, Lock } from 'lucide-react';
@@ -99,27 +100,19 @@ const Layout: React.FC = () => {
   // Maintenance / App Inactive Mode
   if (appContent?.isAppActive === false && !isAdmin) {
     return (
-      <div className="min-h-screen bg-[#F5F2ED] flex flex-col items-center justify-center p-4 text-center">
-        <div className="bg-white max-w-md w-full rounded-3xl p-8 shadow-xl border border-red-100 flex flex-col items-center">
-          <div className="w-24 h-24 bg-white rounded-3xl shadow-md flex items-center justify-center mb-6 border-2 border-red-100 overflow-hidden p-2">
-            <SmartImage 
-              src="/icon-192.png" 
-              alt="Maintenance" 
-              className="w-full h-full opacity-50 grayscale" 
-              objectFit="contain" 
-            />
-          </div>
-          <h1 className="text-2xl font-black text-[#4A3728] mb-4">ऐप अभी बंद है</h1>
-          <p className="text-gray-500 mb-8 leading-relaxed text-sm">
-            नमस्ते किसान भाइयों! ऐप में कुछ सुधार कार्य चल रहा है, इसलिए यह अभी उपलब्ध नहीं है। कृपया कुछ समय बाद प्रयास करें।
-          </p>
-          <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 w-full">
-            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">
-              Maintenance Mode Active
-            </p>
-          </div>
-        </div>
-      </div>
+      <MaintenanceScreen
+        config={appContent?.maintenanceNotice}
+        logo={appContent?.branding?.logo}
+        retrying={retryingService}
+        onRetry={async () => {
+          setRetryingService(true);
+          try {
+            await forceSyncCatalog();
+          } finally {
+            setRetryingService(false);
+          }
+        }}
+      />
     );
   }
 

@@ -1027,6 +1027,14 @@ export interface AppContent {
   featureToggles?: Record<string, boolean>;
   videoHubSettings?: VideoHubSettings;
   monthlyLimitNotice?: MonthlyLimitNoticeConfig;
+  maintenanceNotice?: MaintenanceNoticeConfig;
+}
+
+export interface MaintenanceNoticeConfig {
+  badgeText?: string;
+  title?: string;
+  message?: string;
+  signature?: string;
 }
 
 export interface MonthlyLimitNoticeConfig {

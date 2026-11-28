@@ -34,6 +34,7 @@ const AdminFeaturesManager = lazy(() => import('../components/AdminFeaturesManag
 const AdminMandiManager = lazy(() => import('../components/AdminMandiManager'));
 const AccountingDashboard = lazy(() => import('../components/accounting/AccountingDashboard'));
 const AdminMonthlyLimitNoticeManager = lazy(() => import('../components/AdminMonthlyLimitNoticeManager'));
+const AdminAppStatusControl = lazy(() => import('../components/AdminAppStatusControl'));
 
 const AdminTabFallback: React.FC = () => (
   <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white rounded-3xl border border-gray-100 shadow-sm">
@@ -2288,29 +2289,17 @@ const Admin: React.FC = () => {
               एडमिन और ऐप कंट्रोल (Admin & App Control)
             </h3>
             <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 space-y-6">
-              {/* App Status Switch */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
-                <div>
-                  <h4 className="font-bold text-gray-700">ऐप स्टेटस (App Status)</h4>
-                  <p className="text-[10px] text-gray-500">इसे बंद करने पर किसान ऐप का उपयोग नहीं कर पाएंगे।</p>
-                </div>
-                <button 
-                  type="button"
-                  onClick={() => {
-                    if (!contentForm) return;
-                    setContentForm({...contentForm, isAppActive: !contentForm.isAppActive});
-                  }}
-                  className={cn(
-                    "w-14 h-8 rounded-full relative transition-colors duration-200",
-                    contentForm?.isAppActive !== false ? "bg-[#2D5A27]" : "bg-gray-300"
-                  )}
-                >
-                  <div className={cn(
-                    "absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-200",
-                    contentForm?.isAppActive !== false ? "left-7" : "left-1"
-                  )} />
-                </button>
-              </div>
+              {/* App Status Switch (Instant Save, Force Push & Live Preview) */}
+              <SafeErrorBoundary>
+                <Suspense fallback={<AdminTabFallback />}>
+                  <AdminAppStatusControl
+                    contentForm={contentForm}
+                    setContentForm={setContentForm}
+                    onSaveContent={updateAppContent}
+                    onForcePush={forcePushAllUpdates}
+                  />
+                </Suspense>
+              </SafeErrorBoundary>
 
               <div className="space-y-3">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">बैकअप एडमिन ईमेल (Backup Admin Emails)</p>

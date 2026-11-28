@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Product, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig, DeliveryEmailTemplateConfig, DeviceType, DeviceBanner, DeviceBannersMap, YouTubeVideoItem, FooterConfig, VideoPlaylist, PlaylistVideoItem, MonthlyLimitNoticeConfig } from '../types';
+import { Product, CategoryData, AgriIssue, ImageSource, UserRecord, Helpline, LegalPagesContent, InvoiceTemplateConfig, DynamicDeliveryConfig, DeliveryEmailTemplateConfig, DeviceType, DeviceBanner, DeviceBannersMap, YouTubeVideoItem, FooterConfig, VideoPlaylist, PlaylistVideoItem, MonthlyLimitNoticeConfig, MaintenanceNoticeConfig } from '../types';
 import { DEFAULT_LEGAL_PAGES_CONTENT } from '../data/defaultPagesContent';
 import { DEFAULT_INVOICE_TEMPLATE, mergeInvoiceTemplate } from '../data/defaultInvoiceTemplate';
 import { DEFAULT_DELIVERY_EMAIL_TEMPLATE, mergeDeliveryEmailTemplate } from '../data/defaultDeliveryEmailTemplate';
@@ -106,6 +106,7 @@ export interface AppContent {
   featureToggles?: Record<string, boolean>;
   videoHubSettings?: import('../types').VideoHubSettings;
   monthlyLimitNotice?: MonthlyLimitNoticeConfig;
+  maintenanceNotice?: MaintenanceNoticeConfig;
 }
 
 export interface UserSettings {
