@@ -1703,7 +1703,7 @@ const Home: React.FC = () => {
                         <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#E2DCD0] text-[11px] text-[#2D5A27] font-semibold">
                           <span className="flex items-center gap-1.5">
                             <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-                            <span>उत्तर तैयार हो रहा है...</span>
+                            <span>{chatStatusText || 'उत्तर तैयार हो रहा है...'}</span>
                           </span>
                           <button
                             type="button"
